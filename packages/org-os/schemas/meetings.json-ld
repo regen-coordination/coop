@@ -1,0 +1,23 @@
+{
+  "@context": "https://www.daostar.org/schemas",
+  "@type": "Schema",
+  "name": "Meeting Registry Schema",
+  "version": "1.0.0",
+  "schema": {
+    "@type": "MeetingRegistry",
+    "meetings": {
+      "@type": "@array",
+      "items": {
+        "@type": "Meeting",
+        "properties": {
+          "id": { "@type": "string", "required": true },
+          "title": { "@type": "string", "required": true },
+          "date": { "@type": "dateTime", "required": true },
+          "participants": { "@type": "@array", "required": true },
+          "notes": { "@type": "uri", "required": false },
+          "actionItems": { "@type": "@array", "required": false }
+        }
+      }
+    }
+  }
+}

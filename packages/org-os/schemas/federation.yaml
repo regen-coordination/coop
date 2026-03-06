@@ -1,0 +1,36 @@
+version: '3.0'
+spec: 'organizational-os/3.0'
+
+identity:
+  name: 'Coop'
+  type: 'Cooperative'
+  daoURI: 'https://coop.local/.well-known/dao.json'
+  chain: 'eip155:100'
+
+network: 'regen-coordination'
+hub: 'github.com/regen-coordination/regen-coordination-os'
+
+agent:
+  runtime: 'anchor'
+  skills:
+    - meeting-processor
+    - knowledge-curator
+    - impact-reporting
+    - governance-assistant
+    - capital-flow
+  proactive: true
+
+knowledge-commons:
+  enabled: true
+  shared-domains:
+    - regenerative-finance
+    - local-governance
+    - knowledge-infrastructure
+  sync-protocol: 'git'
+
+packages:
+  knowledge_base: true
+  meetings: true
+  projects: true
+  finances: true
+  coordination: true

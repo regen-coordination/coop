@@ -1,0 +1,24 @@
+{
+  "@context": "https://www.daostar.org/schemas",
+  "@type": "Schema",
+  "name": "Financial Registry Schema",
+  "version": "1.0.0",
+  "schema": {
+    "@type": "FinancialRegistry",
+    "budgets": {
+      "@type": "@array",
+      "items": {
+        "@type": "Budget",
+        "properties": {
+          "id": { "@type": "string", "required": true },
+          "period": { "@type": "string", "required": true },
+          "currency": { "@type": "string", "required": true },
+          "totalAllocated": { "@type": "number", "required": true },
+          "totalSpent": { "@type": "number", "required": false }
+        }
+      }
+    },
+    "expenses": { "@type": "@array", "required": false },
+    "revenues": { "@type": "@array", "required": false }
+  }
+}

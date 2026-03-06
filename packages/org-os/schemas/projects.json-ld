@@ -1,0 +1,27 @@
+{
+  "@context": "https://www.daostar.org/schemas",
+  "@type": "Schema",
+  "name": "Project Registry Schema",
+  "version": "1.0.0",
+  "schema": {
+    "@type": "ProjectRegistry",
+    "projects": {
+      "@type": "@array",
+      "items": {
+        "@type": "Project",
+        "properties": {
+          "id": { "@type": "string", "required": true },
+          "name": { "@type": "string", "required": true },
+          "status": {
+            "@type": "string",
+            "enum": ["Integrate", "Develop", "Execute", "Archive"],
+            "required": true
+          },
+          "lead": { "@type": "string", "required": true },
+          "members": { "@type": "@array", "required": true },
+          "tasks": { "@type": "@array", "required": false }
+        }
+      }
+    }
+  }
+}

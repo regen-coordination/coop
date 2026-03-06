@@ -1,0 +1,11 @@
+{
+  "name": "@coop/org-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/generate-all-schemas.mjs",
+    "check": "node scripts/generate-all-schemas.mjs --check",
+    "lint": "biome check ."
+  }
+}

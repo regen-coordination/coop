@@ -1,0 +1,11 @@
+{
+  "name": "@coop/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"Use forge build for Solidity\"",
+    "check": "echo \"Use forge test for Solidity\"",
+    "lint": "biome check src"
+  }
+}
