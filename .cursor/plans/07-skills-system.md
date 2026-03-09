@@ -6,9 +6,10 @@ Upgrade top-level `skills/` from stubs to executable, spec-compliant skill modul
 
 ## Current State
 
-- Four skill markdown files exist with minimal content.
-- No handler files exist for runtime execution.
-- Skill metadata and runtime contracts are incomplete.
+- Four skill markdown files exist with structured content.
+- Handler files created for all four pillars with typed input/output contracts.
+- Skill metadata and runtime contracts defined.
+- Anchor runtime can resolve and execute skill handlers.
 
 ## Todos
 

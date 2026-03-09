@@ -7,6 +7,17 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "lint": "biome check src"
+    "lint": "biome check src",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "idb-keyval": "^6.2.1",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
   }
 }

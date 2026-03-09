@@ -1,16 +1,11 @@
+import { crx } from '@crxjs/vite-plugin';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
+import manifest from './manifest.json';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), crx({ manifest })],
   build: {
     outDir: 'dist',
-    rollupOptions: {
-      input: {
-        sidepanel: resolve(__dirname, 'src/sidepanel/index.html'),
-        popup: resolve(__dirname, 'src/popup/index.html'),
-      },
-    },
   },
 });

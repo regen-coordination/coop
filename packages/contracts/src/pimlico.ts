@@ -10,11 +10,13 @@ export interface SmartAccountSession {
   permissions: string[];
 }
 
-export async function createCoopSmartAccount(config: SmartAccountConfig): Promise<SmartAccountSession> {
+export async function createCoopSmartAccount(
+  config: SmartAccountConfig,
+): Promise<SmartAccountSession> {
   const suffix = config.owner.slice(2, 8).toLowerCase();
   return {
-    smartAccountAddress: `0x00000000000000000000000000000000${suffix.padStart(8, '0')}`,
+    smartAccountAddress: `0x00000000000000000000000000000000${suffix.padStart(8, "0")}`,
     sessionKey: `session_${config.chainId}_${Date.now()}`,
-    permissions: ['gardens.propose', 'green-goods.attest'],
+    permissions: ["gardens.propose", "green-goods.attest"],
   };
 }

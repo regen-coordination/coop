@@ -1,11 +1,11 @@
-export type CoopPillar = 'impact-reporting' | 'coordination' | 'governance' | 'capital-formation';
+export type CoopPillar = "impact-reporting" | "coordination" | "governance" | "capital-formation";
 
-export type NodeRole = 'anchor' | 'standard';
+export type NodeRole = "anchor" | "standard";
 
 export interface CoopMember {
   id: string;
   displayName: string;
-  role: 'admin' | 'member' | 'observer';
+  role: "admin" | "member" | "observer";
 }
 
 export interface CoopSettings {
@@ -54,17 +54,4 @@ export interface SkillDefinition {
   outputSchemaRef?: string;
 }
 
-export interface CoopMessage<TPayload = unknown> {
-  id: string;
-  coopId: string;
-  fromNodeId: string;
-  type:
-    | 'tab.captured'
-    | 'voice.transcribed'
-    | 'content.proposed'
-    | 'content.approved'
-    | 'sync.request'
-    | 'sync.response';
-  payload: TPayload;
-  createdAt: string;
-}
+export * from "./api";

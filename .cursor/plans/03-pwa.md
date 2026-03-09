@@ -6,18 +6,21 @@ Turn `packages/pwa` into a voice-first mobile companion synchronized with Coop a
 
 ## Current State
 
-- Basic React app exists.
-- Basic share code and speech interactions exist.
-- No robust PWA/offline/sync setup yet.
+- Full PWA with manifest, service worker, and offline support.
+- Voice-first UI with continuous recording and live transcript.
+- Anchor connection via WebSocket with real-time sync.
+- IndexedDB persistence for coop membership, drafts, and offline queue.
+- Feed retrieval with automatic updates.
+- Offline queue automatically syncs when connection restored.
 
 ## Todos
 
-1. Add PWA manifest and service-worker setup via Vite PWA plugin.
-2. Implement anchor connection for Coop room sync.
-3. Redesign UI for voice-first primary flow.
-4. Persist Coop membership and local drafts in IndexedDB.
-5. Implement feed retrieval and live update rendering.
-6. Add offline queue for deferred transcript sync.
+- [x] Add PWA manifest and service-worker setup via Vite PWA plugin.
+- [x] Implement anchor connection for Coop room sync.
+- [x] Redesign UI for voice-first primary flow.
+- [x] Persist Coop membership and local drafts in IndexedDB.
+- [x] Implement feed retrieval and live update rendering.
+- [x] Add offline queue for deferred transcript sync.
 
 ## Dependencies
 

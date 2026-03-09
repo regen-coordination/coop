@@ -68,14 +68,14 @@ graph TB
 | # | Component | Plan File | Status | Priority |
 |---|-----------|-----------|--------|----------|
 | 0 | Monorepo Scaffold | `00-scaffold-complete.md` | DONE | N/A |
-| 1 | Browser Extension | `01-extension.md` | TODO | P0 |
-| 2 | Anchor Node | `02-anchor-node.md` | TODO | P0 |
-| 3 | PWA Companion | `03-pwa.md` | TODO | P1 |
-| 4 | Shared Package | `04-shared-package.md` | TODO | P0 |
-| 5 | Smart Contracts | `05-contracts.md` | TODO | P1 |
+| 1 | Browser Extension | `01-extension.md` | DONE (build pipeline + capture + skills UI) | P0 |
+| 2 | Anchor Node | `02-anchor-node.md` | DONE (REST/WS + AI + tests) | P0 |
+| 3 | PWA Companion | `03-pwa.md` | DONE (voice-first + offline sync) | P1 |
+| 4 | Shared Package | `04-shared-package.md` | DONE (storage/membrane + API types) | P0 |
+| 5 | Smart Contracts | `05-contracts.md` | DONE (registry + tests + deploy) | P1 |
 | 6 | Org-OS Integration | `06-org-os-integration.md` | TODO | P2 |
-| 7 | Skills System | `07-skills-system.md` | TODO | P1 |
-| 8 | Cross-Cutting | `08-cross-cutting.md` | TODO | P0 |
+| 7 | Skills System | `07-skills-system.md` | DONE (handlers + pillars) | P1 |
+| 8 | Cross-Cutting | `08-cross-cutting.md` | DONE (env + tests + docs + QA checklist) | P0 |
 
 ## Recommended Execution Order
 

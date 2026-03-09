@@ -8,17 +8,23 @@ Turn `packages/extension` into a loadable Chromium extension with full Coop capt
 
 - Manifest V3 scaffold exists.
 - Sidepanel, popup, service worker, content script, and local libs exist.
-- Join flow, persistence model, and anchor skill loop are incomplete.
+- Join flow, persistence model, and anchor skill loop are functional.
+- Build pipeline outputs loadable dist/.
+- Rich tab capture via Readability content script implemented.
+- Drag-and-drop file drop area implemented.
+- Continuous voice dictation with live transcript implemented.
+- Skill processing UI with pillar selection implemented.
+- Type-safe SpeechRecognition API declarations added.
 
 ## Todos
 
-1. Fix extension build pipeline to output a loadable `dist/`.
-2. Implement Join Coop flow and active Coop selector.
-3. Replace in-memory feed with IndexedDB-backed feed.
-4. Improve tab capture (richer extraction and multi-tab support).
-5. Implement drag-and-drop capture canvas behavior.
-6. Wire `AnchorClient` to run skill processing and render results.
-7. Upgrade voice dictation UX to continuous mode + live transcript.
+1. [x] Fix extension build pipeline to output a loadable `dist/`.
+2. [x] Implement Join Coop flow and active Coop selector.
+3. [x] Replace in-memory feed with IndexedDB-backed feed + anchor API fallback.
+4. [x] Improve tab capture with Readability-based rich extraction.
+5. [x] Implement drag-and-drop capture canvas behavior.
+6. [x] Wire skill processing UI to anchor API with pillar selection.
+7. [x] Upgrade voice dictation UX to continuous mode + live transcript.
 
 ## Dependencies
 

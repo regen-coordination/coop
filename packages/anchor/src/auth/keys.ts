@@ -1,6 +1,6 @@
 export interface ApiKeyRef {
   coopId: string;
-  provider: 'anthropic' | 'openai' | 'storacha';
+  provider: "anthropic" | "openai" | "storacha";
   token: string;
 }
 

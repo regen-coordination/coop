@@ -8,15 +8,16 @@ Upgrade `packages/shared` from interface-only scaffolding into reusable, concret
 
 - Core types and interfaces exist.
 - Storage and membrane abstractions are defined.
-- Concrete implementations are missing.
+- Concrete storage and membrane implementations exist.
+- Shared API contracts and message helpers are now centralized in `@coop/shared`.
 
 ## Todos
 
-1. Implement concrete storage layers (IndexedDB, REST, cold storage adapter).
-2. Move membrane client implementation into shared package.
-3. Define message type constants and helper constructors.
-4. Add request/response types for Coop and skill APIs.
-5. Export a factory for three-layer storage assembly.
+1. [x] Implement concrete storage layers (IndexedDB, REST, cold storage adapter).
+2. [x] Move membrane client implementation into shared package.
+3. [x] Define message type constants and helper constructors.
+4. [x] Add request/response types for Coop and skill APIs.
+5. [x] Export a factory for three-layer storage assembly.
 
 ## Dependencies
 

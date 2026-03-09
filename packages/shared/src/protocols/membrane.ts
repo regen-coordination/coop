@@ -1,4 +1,4 @@
-import type { CoopMessage } from '../types';
+import type { CoopMessage } from "./messages";
 
 export interface MembraneTransport {
   publish(message: CoopMessage): Promise<void>;

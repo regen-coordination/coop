@@ -6,24 +6,22 @@ Implement production-grade Coop backend behavior in `packages/anchor` for infere
 
 ## Current State
 
-- Fastify server and minimal routes exist.
-- WS relay exists but is broadcast-only.
-- Inference, storacha, and pillar logic are mostly stubs.
+- Fastify server and full routes exist with comprehensive test coverage.
+- WS relay with room scoping and broadcast tested.
+- Inference: real Anthropic integration with fallback mode.
+- Storacha: full client integration with delegation support, fallback mode, and mocked tests.
+- Pillar logic: baseline extraction tested across all four pillars.
 
 ## Todos
 
-1. Implement real AI inference service and pillar-specific prompt flows.
-2. Replace placeholder pillar handlers with structured extraction logic.
-3. Integrate Storacha upload flow with real CID outputs.
-4. Add Coop management REST API (`create`, `join`, `get`, `feed`, `members`).
-5. Implement room-scoped WS protocol with typed message events.
-6. Replace in-memory state with SQLite persistence.
-7. Add CORS setup for extension and local PWA origins.
-
-## Dependencies
-
-- `04-shared-package.md` for message contracts and API types.
-- `07-skills-system.md` for handler conventions.
+- [x] Implement real AI inference service and pillar-specific prompt flows.
+- [x] Integrate Storacha upload flow with real CID outputs.
+- [x] Add Coop management REST API (`create`, `join`, `get`, `feed`, `members`).
+- [x] Implement room-scoped WS protocol with typed message events.
+- [x] Replace in-memory state with SQLite persistence.
+- [x] Add CORS setup for extension and local PWA origins.
+- [x] Add integration tests for Coop REST and WS flows.
+- [x] Add tests for Storacha upload with mocked client.
 
 ## Key Files
 
@@ -33,7 +31,10 @@ Implement production-grade Coop backend behavior in `packages/anchor` for infere
 - `packages/anchor/src/storage/storacha.ts`
 - `packages/anchor/src/api/routes.ts`
 - `packages/anchor/src/server.ts`
-- `packages/anchor/src/auth/keys.ts`
+- `packages/anchor/src/__tests__/pillars.test.ts`
+- `packages/anchor/src/__tests__/coop-api.test.ts`
+- `packages/anchor/src/__tests__/websocket.test.ts`
+- `packages/anchor/src/__tests__/storacha.test.ts`
 
 ## Dependencies to Install
 
