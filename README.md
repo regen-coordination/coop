@@ -83,11 +83,18 @@ README.md
 
 `packages/shared` is intended to hold most of the product logic and contracts, with thin runtime packages on top.
 
+At the `src` level, the repo now follows a more modular layout:
+
+- `packages/shared/src/contracts`, `packages/shared/src/modules`, `packages/shared/src/utils`
+- `packages/extension/src/runtime`, `packages/extension/src/views`
+- `packages/app/src` for the locked landing-page surface
+
 ## Core Documents
 
 - [docs/coop-os-architecture-vnext.md](docs/coop-os-architecture-vnext.md) — canonical Coop v1 build plan
 - [docs/coop-design-direction.md](docs/coop-design-direction.md) — initial visual direction, palette, and asset usage guide
 - [docs/coop-audio-and-asset-ops.md](docs/coop-audio-and-asset-ops.md) — audio sourcing, licensing, naming, and asset handoff guide
+- [docs/meeting-followups-2026-03-10.md](docs/meeting-followups-2026-03-10.md) — relevant Build 1 follow-ups distilled from the March 10, 2026 meeting notes
 
 ## Current State
 
@@ -101,6 +108,7 @@ The repo currently validates with:
 
 - `bun run lint`
 - `bun run test`
+- `bun run test:coverage`
 - `bun run build`
 - `bun run test:e2e`
 
