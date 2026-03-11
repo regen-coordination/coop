@@ -1,0 +1,12 @@
+node_modules
+.DS_Store
+dist
+coverage
+.turbo
+playwright-report
+test-results
+output/playwright/*
+!.gitkeep
+
+
+.env*

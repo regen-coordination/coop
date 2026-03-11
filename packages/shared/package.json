@@ -1,0 +1,33 @@
+{
+  "name": "@coop/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@safe-global/protocol-kit": "^6.1.2",
+    "@safe-global/relay-kit": "^4.1.1",
+    "@safe-global/sdk-starter-kit": "^3.0.2",
+    "@safe-global/types-kit": "^3.0.0",
+    "@storacha/client": "^2.1.1",
+    "dexie": "^4.0.10",
+    "ox": "^0.14.0",
+    "permissionless": "^0.3.4",
+    "viem": "^2.25.0",
+    "y-indexeddb": "^9.0.12",
+    "y-webrtc": "^10.3.0",
+    "yjs": "^13.6.24",
+    "zod": "^3.24.2"
+  }
+}

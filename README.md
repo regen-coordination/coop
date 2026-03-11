@@ -91,4 +91,40 @@ README.md
 
 ## Current State
 
-This branch is currently in planning mode. The implementation scaffold, Bun workspace, package structure, branding direction, and asset-handling rules are defined in the docs above.
+Coop v1 is now implemented as a Bun workspace with:
+
+- `packages/app` for the landing page
+- `packages/extension` for the MV3 runtime and sidepanel-first UX
+- `packages/shared` for schemas, flows, sync contracts, archive contracts, and reusable business logic
+
+The repo currently validates with:
+
+- `bun run lint`
+- `bun run test`
+- `bun run build`
+- `bun run test:e2e`
+
+## Local Development
+
+Install dependencies with Bun, then run the pieces you need:
+
+```bash
+bun install
+bun run dev:app
+bun run dev:extension
+bun run dev:signaling
+```
+
+The extension uses explicit signaling URLs instead of assuming a public signaling service is healthy. For local multi-profile sync and end-to-end tests, run the local signaling server on `ws://127.0.0.1:4444` or point `VITE_COOP_SIGNALING_URLS` at your own hosted `ws://` or `wss://` endpoints.
+
+## Extension Env
+
+Create `packages/extension/.env.local` from the example file and fill in the values you actually want to use:
+
+- `VITE_COOP_CHAIN` controls the Safe deployment chain
+- `VITE_COOP_ONCHAIN_MODE` selects `mock` or `live`
+- `VITE_COOP_SIGNALING_URLS` is a comma-separated list of WebSocket signaling endpoints
+- `VITE_COOP_ARCHIVE_MODE` selects `mock` or `live`
+- `VITE_STORACHA_ISSUER_URL` points at the trusted-node delegation issuer for Storacha uploads
+
+For Playwright E2E runs, the repo starts its own local signaling server automatically.
