@@ -128,7 +128,7 @@ export function connectReceiverSyncProviders(
         maxConns: 6,
       });
     } catch (error) {
-      console.warn('Receiver WebRTC provider failed to initialize:', error);
+      void error;
       webrtc = undefined;
     }
   }

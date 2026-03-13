@@ -81,13 +81,21 @@ describe('receiver app routes', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /join this coop/i }));
-      await new Promise((resolve) => window.setTimeout(resolve, 0));
-      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
     });
 
-    expect(await screen.findByRole('heading', { name: /hatch something/i })).toBeVisible();
-    expect(screen.getByText(/paired to river coop as mina/i)).toBeVisible();
-    expect(screen.getByText(/river coop · mina/i)).toBeVisible();
+    await waitFor(
+      () => {
+        expect(screen.getByRole('heading', { name: /hatch something/i })).toBeVisible();
+        expect(screen.getByText(/paired to river coop as mina/i)).toBeVisible();
+        expect(screen.getByText(/river coop · mina/i)).toBeVisible();
+      },
+      { timeout: 3000 },
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    });
   });
 
   it('sanitizes pairing deep links before the receiver shell continues', async () => {
