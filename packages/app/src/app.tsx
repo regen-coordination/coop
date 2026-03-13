@@ -43,6 +43,7 @@ import {
 } from '@coop/shared';
 import React, { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReceiverShareHandoff } from './share-handoff';
+import { isSafeExternalUrl } from './url-safety';
 import { BoardView } from './views/Board';
 import { App as LandingPage } from './views/Landing';
 
@@ -1932,10 +1933,12 @@ export function RootApp({
                       {new Date(card.capture.createdAt).toLocaleString()} ·{' '}
                       {sizeLabel(card.capture.byteSize)}
                     </p>
-                    {card.capture.sourceUrl ? (
+                    {isSafeExternalUrl(card.capture.sourceUrl) ? (
                       <a href={card.capture.sourceUrl} rel="noreferrer" target="_blank">
                         {card.capture.sourceUrl}
                       </a>
+                    ) : card.capture.sourceUrl ? (
+                      <span>{card.capture.sourceUrl}</span>
                     ) : null}
                     {card.capture.kind === 'audio' && card.previewUrl ? (
                       <>

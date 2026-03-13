@@ -296,12 +296,14 @@ export function connectReceiverSyncRelay(input: {
 
   const queuedMessages = new Map<ReceiverSyncRelayMessageKey, ReceiverSyncRelayQueuedMessage>();
   const reconnectDelayMs = input.reconnectDelayMs ?? 1_200;
+  const maxReconnectAttempts = 15;
   let socket: WebSocket | null = null;
   let currentUrlIndex = 0;
   let currentUrl: string | undefined;
   let disposed = false;
   let reconnectTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
   let connected = false;
+  let reconnectAttempts = 0;
 
   const emitStatus = () => {
     input.onStatusChange?.({
@@ -342,11 +344,24 @@ export function connectReceiverSyncRelay(input: {
       return;
     }
 
+    if (reconnectAttempts >= maxReconnectAttempts) {
+      reportRelayError(
+        input.onError,
+        new Error('Relay exhausted all reconnection attempts'),
+        'Relay exhausted all reconnection attempts',
+      );
+      return;
+    }
+
+    const backoff =
+      Math.min(reconnectDelayMs * 1.5 ** reconnectAttempts, 30_000) + Math.random() * 500;
+    reconnectAttempts++;
+
     reconnectTimer = globalThis.setTimeout(() => {
       reconnectTimer = undefined;
       currentUrlIndex = (currentUrlIndex + 1) % urls.length;
       connect();
-    }, reconnectDelayMs);
+    }, backoff);
   };
 
   const connect = () => {
@@ -366,6 +381,7 @@ export function connectReceiverSyncRelay(input: {
 
     socket.addEventListener('open', () => {
       connected = true;
+      reconnectAttempts = 0;
       emitStatus();
 
       try {

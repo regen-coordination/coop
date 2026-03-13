@@ -484,6 +484,13 @@ export function joinCoop(input: JoinCoopInput) {
     throw new Error('Invite has expired.');
   }
 
+  if (
+    !isBootstrapSyncRoomConfig(input.state.syncRoom) &&
+    !verifyInviteCodeProof(input.invite, input.state.syncRoom.inviteSigningSecret)
+  ) {
+    throw new Error('Invite code integrity check failed.');
+  }
+
   const role = input.invite.type === 'trusted' ? 'trusted' : 'member';
   const member = input.member
     ? memberSchema.parse({

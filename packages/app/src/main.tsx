@@ -14,7 +14,9 @@ if (!rootElement) {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    void navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('[coop] Service worker registration failed:', error);
+    });
   });
 }
 

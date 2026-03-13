@@ -30,8 +30,18 @@ export function hashText(value: string) {
   return keccak256(stringToHex(value));
 }
 
+function canonicalStringify(value: unknown): string {
+  if (value === null || value === undefined) return JSON.stringify(value);
+  if (typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalStringify).join(',')}]`;
+  const obj = value as Record<string, unknown>;
+  const sortedKeys = Object.keys(obj).sort();
+  const entries = sortedKeys.map((k) => `${JSON.stringify(k)}:${canonicalStringify(obj[k])}`);
+  return `{${entries.join(',')}}`;
+}
+
 export function hashJson(value: unknown) {
-  return hashText(JSON.stringify(value));
+  return hashText(canonicalStringify(value));
 }
 
 export function toPseudoCid(value: string) {

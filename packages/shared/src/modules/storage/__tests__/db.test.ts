@@ -4,14 +4,18 @@ import { createCoop } from '../../coop/flows';
 import { createReceiverCapture, createReceiverDeviceIdentity } from '../../receiver/capture';
 import { createReceiverPairingPayload, toReceiverPairingRecord } from '../../receiver/pairing';
 import {
+  type CoopDexie,
   createCoopDb,
   getActiveReceiverPairing,
+  getAnchorCapability,
   getAuthSession,
   getReceiverCaptureBlob,
   getReceiverDeviceIdentity,
   getSoundPreferences,
+  getTrustedNodeArchiveConfig,
   getUiPreferences,
   listLocalIdentities,
+  listPrivilegedActionLog,
   listReceiverCaptures,
   listReceiverPairings,
   loadCoopState,
@@ -197,6 +201,53 @@ describe('coop Dexie storage', () => {
     ]);
     const storedBlob = await getReceiverCaptureBlob(db, capture.id);
     expect(storedBlob).not.toBeNull();
+  });
+
+  it('returns null from getUiPreferences when stored value does not match schema', async () => {
+    const db = createCoopDb(`coop-db-${crypto.randomUUID()}`);
+    databases.push(db);
+
+    // Write a malformed value directly into the settings table
+    await db.settings.put({
+      key: 'ui-preferences',
+      value: { bad: 'data', notificationsEnabled: 42 },
+    });
+
+    const result = await getUiPreferences(db);
+    expect(result).toBeNull();
+  });
+
+  it('returns null from getAnchorCapability when stored value does not match schema', async () => {
+    const db = createCoopDb(`coop-db-${crypto.randomUUID()}`);
+    databases.push(db);
+
+    await db.settings.put({ key: 'anchor-capability', value: { corrupt: true } });
+
+    const result = await getAnchorCapability(db);
+    expect(result).toBeNull();
+  });
+
+  it('returns null from getTrustedNodeArchiveConfig when stored value does not match schema', async () => {
+    const db = createCoopDb(`coop-db-${crypto.randomUUID()}`);
+    databases.push(db);
+
+    await db.settings.put({ key: 'trusted-node-archive-config', value: { corrupt: true } });
+
+    const result = await getTrustedNodeArchiveConfig(db);
+    expect(result).toBeNull();
+  });
+
+  it('returns empty array from listPrivilegedActionLog when entries are corrupt', async () => {
+    const db = createCoopDb(`coop-db-${crypto.randomUUID()}`);
+    databases.push(db);
+
+    await db.settings.put({
+      key: 'privileged-action-log',
+      value: [{ bad: 'entry' }, { also: 'bad' }],
+    });
+
+    const result = await listPrivilegedActionLog(db);
+    expect(result).toEqual([]);
   });
 
   it('does not clear the active receiver pairing when switching to an unknown id', async () => {

@@ -249,6 +249,7 @@ import {
   resolveReceiverPairingMember,
 } from './runtime/receiver';
 import { validateReviewDraftPublish, validateReviewDraftUpdate } from './runtime/review';
+import { sessionCapabilityChanged } from './runtime/session-capability';
 import { type CaptureSnapshot, extractPageSnapshot, isSupportedUrl } from './runtime/tab-capture';
 
 const db = createCoopDb('coop-extension');
@@ -463,13 +464,11 @@ async function ensureReceiverSyncOffscreenDocument() {
         justification: 'Keep receiver sync alive while the sidepanel is closed.',
       })
       .catch(async (error) => {
+        receiverSyncDocumentPromise = null;
         if (await hasReceiverSyncOffscreenDocument(offscreenApi)) {
           return;
         }
         throw error;
-      })
-      .finally(() => {
-        receiverSyncDocumentPromise = null;
       });
   }
 
@@ -804,9 +803,7 @@ async function refreshStoredSessionCapabilityStatuses() {
   const refreshed = capabilities.map((capability) => refreshSessionCapabilityStatus(capability));
   await Promise.all(
     refreshed
-      .filter(
-        (capability, index) => JSON.stringify(capability) !== JSON.stringify(capabilities[index]),
-      )
+      .filter((capability, index) => sessionCapabilityChanged(capability, capabilities[index]))
       .map((capability) => saveSessionCapability(db, capability)),
   );
   return refreshed;
@@ -832,7 +829,7 @@ async function selectSessionCapabilityForBundle(input: {
       hasEncryptedMaterial: (await getEncryptedSessionMaterial(db, capability.id)) !== undefined,
     });
     if (validation.ok) {
-      if (JSON.stringify(validation.capability) !== JSON.stringify(capability)) {
+      if (sessionCapabilityChanged(validation.capability, capability)) {
         await saveSessionCapability(db, validation.capability);
       }
       return validation.capability;
@@ -2009,10 +2006,11 @@ async function collectCandidate(
     return null;
   }
 
-  const [{ result }] = await chrome.scripting.executeScript({
+  const results = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: extractPageSnapshot,
   });
+  const result = results?.[0]?.result;
 
   if (!result) {
     return null;

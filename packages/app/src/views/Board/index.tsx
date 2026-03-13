@@ -17,6 +17,7 @@ import {
   ReactFlow,
 } from '@xyflow/react';
 import { useMemo } from 'react';
+import { isSafeExternalUrl } from '../../url-safety';
 import '@xyflow/react/dist/style.css';
 
 type FlowNodeData = CoopBoardNode;
@@ -280,14 +281,20 @@ export function BoardView({
               <div className="board-story-highlight">
                 <strong>Latest snapshot</strong>
                 <p>{archiveStory.latestSnapshotReceipt.summary}</p>
-                <a
-                  className="source-link"
-                  href={archiveStory.latestSnapshotReceipt.gatewayUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  Open saved snapshot
-                </a>
+                {isSafeExternalUrl(archiveStory.latestSnapshotReceipt.gatewayUrl) ? (
+                  <a
+                    className="source-link"
+                    href={archiveStory.latestSnapshotReceipt.gatewayUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open saved snapshot
+                  </a>
+                ) : (
+                  <span className="source-link">
+                    {archiveStory.latestSnapshotReceipt.gatewayUrl}
+                  </span>
+                )}
               </div>
             ) : (
               <div className="empty-state">
@@ -313,14 +320,18 @@ export function BoardView({
                     <div>
                       <dt>Open</dt>
                       <dd>
-                        <a
-                          className="source-link"
-                          href={detail.gatewayUrl}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          Open saved bundle
-                        </a>
+                        {isSafeExternalUrl(detail.gatewayUrl) ? (
+                          <a
+                            className="source-link"
+                            href={detail.gatewayUrl}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            Open saved bundle
+                          </a>
+                        ) : (
+                          <span className="source-link">{detail.gatewayUrl}</span>
+                        )}
                       </dd>
                     </div>
                     <div>

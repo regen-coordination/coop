@@ -341,6 +341,7 @@ export const encryptedSessionMaterialSchema = z.object({
   sessionAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   ciphertext: z.string().min(1),
   iv: z.string().min(1),
+  salt: z.string().optional(),
   algorithm: z.literal('aes-gcm'),
   wrappedAt: z.string().datetime(),
   version: z.literal(1),

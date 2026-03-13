@@ -188,6 +188,42 @@ describe('create, join, and publish flows', () => {
     expect(joined.state.members[1]?.displayName).toBe('Mina');
   });
 
+  it('rejects a join attempt with a tampered invite proof', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship and shared funding context.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'I want our research and field notes to stay visible.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+
+    const tampered = {
+      ...invite,
+      bootstrap: {
+        ...invite.bootstrap,
+        inviteProof: '0xdeadbeef',
+      },
+    };
+
+    expect(() =>
+      joinCoop({
+        state: {
+          ...created.state,
+          invites: [invite],
+        },
+        invite: tampered,
+        displayName: 'Attacker',
+        seedContribution: 'Trying to sneak in with a tampered proof.',
+      }),
+    ).toThrow(/integrity check failed/i);
+  });
+
   it('rejects duplicate passkey membership within the same coop', () => {
     const created = createCoop({
       coopName: 'Forest Coop',

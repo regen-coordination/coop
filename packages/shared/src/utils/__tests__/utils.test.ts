@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertHexString, createId } from '../index';
+import { assertHexString, createId, hashJson } from '../index';
 
 describe('assertHexString', () => {
   it('returns the value when given a valid hex string', () => {
@@ -52,5 +52,32 @@ describe('createId', () => {
   it('uses the default prefix when none is given', () => {
     const id = createId();
     expect(id).toMatch(/^coop-/);
+  });
+});
+
+describe('hashJson', () => {
+  it('produces the same hash regardless of key insertion order', () => {
+    const a = { z: 1, a: 2 };
+    const b = { a: 2, z: 1 };
+    expect(hashJson(a)).toBe(hashJson(b));
+  });
+
+  it('sorts keys recursively in nested objects', () => {
+    const a = { outer: { z: 1, a: 2 }, foo: 'bar' };
+    const b = { foo: 'bar', outer: { a: 2, z: 1 } };
+    expect(hashJson(a)).toBe(hashJson(b));
+  });
+
+  it('preserves array order (arrays are not sorted)', () => {
+    const a = { items: [1, 2, 3] };
+    const b = { items: [3, 2, 1] };
+    expect(hashJson(a)).not.toBe(hashJson(b));
+  });
+
+  it('handles null, undefined, strings, and numbers', () => {
+    expect(hashJson(null)).toBe(hashJson(null));
+    expect(hashJson('hello')).toBe(hashJson('hello'));
+    expect(hashJson(42)).toBe(hashJson(42));
+    expect(hashJson(null)).not.toBe(hashJson(undefined));
   });
 });

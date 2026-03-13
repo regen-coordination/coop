@@ -322,7 +322,9 @@ export async function setUiPreferences(db: CoopDexie, value: UiPreferences) {
 
 export async function getUiPreferences(db: CoopDexie): Promise<UiPreferences | null> {
   const record = await db.settings.get('ui-preferences');
-  return record?.value ? uiPreferencesSchema.parse(record.value) : null;
+  if (!record?.value) return null;
+  const result = uiPreferencesSchema.safeParse(record.value);
+  return result.success ? result.data : null;
 }
 
 export async function setAuthSession(db: CoopDexie, value: AuthSession | null) {
@@ -352,7 +354,9 @@ export async function setAnchorCapability(db: CoopDexie, value: AnchorCapability
 
 export async function getAnchorCapability(db: CoopDexie): Promise<AnchorCapability | null> {
   const record = await db.settings.get('anchor-capability');
-  return record?.value ? anchorCapabilitySchema.parse(record.value) : null;
+  if (!record?.value) return null;
+  const result = anchorCapabilitySchema.safeParse(record.value);
+  return result.success ? result.data : null;
 }
 
 export async function setPrivilegedActionLog(db: CoopDexie, entries: PrivilegedActionLogEntry[]) {
@@ -368,7 +372,10 @@ export async function listPrivilegedActionLog(db: CoopDexie): Promise<Privileged
     return [];
   }
 
-  return record.value.map((entry) => privilegedActionLogEntrySchema.parse(entry));
+  return record.value
+    .map((entry) => privilegedActionLogEntrySchema.safeParse(entry))
+    .filter((r) => r.success)
+    .map((r) => r.data);
 }
 
 export async function setTrustedNodeArchiveConfig(db: CoopDexie, value: TrustedNodeArchiveConfig) {
@@ -382,7 +389,9 @@ export async function getTrustedNodeArchiveConfig(
   db: CoopDexie,
 ): Promise<TrustedNodeArchiveConfig | null> {
   const record = await db.settings.get('trusted-node-archive-config');
-  return record?.value ? trustedNodeArchiveConfigSchema.parse(record.value) : null;
+  if (!record?.value) return null;
+  const result = trustedNodeArchiveConfigSchema.safeParse(record.value);
+  return result.success ? result.data : null;
 }
 
 export async function upsertLocalIdentity(db: CoopDexie, identity: LocalPasskeyIdentity) {
