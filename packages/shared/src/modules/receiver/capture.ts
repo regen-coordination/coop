@@ -20,6 +20,8 @@ function formatCaptureLabel(kind: ReceiverCaptureKind) {
       return 'Photo';
     case 'file':
       return 'File';
+    case 'link':
+      return 'Shared link';
   }
 }
 
@@ -62,6 +64,7 @@ function serializeReceiverSyncSignatureInput(
       kind: capture.kind,
       title: capture.title,
       note: capture.note,
+      sourceUrl: capture.sourceUrl ?? null,
       fileName: capture.fileName ?? null,
       mimeType: capture.mimeType,
       byteSize: capture.byteSize,
@@ -140,6 +143,7 @@ export function createReceiverCapture(input: {
   blob: Blob;
   fileName?: string;
   note?: string;
+  sourceUrl?: string;
   title?: string;
   pairing?: ReceiverPairingRecord | null;
   createdAt?: string;
@@ -166,6 +170,7 @@ export function createReceiverCapture(input: {
         createdAt: timestamp,
       }),
     note: input.note?.trim() ?? '',
+    sourceUrl: input.sourceUrl?.trim() || undefined,
     fileName: input.fileName,
     mimeType: input.blob.type || 'application/octet-stream',
     byteSize: input.blob.size,
@@ -175,6 +180,38 @@ export function createReceiverCapture(input: {
     retryCount: 0,
     intakeStatus: 'private-intake',
   } satisfies ReceiverCapture;
+}
+
+export function createReceiverLinkCapture(input: {
+  deviceId: string;
+  title?: string;
+  note?: string;
+  sourceUrl?: string;
+  pairing?: ReceiverPairingRecord | null;
+  createdAt?: string;
+  syncState?: ReceiverCaptureSyncState;
+}) {
+  const textBits = [input.sourceUrl?.trim(), input.note?.trim()].filter(Boolean);
+  const blob = new Blob([textBits.join('\n\n') || input.title?.trim() || 'Shared link'], {
+    type: 'text/plain;charset=utf-8',
+  });
+  const capture = createReceiverCapture({
+    deviceId: input.deviceId,
+    kind: 'link',
+    blob,
+    title: input.title?.trim() || input.sourceUrl?.trim() || 'Shared link',
+    note: input.note?.trim(),
+    sourceUrl: input.sourceUrl?.trim(),
+    fileName: undefined,
+    pairing: input.pairing,
+    createdAt: input.createdAt,
+    syncState: input.syncState,
+  });
+
+  return {
+    capture,
+    blob,
+  };
 }
 
 export async function blobToReceiverSyncAsset(

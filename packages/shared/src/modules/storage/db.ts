@@ -1,8 +1,16 @@
 import Dexie, { type EntityTable } from 'dexie';
 import type {
+  ActionBundle,
+  ActionLogEntry,
+  ActionPolicy,
+  AgentObservation,
+  AgentPlan,
   AnchorCapability,
   AuthSession,
   CoopSharedState,
+  EncryptedSessionMaterial,
+  ExecutionGrant,
+  GrantLogEntry,
   LocalPasskeyIdentity,
   PrivilegedActionLogEntry,
   ReadablePageExtract,
@@ -10,10 +18,31 @@ import type {
   ReceiverDeviceIdentity,
   ReceiverPairingRecord,
   ReviewDraft,
+  SessionCapability,
+  SessionCapabilityLogEntry,
+  SkillRun,
   SoundPreferences,
   TabCandidate,
+  TrustedNodeArchiveConfig,
+  UiPreferences,
 } from '../../contracts/schema';
-import { anchorCapabilitySchema, privilegedActionLogEntrySchema } from '../../contracts/schema';
+import {
+  actionBundleSchema,
+  actionLogEntrySchema,
+  actionPolicySchema,
+  agentObservationSchema,
+  agentPlanSchema,
+  anchorCapabilitySchema,
+  encryptedSessionMaterialSchema,
+  executionGrantSchema,
+  grantLogEntrySchema,
+  privilegedActionLogEntrySchema,
+  sessionCapabilityLogEntrySchema,
+  sessionCapabilitySchema,
+  skillRunSchema,
+  trustedNodeArchiveConfigSchema,
+  uiPreferencesSchema,
+} from '../../contracts/schema';
 import { createCoopDoc, encodeCoopDoc, hydrateCoopDoc, readCoopState } from '../coop/sync';
 
 export interface CoopDocRecord {
@@ -39,6 +68,12 @@ export interface ReceiverBlobRecord {
   blob: Blob;
 }
 
+export interface ReplayIdRecord {
+  replayId: string;
+  bundleId: string;
+  executedAt: string;
+}
+
 export class CoopDexie extends Dexie {
   tabCandidates!: EntityTable<TabCandidate, 'id'>;
   pageExtracts!: EntityTable<ReadablePageExtract, 'id'>;
@@ -50,6 +85,17 @@ export class CoopDexie extends Dexie {
   receiverPairings!: EntityTable<ReceiverPairingRecord, 'pairingId'>;
   receiverCaptures!: EntityTable<ReceiverCapture, 'id'>;
   receiverBlobs!: EntityTable<ReceiverBlobRecord, 'captureId'>;
+  actionBundles!: EntityTable<ActionBundle, 'id'>;
+  actionLogEntries!: EntityTable<ActionLogEntry, 'id'>;
+  replayIds!: EntityTable<ReplayIdRecord, 'replayId'>;
+  executionGrants!: EntityTable<ExecutionGrant, 'id'>;
+  grantLogEntries!: EntityTable<GrantLogEntry, 'id'>;
+  sessionCapabilities!: EntityTable<SessionCapability, 'id'>;
+  sessionCapabilityLogEntries!: EntityTable<SessionCapabilityLogEntry, 'id'>;
+  encryptedSessionMaterials!: EntityTable<EncryptedSessionMaterial, 'capabilityId'>;
+  agentObservations!: EntityTable<AgentObservation, 'id'>;
+  agentPlans!: EntityTable<AgentPlan, 'id'>;
+  skillRuns!: EntityTable<SkillRun, 'id'>;
 
   constructor(name = 'coop-v1') {
     super(name);
@@ -120,6 +166,85 @@ export class CoopDexie extends Dexie {
           });
         }
       });
+    this.version(5).stores({
+      tabCandidates: 'id, canonicalUrl, domain, capturedAt',
+      pageExtracts: 'id, canonicalUrl, domain, createdAt',
+      reviewDrafts: 'id, category, createdAt, workflowStage',
+      coopDocs: 'id, updatedAt',
+      captureRuns: 'id, state, capturedAt',
+      settings: 'key',
+      identities: 'id, ownerAddress, displayName, createdAt, lastUsedAt',
+      receiverPairings: 'pairingId, coopId, memberId, roomId, issuedAt, acceptedAt, active',
+      receiverCaptures:
+        'id, kind, createdAt, syncState, pairingId, coopId, memberId, intakeStatus, linkedDraftId',
+      receiverBlobs: 'captureId',
+      actionBundles: 'id, status, coopId, actionClass, createdAt',
+      actionLogEntries: 'id, bundleId, eventType, createdAt',
+      replayIds: 'replayId, bundleId, executedAt',
+    });
+    this.version(6).stores({
+      tabCandidates: 'id, canonicalUrl, domain, capturedAt',
+      pageExtracts: 'id, canonicalUrl, domain, createdAt',
+      reviewDrafts: 'id, category, createdAt, workflowStage',
+      coopDocs: 'id, updatedAt',
+      captureRuns: 'id, state, capturedAt',
+      settings: 'key',
+      identities: 'id, ownerAddress, displayName, createdAt, lastUsedAt',
+      receiverPairings: 'pairingId, coopId, memberId, roomId, issuedAt, acceptedAt, active',
+      receiverCaptures:
+        'id, kind, createdAt, syncState, pairingId, coopId, memberId, intakeStatus, linkedDraftId',
+      receiverBlobs: 'captureId',
+      actionBundles: 'id, status, coopId, actionClass, createdAt',
+      actionLogEntries: 'id, bundleId, eventType, createdAt',
+      replayIds: 'replayId, bundleId, executedAt',
+      executionGrants: 'id, coopId, status, createdAt, expiresAt',
+      grantLogEntries: 'id, grantId, eventType, createdAt',
+    });
+    this.version(7).stores({
+      tabCandidates: 'id, canonicalUrl, domain, capturedAt',
+      pageExtracts: 'id, canonicalUrl, domain, createdAt',
+      reviewDrafts: 'id, category, createdAt, workflowStage',
+      coopDocs: 'id, updatedAt',
+      captureRuns: 'id, state, capturedAt',
+      settings: 'key',
+      identities: 'id, ownerAddress, displayName, createdAt, lastUsedAt',
+      receiverPairings: 'pairingId, coopId, memberId, roomId, issuedAt, acceptedAt, active',
+      receiverCaptures:
+        'id, kind, createdAt, syncState, pairingId, coopId, memberId, intakeStatus, linkedDraftId',
+      receiverBlobs: 'captureId',
+      actionBundles: 'id, status, coopId, actionClass, createdAt',
+      actionLogEntries: 'id, bundleId, eventType, createdAt',
+      replayIds: 'replayId, bundleId, executedAt',
+      executionGrants: 'id, coopId, status, createdAt, expiresAt',
+      grantLogEntries: 'id, grantId, eventType, createdAt',
+      agentObservations: 'id, status, trigger, coopId, createdAt, fingerprint',
+      agentPlans: 'id, observationId, status, createdAt, updatedAt',
+      skillRuns: 'id, observationId, planId, skillId, status, startedAt',
+    });
+    this.version(8).stores({
+      tabCandidates: 'id, canonicalUrl, domain, capturedAt',
+      pageExtracts: 'id, canonicalUrl, domain, createdAt',
+      reviewDrafts: 'id, category, createdAt, workflowStage',
+      coopDocs: 'id, updatedAt',
+      captureRuns: 'id, state, capturedAt',
+      settings: 'key',
+      identities: 'id, ownerAddress, displayName, createdAt, lastUsedAt',
+      receiverPairings: 'pairingId, coopId, memberId, roomId, issuedAt, acceptedAt, active',
+      receiverCaptures:
+        'id, kind, createdAt, syncState, pairingId, coopId, memberId, intakeStatus, linkedDraftId',
+      receiverBlobs: 'captureId',
+      actionBundles: 'id, status, coopId, actionClass, createdAt',
+      actionLogEntries: 'id, bundleId, eventType, createdAt',
+      replayIds: 'replayId, bundleId, executedAt',
+      executionGrants: 'id, coopId, status, createdAt, expiresAt',
+      grantLogEntries: 'id, grantId, eventType, createdAt',
+      sessionCapabilities: 'id, coopId, status, createdAt, updatedAt, sessionAddress',
+      sessionCapabilityLogEntries: 'id, capabilityId, eventType, createdAt',
+      encryptedSessionMaterials: 'capabilityId, sessionAddress, wrappedAt',
+      agentObservations: 'id, status, trigger, coopId, createdAt, fingerprint',
+      agentPlans: 'id, observationId, status, createdAt, updatedAt',
+      skillRuns: 'id, observationId, planId, skillId, status, startedAt',
+    });
   }
 }
 
@@ -183,6 +308,18 @@ export async function getSoundPreferences(db: CoopDexie): Promise<SoundPreferenc
   return (record?.value as SoundPreferences | undefined) ?? null;
 }
 
+export async function setUiPreferences(db: CoopDexie, value: UiPreferences) {
+  await db.settings.put({
+    key: 'ui-preferences',
+    value,
+  });
+}
+
+export async function getUiPreferences(db: CoopDexie): Promise<UiPreferences | null> {
+  const record = await db.settings.get('ui-preferences');
+  return record?.value ? uiPreferencesSchema.parse(record.value) : null;
+}
+
 export async function setAuthSession(db: CoopDexie, value: AuthSession | null) {
   if (!value) {
     await db.settings.delete('auth-session');
@@ -225,6 +362,20 @@ export async function listPrivilegedActionLog(db: CoopDexie): Promise<Privileged
   }
 
   return record.value.map((entry) => privilegedActionLogEntrySchema.parse(entry));
+}
+
+export async function setTrustedNodeArchiveConfig(db: CoopDexie, value: TrustedNodeArchiveConfig) {
+  await db.settings.put({
+    key: 'trusted-node-archive-config',
+    value: trustedNodeArchiveConfigSchema.parse(value),
+  });
+}
+
+export async function getTrustedNodeArchiveConfig(
+  db: CoopDexie,
+): Promise<TrustedNodeArchiveConfig | null> {
+  const record = await db.settings.get('trusted-node-archive-config');
+  return record?.value ? trustedNodeArchiveConfigSchema.parse(record.value) : null;
 }
 
 export async function upsertLocalIdentity(db: CoopDexie, identity: LocalPasskeyIdentity) {
@@ -334,4 +485,199 @@ export async function getReceiverDeviceIdentity(
 ): Promise<ReceiverDeviceIdentity | null> {
   const record = await db.settings.get('receiver-device-identity');
   return (record?.value as ReceiverDeviceIdentity | undefined) ?? null;
+}
+
+// --- Action Policy persistence (stored in settings) ---
+
+export async function setActionPolicies(db: CoopDexie, policies: ActionPolicy[]) {
+  await db.settings.put({ key: 'action-policies', value: policies });
+}
+
+export async function listActionPolicies(db: CoopDexie): Promise<ActionPolicy[]> {
+  const record = await db.settings.get('action-policies');
+  if (!record?.value || !Array.isArray(record.value)) {
+    return [];
+  }
+  return record.value.map((entry) => actionPolicySchema.parse(entry));
+}
+
+// --- Action Bundle persistence ---
+
+export async function saveActionBundle(db: CoopDexie, bundle: ActionBundle) {
+  await db.actionBundles.put(actionBundleSchema.parse(bundle));
+}
+
+export async function getActionBundle(db: CoopDexie, bundleId: string) {
+  return db.actionBundles.get(bundleId);
+}
+
+export async function listActionBundles(db: CoopDexie) {
+  return db.actionBundles.orderBy('createdAt').reverse().toArray();
+}
+
+export async function listActionBundlesByStatus(db: CoopDexie, statuses: ActionBundle['status'][]) {
+  const all = await listActionBundles(db);
+  const set = new Set(statuses);
+  return all.filter((bundle) => set.has(bundle.status));
+}
+
+// --- Action Log persistence ---
+
+export async function saveActionLogEntry(db: CoopDexie, entry: ActionLogEntry) {
+  await db.actionLogEntries.put(actionLogEntrySchema.parse(entry));
+}
+
+export async function listActionLogEntries(db: CoopDexie, limit = 100) {
+  return db.actionLogEntries.orderBy('createdAt').reverse().limit(limit).toArray();
+}
+
+// --- Replay ID persistence ---
+
+export async function recordReplayId(
+  db: CoopDexie,
+  replayId: string,
+  bundleId: string,
+  executedAt: string,
+) {
+  await db.replayIds.put({ replayId, bundleId, executedAt });
+}
+
+export async function isReplayIdRecorded(db: CoopDexie, replayId: string) {
+  return (await db.replayIds.get(replayId)) !== undefined;
+}
+
+export async function listRecordedReplayIds(db: CoopDexie) {
+  const records = await db.replayIds.toArray();
+  return records.map((r) => r.replayId);
+}
+
+// --- Execution Grant persistence ---
+
+export async function saveExecutionGrant(db: CoopDexie, grant: ExecutionGrant) {
+  await db.executionGrants.put(executionGrantSchema.parse(grant));
+}
+
+export async function getExecutionGrant(db: CoopDexie, grantId: string) {
+  return db.executionGrants.get(grantId);
+}
+
+export async function listExecutionGrants(db: CoopDexie) {
+  return db.executionGrants.orderBy('createdAt').reverse().toArray();
+}
+
+export async function listExecutionGrantsByCoopId(db: CoopDexie, coopId: string) {
+  return db.executionGrants.where('coopId').equals(coopId).reverse().sortBy('createdAt');
+}
+
+// --- Grant Log persistence ---
+
+export async function saveGrantLogEntry(db: CoopDexie, entry: GrantLogEntry) {
+  await db.grantLogEntries.put(grantLogEntrySchema.parse(entry));
+}
+
+export async function listGrantLogEntries(db: CoopDexie, limit = 100) {
+  return db.grantLogEntries.orderBy('createdAt').reverse().limit(limit).toArray();
+}
+
+// --- Session capability persistence ---
+
+export async function saveSessionCapability(db: CoopDexie, capability: SessionCapability) {
+  await db.sessionCapabilities.put(sessionCapabilitySchema.parse(capability));
+}
+
+export async function getSessionCapability(db: CoopDexie, capabilityId: string) {
+  return db.sessionCapabilities.get(capabilityId);
+}
+
+export async function listSessionCapabilities(db: CoopDexie) {
+  return db.sessionCapabilities.orderBy('createdAt').reverse().toArray();
+}
+
+export async function listSessionCapabilitiesByCoopId(db: CoopDexie, coopId: string) {
+  return db.sessionCapabilities.where('coopId').equals(coopId).reverse().sortBy('createdAt');
+}
+
+export async function saveSessionCapabilityLogEntry(
+  db: CoopDexie,
+  entry: SessionCapabilityLogEntry,
+) {
+  await db.sessionCapabilityLogEntries.put(sessionCapabilityLogEntrySchema.parse(entry));
+}
+
+export async function listSessionCapabilityLogEntries(db: CoopDexie, limit = 200) {
+  return db.sessionCapabilityLogEntries.orderBy('createdAt').reverse().limit(limit).toArray();
+}
+
+export async function saveEncryptedSessionMaterial(
+  db: CoopDexie,
+  material: EncryptedSessionMaterial,
+) {
+  await db.encryptedSessionMaterials.put(encryptedSessionMaterialSchema.parse(material));
+}
+
+export async function getEncryptedSessionMaterial(db: CoopDexie, capabilityId: string) {
+  return db.encryptedSessionMaterials.get(capabilityId);
+}
+
+export async function deleteEncryptedSessionMaterial(db: CoopDexie, capabilityId: string) {
+  await db.encryptedSessionMaterials.delete(capabilityId);
+}
+
+// --- Agent persistence ---
+
+export async function saveAgentObservation(db: CoopDexie, observation: AgentObservation) {
+  await db.agentObservations.put(agentObservationSchema.parse(observation));
+}
+
+export async function getAgentObservation(db: CoopDexie, observationId: string) {
+  return db.agentObservations.get(observationId);
+}
+
+export async function listAgentObservations(db: CoopDexie, limit = 100) {
+  return db.agentObservations.orderBy('createdAt').reverse().limit(limit).toArray();
+}
+
+export async function findAgentObservationByFingerprint(db: CoopDexie, fingerprint: string) {
+  return db.agentObservations.where('fingerprint').equals(fingerprint).first();
+}
+
+export async function listAgentObservationsByStatus(
+  db: CoopDexie,
+  statuses: AgentObservation['status'][],
+) {
+  const all = await listAgentObservations(db, 500);
+  const set = new Set(statuses);
+  return all.filter((observation) => set.has(observation.status));
+}
+
+export async function saveAgentPlan(db: CoopDexie, plan: AgentPlan) {
+  await db.agentPlans.put(agentPlanSchema.parse(plan));
+}
+
+export async function getAgentPlan(db: CoopDexie, planId: string) {
+  return db.agentPlans.get(planId);
+}
+
+export async function listAgentPlans(db: CoopDexie, limit = 100) {
+  return db.agentPlans.orderBy('createdAt').reverse().limit(limit).toArray();
+}
+
+export async function listAgentPlansByObservationId(db: CoopDexie, observationId: string) {
+  return db.agentPlans.where('observationId').equals(observationId).reverse().sortBy('createdAt');
+}
+
+export async function saveSkillRun(db: CoopDexie, run: SkillRun) {
+  await db.skillRuns.put(skillRunSchema.parse(run));
+}
+
+export async function getSkillRun(db: CoopDexie, skillRunId: string) {
+  return db.skillRuns.get(skillRunId);
+}
+
+export async function listSkillRuns(db: CoopDexie, limit = 200) {
+  return db.skillRuns.orderBy('startedAt').reverse().limit(limit).toArray();
+}
+
+export async function listSkillRunsByPlanId(db: CoopDexie, planId: string) {
+  return db.skillRuns.where('planId').equals(planId).reverse().sortBy('startedAt');
 }

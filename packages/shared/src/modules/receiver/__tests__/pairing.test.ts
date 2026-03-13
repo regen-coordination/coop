@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildReceiverPairingDeepLink,
+  buildReceiverPairingProtocolLink,
   createReceiverPairingPayload,
   deriveReceiverRoomId,
   encodeReceiverPairingPayload,
@@ -42,6 +43,20 @@ describe('receiver pairing payloads', () => {
     expect(deepLink).toContain('#payload=');
     expect(deepLink).not.toContain('?payload=');
     expect(parseReceiverPairingInput(deepLink, nowMs)).toEqual(payload);
+  });
+
+  it('parses a protocol link wrapper around the payload', () => {
+    const payload = createReceiverPairingPayload({
+      coopId: 'coop-10',
+      coopDisplayName: 'Signal Coop',
+      memberId: 'member-10',
+      memberDisplayName: 'Ira',
+    });
+
+    const protocolLink = buildReceiverPairingProtocolLink(payload);
+
+    expect(protocolLink).toContain('web+coop-receiver://pair?payload=');
+    expect(parseReceiverPairingInput(protocolLink, nowMs)).toEqual(payload);
   });
 
   it('rejects expired payloads', () => {

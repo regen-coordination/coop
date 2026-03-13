@@ -59,8 +59,43 @@ describe('create, join, and publish flows', () => {
     });
 
     expect(created.state.profile.safeAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(created.state.profile.spaceType).toBe('community');
     expect(created.state.artifacts).toHaveLength(4);
     expect(created.state.members[0]?.role).toBe('creator');
+  });
+
+  it('stores the selected space preset in the coop profile', () => {
+    const created = createCoop({
+      coopName: 'Personal Research Coop',
+      purpose: 'Keep personal research threads, notes, and follow-ups coherent across devices.',
+      spaceType: 'personal',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'I want my field notes and tabs to stay legible to future me.',
+      setupInsights: buildSetupInsights(),
+    });
+
+    expect(created.state.profile.spaceType).toBe('personal');
+    expect(created.state.rituals[0]?.weeklyReviewCadence).toBe('Weekly self-review');
+    expect(created.state.artifacts.at(-1)?.suggestedNextStep).toMatch(/pair another device/i);
+  });
+
+  it('can opt a coop into Green Goods garden creation at launch', () => {
+    const created = createCoop({
+      coopName: 'Watershed Coop',
+      purpose: 'Coordinate bioregional stewardship and ecological funding opportunities.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'I want our regional work and funding paths to stay visible.',
+      setupInsights: buildSetupInsights(),
+      greenGoods: {
+        enabled: true,
+      },
+    });
+
+    expect(created.state.greenGoods?.enabled).toBe(true);
+    expect(created.state.greenGoods?.status).toBe('requested');
+    expect(created.state.greenGoods?.domains.length).toBeGreaterThan(0);
   });
 
   it('supports trusted and member invite flows and adds a joining member', () => {

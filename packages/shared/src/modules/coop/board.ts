@@ -163,7 +163,9 @@ function coopPosition(snapshot: CoopBoardSnapshot, laneCount: number) {
 }
 
 function captureDetail(capture: ReceiverCapture) {
-  const detailBits = [capture.fileName, capture.note, capture.mimeType].filter(Boolean);
+  const detailBits = [capture.sourceUrl, capture.fileName, capture.note, capture.mimeType].filter(
+    Boolean,
+  );
   return truncateWords(detailBits.join(' · ') || `${capture.byteSize} bytes`, 12);
 }
 
@@ -399,7 +401,7 @@ export function buildCoopBoardGraph(snapshot: CoopBoardSnapshot): CoopBoardGraph
         archives: receipts.length,
         archiveWorthy: archiveWorthyCount,
       },
-      story: `${captures.length} captures moved through ${drafts.length} drafts into ${artifacts.length} published artifacts, with ${receipts.length} archive receipts keeping the Filecoin trail visible.`,
+      story: `${captures.length} finds moved from loose chickens through ${drafts.length} drafts into ${artifacts.length} shared finds, with ${receipts.length} saved proof items keeping the trail visible.`,
     },
     nodes,
     edges,

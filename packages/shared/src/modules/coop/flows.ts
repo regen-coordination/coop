@@ -3,6 +3,8 @@ import {
   type Artifact,
   type CaptureMode,
   type CoopSharedState,
+  type CoopSpaceType,
+  type GreenGoodsGardenState,
   type InviteCode,
   type InviteCoopBootstrapSnapshot,
   type InviteType,
@@ -25,8 +27,10 @@ import {
   toDeterministicAddress,
   truncateWords,
 } from '../../utils';
+import { createInitialGreenGoodsState } from '../greengoods/greengoods';
 import { createUnavailableOnchainState } from '../onchain/onchain';
 import { buildMemoryProfileSeed } from './pipeline';
+import { formatCoopSpaceTypeLabel } from './presets';
 import { buildReviewBoard, updateMemoryProfileFromArtifacts } from './publish';
 import {
   createBootstrapSyncRoomConfig,
@@ -41,6 +45,7 @@ import {
 export interface CreateCoopInput {
   coopName: string;
   purpose: string;
+  spaceType?: CoopSpaceType;
   creatorDisplayName: string;
   setupInsights: unknown;
   captureMode: CaptureMode;
@@ -48,6 +53,9 @@ export interface CreateCoopInput {
   signalingUrls?: string[];
   creator?: Member;
   onchainState?: OnchainState;
+  greenGoods?: {
+    enabled: boolean;
+  };
 }
 
 export interface JoinCoopInput {
@@ -95,6 +103,7 @@ export function createInviteBootstrapSnapshot(state: CoopSharedState): InviteCoo
     memoryProfile: state.memoryProfile,
     syncRoom: toSyncRoomBootstrap(state.syncRoom),
     onchainState: state.onchainState,
+    greenGoods: state.greenGoods,
   };
 }
 
@@ -159,21 +168,57 @@ export function verifyInviteCodeProof(invite: InviteCode, inviteSigningSecret: s
 }
 
 function deriveCoopSoul(input: CreateCoopInput) {
+  const spaceType = input.spaceType ?? 'community';
+  const focusByType: Record<CoopSpaceType, string> = {
+    community: 'shared intelligence and coordinated follow-through',
+    project: 'project memory and clearer delivery follow-through',
+    friends: 'shared plans, recommendations, and small acts of follow-through',
+    family: 'household memory, coordination, and care follow-through',
+    personal: 'durable personal memory and clearer next steps',
+  };
+
   return {
     purposeStatement: input.purpose,
     toneAndWorkingStyle: 'Warm, observant, playful on the surface, serious in the shared work.',
     usefulSignalDefinition:
       'Artifacts that tighten shared context, surface opportunities, and reduce repeated research.',
     artifactFocus: ['insights', 'funding leads', 'evidence', 'next steps'],
-    whyThisCoopExists: `${input.coopName} exists to turn loose tabs into shared intelligence and coordinated follow-through.`,
+    whyThisCoopExists: `${input.coopName} exists to turn loose tabs into ${focusByType[spaceType]}.`,
   };
 }
 
-function deriveRitualDefinition(coopName: string, captureMode: CaptureMode) {
+function deriveRitualDefinition(
+  coopName: string,
+  captureMode: CaptureMode,
+  spaceType: CoopSpaceType,
+) {
+  const cadenceByType: Record<CoopSpaceType, string> = {
+    community: 'Weekly review circle',
+    project: 'Weekly working review',
+    friends: 'Weekly check-in',
+    family: 'Weekly family check-in',
+    personal: 'Weekly self-review',
+  };
+  const facilitatorByType: Record<CoopSpaceType, string> = {
+    community: 'A trusted member hosts the review and flags what should be actioned.',
+    project: 'A project lead or trusted operator keeps the working review focused and actionable.',
+    friends: 'One friend lightly steers the check-in so plans and useful finds do not disappear.',
+    family: 'A household organizer keeps the review practical and legible for everyone involved.',
+    personal:
+      'You review your own queue and decide what should stay private, be shared, or be archived.',
+  };
+  const namedMomentsByType: Record<CoopSpaceType, string[]> = {
+    community: ['Coop updates', `${coopName} weekly review`, 'Manual round-up'],
+    project: ['Project sync', `${coopName} working review`, 'Manual round-up'],
+    friends: ['Friend check-in', `${coopName} weekly check-in`, 'Manual round-up'],
+    family: ['Family check-in', `${coopName} weekly review`, 'Manual round-up'],
+    personal: ['Personal checkpoint', `${coopName} self-review`, 'Manual round-up'],
+  };
+
   return {
-    weeklyReviewCadence: 'Weekly review circle',
-    namedMoments: ['Coop updates', `${coopName} weekly review`, 'Manual round-up'],
-    facilitatorExpectation: 'A trusted member hosts the review and flags what should be actioned.',
+    weeklyReviewCadence: cadenceByType[spaceType],
+    namedMoments: namedMomentsByType[spaceType],
+    facilitatorExpectation: facilitatorByType[spaceType],
     defaultCapturePosture:
       captureMode === 'manual'
         ? 'Manual round-up is primary; scheduled scans stay silent.'
@@ -187,10 +232,20 @@ function createInitialArtifacts(input: {
   setupInsights: ReturnType<typeof setupInsightsSchema.parse>;
   coopName: string;
   purpose: string;
+  spaceType: CoopSpaceType;
   seedContribution: string;
 }): Artifact[] {
   const createdAt = nowIso();
   const originBase = createId('origin');
+  const setupLabel = `${formatCoopSpaceTypeLabel(input.spaceType)} setup synthesis`;
+  const seedNextStepByType: Record<CoopSpaceType, string> = {
+    community: 'Invite another member so the coop does not remain single-voiced.',
+    project: 'Invite the next collaborator so the review loop reflects real project context.',
+    friends: 'Invite one more friend if this should become a shared curation loop.',
+    family: 'Invite another household member when you are ready to share the family capsule.',
+    personal:
+      'Pair another device or capture a second note so the personal loop proves out privately.',
+  };
   return [
     {
       id: createId('artifact'),
@@ -200,7 +255,7 @@ function createInitialArtifacts(input: {
       summary: truncateWords(input.setupInsights.summary, 36),
       sources: [
         {
-          label: 'Community ritual synthesis',
+          label: setupLabel,
           url: `coop://${slugify(input.coopName)}/setup-insights`,
           domain: 'coop.local',
         },
@@ -277,7 +332,7 @@ function createInitialArtifacts(input: {
       tags: ['seed', 'intro'],
       category: 'seed-contribution',
       whyItMatters: 'It gives the coop a first human artifact before passive capture starts.',
-      suggestedNextStep: 'Invite another member so the coop does not remain single-voiced.',
+      suggestedNextStep: seedNextStepByType[input.spaceType],
       createdBy: input.creator.id,
       createdAt,
       reviewStatus: 'published',
@@ -289,6 +344,7 @@ function createInitialArtifacts(input: {
 
 export function createCoop(input: CreateCoopInput) {
   const setupInsights = setupInsightsSchema.parse(input.setupInsights);
+  const spaceType = input.spaceType ?? 'community';
   const creator = input.creator
     ? memberSchema.parse({
         ...input.creator,
@@ -308,23 +364,32 @@ export function createCoop(input: CreateCoopInput) {
     id: coopId,
     name: input.coopName,
     purpose: input.purpose,
+    spaceType,
     createdAt: nowIso(),
     createdBy: creator.id,
     captureMode: input.captureMode,
     safeAddress: onchainState.safeAddress,
     active: true,
   };
-  const soul = deriveCoopSoul(input);
-  const rituals = [deriveRitualDefinition(input.coopName, input.captureMode)];
+  const soul = deriveCoopSoul({ ...input, spaceType });
+  const rituals = [deriveRitualDefinition(input.coopName, input.captureMode, spaceType)];
   const artifacts = createInitialArtifacts({
     coopId,
     creator,
     setupInsights,
     coopName: input.coopName,
     purpose: input.purpose,
+    spaceType,
     seedContribution: input.seedContribution,
   });
   creator.seedContributionId = artifacts[3]?.id;
+  const greenGoods: GreenGoodsGardenState | undefined = input.greenGoods?.enabled
+    ? createInitialGreenGoodsState({
+        coopName: input.coopName,
+        purpose: input.purpose,
+        setupInsights,
+      })
+    : undefined;
 
   const state = coopSharedStateSchema.parse({
     profile,
@@ -339,6 +404,7 @@ export function createCoop(input: CreateCoopInput) {
     memoryProfile: updateMemoryProfileFromArtifacts(buildMemoryProfileSeed(), artifacts),
     syncRoom,
     onchainState,
+    greenGoods,
   });
   const doc = createCoopDoc(state);
 

@@ -5,6 +5,7 @@ import {
   blobToReceiverSyncAsset,
   createReceiverCapture,
   createReceiverDeviceIdentity,
+  createReceiverLinkCapture,
   createReceiverSyncEnvelope,
   receiverSyncAssetToBlob,
 } from '../capture';
@@ -163,5 +164,35 @@ describe('receiver capture helpers', () => {
         fileName: 'too-large.bin',
       }),
     ).toThrow(/under/i);
+  });
+
+  it('creates link captures with a persisted source url payload', async () => {
+    const device = createReceiverDeviceIdentity('Field Phone');
+    const pairing = toReceiverPairingRecord(
+      createReceiverPairingPayload({
+        coopId: 'coop-link',
+        coopDisplayName: 'Link Coop',
+        memberId: 'member-link',
+        memberDisplayName: 'Nia',
+        signalingUrls: ['ws://127.0.0.1:4444'],
+      }),
+      '2026-03-11T18:05:00.000Z',
+    );
+
+    const { capture, blob } = createReceiverLinkCapture({
+      deviceId: device.id,
+      title: 'Shared funding lead',
+      note: 'Follow up with the grant program next week.',
+      sourceUrl: 'https://example.com/grant',
+      pairing,
+      createdAt: '2026-03-11T18:10:00.000Z',
+    });
+
+    expect(capture.kind).toBe('link');
+    expect(capture.sourceUrl).toBe('https://example.com/grant');
+    expect(capture.syncState).toBe('queued');
+    expect(capture.mimeType).toContain('text/plain');
+    expect(capture.byteSize).toBeGreaterThan(0);
+    expect(blob).toBeTruthy();
   });
 });

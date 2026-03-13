@@ -1,5 +1,8 @@
 import { privateKeyToAccount } from 'viem/accounts';
+import { loadRootEnv } from '../../../scripts/load-root-env.mjs';
 import { deployCoopSafeAccount, getCoopChainLabel } from '../src/modules/onchain/onchain';
+
+loadRootEnv();
 
 const pimlicoApiKey = process.env.VITE_PIMLICO_API_KEY;
 const probePrivateKey = process.env.COOP_ONCHAIN_PROBE_PRIVATE_KEY as `0x${string}` | undefined;

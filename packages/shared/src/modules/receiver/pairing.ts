@@ -7,6 +7,7 @@ import {
 import { createId, decodeBase64Url, encodeBase64Url, hashText, nowIso } from '../../utils';
 
 const RECEIVER_PAIRING_PREFIX = 'coop-receiver:';
+const RECEIVER_PROTOCOL_PREFIX = 'web+coop-receiver:';
 
 export function deriveReceiverRoomId(coopId: string, memberId: string, pairSecret: string) {
   return `receiver-room-${hashText(`${coopId}:${memberId}:${pairSecret}`).slice(2, 18)}`;
@@ -43,6 +44,13 @@ export function encodeReceiverPairingPayload(payload: ReceiverPairingPayload) {
   return `${RECEIVER_PAIRING_PREFIX}${encodeBase64Url(JSON.stringify(payload))}`;
 }
 
+export function buildReceiverPairingProtocolLink(input: ReceiverPairingPayload | string) {
+  const payload = typeof input === 'string' ? input : encodeReceiverPairingPayload(input);
+  const url = new URL('web+coop-receiver://pair');
+  url.searchParams.set('payload', payload);
+  return url.toString();
+}
+
 export function extractReceiverPairingCode(input: string) {
   const trimmed = input.trim();
   if (!trimmed) {
@@ -51,6 +59,16 @@ export function extractReceiverPairingCode(input: string) {
 
   if (trimmed.startsWith(RECEIVER_PAIRING_PREFIX)) {
     return trimmed;
+  }
+
+  if (trimmed.startsWith(RECEIVER_PROTOCOL_PREFIX)) {
+    try {
+      const url = new URL(trimmed);
+      const payload = url.searchParams.get('payload');
+      return payload?.trim() || trimmed;
+    } catch {
+      return trimmed;
+    }
   }
 
   try {
@@ -142,11 +160,14 @@ export function assertReceiverPairingRecord(pairing: ReceiverPairingRecord, nowM
 
 export function parseReceiverPairingInput(input: string, nowMs = Date.now()) {
   const code = extractReceiverPairingCode(input);
-  if (!code.startsWith(RECEIVER_PAIRING_PREFIX)) {
+  if (!code.startsWith(RECEIVER_PAIRING_PREFIX) && !code.startsWith(RECEIVER_PROTOCOL_PREFIX)) {
     throw new Error('Receiver pairing payload is invalid.');
   }
 
-  const decoded = decodeBase64Url(code.slice(RECEIVER_PAIRING_PREFIX.length));
+  const normalizedCode = code.startsWith(RECEIVER_PROTOCOL_PREFIX)
+    ? code.slice(RECEIVER_PROTOCOL_PREFIX.length)
+    : code.slice(RECEIVER_PAIRING_PREFIX.length);
+  const decoded = decodeBase64Url(normalizedCode);
   const payload = receiverPairingPayloadSchema.parse(JSON.parse(decoded));
   const derivedRoomId = deriveReceiverRoomId(payload.coopId, payload.memberId, payload.pairSecret);
   if (payload.roomId && payload.roomId !== derivedRoomId) {

@@ -4,6 +4,7 @@ export const RECEIVER_CAPTURE_BYTE_LIMITS = {
   audio: 12 * 1024 * 1024,
   photo: 8 * 1024 * 1024,
   file: 8 * 1024 * 1024,
+  link: 1024 * 1024,
 } satisfies Record<ReceiverCaptureKind, number>;
 
 function formatBytes(byteSize: number) {

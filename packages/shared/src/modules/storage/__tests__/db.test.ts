@@ -10,6 +10,7 @@ import {
   getReceiverCaptureBlob,
   getReceiverDeviceIdentity,
   getSoundPreferences,
+  getUiPreferences,
   listLocalIdentities,
   listReceiverCaptures,
   listReceiverPairings,
@@ -20,6 +21,7 @@ import {
   setAuthSession,
   setReceiverDeviceIdentity,
   setSoundPreferences,
+  setUiPreferences,
   upsertLocalIdentity,
   upsertReceiverPairing,
 } from '../db';
@@ -118,6 +120,23 @@ describe('coop Dexie storage', () => {
 
     await setAuthSession(db, null);
     expect(await getAuthSession(db)).toBeNull();
+  });
+
+  it('stores ui preferences separately from coop content', async () => {
+    const db = createCoopDb(`coop-db-${crypto.randomUUID()}`);
+    databases.push(db);
+
+    await setUiPreferences(db, {
+      notificationsEnabled: false,
+      localInferenceOptIn: true,
+      preferredExportMethod: 'file-picker',
+    });
+
+    expect(await getUiPreferences(db)).toEqual({
+      notificationsEnabled: false,
+      localInferenceOptIn: true,
+      preferredExportMethod: 'file-picker',
+    });
   });
 
   it('upserts and sorts local passkey identities by recency', async () => {

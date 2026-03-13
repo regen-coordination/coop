@@ -130,6 +130,10 @@ function inferReceiverDraftCategory(capture: ReceiverCapture): ArtifactCategory 
     return 'evidence';
   }
 
+  if (capture.kind === 'link') {
+    return 'resource';
+  }
+
   if (/pdf|text|json|csv|spreadsheet/i.test(capture.mimeType) || capture.fileName) {
     return 'resource';
   }
@@ -145,6 +149,8 @@ function buildReceiverDraftSummary(capture: ReceiverCapture) {
       return 'Summary placeholder: describe what this photo shows and why it matters.';
     case 'file':
       return 'Summary placeholder: note what this file contains and why it should enter review.';
+    case 'link':
+      return 'Summary placeholder: note what this link points to and why it matters for the coop.';
   }
 }
 
@@ -161,6 +167,8 @@ function buildReceiverDraftNextStep(capture: ReceiverCapture, targetLabel: strin
       return 'Add context for what the image captures, then route it to the coop(s) that should review it.';
     case 'file':
       return `Review the file metadata, add context, and decide whether ${targetLabel} should publish it.`;
+    case 'link':
+      return `Add context for the shared link, then decide whether ${targetLabel} should review or publish it.`;
   }
 }
 
@@ -199,8 +207,16 @@ export function createReceiverDraftSeed(input: {
     sources: [
       {
         label: input.capture.fileName ?? title,
-        url: `coop://receiver/${input.capture.id}`,
-        domain: 'receiver.local',
+        url: input.capture.sourceUrl ?? `coop://receiver/${input.capture.id}`,
+        domain: input.capture.sourceUrl
+          ? (() => {
+              try {
+                return new URL(input.capture.sourceUrl).hostname;
+              } catch {
+                return 'receiver.local';
+              }
+            })()
+          : 'receiver.local',
       },
     ],
     tags: buildReceiverDraftTags(input.capture),
@@ -208,7 +224,14 @@ export function createReceiverDraftSeed(input: {
     whyItMatters: buildReceiverDraftWhyItMatters(input.capture, targetLabel),
     suggestedNextStep: buildReceiverDraftNextStep(input.capture, targetLabel),
     suggestedTargetCoopIds: targetCoopIds,
-    confidence: input.capture.kind === 'audio' ? 0.34 : input.capture.kind === 'photo' ? 0.42 : 0.4,
+    confidence:
+      input.capture.kind === 'audio'
+        ? 0.34
+        : input.capture.kind === 'photo'
+          ? 0.42
+          : input.capture.kind === 'link'
+            ? 0.38
+            : 0.4,
     rationale:
       'Receiver draft seeded from local metadata only. No transcription or model inference was used.',
     previewImageUrl: undefined,

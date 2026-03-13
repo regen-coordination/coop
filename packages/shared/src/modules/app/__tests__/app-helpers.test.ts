@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { detectBrowserUxCapabilities } from '../capabilities';
 import {
   deriveExtensionIconState,
   extensionIconBadge,
@@ -103,5 +104,34 @@ describe('shared app helpers', () => {
         false,
       ),
     ).toBe(false);
+  });
+
+  it('detects optional browser UX capabilities conservatively', () => {
+    const capabilities = detectBrowserUxCapabilities({
+      Notification: class NotificationMock {} as unknown as typeof Notification,
+      navigator: {
+        share() {
+          return Promise.resolve();
+        },
+        setAppBadge() {
+          return Promise.resolve();
+        },
+      } as unknown as Navigator,
+      showSaveFilePicker: async () => ({
+        createWritable: async () => ({
+          write: async () => undefined,
+          close: async () => undefined,
+        }),
+      }),
+      BarcodeDetector: class BarcodeDetectorMock {},
+    } as unknown as typeof globalThis);
+
+    expect(capabilities).toMatchObject({
+      canNotify: true,
+      canScanQr: true,
+      canSaveFile: true,
+      canSetBadge: true,
+      canShare: true,
+    });
   });
 });

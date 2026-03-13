@@ -84,18 +84,18 @@ export function describeArchiveReceipt(input: {
     const title =
       artifactTitles[0] ??
       (input.receipt.artifactIds.length === 1
-        ? 'Published artifact'
-        : `${input.receipt.artifactIds.length || 1} published artifacts`);
+        ? 'Shared find'
+        : `${input.receipt.artifactIds.length || 1} shared finds`);
 
     return {
       id: input.receipt.id,
       scope: input.receipt.scope,
-      purpose: 'Artifact preservation',
+      purpose: 'Shared find save',
       title,
       summary:
         artifactTitles.length > 0
-          ? `Preserves ${truncateWords(artifactTitles.join(', '), 10)} with its review context and durable gateway receipt.`
-          : 'Preserves a published coop artifact with a durable gateway receipt.',
+          ? `Keeps ${truncateWords(artifactTitles.join(', '), 10)} with its review notes and saved trail.`
+          : 'Keeps a shared find with its review notes and saved trail.',
       itemCount: Math.max(artifactTitles.length, input.receipt.artifactIds.length, 1),
       artifactTitles,
       gatewayUrl: input.receipt.gatewayUrl,
@@ -119,7 +119,7 @@ export function describeArchiveReceipt(input: {
     scope: input.receipt.scope,
     purpose: 'Coop snapshot',
     title: `${input.state.profile.name} snapshot`,
-    summary: `Preserves ${input.state.members.length} members, ${input.state.artifacts.length} published artifacts, ${input.state.reviewBoard.length} board groups, and ${input.state.archiveReceipts.length} receipts for durable inspection.`,
+    summary: `Keeps ${input.state.members.length} flock members, ${input.state.artifacts.length} shared finds, ${input.state.reviewBoard.length} board groups, and ${input.state.archiveReceipts.length} saved proof items easy to revisit.`,
     itemCount: input.state.artifacts.length,
     artifactTitles: input.state.artifacts.slice(0, 4).map((artifact) => artifact.title),
     gatewayUrl: input.receipt.gatewayUrl,
@@ -163,6 +163,6 @@ export function buildCoopArchiveStory(state: CoopSharedState): CoopArchiveStory 
         })
       : null,
     snapshotSummary:
-      'Snapshots keep the coop’s shared memory legible beyond the browser: members, artifacts, review groupings, and archive receipts stay inspectable through Storacha/Filecoin gateways.',
+      'Saved snapshots keep the coop easy to revisit beyond the browser: flock members, shared finds, board groupings, and saved proof stay easy to inspect.',
   };
 }

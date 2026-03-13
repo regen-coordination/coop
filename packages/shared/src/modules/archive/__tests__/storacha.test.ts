@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createStorachaArchiveClient,
-  requestArchiveDelegation,
+  issueArchiveDelegation,
   requestArchiveReceiptFilecoinInfo,
   uploadArchiveBundleToStoracha,
 } from '../storacha';
@@ -13,6 +13,7 @@ const storachaMocks = vi.hoisted(() => {
   const setCurrentSpace = vi.fn();
   const uploadFile = vi.fn();
   const filecoinInfo = vi.fn();
+  const createDelegation = vi.fn();
   const did = vi.fn(() => 'did:key:test-agent');
   const clientFactory = vi.fn(async () => ({
     did,
@@ -20,6 +21,7 @@ const storachaMocks = vi.hoisted(() => {
     addProof,
     setCurrentSpace,
     uploadFile,
+    createDelegation,
     capability: {
       filecoin: {
         info: filecoinInfo,
@@ -34,6 +36,7 @@ const storachaMocks = vi.hoisted(() => {
     setCurrentSpace,
     uploadFile,
     filecoinInfo,
+    createDelegation,
     validPieceCid,
     did,
     clientFactory,
@@ -50,68 +53,193 @@ vi.mock('@storacha/client/proof', () => ({
 }));
 
 describe('storacha archive helpers', () => {
+  const validAudienceDid = 'did:key:z6MkuTR1Q9bmw2iPVobJeEkUdMZkbGGcXK5KdYE8vKygUvGp';
+
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
   });
 
-  it('requests delegated archive material from a trusted issuer', async () => {
-    vi.mocked(global.fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({
+  it('issues trusted-node delegation from static config without a signer key', async () => {
+    const delegation = await issueArchiveDelegation({
+      request: {
+        audienceDid: validAudienceDid,
+        coopId: 'coop-1',
+        scope: 'artifact',
+        operation: 'upload',
+        artifactIds: ['artifact-1'],
+        actorAddress: '0x1111111111111111111111111111111111111111',
+        safeAddress: '0x2222222222222222222222222222222222222222',
+        chainKey: 'sepolia',
+      },
+      config: {
         spaceDid: 'did:key:space',
         delegationIssuer: 'trusted-node-demo',
         gatewayBaseUrl: 'https://storacha.link',
         spaceDelegation: 'space-proof',
         proofs: ['proof-a'],
-      }),
-    } as Response);
-
-    const delegation = await requestArchiveDelegation({
-      issuerUrl: 'https://issuer.example/archive',
-      issuerToken: 'issuer-token',
-      audienceDid: 'did:key:test-agent',
-      coopId: 'coop-1',
-      scope: 'artifact',
-      operation: 'upload',
-      artifactIds: ['artifact-1'],
-      actorAddress: '0x1111111111111111111111111111111111111111',
-      safeAddress: '0x2222222222222222222222222222222222222222',
-      chainKey: 'sepolia',
+        allowsFilecoinInfo: false,
+        expirationSeconds: 600,
+      },
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://issuer.example/archive',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          authorization: 'Bearer issuer-token',
-        }),
-      }),
-    );
     expect(delegation.spaceDid).toBe('did:key:space');
+    expect(delegation.delegationIssuer).toBe('trusted-node-demo');
     expect(delegation.proofs).toEqual(['proof-a']);
+    expect(delegation.allowsFilecoinInfo).toBe(false);
   });
 
-  it('fails clearly when the issuer responds with malformed material', async () => {
-    vi.mocked(global.fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        spaceDid: 'did:key:space',
-      }),
-    } as Response);
+  it('issues signer-backed trusted-node delegation with upload abilities', async () => {
+    storachaMocks.createDelegation.mockResolvedValue({
+      archive: async () => ({ ok: new Uint8Array([1, 2, 3, 4]) }),
+    });
 
-    await expect(
-      requestArchiveDelegation({
-        issuerUrl: 'https://issuer.example/archive',
-        audienceDid: 'did:key:test-agent',
+    const delegation = await issueArchiveDelegation({
+      request: {
+        audienceDid: validAudienceDid,
         coopId: 'coop-1',
         scope: 'artifact',
         operation: 'upload',
-        artifactIds: [],
-        pieceCids: [],
+        artifactIds: ['artifact-1'],
+        actorAddress: '0x1111111111111111111111111111111111111111',
+        safeAddress: '0x2222222222222222222222222222222222222222',
+        chainKey: 'sepolia',
+      },
+      config: {
+        agentPrivateKey: 'agent-private-key',
+        spaceDid: 'did:key:space',
+        delegationIssuer: 'trusted-node-demo',
+        gatewayBaseUrl: 'https://storacha.link',
+        spaceDelegation: 'space-proof',
+        proofs: ['proof-a', 'proof-b'],
+        allowsFilecoinInfo: true,
+        expirationSeconds: 600,
+      },
+      decodeSigner: () =>
+        ({
+          did: () => 'did:key:trusted-node',
+        }) as never,
+      createDelegationClient: async () =>
+        ({
+          addSpace: storachaMocks.addSpace,
+          addProof: storachaMocks.addProof,
+          setCurrentSpace: storachaMocks.setCurrentSpace,
+          createDelegation: storachaMocks.createDelegation,
+        }) as never,
+    });
+
+    expect(storachaMocks.parseProof).toHaveBeenCalledWith('space-proof');
+    expect(storachaMocks.parseProof).toHaveBeenCalledWith('proof-a');
+    expect(storachaMocks.parseProof).toHaveBeenCalledWith('proof-b');
+    expect(storachaMocks.setCurrentSpace).toHaveBeenCalledWith('did:key:space');
+    expect(storachaMocks.createDelegation).toHaveBeenCalledWith(
+      expect.anything(),
+      ['filecoin/offer', 'space/blob/add', 'space/index/add', 'upload/add', 'filecoin/info'],
+      expect.objectContaining({
+        expiration: expect.any(Number),
       }),
-    ).rejects.toThrow('Issuer returned malformed delegation material.');
+    );
+    expect(delegation.delegationIssuer).toBe('did:key:trusted-node');
+    expect(delegation.proofs).toEqual([]);
+    expect(delegation.allowsFilecoinInfo).toBe(true);
+  });
+
+  it('issues follow-up delegation with only filecoin/info ability', async () => {
+    const createDelegation = vi.fn().mockResolvedValue({
+      archive: async () => ({ ok: new Uint8Array([9, 9, 9]) }),
+    });
+
+    await issueArchiveDelegation({
+      request: {
+        audienceDid: validAudienceDid,
+        coopId: 'coop-1',
+        scope: 'artifact',
+        operation: 'follow-up',
+        artifactIds: ['artifact-1'],
+        actorAddress: '0x1111111111111111111111111111111111111111',
+        safeAddress: '0x2222222222222222222222222222222222222222',
+        chainKey: 'sepolia',
+        receiptId: 'receipt-1',
+        rootCid: 'bafyroot',
+        pieceCids: ['bafkpiece1'],
+      },
+      config: {
+        agentPrivateKey: 'agent-private-key',
+        spaceDid: 'did:key:space',
+        delegationIssuer: 'trusted-node-demo',
+        gatewayBaseUrl: 'https://storacha.link',
+        spaceDelegation: 'space-proof',
+        proofs: [],
+        allowsFilecoinInfo: false,
+        expirationSeconds: 600,
+      },
+      decodeSigner: () =>
+        ({
+          did: () => 'did:key:trusted-node',
+        }) as never,
+      createDelegationClient: async () =>
+        ({
+          addSpace: vi.fn(),
+          addProof: vi.fn(),
+          setCurrentSpace: vi.fn(),
+          createDelegation,
+        }) as never,
+    });
+
+    expect(createDelegation).toHaveBeenCalledWith(
+      expect.anything(),
+      ['filecoin/info'],
+      expect.objectContaining({
+        expiration: expect.any(Number),
+      }),
+    );
+  });
+
+  it('rejects static follow-up delegation when config does not allow filecoin info', async () => {
+    await expect(
+      issueArchiveDelegation({
+        request: {
+          audienceDid: validAudienceDid,
+          coopId: 'coop-1',
+          scope: 'artifact',
+          operation: 'follow-up',
+          artifactIds: ['artifact-1'],
+          receiptId: 'receipt-1',
+          rootCid: 'bafyroot',
+          pieceCids: ['bafkpiece1'],
+        },
+        config: {
+          spaceDid: 'did:key:space',
+          delegationIssuer: 'trusted-node-demo',
+          gatewayBaseUrl: 'https://storacha.link',
+          spaceDelegation: 'space-proof',
+          proofs: ['proof-a'],
+          allowsFilecoinInfo: false,
+          expirationSeconds: 600,
+        },
+      }),
+    ).rejects.toThrow('Static trusted-node archive config does not allow Filecoin info follow-up.');
+  });
+
+  it('fails clearly when trusted-node archive config is malformed', async () => {
+    await expect(
+      issueArchiveDelegation({
+        request: {
+          audienceDid: validAudienceDid,
+          coopId: 'coop-1',
+          scope: 'artifact',
+          operation: 'upload',
+          artifactIds: [],
+        },
+        config: {
+          delegationIssuer: 'trusted-node-demo',
+          gatewayBaseUrl: 'https://storacha.link',
+          spaceDelegation: 'space-proof',
+          proofs: [],
+          allowsFilecoinInfo: false,
+          expirationSeconds: 600,
+        } as never,
+      }),
+    ).rejects.toThrow();
   });
 
   it('uploads an archive bundle with delegated proofs and collects shard metadata', async () => {
@@ -159,8 +287,6 @@ describe('storacha archive helpers', () => {
       },
     });
 
-    expect(storachaMocks.parseProof).toHaveBeenCalledWith('space-proof');
-    expect(storachaMocks.parseProof).toHaveBeenCalledWith('proof-a');
     expect(storachaMocks.addSpace).toHaveBeenCalledTimes(1);
     expect(storachaMocks.addProof).toHaveBeenCalledTimes(2);
     expect(storachaMocks.setCurrentSpace).toHaveBeenCalledWith('did:key:space');
