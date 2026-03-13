@@ -72,7 +72,7 @@ This should start immediately after the hackathon-critical slice is stable:
 
 - real local model execution path
 - trusted-node or anchor runtime behavior
-- delegation issuer service for live archive upload
+- trusted-node local delegation for live archive upload
 - Filecoin lifecycle follow-up using piece-level info
 - richer identity envelopes and signed coop events
 
@@ -239,7 +239,7 @@ Make Filecoin long memory a visible Coop strength, not just a hidden receipt fie
 
 ### Near-Term Platform
 
-- build the minimal delegation issuer service for live upload
+- embed minimal trusted-node delegation in the extension for live upload
 - persist piece CIDs during upload
 - add follow-up job to call Storacha `filecoin/info`
 - surface proof or deal data in the UI when available

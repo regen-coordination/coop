@@ -1,172 +1,177 @@
 # Coop Testing And Validation
 
-Date: March 11, 2026
+Date: March 13, 2026
 
-## Goals
+This document tracks the validation entrypoints. The full operator flow, demo setup, and deploy
+steps live in [demo-and-deploy-runbook.md](/Users/afo/Code/regen-coordination/coop/docs/demo-and-deploy-runbook.md).
 
-The testing posture should protect the current v1 reality:
+## Core Commands
 
-- the landing page stays coherent on desktop and mobile
-- the extension core loop keeps working end to end
-- mock and live integrations stay clearly separated
-- Codex can run named suites without guessing which commands matter
-
-## Named Validation Commands
-
-List the available suites:
+List all suites:
 
 ```bash
 bun run validate list
 ```
 
-Fast confidence run:
+Fast confidence:
 
 ```bash
 bun run validate smoke
 ```
 
-Main extension workflow validation:
+Main extension workflow:
 
 ```bash
 bun run validate core-loop
 ```
 
-Receiver slice validation:
+Receiver slice:
 
 ```bash
 bun run validate receiver-slice
 ```
 
-Receiver hardening validation:
+Final pre-demo production slice:
 
 ```bash
-bun run validate receiver-hardening
+bun run validate production-readiness
 ```
 
-Board and archive-story validation:
+Opt-in live Smart Session rehearsal:
 
 ```bash
-bun run validate flow-board
+bun run validate session-key-live
 ```
 
-Arbitrum and Sepolia Safe validation:
+## What The Named Suites Cover
+
+- `smoke`: unit tests plus workspace build
+- `core-loop`: unit tests, build, then the two-profile extension flow
+- `receiver-slice`: unit tests, build, app shell checks, then pair + sync into extension intake
+- `receiver-hardening`: lint, unit tests, build, then receiver sync with the sidepanel closed
+- `flow-board`: targeted board/archive tests plus focused Playwright checks
+- `agent-loop`: trusted-node agent tests plus focused operator-console E2E
+- `production-readiness`: lint, build, targeted agent/onchain/session-key tests, extension E2E,
+  receiver sync E2E, agent-loop E2E, and mobile app coverage
+- `session-key-live`: lint, targeted onchain/session-key tests, build, then an opt-in live Smart
+  Session probe
+
+## Targeted Test Entry Points
+
+```bash
+bun run test:unit:onchain-config
+bun run test:unit:agent-loop
+bun run test:unit:session-key
+bun run test:e2e:extension
+bun run test:e2e:receiver-sync
+bun run test:e2e:agent-loop
+bun run test:e2e:app:mobile
+```
+
+## Local Safety Defaults
+
+Keep these defaults for normal local development:
+
+```bash
+VITE_COOP_CHAIN=sepolia
+VITE_COOP_ONCHAIN_MODE=mock
+VITE_COOP_ARCHIVE_MODE=mock
+VITE_COOP_SESSION_MODE=off
+```
+
+Local validation and demo env guidance should come from the repo-root `.env.local` and the
+runbook, not package-local env files.
+
+## Live Validation
+
+### Safe Probe
+
+Use this when validating Safe deployment without live archive or session-key execution:
 
 ```bash
 bun run validate arbitrum-safe-live
 ```
 
-Full local pass before demos or merges:
+Required env:
+
+- `VITE_PIMLICO_API_KEY`
+- `COOP_ONCHAIN_PROBE_PRIVATE_KEY`
+
+Optional:
+
+- `COOP_ONCHAIN_PROBE_CHAIN=arbitrum`
+
+### Session-Key Probe
+
+Use this when validating bounded Smart Session execution onchain:
 
 ```bash
-bun run validate full
+bun run validate session-key-live
 ```
 
-You can also run the underlying E2E suites directly:
+Required env:
 
-```bash
-bun run test:e2e:app
-bun run test:e2e:app:mobile
-bun run test:e2e:extension
-bun run test:e2e:receiver-sync
-```
+- `VITE_PIMLICO_API_KEY`
+- `COOP_SESSION_PROBE_PRIVATE_KEY`
 
-## What Each Suite Covers
+Optional:
 
-- `smoke`: unit tests plus workspace build
-- `landing`: desktop and mobile Playwright checks for the app
-- `core-loop`: unit tests, build, then the two-profile extension flow
-- `receiver-slice`: unit tests, build, app shell checks, then pair + sync into extension intake
-- `receiver-hardening`: lint, unit tests, build, then receiver sync with the sidepanel closed
-- `flow-board`: targeted board/archive unit tests, build, then focused Playwright checks for the board route and extension handoff
-- `arbitrum-safe-live`: lint, targeted onchain/config tests, build, then an optional Sepolia-first live Safe probe
-- `full`: lint, unit, build, landing E2E, extension E2E, and receiver sync E2E
+- `COOP_SESSION_PROBE_CHAIN=arbitrum`
 
-## Manual Validation Checklist
+This probe:
 
-Use this when validating the app and extension as a product, not just as code.
+- deploys or reuses a probe Safe
+- enables a bounded Smart Session
+- executes one allowed `green-goods-create-garden` action
+- confirms a disallowed action is rejected before send
+- revokes the session and confirms subsequent rejection
 
-1. Load the unpacked extension from `packages/extension/dist`.
-2. Create a coop in mock mode and confirm the Safe state renders.
-3. Generate a member invite and join from a second Chromium profile.
-4. Run manual round-up with a few meaningful tabs open.
-5. Edit at least one draft in the Roost and push it into shared memory.
-6. Confirm the second profile sees the published artifact in the Feed.
-7. Archive the latest artifact and export the latest receipt.
-8. Export the full snapshot and verify the file contents are legible.
-9. Change capture cadence and confirm alarms and status text update.
-10. Toggle sound preferences and confirm the test sound still works.
+## Manual Adversarial Gates
 
-## Negative-Path Validation
+Mirror these checks from the runbook before demos or production pushes.
 
-These are the failure modes worth checking over the next couple of days:
+### Create A Coop
 
-- remove tab or host permissions and confirm the runtime reports degraded health
-- break signaling and confirm the extension falls back to local-only messaging
-- run with no live archive issuer configured and confirm live mode fails loudly
-- test empty coop states so the sidepanel still feels intentional when there are no drafts or artifacts
+- Preset-specific copy renders correctly.
+- Friends, family, and personal never leak back to generic `community` language.
+- State badges and extension icon states match the real runtime state.
+- Onchain, archive, and session modes are visible in Settings.
 
-## Live Integration Matrix
+### Pair And Sync
 
-Keep mock and live validation separate.
+- A second profile can join and see published state.
+- Expired or inactive pairing fails clearly.
+- Missing signaling and sidepanel-closed sync fail safely.
+- Local-only fallback remains usable.
 
-All live onchain validation should assume this fixed chain pair:
+### Receiver Capture
 
-- `Arbitrum One` for production
-- `Ethereum Sepolia` for test and development
-- no live validation target on any additional chains
+- `/pair`, `/receiver`, and `/inbox` work on local and production origins.
+- QR, share, notifications, badges, and file export degrade gracefully.
+- Receiver bridge injection works on local and Vercel origins.
+- Wrong-member and expired-pairing envelopes are rejected.
 
-### Default Local Safety
+### Agent Loop
 
-- `VITE_COOP_CHAIN=sepolia`
-- `VITE_COOP_ONCHAIN_MODE=mock`
-- `VITE_COOP_ARCHIVE_MODE=mock`
+- Manual round-up, observation capture, plan generation, and draft creation stay legible.
+- Auto-run never bypasses action policy.
 
-This should stay the default path for CI and fast local validation.
+### Green Goods Session Keys
 
-### Live Onchain Only
+- Allowed session-key action succeeds.
+- Disallowed action is blocked before send.
+- Replay stays blocked.
+- Revoked, expired, or exhausted sessions are blocked.
+- Missing Safe, missing Pimlico, wrong chain, and missing session material surface actionable
+  errors.
 
-Use this when validating Safe creation without adding Storacha risk at the same time.
+### Publish, Archive, And Export
 
-- `VITE_COOP_CHAIN=sepolia`
-- `VITE_COOP_ONCHAIN_MODE=live`
-- `VITE_PIMLICO_API_KEY=...`
-- `VITE_COOP_ARCHIVE_MODE=mock`
+- Publish reaches Feed and the board route.
+- Archive receipts stay legible.
+- Export works with file picker or download fallback.
 
-`bun run validate arbitrum-safe-live` uses this Sepolia path by default and only runs a real deployment probe when both of these are exported:
+## Related Docs
 
-- `VITE_PIMLICO_API_KEY=...`
-- `COOP_ONCHAIN_PROBE_PRIVATE_KEY=...`
-
-Set `COOP_ONCHAIN_PROBE_CHAIN=arbitrum` only when you explicitly want to probe the production chain after Sepolia is already validated.
-
-### Live Archive Only
-
-Use this when validating archive delegation and upload independently.
-
-- `VITE_COOP_ONCHAIN_MODE=mock`
-- `VITE_COOP_ARCHIVE_MODE=live`
-- `VITE_STORACHA_ISSUER_URL=...`
-- optional `VITE_STORACHA_ISSUER_TOKEN=...`
-
-### Full Live Path
-
-Only run this after the two partial live modes are stable.
-
-- `VITE_COOP_CHAIN=arbitrum` or `VITE_COOP_CHAIN=sepolia`, depending on which path you are validating
-- `VITE_COOP_ONCHAIN_MODE=live`
-- `VITE_PIMLICO_API_KEY=...`
-- `VITE_COOP_ARCHIVE_MODE=live`
-- `VITE_STORACHA_ISSUER_URL=...`
-
-## Adding A New Named Suite
-
-Edit `scripts/validate.mjs` and add either:
-
-- a suite with direct `steps`
-- a suite with `includes` that composes existing suites
-
-After that, confirm the new suite appears in:
-
-```bash
-bun run validate list
-```
+- [demo-and-deploy-runbook.md](/Users/afo/Code/regen-coordination/coop/docs/demo-and-deploy-runbook.md)
+- [extension-install-and-distribution.md](/Users/afo/Code/regen-coordination/coop/docs/extension-install-and-distribution.md)

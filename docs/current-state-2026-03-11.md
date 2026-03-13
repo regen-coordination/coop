@@ -17,9 +17,9 @@ Coop has moved through three distinct scopes in under two weeks:
 
 1. The March 1 to March 3 architecture framed Coop as a broader browser-native coordination OS with four pillars, richer identity layers, hardware portability, and a larger long-term mesh model.
 2. The March 5 and March 10 discussions narrowed that into a hackathon MVP centered on passive browser capture, explicit review, shared memory, capital formation, and anchor-node-backed inference.
-3. The repo's current canonical `docs/coop-os-architecture-vnext.md` narrows v1 further: as of March 11, 2026, the extension is the real product surface and `packages/app` is intentionally just the landing page.
+3. The repo's current canonical `docs/coop-os-architecture-vnext.md` narrows v1 further: as of March 11, 2026, the extension is the real product surface and `packages/app` now carries both the landing page and the receiver PWA shell.
 
-The codebase matches the third scope better than the earlier docs. The main mismatch is that the March 9 draft still describes `PWA = receiver`, while the repo's locked v1 architecture now explicitly removes a separate mobile receiver route from scope.
+The codebase matches the third scope better than the earlier docs, but the dated notes now understate what shipped after March 11: the receiver PWA, board route, and bounded session-key work all exist in the current product slice.
 
 ## Completed
 
@@ -38,11 +38,11 @@ The codebase matches the third scope better than the earlier docs. The main mism
 
 ## Incomplete Or Stubbed
 
-- The app is not a receiver PWA. There is no pairing flow, no capture inbox, no voice capture, and no cross-device note flow.
+- The receiver PWA exists and supports pairing, capture, inbox review, and cross-device private intake sync. The remaining work is production hardening and demo polish, not first implementation.
 - The local enhancement path is still heuristic-first. WebLLM or any other real local model execution is not implemented.
 - Trusted-node capability is mostly conceptual. The code distinguishes roles, but there is not yet a stronger operational anchor runtime beyond env-gated live integrations.
 - Green Goods garden binding is not implemented and remains intentionally deferred until after the Arbitrum/Sepolia Safe path is stable.
-- Archive upload delegation assumes an external issuer service in live mode. That service is not part of this repo.
+- Archive upload delegation now runs inside trusted extension nodes in live mode and no longer depends on an external issuer service.
 - Filecoin lifecycle tracking stops at receipt creation. Follow-up indexing or seal-status refresh is not implemented.
 - Review ritual support exists only as grouped read views. There is no explicit weekly ritual scheduler, facilitator flow, or meeting-mode review surface.
 - The identity model is simpler than the earliest architecture. Per-coop DID, signed CRDT envelopes, and richer transport/member/co-op identity separation are not in the current implementation.
@@ -52,8 +52,7 @@ The codebase matches the third scope better than the earlier docs. The main mism
 
 These items appear in earlier discussions, but the repo's locked v1 architecture now excludes them:
 
-- Mobile receiver shell
-- Mobile voice capture
+- Broader mobile-native surfaces beyond the current receiver PWA shell
 - Transcript capture on mobile
 - Local file or folder ingest
 - PDF library ingest
@@ -62,14 +61,14 @@ These items appear in earlier discussions, but the repo's locked v1 architecture
 - Full Green Goods garden binding
 - Built-in API-key cloud LLM integrations
 - Autonomous agent execution
-- Session-key transaction flows
+- Open-ended session-key transaction flows outside the bounded Green Goods scope
 - End-user skill management UI
 
 The March 5 notes also explicitly removed Telegram and Bluesky from immediate hackathon scope. The March 10 notes keep those ideas alive as later trusted-node capabilities, but they are not part of the current build plan.
 
 ## Current App State
 
-`packages/app` is a polished landing and onboarding surface, not an operational runtime.
+`packages/app` is a polished landing and onboarding surface plus the receiver PWA and board runtime.
 
 What it does well:
 
@@ -78,13 +77,11 @@ What it does well:
 - works on desktop and mobile layouts
 - matches the locked v1 narrative in the architecture
 
-What it does not do yet:
+What it still does not do yet:
 
-- install as a real receiver PWA
-- capture voice or notes
-- pair with the extension
-- reflect live coop state
-- host a review inbox or member dashboard
+- host the full extension-side review workflow
+- replace the extension as the primary trusted-node surface
+- act as the general member dashboard for every coop workflow
 
 ## Current Extension State
 
@@ -125,7 +122,7 @@ Focus on the extension path that already exists instead of expanding surfaces ag
 Run the current mock loop until it is boring, then validate live edges one at a time.
 
 - Live Safe creation on Arbitrum with Sepolia as the test path, and narrow the runtime to those two chain targets only.
-- Live Storacha delegation and upload against a working issuer.
+- Live Storacha delegation and upload against a provisioned trusted extension node.
 - Stable signaling for multi-profile sync outside the local demo environment.
 
 ### Phase 3: Add Just Enough Genericization

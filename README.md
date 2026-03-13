@@ -94,6 +94,7 @@ At the `src` level, the repo now follows a more modular layout:
 - [docs/coop-os-architecture-vnext.md](docs/coop-os-architecture-vnext.md) — canonical Coop v1 build plan
 - [docs/coop-design-direction.md](docs/coop-design-direction.md) — initial visual direction, palette, and asset usage guide
 - [docs/coop-audio-and-asset-ops.md](docs/coop-audio-and-asset-ops.md) — audio sourcing, licensing, naming, and asset handoff guide
+- [docs/extension-install-and-distribution.md](docs/extension-install-and-distribution.md) — local testing install flow, early-access website distribution, and Chrome Web Store rollout
 - [docs/meeting-followups-2026-03-10.md](docs/meeting-followups-2026-03-10.md) — relevant Build 1 follow-ups distilled from the March 10, 2026 meeting notes
 - [docs/current-state-2026-03-11.md](docs/current-state-2026-03-11.md) — implementation review against the March architecture drafts and meeting notes
 - [docs/scoped-roadmap-2026-03-11.md](docs/scoped-roadmap-2026-03-11.md) — phased plan for receiver PWA, Arbitrum, Filecoin, visual flow, and agentic extensions
@@ -151,7 +152,7 @@ Create `packages/extension/.env.local` from the example file and fill in the val
 - `VITE_COOP_ONCHAIN_MODE` selects `mock` or `live`
 - `VITE_COOP_SIGNALING_URLS` is a comma-separated list of WebSocket signaling endpoints
 - `VITE_COOP_ARCHIVE_MODE` selects `mock` or `live`
-- `VITE_STORACHA_ISSUER_URL` points at the trusted-node delegation issuer for Storacha uploads
+- `VITE_COOP_TRUSTED_NODE_ARCHIVE_*` bootstraps local trusted-node archive delegation config into the extension
 - leave `VITE_COOP_CHAIN` unset or set it to `sepolia` for the default test and development path
 - set `VITE_COOP_CHAIN=arbitrum` only when you explicitly want the production chain target
 - `bun run validate arbitrum-safe-live` runs non-live checks by default and only attempts a real Sepolia Safe deployment when `VITE_PIMLICO_API_KEY` and `COOP_ONCHAIN_PROBE_PRIVATE_KEY` are exported
