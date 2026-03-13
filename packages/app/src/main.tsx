@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { RootApp } from './app';
 import { bootstrapCoopBoardHandoff } from './board-handoff';
 import { bootstrapReceiverPairingHandoff } from './pairing-handoff';
+import { bootstrapReceiverShareHandoff } from './share-handoff';
 import './styles.css';
 
 const rootElement = document.getElementById('root');
@@ -19,12 +20,14 @@ if ('serviceWorker' in navigator) {
 
 const initialPairingInput = bootstrapReceiverPairingHandoff(window);
 const initialBoardSnapshot = bootstrapCoopBoardHandoff(window);
+const initialShareInput = bootstrapReceiverShareHandoff(window);
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <RootApp
       initialBoardSnapshot={initialBoardSnapshot}
       initialPairingInput={initialPairingInput}
+      initialShareInput={initialShareInput}
     />
   </React.StrictMode>,
 );

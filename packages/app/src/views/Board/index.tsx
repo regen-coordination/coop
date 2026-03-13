@@ -25,6 +25,23 @@ const nodeTypes = {
   coopBoardNode: CoopBoardNodeCard,
 };
 
+function formatSavedProofScope(scope: 'artifact' | 'snapshot') {
+  return scope === 'snapshot' ? 'Coop snapshot' : 'Shared find';
+}
+
+function formatSavedProofStatus(status: 'pending' | 'offered' | 'indexed' | 'sealed') {
+  switch (status) {
+    case 'pending':
+      return 'Waiting';
+    case 'offered':
+      return 'Saved';
+    case 'indexed':
+      return 'Tracked';
+    case 'sealed':
+      return 'Deep saved';
+  }
+}
+
 function edgeStyle(kind: string) {
   switch (kind) {
     case 'captured-by':
@@ -226,7 +243,7 @@ export function BoardView({
           </div>
           <section className="board-relationship-card" aria-label="Relationship trail">
             <div className="board-relationship-header">
-              <p className="eyebrow">Relationship trail</p>
+              <p className="eyebrow">Coop trail</p>
               <span>{edgeTrail.length} links</span>
             </div>
             <div className="board-relationship-list">
@@ -246,17 +263,17 @@ export function BoardView({
 
         <aside className="board-sidebar">
           <section className="board-sidebar-card">
-            <p className="eyebrow">Archive story</p>
-            <h2>Storacha / Filecoin trail</h2>
+            <p className="eyebrow">Saved trail</p>
+            <h2>Saved proof trail</h2>
             <p>{archiveStory.snapshotSummary}</p>
             <div className="board-story-stats">
               <div>
                 <strong>{archiveStory.archivedArtifactCount}</strong>
-                <span>archived artifacts</span>
+                <span>saved finds</span>
               </div>
               <div>
                 <strong>{archiveStory.archiveWorthyArtifactCount}</strong>
-                <span>flagged for archive</span>
+                <span>marked worth saving</span>
               </div>
             </div>
             {archiveStory.latestSnapshotReceipt ? (
@@ -269,32 +286,32 @@ export function BoardView({
                   rel="noreferrer"
                   target="_blank"
                 >
-                  Inspect snapshot bundle
+                  Open saved snapshot
                 </a>
               </div>
             ) : (
               <div className="empty-state">
-                No coop snapshot receipt yet. Archive one from the extension.
+                No coop snapshot proof yet. Save one from the extension.
               </div>
             )}
           </section>
 
           <section className="board-sidebar-card">
-            <p className="eyebrow">Archive receipts</p>
-            <h2>What was archived</h2>
+            <p className="eyebrow">Saved proof</p>
+            <h2>What the coop kept</h2>
             <div className="board-receipt-list">
               {receiptDetails.map((detail) => (
                 <article className="board-receipt-card" key={detail.id}>
                   <div className="badge-row">
-                    <span className="badge">{detail.scope}</span>
-                    <span className="badge">{detail.filecoinStatus}</span>
+                    <span className="badge">{formatSavedProofScope(detail.scope)}</span>
+                    <span className="badge">{formatSavedProofStatus(detail.filecoinStatus)}</span>
                   </div>
                   <strong>{detail.title}</strong>
                   <div className="coop-board-subtitle">{detail.purpose}</div>
                   <p>{detail.summary}</p>
                   <dl className="board-receipt-grid">
                     <div>
-                      <dt>Gateway</dt>
+                      <dt>Open</dt>
                       <dd>
                         <a
                           className="source-link"
@@ -302,16 +319,16 @@ export function BoardView({
                           rel="noreferrer"
                           target="_blank"
                         >
-                          Inspect bundle
+                          Open saved bundle
                         </a>
                       </dd>
                     </div>
                     <div>
-                      <dt>Root CID</dt>
+                      <dt>Save ID</dt>
                       <dd>{detail.rootCid}</dd>
                     </div>
                     <div>
-                      <dt>Archived</dt>
+                      <dt>Saved</dt>
                       <dd>{new Date(detail.uploadedAt).toLocaleString()}</dd>
                     </div>
                     <div>
@@ -323,7 +340,7 @@ export function BoardView({
               ))}
               {receiptDetails.length === 0 ? (
                 <div className="empty-state">
-                  Archive receipts appear here once the extension preserves an artifact or snapshot.
+                  Saved proof appears here once the extension keeps a find or snapshot.
                 </div>
               ) : null}
             </div>

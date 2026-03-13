@@ -458,7 +458,7 @@ pre {
 }
 
 .receiver-shell {
-  padding-bottom: 3rem;
+  padding-bottom: calc(6.75rem + env(safe-area-inset-bottom));
 }
 
 .receiver-topbar,
@@ -471,16 +471,29 @@ pre {
 
 .receiver-topbar {
   padding-top: 1rem;
+  padding-bottom: 0.35rem;
 }
 
 .receiver-wordmark-link {
   display: inline-flex;
 }
 
+.receiver-brand-lockup {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.receiver-tagline {
+  margin: 0;
+  color: var(--coop-brown-soft);
+  font-size: 0.94rem;
+}
+
 .receiver-main {
   display: grid;
   gap: 1.2rem;
-  padding-top: 2rem;
+  padding-top: 1.4rem;
+  padding-bottom: 1rem;
 }
 
 .receiver-status-bar,
@@ -712,6 +725,43 @@ audio {
 
 audio {
   min-height: 3rem;
+}
+
+.receiver-appbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 24;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  padding: 0.75rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(79, 46, 31, 0.12);
+  background: rgba(255, 252, 249, 0.94);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 -14px 36px rgba(79, 46, 31, 0.08);
+}
+
+.receiver-appbar-link {
+  display: grid;
+  justify-items: center;
+  gap: 0.34rem;
+  padding: 0.55rem 0.45rem;
+  border-radius: 20px;
+  color: var(--coop-brown-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.receiver-appbar-link.is-active {
+  background: rgba(90, 125, 16, 0.12);
+  color: var(--coop-brown);
+}
+
+.receiver-appbar-icon {
+  width: 1.55rem;
+  height: 1.55rem;
 }
 
 @keyframes egg-pulse {

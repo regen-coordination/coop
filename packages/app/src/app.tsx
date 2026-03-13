@@ -13,9 +13,11 @@ import {
   createCoopDb,
   createReceiverCapture,
   createReceiverDeviceIdentity,
+  createReceiverLinkCapture,
   createReceiverSyncDoc,
   createReceiverSyncEnvelope,
   createReceiverSyncRelayCaptureFrame,
+  detectBrowserUxCapabilities,
   getActiveReceiverPairing,
   getReceiverCapture,
   getReceiverCaptureBlob,
@@ -40,6 +42,7 @@ import {
   upsertReceiverSyncEnvelope,
 } from '@coop/shared';
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
+import type { ReceiverShareHandoff } from './share-handoff';
 import { BoardView } from './views/Board';
 import { App as LandingPage } from './views/Landing';
 
@@ -64,10 +67,129 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 };
 
+type NavigatorWithUx = Navigator & {
+  share?: (data: ShareData) => Promise<void>;
+  canShare?: (data: ShareData) => boolean;
+  setAppBadge?: (contents?: number) => Promise<void>;
+  clearAppBadge?: () => Promise<void>;
+};
+
+type BarcodeDetectorLike = {
+  detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>>;
+};
+
+type GlobalWithBarcodeDetector = typeof globalThis & {
+  BarcodeDetector?: new (options?: { formats?: string[] }) => BarcodeDetectorLike;
+};
+
+const receiverNotificationSettingKey = 'receiver-notifications-enabled';
+
 type DirectReceiverSyncResult =
   | { status: 'unavailable' }
   | { status: 'attempted' }
   | { status: 'error'; error: string };
+
+type ReceiverNavKind = Extract<RoutePath['kind'], 'pair' | 'receiver' | 'inbox'>;
+
+type ReceiverAppBarIconProps = {
+  active: boolean;
+};
+
+function ReceiverPairIcon({ active }: ReceiverAppBarIconProps) {
+  return (
+    <svg aria-hidden="true" className="receiver-appbar-icon" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M8.2 9.2 6.4 11a3.4 3.4 0 0 0 4.8 4.8l1.8-1.8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="m15.8 14.8 1.8-1.8A3.4 3.4 0 1 0 12.8 8.2L11 10"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="m9.8 14.2 4.4-4.4"
+        stroke={active ? 'var(--coop-orange)' : 'currentColor'}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function ReceiverCaptureIcon({ active }: ReceiverAppBarIconProps) {
+  return (
+    <svg aria-hidden="true" className="receiver-appbar-icon" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M12 4.8c-2.9 0-5.3 2.4-5.3 5.4 0 4 3.8 7.1 5.3 8.2 1.5-1.1 5.3-4.2 5.3-8.2 0-3-2.4-5.4-5.3-5.4Z"
+        fill={active ? 'rgba(253, 138, 1, 0.18)' : 'rgba(79, 46, 31, 0.06)'}
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
+      <circle cx="12" cy="10.8" fill={active ? 'var(--coop-orange)' : 'currentColor'} r="1.5" />
+    </svg>
+  );
+}
+
+function ReceiverInboxIcon({ active }: ReceiverAppBarIconProps) {
+  return (
+    <svg aria-hidden="true" className="receiver-appbar-icon" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M4.8 10.2h14.4l1.2 6.7a1.8 1.8 0 0 1-1.8 2.1H5.4a1.8 1.8 0 0 1-1.8-2.1l1.2-6.7Z"
+        fill={active ? 'rgba(90, 125, 16, 0.16)' : 'rgba(79, 46, 31, 0.05)'}
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M7 10.2c.8-2 2.4-3.2 5-3.2s4.2 1.2 5 3.2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M9.2 13.2h5.6"
+        stroke={active ? 'var(--coop-green)' : 'currentColor'}
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+const receiverNavItems: Array<{
+  kind: ReceiverNavKind;
+  href: '/pair' | '/receiver' | '/inbox';
+  label: string;
+  Icon: ({ active }: ReceiverAppBarIconProps) => JSX.Element;
+}> = [
+  {
+    kind: 'pair',
+    href: '/pair',
+    label: 'Mate',
+    Icon: ReceiverPairIcon,
+  },
+  {
+    kind: 'receiver',
+    href: '/receiver',
+    label: 'Hatch',
+    Icon: ReceiverCaptureIcon,
+  },
+  {
+    kind: 'inbox',
+    href: '/inbox',
+    label: 'Roost',
+    Icon: ReceiverInboxIcon,
+  },
+];
 
 function createPreviewUrl(blob: Blob) {
   return typeof URL.createObjectURL === 'function' ? URL.createObjectURL(blob) : undefined;
@@ -137,7 +259,45 @@ function pairingStatusLabel(status?: ReturnType<typeof getReceiverPairingStatus>
 }
 
 function oldPairingRetryMessage() {
-  return 'This nest item belongs to an older pairing. Re-open that pairing or capture it again under the current one.';
+  return 'This roost item belongs to an older nest code. Open that code again or hatch it under the current one.';
+}
+
+function receiverItemLabel(kind: ReceiverCapture['kind']) {
+  switch (kind) {
+    case 'audio':
+      return 'Voice chick';
+    case 'photo':
+      return 'Photo chick';
+    case 'file':
+      return 'File chick';
+    case 'link':
+      return 'Link chick';
+  }
+}
+
+function receiverPreviewLabel(kind: ReceiverCapture['kind']) {
+  switch (kind) {
+    case 'audio':
+      return 'Chick';
+    case 'photo':
+      return 'Feather';
+    case 'file':
+      return 'Twig';
+    case 'link':
+      return 'Trail';
+  }
+}
+
+async function getReceiverNotificationsEnabled() {
+  const record = await receiverDb.settings.get(receiverNotificationSettingKey);
+  return record?.value === true;
+}
+
+async function setReceiverNotificationsEnabled(value: boolean) {
+  await receiverDb.settings.put({
+    key: receiverNotificationSettingKey,
+    value,
+  });
 }
 
 async function materializeCaptureCards() {
@@ -237,10 +397,13 @@ export async function resetReceiverDb() {
 export function RootApp({
   initialPairingInput,
   initialBoardSnapshot,
+  initialShareInput,
 }: {
   initialPairingInput?: string | null;
   initialBoardSnapshot?: CoopBoardSnapshot | null;
+  initialShareInput?: ReceiverShareHandoff | null;
 } = {}) {
+  const browserUxCapabilities = detectBrowserUxCapabilities(globalThis);
   const [route, setRoute] = useState<RoutePath>(() => resolveRoute(window.location.pathname));
   const [boardSnapshot] = useState<CoopBoardSnapshot | null>(initialBoardSnapshot ?? null);
   const [bridgeOptimizationDisabled] = useState(
@@ -257,8 +420,15 @@ export function RootApp({
   const [hatchedCaptureId, setHatchedCaptureId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [receiverNotificationsEnabled, setReceiverNotificationsEnabledState] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState(() =>
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
+  );
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [qrScanError, setQrScanError] = useState('');
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const qrVideoRef = useRef<HTMLVideoElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderStreamRef = useRef<MediaStream | null>(null);
   const recorderChunksRef = useRef<Blob[]>([]);
@@ -278,6 +448,17 @@ export function RootApp({
   const isMountedRef = useRef(false);
   const pairingRef = useRef<ReceiverPairingRecord | null>(null);
   const initialPairingHandoffRef = useRef<string | null>(initialPairingInput ?? null);
+  const initialShareHandoffRef = useRef<ReceiverShareHandoff | null>(initialShareInput ?? null);
+  const qrStreamRef = useRef<MediaStream | null>(null);
+  const qrScanTimerRef = useRef<number | null>(null);
+  const notifiedFailureIdsRef = useRef<Set<string>>(new Set());
+  const pairingNotificationRef = useRef<{
+    pairingId: string | null;
+    lastSyncedAt?: string;
+  }>({
+    pairingId: null,
+    lastSyncedAt: undefined,
+  });
 
   const pairedNestLabel = pairing
     ? `${pairing.coopDisplayName} · ${pairing.memberDisplayName}`
@@ -290,10 +471,11 @@ export function RootApp({
   const pairingStatus = pairing ? getReceiverPairingStatus(pairing) : null;
 
   const refreshLocalState = useCallback(async () => {
-    const [nextPairing, nextDevice, nextCards] = await Promise.all([
+    const [nextPairing, nextDevice, nextCards, nextNotificationsEnabled] = await Promise.all([
       getActiveReceiverPairing(receiverDb),
       getReceiverDeviceIdentity(receiverDb),
       materializeCaptureCards(),
+      getReceiverNotificationsEnabled(),
     ]);
 
     if (!isMountedRef.current) {
@@ -305,6 +487,10 @@ export function RootApp({
 
     setPairing(nextPairing);
     setDeviceIdentity(nextDevice);
+    setReceiverNotificationsEnabledState(nextNotificationsEnabled);
+    if (typeof Notification !== 'undefined') {
+      setNotificationPermission(Notification.permission);
+    }
     setCaptures((current) => {
       for (const card of current) {
         revokePreviewUrl(card.previewUrl);
@@ -345,6 +531,66 @@ export function RootApp({
     }
     return created;
   }, [deviceIdentity]);
+
+  const notifyReceiverEvent = useCallback(
+    async (title: string, body: string, tag: string) => {
+      if (
+        !receiverNotificationsEnabled ||
+        typeof Notification === 'undefined' ||
+        Notification.permission !== 'granted'
+      ) {
+        return;
+      }
+
+      try {
+        new Notification(title, {
+          body,
+          tag,
+        });
+      } catch {
+        // Notifications are optional.
+      }
+    },
+    [receiverNotificationsEnabled],
+  );
+
+  const setReceiverNotificationPreference = useCallback(async (enabled: boolean) => {
+    if (enabled && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission !== 'granted') {
+        setMessage('Notifications stay off until the browser grants permission.');
+        await setReceiverNotificationsEnabled(false);
+        setReceiverNotificationsEnabledState(false);
+        return;
+      }
+    }
+
+    await setReceiverNotificationsEnabled(enabled);
+    setReceiverNotificationsEnabledState(enabled);
+    if (typeof Notification !== 'undefined') {
+      setNotificationPermission(Notification.permission);
+    }
+    setMessage(enabled ? 'Receiver notifications enabled.' : 'Receiver notifications disabled.');
+  }, []);
+
+  const stopQrScanner = useCallback(() => {
+    if (qrScanTimerRef.current) {
+      window.clearInterval(qrScanTimerRef.current);
+      qrScanTimerRef.current = null;
+    }
+    const stream = qrStreamRef.current;
+    if (stream) {
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+      qrStreamRef.current = null;
+    }
+    if (qrVideoRef.current) {
+      qrVideoRef.current.srcObject = null;
+    }
+    setIsQrScannerOpen(false);
+  }, []);
 
   const applyRemoteCaptureSync = useCallback(
     async (nextCapture: ReceiverCapture) => {
@@ -579,14 +825,14 @@ export function RootApp({
           usablePairing
             ? 'Nest item saved locally and queued for sync.'
             : activePairingStatus?.status === 'expired'
-              ? 'Nest item saved locally. The current pairing has expired, so it stayed local until you accept a fresh pairing.'
+              ? 'Nest item saved locally. The current nest code expired, so it stayed local until you join with a fresh one.'
               : activePairingStatus?.status === 'invalid'
-                ? 'Nest item saved locally. The current pairing is invalid, so it stayed local until you accept a fresh pairing.'
+                ? 'Nest item saved locally. The current nest code is invalid, so it stayed local until you join with a fresh one.'
                 : activePairingStatus?.status === 'missing-signaling'
-                  ? 'Nest item saved locally. This pairing has no usable signaling URLs, so sync is blocked until signaling is configured.'
+                  ? 'Nest item saved locally. This nest code has no usable signaling path yet, so sync is blocked for now.'
                   : activePairingStatus?.status === 'inactive'
-                    ? 'Nest item saved locally. This pairing is inactive, so it stayed local until you reactivate or replace it.'
-                    : 'Nest item saved locally. Pair this receiver when you are ready to sync.',
+                    ? 'Nest item saved locally. This nest code is inactive, so it stayed local until you reactivate or replace it.'
+                    : 'Nest item saved locally. Mate with a coop when you are ready to sync.',
         );
         await refreshLocalState();
         if (usablePairing) {
@@ -595,6 +841,44 @@ export function RootApp({
       } catch (error) {
         if (isMountedRef.current) {
           setMessage(error instanceof Error ? error.message : 'Could not save this nest item.');
+        }
+      }
+    },
+    [ensureDeviceIdentity, reconcilePairing, refreshLocalState],
+  );
+
+  const stashSharedLink = useCallback(
+    async (input: ReceiverShareHandoff) => {
+      try {
+        const device = await ensureDeviceIdentity();
+        const activePairing = pairingRef.current ?? (await getActiveReceiverPairing(receiverDb));
+        const activePairingStatus = activePairing ? getReceiverPairingStatus(activePairing) : null;
+        const usablePairing = activePairingStatus?.status === 'ready' ? activePairing : null;
+        const { capture, blob } = createReceiverLinkCapture({
+          deviceId: device.id,
+          title: input.title,
+          note: input.note,
+          sourceUrl: input.sourceUrl,
+          pairing: usablePairing,
+        });
+
+        await saveReceiverCapture(receiverDb, capture, blob);
+        if (!isMountedRef.current) {
+          return;
+        }
+        setHatchedCaptureId(capture.id);
+        setMessage(
+          usablePairing
+            ? 'Shared link saved locally and queued for sync.'
+            : 'Shared link saved locally. Mate with a coop when you are ready to sync it.',
+        );
+        await refreshLocalState();
+        if (usablePairing) {
+          await reconcilePairing();
+        }
+      } catch (error) {
+        if (isMountedRef.current) {
+          setMessage(error instanceof Error ? error.message : 'Could not save the shared link.');
         }
       }
     },
@@ -610,14 +894,66 @@ export function RootApp({
       setPendingPairing(payload);
       setPairingInput('');
       setPairingError('');
-      setMessage('Review the pairing details, then confirm this receiver.');
+      setMessage('Check the nest code, then join this coop.');
     } catch (error) {
       if (isMountedRef.current) {
         setPendingPairing(null);
-        setPairingError(error instanceof Error ? error.message : 'Could not parse the pairing.');
+        setPairingError(error instanceof Error ? error.message : 'Could not read that nest code.');
       }
     }
   }, []);
+
+  const startQrScanner = useCallback(async () => {
+    if (!browserUxCapabilities.canScanQr || !navigator.mediaDevices?.getUserMedia) {
+      setQrScanError('QR scanning is not supported in this browser yet.');
+      return;
+    }
+
+    const BarcodeDetectorCtor = (globalThis as GlobalWithBarcodeDetector).BarcodeDetector;
+    if (!BarcodeDetectorCtor) {
+      setQrScanError('QR scanning is not supported in this browser yet.');
+      return;
+    }
+
+    stopQrScanner();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+        },
+      });
+      qrStreamRef.current = stream;
+      setQrScanError('');
+      setIsQrScannerOpen(true);
+
+      const detector = new BarcodeDetectorCtor({
+        formats: ['qr_code'],
+      });
+
+      qrScanTimerRef.current = window.setInterval(() => {
+        void (async () => {
+          const video = qrVideoRef.current;
+          if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+            return;
+          }
+          const matches = await detector.detect(video);
+          const payload = matches[0]?.rawValue?.trim();
+          if (!payload) {
+            return;
+          }
+          stopQrScanner();
+          setPairingInput(payload);
+          reviewPairing(payload);
+        })().catch(() => undefined);
+      }, 500);
+    } catch (error) {
+      stopQrScanner();
+      setQrScanError(
+        error instanceof Error ? error.message : 'Could not access the camera for QR scanning.',
+      );
+    }
+  }, [browserUxCapabilities.canScanQr, reviewPairing, stopQrScanner]);
 
   const confirmPairing = useCallback(async () => {
     if (!pendingPairing) {
@@ -626,7 +962,7 @@ export function RootApp({
 
     try {
       if (isReceiverPairingExpired(pendingPairing)) {
-        throw new Error('Receiver pairing payload has expired.');
+        throw new Error('This nest code has expired.');
       }
       const nextPairing = toReceiverPairingRecord(pendingPairing, nowIso());
       const nextPairingStatus = getReceiverPairingStatus(nextPairing);
@@ -643,13 +979,18 @@ export function RootApp({
           : nextPairingStatus.message,
       );
       await refreshLocalState();
+      await notifyReceiverEvent(
+        'Receiver paired',
+        `${pendingPairing.coopDisplayName} is ready for private intake sync.`,
+        `receiver-pairing-${nextPairing.pairingId}`,
+      );
       navigate('/receiver');
     } catch (error) {
       if (isMountedRef.current) {
-        setPairingError(error instanceof Error ? error.message : 'Could not accept the pairing.');
+        setPairingError(error instanceof Error ? error.message : 'Could not join this coop.');
       }
     }
-  }, [navigate, pendingPairing, refreshLocalState]);
+  }, [navigate, notifyReceiverEvent, pendingPairing, refreshLocalState]);
 
   const retrySync = useCallback(
     async (captureId: string) => {
@@ -825,6 +1166,79 @@ export function RootApp({
     [stashCapture],
   );
 
+  const shareCapture = useCallback(async (card: CaptureCard) => {
+    const shareNavigator = navigator as NavigatorWithUx;
+    if (!shareNavigator.share) {
+      setMessage('Web Share is not available in this browser.');
+      return;
+    }
+
+    try {
+      if (card.capture.kind === 'link') {
+        await shareNavigator.share({
+          title: card.capture.title,
+          text: card.capture.note || card.capture.sourceUrl || card.capture.title,
+          url: card.capture.sourceUrl,
+        });
+        return;
+      }
+
+      const blob = await getReceiverCaptureBlob(receiverDb, card.capture.id);
+      if (!blob) {
+        throw new Error('Missing local capture blob.');
+      }
+
+      const file = new File([blob], card.capture.fileName ?? card.capture.title, {
+        type: card.capture.mimeType,
+      });
+      const shareData = {
+        title: card.capture.title,
+        text: card.capture.note || card.capture.title,
+        files: [file],
+      } satisfies ShareData;
+
+      if (shareNavigator.canShare && !shareNavigator.canShare(shareData)) {
+        throw new Error('This browser can share links here, but not local files.');
+      }
+
+      await shareNavigator.share(shareData);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not share this nest item.');
+    }
+  }, []);
+
+  const copyCaptureLink = useCallback(async (capture: ReceiverCapture) => {
+    if (!capture.sourceUrl) {
+      setMessage('No source link is available for this capture.');
+      return;
+    }
+    if (!navigator.clipboard?.writeText) {
+      setMessage('Clipboard access is unavailable in this browser.');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(capture.sourceUrl);
+      setMessage('Link copied to the clipboard.');
+    } catch {
+      setMessage('Could not copy the link.');
+    }
+  }, []);
+
+  const downloadCapture = useCallback(async (card: CaptureCard) => {
+    if (!card.previewUrl) {
+      setMessage('This nest item is missing its local preview.');
+      return;
+    }
+
+    const anchor = document.createElement('a');
+    anchor.href = card.previewUrl;
+    anchor.download =
+      card.capture.fileName ??
+      `${card.capture.title.toLowerCase().replace(/[^a-z0-9]+/giu, '-') || 'coop-capture'}`;
+    anchor.click();
+  }, []);
+
   const installApp = useCallback(async () => {
     if (!installPrompt) {
       return;
@@ -881,6 +1295,16 @@ export function RootApp({
     initialPairingHandoffRef.current = null;
     void reviewPairing(handoff);
   }, [reviewPairing, route]);
+
+  useEffect(() => {
+    if (route.kind !== 'receiver' || !initialShareHandoffRef.current) {
+      return;
+    }
+
+    const handoff = initialShareHandoffRef.current;
+    initialShareHandoffRef.current = null;
+    void stashSharedLink(handoff);
+  }, [route, stashSharedLink]);
 
   useEffect(() => {
     for (const card of captures) {
@@ -969,6 +1393,88 @@ export function RootApp({
   }, [pairingId, reconcilePairing]);
 
   useEffect(() => {
+    if (!isQrScannerOpen || !qrStreamRef.current || !qrVideoRef.current) {
+      return;
+    }
+
+    qrVideoRef.current.srcObject = qrStreamRef.current;
+    void qrVideoRef.current.play().catch(() => undefined);
+  }, [isQrScannerOpen]);
+
+  useEffect(() => {
+    if (route.kind !== 'pair' && isQrScannerOpen) {
+      stopQrScanner();
+    }
+  }, [isQrScannerOpen, route.kind, stopQrScanner]);
+
+  useEffect(() => {
+    const previous = pairingNotificationRef.current;
+    if (pairing?.pairingId !== previous.pairingId) {
+      pairingNotificationRef.current = {
+        pairingId: pairing?.pairingId ?? null,
+        lastSyncedAt: pairing?.lastSyncedAt,
+      };
+      return;
+    }
+
+    if (pairing?.pairingId && pairing.lastSyncedAt && !previous.lastSyncedAt) {
+      void notifyReceiverEvent(
+        'Receiver synced',
+        `First sync into ${pairing.coopDisplayName} completed.`,
+        `receiver-first-sync-${pairing.pairingId}`,
+      );
+    }
+
+    pairingNotificationRef.current = {
+      pairingId: pairing?.pairingId ?? null,
+      lastSyncedAt: pairing?.lastSyncedAt,
+    };
+  }, [notifyReceiverEvent, pairing?.coopDisplayName, pairing?.lastSyncedAt, pairing?.pairingId]);
+
+  useEffect(() => {
+    const nextFailedIds = new Set(
+      captures.filter((card) => card.capture.syncState === 'failed').map((card) => card.capture.id),
+    );
+
+    for (const card of captures) {
+      if (
+        card.capture.syncState === 'failed' &&
+        !notifiedFailureIdsRef.current.has(card.capture.id)
+      ) {
+        void notifyReceiverEvent(
+          'Receiver sync failed',
+          `${card.capture.title} needs another sync attempt.`,
+          `receiver-sync-failed-${card.capture.id}`,
+        );
+      }
+    }
+
+    notifiedFailureIdsRef.current = nextFailedIds;
+  }, [captures, notifyReceiverEvent]);
+
+  useEffect(() => {
+    const badgeNavigator = navigator as NavigatorWithUx;
+    if (!browserUxCapabilities.canSetBadge) {
+      return;
+    }
+
+    const pendingCount = receiverNotificationsEnabled
+      ? captures.filter(
+          (card) =>
+            card.capture.intakeStatus !== 'archived' &&
+            (card.capture.syncState === 'local-only' || card.capture.syncState === 'queued'),
+        ).length
+      : 0;
+
+    if (pendingCount > 0) {
+      void badgeNavigator.setAppBadge?.(pendingCount).catch(() => undefined);
+      return;
+    }
+
+    void badgeNavigator.clearAppBadge?.().catch(() => undefined);
+  }, [browserUxCapabilities.canSetBadge, captures, receiverNotificationsEnabled]);
+
+  useEffect(() => {
     return () => {
       if (syncBindingRef.current) {
         syncBindingRef.current.disconnect();
@@ -985,8 +1491,9 @@ export function RootApp({
       if (wakeLockRef.current) {
         void wakeLockRef.current.release().catch(() => undefined);
       }
+      stopQrScanner();
     };
-  }, []);
+  }, [stopQrScanner]);
 
   if (route.kind === 'landing') {
     return <LandingPage />;
@@ -1000,57 +1507,31 @@ export function RootApp({
     <div className="page-shell receiver-shell">
       <div className="backdrop" />
       <header className="topbar receiver-topbar">
-        <a
-          className="receiver-wordmark-link"
-          href="/"
-          onClick={(event) => {
-            event.preventDefault();
-            navigate('/');
-          }}
-        >
-          <img className="wordmark" src="/branding/coop-wordmark-flat.png" alt="Coop" />
-        </a>
-        <nav className="topnav receiver-nav">
+        <div className="receiver-brand-lockup">
           <a
-            href="/pair"
+            className="receiver-wordmark-link"
+            href="/"
             onClick={(event) => {
               event.preventDefault();
-              navigate('/pair');
+              navigate('/');
             }}
           >
-            Pair
+            <img className="wordmark" src="/branding/coop-wordmark-flat.png" alt="Coop" />
           </a>
-          <a
-            href="/receiver"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate('/receiver');
-            }}
-          >
-            Receiver
-          </a>
-          <a
-            href="/inbox"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate('/inbox');
-            }}
-          >
-            Inbox
-          </a>
-        </nav>
+          <p className="receiver-tagline">No more chickens loose</p>
+        </div>
       </header>
 
       <main className="receiver-main">
         <section className="receiver-status-bar nest-card">
           <div>
-            <p className="eyebrow">Receiver PWA</p>
+            <p className="eyebrow">Pocket Coop</p>
             <h1>
               {route.kind === 'pair'
-                ? 'Pair your nest'
+                ? 'Find your coop'
                 : route.kind === 'inbox'
-                  ? 'Inbox nest'
-                  : 'Capture into the nest'}
+                  ? 'Your roost'
+                  : 'Hatch something'}
             </h1>
           </div>
           <div className="receiver-status-grid">
@@ -1082,8 +1563,22 @@ export function RootApp({
                 onClick={installApp}
                 type="button"
               >
-                Install receiver
+                Install Pocket Coop
               </button>
+            ) : null}
+            {browserUxCapabilities.canNotify ? (
+              <button
+                className="button button-secondary button-small"
+                onClick={() =>
+                  void setReceiverNotificationPreference(!receiverNotificationsEnabled)
+                }
+                type="button"
+              >
+                {receiverNotificationsEnabled ? 'Disable notifications' : 'Enable notifications'}
+              </button>
+            ) : null}
+            {notificationPermission !== 'unsupported' ? (
+              <span className="quiet-note">Notifications: {notificationPermission}</span>
             ) : null}
             {message ? <span className="quiet-note">{message}</span> : null}
           </div>
@@ -1092,11 +1587,11 @@ export function RootApp({
         {route.kind === 'pair' ? (
           <section className="receiver-grid">
             <article className="nest-card receiver-card">
-              <p className="eyebrow">Pairing</p>
-              <h2>Paste a QR payload or open a deep link.</h2>
+              <p className="eyebrow">Mate</p>
+              <h2>Paste a nest code, scan a QR, or open a coop link.</h2>
               <p className="lede">
-                Pairing stays local to this browser. Once paired, anything already in the nest can
-                queue for sync into the extension’s private intake.
+                This stays local to this browser. Once joined, anything already hatched here can
+                queue into the extension&apos;s private intake.
               </p>
               <form
                 className="receiver-form"
@@ -1106,33 +1601,54 @@ export function RootApp({
                 }}
               >
                 <label className="receiver-label" htmlFor="pairing-payload">
-                  Pairing payload or deep link
+                  Nest code or coop link
                 </label>
                 <textarea
                   id="pairing-payload"
                   onChange={(event) => setPairingInput(event.target.value)}
-                  placeholder="coop-receiver:... or https://.../pair#payload=..."
+                  placeholder="coop-receiver:..., web+coop-receiver://..., or https://.../pair#payload=..."
                   value={pairingInput}
                 />
                 <div className="cta-row">
                   <button className="button button-primary" type="submit">
-                    Review pairing
+                    Check nest code
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => void startQrScanner()}
+                    type="button"
+                  >
+                    Scan QR
                   </button>
                   <button
                     className="button button-secondary"
                     onClick={() => navigate('/receiver')}
                     type="button"
                   >
-                    Skip for now
+                    Hatch offline
                   </button>
                 </div>
               </form>
+              {isQrScannerOpen ? (
+                <div className="stack">
+                  <video autoPlay className="nest-photo" muted playsInline ref={qrVideoRef} />
+                  <div className="cta-row">
+                    <button
+                      className="button button-secondary"
+                      onClick={stopQrScanner}
+                      type="button"
+                    >
+                      Stop scanner
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {qrScanError ? <p className="receiver-error">{qrScanError}</p> : null}
               {pairingError ? <p className="receiver-error">{pairingError}</p> : null}
               {pendingPairing ? (
                 <div className="stack">
                   <p className="quiet-note">
-                    Confirm before this receiver stores the pairing secret and joins the private
-                    intake room.
+                    Check this code before this phone joins the private nest.
                   </p>
                   <div className="detail-grid">
                     <div>
@@ -1162,7 +1678,7 @@ export function RootApp({
                       onClick={() => void confirmPairing()}
                       type="button"
                     >
-                      Accept pairing
+                      Join this coop
                     </button>
                     <button
                       className="button button-secondary"
@@ -1177,7 +1693,7 @@ export function RootApp({
             </article>
 
             <article className="nest-card receiver-card">
-              <p className="eyebrow">What pairing stores</p>
+              <p className="eyebrow">What this nest code adds</p>
               <ul className="check-list">
                 <li>Device-local receiver identity</li>
                 <li>Current coop and member context</li>
@@ -1185,7 +1701,8 @@ export function RootApp({
                 <li>Nothing publishes to shared coop memory automatically</li>
               </ul>
               <p className="quiet-note">
-                Existing local captures stay local until a valid pairing is accepted.
+                Existing local captures stay local until a valid nest code is accepted, whether the
+                extension is running locally or against the production PWA.
               </p>
             </article>
           </section>
@@ -1247,6 +1764,10 @@ export function RootApp({
                   Attach file
                 </button>
               </div>
+              <p className="quiet-note">
+                Shared URLs from other apps land here as link chicks when the installed PWA is used
+                as a share target.
+              </p>
               <input
                 accept="image/*"
                 capture="environment"
@@ -1276,11 +1797,7 @@ export function RootApp({
                 >
                   <div className="nest-item-topline">
                     <span className="nest-item-chick">
-                      {newestCapture.kind === 'audio'
-                        ? 'Chick'
-                        : newestCapture.kind === 'photo'
-                          ? 'Feather'
-                          : 'Twig'}
+                      {receiverPreviewLabel(newestCapture.kind)}
                     </span>
                     <span className={`sync-pill is-${newestCapture.syncState}`}>
                       {syncStateLabel(newestCapture.syncState)}
@@ -1288,7 +1805,8 @@ export function RootApp({
                   </div>
                   <strong>{newestCapture.title}</strong>
                   <p>
-                    {newestCapture.note ||
+                    {newestCapture.sourceUrl ||
+                      newestCapture.note ||
                       `${sizeLabel(newestCapture.byteSize)} · ${newestCapture.mimeType}`}
                   </p>
                   <div className="cta-row">
@@ -1305,14 +1823,28 @@ export function RootApp({
                         onClick={() => navigate('/pair')}
                         type="button"
                       >
-                        Pair to sync
+                        Mate to sync
+                      </button>
+                    ) : null}
+                    {browserUxCapabilities.canShare ? (
+                      <button
+                        className="button button-secondary button-small"
+                        onClick={() => {
+                          const card = captures.find(
+                            (entry) => entry.capture.id === newestCapture.id,
+                          ) ?? { capture: newestCapture };
+                          void shareCapture(card);
+                        }}
+                        type="button"
+                      >
+                        Share
                       </button>
                     ) : null}
                   </div>
                 </article>
               ) : (
                 <div className="empty-nest">
-                  Save a voice note, photo, or file and the first chick appears here.
+                  Save a voice note, photo, file, or shared link and the first chick appears here.
                 </div>
               )}
             </article>
@@ -1322,8 +1854,10 @@ export function RootApp({
         {route.kind === 'inbox' ? (
           <section className="receiver-grid">
             <article className="nest-card receiver-card receiver-inbox-card">
-              <p className="eyebrow">Local Inbox</p>
-              <h2>Everything stays local until this nest is paired and synced.</h2>
+              <p className="eyebrow">Your Roost</p>
+              <h2>
+                Everything stays local until this nest is mated and one trusted browser syncs.
+              </h2>
               <div className="receiver-list">
                 {captures.map((card) => (
                   <article
@@ -1336,11 +1870,7 @@ export function RootApp({
                   >
                     <div className="nest-item-topline">
                       <span className="nest-item-chick">
-                        {card.capture.kind === 'audio'
-                          ? 'Voice chick'
-                          : card.capture.kind === 'photo'
-                            ? 'Photo chick'
-                            : 'File chick'}
+                        {receiverItemLabel(card.capture.kind)}
                       </span>
                       <span className={`sync-pill is-${card.capture.syncState}`}>
                         {syncStateLabel(card.capture.syncState)}
@@ -1351,6 +1881,11 @@ export function RootApp({
                       {new Date(card.capture.createdAt).toLocaleString()} ·{' '}
                       {sizeLabel(card.capture.byteSize)}
                     </p>
+                    {card.capture.sourceUrl ? (
+                      <a href={card.capture.sourceUrl} rel="noreferrer" target="_blank">
+                        {card.capture.sourceUrl}
+                      </a>
+                    ) : null}
                     {card.capture.kind === 'audio' && card.previewUrl ? (
                       <>
                         {/* biome-ignore lint/a11y/useMediaCaption: Local receiver previews do not have generated captions at capture time. */}
@@ -1360,15 +1895,38 @@ export function RootApp({
                     {card.capture.kind === 'photo' && card.previewUrl ? (
                       <img alt={card.capture.title} className="nest-photo" src={card.previewUrl} />
                     ) : null}
-                    {card.capture.kind === 'file' && card.previewUrl ? (
-                      <a
+                    {card.capture.kind === 'link' ? (
+                      <p>{card.capture.note || 'Shared link saved locally.'}</p>
+                    ) : null}
+                    {card.capture.kind !== 'link' && card.previewUrl ? (
+                      <button
                         className="button button-secondary button-small"
-                        download={card.capture.fileName}
-                        href={card.previewUrl}
+                        onClick={() => void downloadCapture(card)}
+                        type="button"
                       >
                         Download local file
-                      </a>
+                      </button>
                     ) : null}
+                    <div className="cta-row">
+                      {browserUxCapabilities.canShare ? (
+                        <button
+                          className="button button-secondary button-small"
+                          onClick={() => void shareCapture(card)}
+                          type="button"
+                        >
+                          Share
+                        </button>
+                      ) : null}
+                      {card.capture.kind === 'link' && card.capture.sourceUrl ? (
+                        <button
+                          className="button button-secondary button-small"
+                          onClick={() => void copyCaptureLink(card.capture)}
+                          type="button"
+                        >
+                          Copy link
+                        </button>
+                      ) : null}
+                    </div>
                     {card.capture.syncError ? (
                       <p className="receiver-error">{card.capture.syncError}</p>
                     ) : null}
@@ -1386,13 +1944,34 @@ export function RootApp({
               </div>
               {captures.length === 0 ? (
                 <div className="empty-nest">
-                  Your inbox is empty. Head to the receiver to hatch the first note.
+                  Your inbox is empty. Head to Capture to hatch the first note, photo, or link.
                 </div>
               ) : null}
             </article>
           </section>
         ) : null}
       </main>
+      <nav aria-label="Receiver navigation" className="receiver-appbar">
+        {receiverNavItems.map(({ href, kind, label, Icon }) => {
+          const active = route.kind === kind;
+
+          return (
+            <a
+              aria-current={active ? 'page' : undefined}
+              className={active ? 'receiver-appbar-link is-active' : 'receiver-appbar-link'}
+              href={href}
+              key={kind}
+              onClick={(event) => {
+                event.preventDefault();
+                navigate(href);
+              }}
+            >
+              <Icon active={active} />
+              <span>{label}</span>
+            </a>
+          );
+        })}
+      </nav>
     </div>
   );
 }

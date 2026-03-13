@@ -2,20 +2,20 @@ import { useMemo, useState } from 'react';
 
 const lenses = [
   {
-    title: 'Capital Formation',
-    detail: 'What evidence has to land before a lead becomes fundable?',
+    title: 'Money & resources',
+    detail: 'What has to be easy to find when a good opportunity appears?',
   },
   {
-    title: 'Impact Reporting',
-    detail: 'Which signals should stop living in scattered notes and start becoming evidence?',
+    title: 'Impact & progress',
+    detail: 'Which signs show the flock is actually helping?',
   },
   {
-    title: 'Governance & Coordination',
-    detail: 'Where do calls, proposals, and follow-up work lose continuity today?',
+    title: 'Decisions & teamwork',
+    detail: 'Where do meetings, plans, and follow-up go missing today?',
   },
   {
-    title: 'Knowledge Garden & Resources',
-    detail: 'Which guides, tabs, and field notes should become durable shared memory?',
+    title: 'Knowledge & tools',
+    detail: 'Which tabs, guides, and field notes should stay in the coop?',
   },
 ];
 
@@ -41,13 +41,13 @@ const states = [
 
 const ritualPrompt = `You are helping a community prepare a Coop setup payload.
 
-Summarize the community conversation into four lenses:
-1. Capital Formation
-2. Impact Reporting
-3. Governance & Coordination
-4. Knowledge Garden & Resources
+Summarize the community conversation into four simple buckets:
+1. Money & resources
+2. Impact & progress
+3. Decisions & teamwork
+4. Knowledge & tools
 
-For each lens, provide:
+For each bucket, provide:
 - How do we do this now?
 - What is not working well?
 - What should improve?
@@ -61,7 +61,7 @@ Return the output as concise editable JSON.`;
 
 export function App() {
   const [copied, setCopied] = useState(false);
-  const copyStateText = useMemo(() => (copied ? 'Copied' : 'Copy ritual prompt'), [copied]);
+  const copyStateText = useMemo(() => (copied ? 'Copied' : 'Copy helper prompt'), [copied]);
 
   async function copyPrompt() {
     await navigator.clipboard.writeText(ritualPrompt);
@@ -75,7 +75,7 @@ export function App() {
       <header className="topbar">
         <img className="wordmark" src="/branding/coop-wordmark-flat.png" alt="Coop" />
         <nav className="topnav">
-          <a href="#ritual">Setup ritual</a>
+          <a href="#ritual">Quick hatch</a>
           <a href="#privacy">Privacy</a>
           <a href="#states">Extension states</a>
           <a href="#footer-cta">Get started</a>
@@ -85,15 +85,15 @@ export function App() {
       <main>
         <section className="hero section">
           <div className="hero-copy">
-            <p className="eyebrow">Coop v1</p>
-            <h1>Turn loose tabs into shared intelligence and fundable next steps.</h1>
+            <p className="eyebrow">No more chickens loose</p>
+            <h1>Turn knowledge into opportunity.</h1>
             <p className="lede">
-              Coop is a browser-first, local-first knowledge commons for communities that already
-              generate valuable context but keep losing it between calls, docs, and private tabs.
+              Coop helps your group catch useful tabs, notes, and signals before they scatter, then
+              review and share what matters together.
             </p>
             <div className="cta-row">
               <a className="button button-primary" href="#ritual">
-                Start setup ritual
+                Start quick hatch
               </a>
               <a className="button button-secondary" href="#install">
                 Install extension
@@ -108,7 +108,7 @@ export function App() {
             <div className="hero-stack">
               <div className="fragment-card">Loose Chickens</div>
               <div className="fragment-card">Roost</div>
-              <div className="fragment-card">Shared Feed</div>
+              <div className="fragment-card">Coop Feed</div>
               <div className="fragment-card">Review Board</div>
             </div>
           </div>
@@ -133,11 +133,11 @@ export function App() {
               <h3>What Coop changes</h3>
               <p>
                 Coop notices relevant context locally, shapes drafts before anything is shared, and
-                gives the group a clear weekly membrane for what becomes shared memory.
+                helps the group decide together what belongs in the coop.
               </p>
               <p>
-                The point is not another inbox. The point is turning existing browsing context into
-                a live commons the coop can act on.
+                The point is not another pile of tabs. It is catching good ideas before they run
+                off.
               </p>
             </article>
           </div>
@@ -151,7 +151,7 @@ export function App() {
           <div className="timeline">
             <div className="timeline-step">
               <span>1</span>
-              <p>Your community runs the four-lens setup ritual.</p>
+              <p>Start a coop with a short first chat, then refine it later if you want.</p>
             </div>
             <div className="timeline-step">
               <span>2</span>
@@ -159,19 +159,19 @@ export function App() {
             </div>
             <div className="timeline-step">
               <span>3</span>
-              <p>The Roost holds drafts until a member edits and explicitly pushes them.</p>
+              <p>The Roost holds drafts until someone tidies them up and shares them.</p>
             </div>
             <div className="timeline-step">
               <span>4</span>
-              <p>The coop leaves with shared memory, a Safe address, and clearer next steps.</p>
+              <p>The coop leaves with shared finds, a shared nest, and clearer next steps.</p>
             </div>
           </div>
         </section>
 
         <section className="section" id="ritual">
           <div className="section-heading">
-            <p className="eyebrow">Setup Ritual</p>
-            <h2>Run one structured community call before anyone creates a coop.</h2>
+            <p className="eyebrow">Teach Coop More</p>
+            <h2>Give Coop a little context about how your group works.</h2>
           </div>
           <div className="ritual-grid">
             {lenses.map((lens) => (
@@ -187,10 +187,10 @@ export function App() {
             ))}
           </div>
           <div className="ritual-note nest-card">
-            <h3>Output required for create-coop</h3>
+            <h3>Optional deepening for bigger coops</h3>
             <p>
-              Coop creation is gated on a structured setup payload with all four lenses plus a short
-              summary. Manual edits are allowed before submission.
+              A coop can hatch quickly from a purpose and starter note. These four areas help later
+              when you want Coop to better understand your rhythm.
             </p>
           </div>
         </section>
@@ -198,12 +198,12 @@ export function App() {
         <section className="section">
           <div className="section-heading">
             <p className="eyebrow">Prompt Copy</p>
-            <h2>Use external synthesis for the ritual if it helps. Keep Coop’s core loop local.</h2>
+            <h2>Use an outside helper for the deeper questions if it helps.</h2>
           </div>
           <div className="prompt-shell nest-card">
             <div className="prompt-toolbar">
               <div>
-                <strong>Tested ritual helpers:</strong> GPT and Gemini
+                <strong>Tested helpers:</strong> GPT and Gemini
               </div>
               <button
                 className="button button-secondary button-small"
@@ -220,16 +220,16 @@ export function App() {
         <section className="section" id="privacy">
           <div className="section-heading">
             <p className="eyebrow">Privacy And Push</p>
-            <h2>Passive capture stays local. Shared memory starts only after explicit push.</h2>
+            <h2>Passive capture stays local. Shared finds start only when you choose.</h2>
           </div>
           <div className="grid two-up calm-grid">
             <article className="nest-card">
               <h3>Local only</h3>
-              <p>Open-tab snapshots, readable extracts, draft shaping, local relevance scoring.</p>
+              <p>Open-tab snapshots, readable extracts, draft shaping, and local sorting.</p>
             </article>
             <article className="nest-card">
               <h3>Shared only after approval</h3>
-              <p>Published artifacts, coop memory, review board groupings, archive receipts.</p>
+              <p>Shared finds, the coop feed, board groupings, and saved proof.</p>
             </article>
           </div>
           <p className="privacy-copy">
@@ -256,15 +256,20 @@ export function App() {
             <article className="nest-card">
               <h3>Install extension</h3>
               <p>
-                Build `packages/extension`, open Chrome’s extensions page, and load the unpacked
-                dist.
+                Build `packages/extension`, open Chrome’s extensions page, enable Developer mode,
+                and load the unpacked dist. Then pin Coop and open the sidepanel. The full install
+                and rollout guide lives in{' '}
+                <a href="/spec/extension-install-and-distribution.md">
+                  extension install and distribution docs
+                </a>
+                .
               </p>
             </article>
             <article className="nest-card">
               <h3>Primary UX</h3>
               <p>
-                Sidepanel-first for create, join, review, push, archive, and export. The popup stays
-                compact and launcher-like.
+                The sidepanel is home base for starting a coop, rounding up finds, checking the
+                Roost, and saving what matters. The popup stays compact and launcher-like.
               </p>
             </article>
           </div>
@@ -273,7 +278,7 @@ export function App() {
         <section className="section">
           <div className="section-heading">
             <p className="eyebrow">Weekly Review</p>
-            <h2>Preview the outcome before you install anything.</h2>
+            <h2>See the coop in action before you install anything.</h2>
           </div>
           <div className="weekly-board">
             <article className="weekly-column nest-card">
@@ -286,11 +291,11 @@ export function App() {
               <h3>By member</h3>
               <div className="board-row">
                 <span>Trusted member</span>
-                <strong>3 artifacts</strong>
+                <strong>3 shared finds</strong>
               </div>
               <div className="board-row">
                 <span>Member</span>
-                <strong>2 artifacts</strong>
+                <strong>2 shared finds</strong>
               </div>
             </article>
             <article className="weekly-column nest-card">
@@ -308,11 +313,11 @@ export function App() {
         <div className="footer-card">
           <div>
             <p className="eyebrow">CTA</p>
-            <h2>Preserve the loop: create, join, capture, review, push, sync, archive.</h2>
+            <h2>Round up what matters, check the roost, and save the good stuff together.</h2>
           </div>
           <div className="cta-row footer-row">
             <a className="button button-primary" href="#ritual">
-              Start setup ritual
+              Start quick hatch
             </a>
             <a className="button button-secondary" href="#install">
               Install extension
@@ -324,6 +329,8 @@ export function App() {
           <div className="footer-links">
             <a href="#install">Create coop</a>
             <a href="#install">Join coop</a>
+            <a href="/spec/extension-install-and-distribution.md">Install guide</a>
+            <a href="/spec/demo-and-deploy-runbook.md">Demo runbook</a>
             <a href="/spec/coop-design-direction.md">Design direction</a>
             <a href="/spec/coop-audio-and-asset-ops.md">Audio ops</a>
           </div>

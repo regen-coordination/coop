@@ -187,15 +187,15 @@ describe('board app routes', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'Board Coop' })).toBeVisible();
-    expect(screen.getByText(/Storacha \/ Filecoin trail/i)).toBeVisible();
+    expect(screen.getByText(/saved proof trail/i)).toBeVisible();
     expect(screen.getByTestId('mock-react-flow')).toBeVisible();
     expect(screen.getAllByText('forest-notes.txt').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Setup Insights').length).toBeGreaterThan(0);
     expect(screen.getAllByText('captured by').length).toBeGreaterThan(0);
     expect(screen.getAllByText('draft seeded from capture').length).toBeGreaterThan(0);
     expect(screen.getAllByText('archived in').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Artifact preservation/i)).toBeVisible();
-    expect(screen.getByText(/Root CID/i)).toBeVisible();
-    expect(screen.getAllByText(/Inspect bundle/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/shared find save/i)).toBeVisible();
+    expect(screen.getByText(/save id/i)).toBeVisible();
+    expect(screen.getAllByText(/open saved bundle/i).length).toBeGreaterThan(0);
   });
 });

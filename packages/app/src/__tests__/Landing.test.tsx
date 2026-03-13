@@ -15,12 +15,15 @@ describe('landing page', () => {
 
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: /turn loose tabs/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /turn knowledge into opportunity/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/no more chickens loose/i)).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: /fragmented knowledge becomes missed opportunity/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: /run one structured community call/i }),
+      screen.getByRole('heading', { name: /give coop a little context/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: /passive capture stays local/i }),
@@ -28,7 +31,7 @@ describe('landing page', () => {
     expect(screen.getByRole('heading', { name: /four icon states/i })).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /copy ritual prompt/i }));
+      fireEvent.click(screen.getByRole('button', { name: /copy helper prompt/i }));
       await Promise.resolve();
     });
 

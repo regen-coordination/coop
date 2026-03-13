@@ -40,8 +40,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   const includesSensitivePairingMaterial =
     url.pathname === '/pair' && (url.searchParams.has('payload') || url.search.length > 0);
+  const includesReceiverSharePayload =
+    url.pathname === '/receiver' &&
+    (url.searchParams.has('title') || url.searchParams.has('text') || url.searchParams.has('url'));
 
-  if (includesSensitivePairingMaterial) {
+  if (includesSensitivePairingMaterial || includesReceiverSharePayload) {
     event.respondWith(fetch(request));
     return;
   }

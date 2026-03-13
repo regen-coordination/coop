@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
+  envDir: path.resolve(__dirname, '../..'),
   resolve: {
     alias: {
       '@coop/shared': path.resolve(__dirname, '../shared/src/index.ts'),

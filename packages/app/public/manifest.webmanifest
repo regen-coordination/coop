@@ -1,7 +1,7 @@
 {
   "name": "Coop Receiver",
   "short_name": "Coop",
-  "description": "A local-first receiver nest for audio, photos, and files before they sync into Coop.",
+  "description": "No more chickens loose. A local-first receiver nest for audio, photos, and files before they sync into Coop.",
   "start_url": "/receiver",
   "scope": "/",
   "display": "standalone",
@@ -32,6 +32,22 @@
     {
       "name": "Open Inbox",
       "url": "/inbox"
+    }
+  ],
+  "share_target": {
+    "action": "/receiver",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+coop-receiver",
+      "url": "/pair?payload=%s"
     }
   ]
 }

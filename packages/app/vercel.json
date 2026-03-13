@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/pair", "destination": "/index.html" },
+    { "source": "/receiver", "destination": "/index.html" },
+    { "source": "/inbox", "destination": "/index.html" },
+    { "source": "/board/:path*", "destination": "/index.html" }
+  ]
+}
