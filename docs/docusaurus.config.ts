@@ -6,7 +6,7 @@ const config: Config = {
   title: 'Coop Docs',
   tagline: 'Turn knowledge into opportunity',
   favicon: 'branding/coop-mark-watching.png',
-  url: 'https://docs.coop.technology',
+  url: 'https://docs.coop.town',
   baseUrl: '/',
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
