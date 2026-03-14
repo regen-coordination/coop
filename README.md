@@ -91,14 +91,14 @@ At the `src` level, the repo now follows a more modular layout:
 
 ## Core Documents
 
-- [docs/coop-os-architecture-vnext.md](docs/coop-os-architecture-vnext.md) — canonical Coop v1 build plan
-- [docs/coop-design-direction.md](docs/coop-design-direction.md) — initial visual direction, palette, and asset usage guide
-- [docs/coop-audio-and-asset-ops.md](docs/coop-audio-and-asset-ops.md) — audio sourcing, licensing, naming, and asset handoff guide
-- [docs/extension-install-and-distribution.md](docs/extension-install-and-distribution.md) — local testing install flow, early-access website distribution, and Chrome Web Store rollout
+- [docs/architecture/coop-os-architecture-vnext.md](docs/architecture/coop-os-architecture-vnext.md) — canonical Coop v1 build plan
+- [docs/guides/coop-design-direction.md](docs/guides/coop-design-direction.md) — initial visual direction, palette, and asset usage guide
+- [docs/guides/coop-audio-and-asset-ops.md](docs/guides/coop-audio-and-asset-ops.md) — audio sourcing, licensing, naming, and asset handoff guide
+- [docs/getting-started/extension-install-and-distribution.md](docs/getting-started/extension-install-and-distribution.md) — local testing install flow, early-access website distribution, and Chrome Web Store rollout
 - [docs/meeting-followups-2026-03-10.md](docs/meeting-followups-2026-03-10.md) — relevant Build 1 follow-ups distilled from the March 10, 2026 meeting notes
 - [docs/current-state-2026-03-11.md](docs/current-state-2026-03-11.md) — implementation review against the March architecture drafts and meeting notes
-- [docs/scoped-roadmap-2026-03-11.md](docs/scoped-roadmap-2026-03-11.md) — phased plan for receiver PWA, Arbitrum, Filecoin, visual flow, and agentic extensions
-- [docs/testing-and-validation.md](docs/testing-and-validation.md) — named validation suites plus manual QA guidance
+- [docs/product/scoped-roadmap-2026-03-11.md](docs/product/scoped-roadmap-2026-03-11.md) — phased plan for receiver PWA, Arbitrum, Filecoin, visual flow, and agentic extensions
+- [docs/guides/testing-and-validation.md](docs/guides/testing-and-validation.md) — named validation suites plus manual QA guidance
 
 ## Current State
 

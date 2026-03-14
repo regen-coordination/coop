@@ -44,7 +44,10 @@
     "validate:receiver-hardening": "node ./scripts/validate.mjs receiver-hardening",
     "validate:full": "node ./scripts/validate.mjs full",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "docs:dev": "cd docs-site && npx docusaurus start",
+    "docs:build": "cd docs-site && npx docusaurus build",
+    "docs:serve": "cd docs-site && npx docusaurus serve"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

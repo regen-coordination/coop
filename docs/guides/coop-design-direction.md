@@ -1,3 +1,9 @@
+---
+title: "Design Direction"
+sidebar_label: "Design Direction"
+sidebar_position: 3
+---
+
 # Coop Design Direction
 
 This document captures the initial visual direction for Coop v1 based on the current logo explorations added to the repo.

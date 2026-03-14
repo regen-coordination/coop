@@ -1,3 +1,9 @@
+---
+title: "Scoped Roadmap"
+sidebar_label: "Roadmap"
+sidebar_position: 2
+---
+
 # Coop Scoped Roadmap
 
 Date: March 11, 2026

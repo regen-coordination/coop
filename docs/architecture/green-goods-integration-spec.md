@@ -1,3 +1,9 @@
+---
+title: "Green Goods Integration"
+sidebar_label: "Green Goods"
+sidebar_position: 2
+---
+
 # Green Goods Integration Spec
 
 ## Scope

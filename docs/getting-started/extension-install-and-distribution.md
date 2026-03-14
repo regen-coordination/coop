@@ -1,9 +1,15 @@
+---
+title: "Extension Install & Distribution"
+sidebar_label: "Install Extension"
+sidebar_position: 1
+---
+
 # Coop Extension Install And Distribution
 
 Date: March 13, 2026
 
 This document covers extension-specific install and rollout. The full local demo, peer pairing, and
-production deployment flow lives in [demo-and-deploy-runbook.md](/Users/afo/Code/regen-coordination/coop/docs/demo-and-deploy-runbook.md).
+production deployment flow lives in [demo-and-deploy-runbook.md](../guides/demo-and-deploy-runbook).
 
 ## Local Developer Install
 
@@ -115,5 +121,5 @@ Keep the listing, reviewer notes, and privacy answers unusually clear.
 
 ## Related Docs
 
-- [demo-and-deploy-runbook.md](/Users/afo/Code/regen-coordination/coop/docs/demo-and-deploy-runbook.md)
-- [testing-and-validation.md](/Users/afo/Code/regen-coordination/coop/docs/testing-and-validation.md)
+- [demo-and-deploy-runbook.md](../guides/demo-and-deploy-runbook)
+- [testing-and-validation.md](../guides/testing-and-validation)

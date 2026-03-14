@@ -1,9 +1,15 @@
+---
+title: "Testing & Validation"
+sidebar_label: "Testing"
+sidebar_position: 2
+---
+
 # Coop Testing And Validation
 
 Date: March 13, 2026
 
 This document tracks the validation entrypoints. The full operator flow, demo setup, and deploy
-steps live in [demo-and-deploy-runbook.md](/Users/afo/Code/regen-coordination/coop/docs/demo-and-deploy-runbook.md).
+steps live in [demo-and-deploy-runbook.md](../guides/demo-and-deploy-runbook).
 
 ## Core Commands
 
@@ -173,5 +179,5 @@ Mirror these checks from the runbook before demos or production pushes.
 
 ## Related Docs
 
-- [demo-and-deploy-runbook.md](/Users/afo/Code/regen-coordination/coop/docs/demo-and-deploy-runbook.md)
-- [extension-install-and-distribution.md](/Users/afo/Code/regen-coordination/coop/docs/extension-install-and-distribution.md)
+- [demo-and-deploy-runbook.md](../guides/demo-and-deploy-runbook)
+- [extension-install-and-distribution.md](../getting-started/extension-install-and-distribution)

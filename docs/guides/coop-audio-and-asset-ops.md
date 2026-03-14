@@ -1,3 +1,9 @@
+---
+title: "Audio & Asset Operations"
+sidebar_label: "Audio & Assets"
+sidebar_position: 4
+---
+
 # Coop Audio And Asset Operations
 
 This document closes the operational gap between the Coop build plan and the design direction.

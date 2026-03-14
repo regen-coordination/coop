@@ -1,3 +1,9 @@
+---
+title: "Demo & Deploy Runbook"
+sidebar_label: "Demo & Deploy"
+sidebar_position: 1
+---
+
 # Coop Demo And Deploy Runbook
 
 Date: March 13, 2026
@@ -118,7 +124,7 @@ This is the release target.
 
 - Host the app/PWA on Vercel.
 - Set the Vercel project Root Directory to `packages/app`.
-- Keep the SPA rewrites from [packages/app/vercel.json](/Users/afo/Code/regen-coordination/coop/packages/app/vercel.json).
+- Keep the SPA rewrites from `packages/app/vercel.json`.
 - Ensure the final production domain is the same domain used for passkey enrollment.
 
 ### Extension

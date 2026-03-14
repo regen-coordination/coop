@@ -1,3 +1,9 @@
+---
+title: "Coop OS Architecture"
+sidebar_label: "System Overview"
+sidebar_position: 1
+---
+
 # Coop V1 Build Plan
 
 **Status**: Canonical v1 plan  
