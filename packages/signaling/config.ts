@@ -1,5 +1,5 @@
 /** Default signaling server URL (Fly.io-hosted). */
-export const defaultSignalingUrls: string[] = ['wss://coop.fly.dev'];
+export const defaultSignalingUrls: string[] = ['wss://signal.coop.town'];
 
 /** Default ICE servers for WebRTC peer connections (STUN only). */
 export const defaultIceServers: RTCIceServer[] = [
