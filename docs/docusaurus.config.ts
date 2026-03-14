@@ -5,7 +5,7 @@ import { coopPrismTheme } from './src/css/coop-prism-theme';
 const config: Config = {
   title: 'Coop Docs',
   tagline: 'Turn knowledge into opportunity',
-  favicon: 'branding/coop-mark-flat.png',
+  favicon: 'branding/coop-mark-watching.png',
   url: 'https://docs.coop.technology',
   baseUrl: '/',
   onBrokenLinks: 'warn',
