@@ -6,6 +6,7 @@ import {
   deduplicateMemories,
   enforceMemoryLimit,
   pruneExpiredMemories,
+  queryMemoriesForSkill,
   queryRecentMemories,
 } from '../memory';
 
@@ -345,5 +346,79 @@ describe('enforceMemoryLimit', () => {
     const deleted = await enforceMemoryLimit(db, 'coop-empty');
 
     expect(deleted).toBe(0);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * queryMemoriesForSkill
+ * --------------------------------------------------------------------------- */
+
+describe('queryMemoriesForSkill', () => {
+  it('merges skill-pattern, observation-outcome, and general memories', async () => {
+    await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'skill-pattern',
+      content: 'Pattern A',
+      confidence: 0.8,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'observation-outcome',
+      content: 'Outcome B',
+      confidence: 0.7,
+      createdAt: '2026-01-02T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'domain-pattern',
+      content: 'Domain C',
+      confidence: 0.6,
+      createdAt: '2026-01-03T00:00:00.000Z',
+    });
+
+    const results = await queryMemoriesForSkill(db, 'coop-1', 'test-skill');
+
+    expect(results.length).toBeGreaterThanOrEqual(3);
+    expect(results.map((m) => m.content)).toContain('Pattern A');
+    expect(results.map((m) => m.content)).toContain('Outcome B');
+    expect(results.map((m) => m.content)).toContain('Domain C');
+  });
+
+  it('deduplicates by id across query sources', async () => {
+    // A skill-pattern memory will appear in both the type-specific and general queries
+    await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'skill-pattern',
+      content: 'Only pattern',
+      confidence: 0.9,
+    });
+
+    const results = await queryMemoriesForSkill(db, 'coop-1', 'test-skill');
+
+    const ids = results.map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('respects the limit option', async () => {
+    for (let i = 0; i < 15; i++) {
+      await createAgentMemory(db, {
+        coopId: 'coop-limit',
+        type: 'observation-outcome',
+        content: `Memory ${i}`,
+        confidence: 0.5,
+        createdAt: new Date(2026, 0, i + 1).toISOString(),
+      });
+    }
+
+    const results = await queryMemoriesForSkill(db, 'coop-limit', 'test-skill', { limit: 5 });
+
+    expect(results.length).toBeLessThanOrEqual(5);
+  });
+
+  it('returns empty array for unknown coopId', async () => {
+    const results = await queryMemoriesForSkill(db, 'nonexistent', 'test-skill');
+
+    expect(results).toEqual([]);
   });
 });

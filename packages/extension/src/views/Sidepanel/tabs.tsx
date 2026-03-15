@@ -1011,6 +1011,7 @@ export function CoopFeedTab({
           onQueueGreenGoodsGapAdminSync={handleQueueGreenGoodsGapAdminSync}
           skillManifests={agentDashboard?.manifests ?? []}
           skillRuns={agentDashboard?.skillRuns ?? []}
+          memories={agentDashboard?.memories ?? []}
         />
       ) : (
         <article className="panel-card">

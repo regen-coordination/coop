@@ -79,6 +79,35 @@ export async function deduplicateMemories(db: CoopDexie, coopId: string): Promis
   return toDelete.length;
 }
 
+export async function queryMemoriesForSkill(
+  db: CoopDexie,
+  coopId: string,
+  _trigger?: string,
+  options?: { limit?: number },
+): Promise<AgentMemory[]> {
+  const limit = options?.limit ?? 8;
+
+  // Fetch skill-pattern and observation-outcome first (most relevant to skill execution)
+  const [skillPatterns, outcomes, general] = await Promise.all([
+    queryRecentMemories(db, coopId, { type: 'skill-pattern', limit }),
+    queryRecentMemories(db, coopId, { type: 'observation-outcome', limit }),
+    queryRecentMemories(db, coopId, { limit }),
+  ]);
+
+  // Merge, deduplicate by id, cap at limit
+  const seen = new Set<string>();
+  const merged: AgentMemory[] = [];
+
+  for (const memory of [...skillPatterns, ...outcomes, ...general]) {
+    if (seen.has(memory.id)) continue;
+    seen.add(memory.id);
+    merged.push(memory);
+    if (merged.length >= limit) break;
+  }
+
+  return merged;
+}
+
 export async function enforceMemoryLimit(
   db: CoopDexie,
   coopId: string,

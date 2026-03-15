@@ -1,5 +1,6 @@
 import type {
   ActionBundle,
+  AgentMemory,
   AgentObservation,
   AgentPlan,
   AgentPlanStep,
@@ -38,6 +39,7 @@ import {
   completeAgentPlan,
   completeSkillRun,
   createActionProposal,
+  createAgentMemory,
   createAgentPlan,
   createAgentPlanStep,
   createCapitalFormationDraft,
@@ -63,6 +65,8 @@ import {
   listAgentObservationsByStatus,
   listAgentPlansByObservationId,
   nowIso,
+  pruneExpiredMemories,
+  queryMemoriesForSkill,
   readCoopState,
   saveAgentObservation,
   saveAgentPlan,
@@ -130,6 +134,7 @@ type SkillExecutionContext = {
   createdDraftIds: string[];
   relatedDrafts: ReviewDraft[];
   relatedArtifacts: CoopSharedState['artifacts'];
+  memories: AgentMemory[];
 };
 
 const db = createCoopDb('coop-extension');
@@ -313,6 +318,7 @@ async function buildSkillPrompt(input: {
   scores: GrantFitScore[];
   relatedDrafts: ReviewDraft[];
   relatedArtifacts: CoopSharedState['artifacts'];
+  memories: AgentMemory[];
 }) {
   const coopContext = input.coop
     ? compact([
@@ -403,9 +409,20 @@ async function buildSkillPrompt(input: {
       ? `Domain knowledge:\n${knowledgeSkills.map((s) => `### ${s.name}\n${truncateWords(s.content, 80)}`).join('\n\n')}`
       : '';
 
+  const memoryContext =
+    input.memories.length > 0
+      ? `Agent memories:\n${input.memories
+          .map(
+            (m) =>
+              `- [${m.type}] ${truncateWords(m.content, 40)} (confidence: ${m.confidence.toFixed(2)})`,
+          )
+          .join('\n')}`
+      : '';
+
   const prompt = [
     coopContext,
     ...(knowledgeContext ? [knowledgeContext] : []),
+    ...(memoryContext ? [memoryContext] : []),
     sourceContext,
     candidateContext,
     scoreContext,
@@ -529,6 +546,7 @@ async function completeSkill<T>(input: {
   scores: GrantFitScore[];
   relatedDrafts: ReviewDraft[];
   relatedArtifacts: CoopSharedState['artifacts'];
+  memories: AgentMemory[];
 }): Promise<{ provider: AgentProvider; model?: string; output: T; durationMs: number }> {
   const { manifest } = input;
   const prepared = await buildSkillPrompt(input);
@@ -737,11 +755,14 @@ async function dispatchActionProposal(input: {
 }
 
 async function buildSkillContext(observation: AgentObservation): Promise<SkillExecutionContext> {
-  const [coops, draft, capture, authSession] = await Promise.all([
+  const [coops, draft, capture, authSession, memories] = await Promise.all([
     getCoops(),
     observation.draftId ? getReviewDraft(db, observation.draftId) : Promise.resolve(null),
     observation.captureId ? db.receiverCaptures.get(observation.captureId) : Promise.resolve(null),
     getAuthSession(db),
+    observation.coopId
+      ? queryMemoriesForSkill(db, observation.coopId, observation.trigger)
+      : Promise.resolve([]),
   ]);
   const coop =
     (observation.coopId
@@ -770,7 +791,125 @@ async function buildSkillContext(observation: AgentObservation): Promise<SkillEx
     createdDraftIds: [],
     relatedDrafts,
     relatedArtifacts: coop?.artifacts ?? [],
+    memories,
   };
+}
+
+function extractMemoriesFromOutput(
+  schemaRef: SkillOutputSchemaRef,
+  output: unknown,
+): Array<{
+  type: AgentMemory['type'];
+  content: string;
+  confidence: number;
+  domain: string;
+  expiresAt?: string;
+}> {
+  const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  switch (schemaRef) {
+    case 'opportunity-extractor-output': {
+      const typed = output as OpportunityExtractorOutput;
+      if (!typed.candidates?.length) return [];
+      const topTitles = typed.candidates
+        .slice(0, 3)
+        .map((c) => c.title)
+        .join(', ');
+      return [
+        {
+          type: 'observation-outcome',
+          content: `Extracted ${typed.candidates.length} opportunity candidates: ${topTitles}`,
+          confidence: 0.7,
+          domain: 'opportunities',
+          expiresAt: thirtyDaysFromNow,
+        },
+      ];
+    }
+    case 'theme-clusterer-output': {
+      const typed = output as ThemeClustererOutput;
+      if (!typed.themes?.length) return [];
+      const labels = typed.themes.map((t) => t.label).join(', ');
+      return [
+        {
+          type: 'domain-pattern',
+          content: `Emerging themes: ${labels}`,
+          confidence: 0.65,
+          domain: 'themes',
+        },
+      ];
+    }
+    case 'review-digest-output': {
+      const typed = output as ReviewDigestOutput;
+      if (!typed.digestMarkdown && !typed.summary) return [];
+      return [
+        {
+          type: 'coop-context',
+          content: `Review digest: ${truncateWords(typed.digestMarkdown ?? typed.summary ?? '', 60)}`,
+          confidence: 0.8,
+          domain: 'reviews',
+        },
+      ];
+    }
+    case 'capital-formation-brief-output': {
+      const typed = output as CapitalFormationBriefOutput;
+      return [
+        {
+          type: 'observation-outcome',
+          content: `Capital formation brief: ${typed.title} — ${truncateWords(typed.rationale, 40)}`,
+          confidence: 0.75,
+          domain: 'funding',
+          expiresAt: thirtyDaysFromNow,
+        },
+      ];
+    }
+    case 'publish-readiness-check-output': {
+      const typed = output as PublishReadinessCheckOutput;
+      const suggestions = typed.suggestions?.join('; ') ?? 'none';
+      return [
+        {
+          type: 'skill-pattern',
+          content: `Publish readiness: ${typed.ready ? 'ready' : 'not ready'}. Suggestions: ${suggestions}`,
+          confidence: 0.7,
+          domain: 'publishing',
+          expiresAt: thirtyDaysFromNow,
+        },
+      ];
+    }
+    default:
+      // Green Goods, ERC-8004, grant-fit-scorer, ecosystem-entity-extractor,
+      // and other transactional/scoring skills — no memories
+      return [];
+  }
+}
+
+async function writeSkillMemories(
+  schemaRef: SkillOutputSchemaRef,
+  output: unknown,
+  observation: AgentObservation,
+  skillRunId: string,
+): Promise<void> {
+  try {
+    const entries = extractMemoriesFromOutput(schemaRef, output);
+    if (entries.length === 0) return;
+    const coopId = observation.coopId;
+    if (!coopId) return;
+
+    for (const entry of entries) {
+      await createAgentMemory(db, {
+        coopId,
+        type: entry.type,
+        content: entry.content,
+        confidence: entry.confidence,
+        domain: entry.domain,
+        expiresAt: entry.expiresAt,
+        sourceObservationId: observation.id,
+        sourceSkillRunId: skillRunId,
+      });
+    }
+  } catch (error) {
+    // Fire-and-forget: never break the agent cycle
+    console.warn('[agent-memory] Failed to write skill memories:', error);
+  }
 }
 
 async function runObservationPlan(observation: AgentObservation): Promise<AgentCycleResult> {
@@ -981,6 +1120,7 @@ async function runObservationPlan(observation: AgentObservation): Promise<AgentC
         scores: context.scores,
         relatedDrafts: context.relatedDrafts,
         relatedArtifacts: context.relatedArtifacts,
+        memories: context.memories,
       });
 
       let output = completed.output;
@@ -1309,6 +1449,7 @@ async function runObservationPlan(observation: AgentObservation): Promise<AgentC
 
       run = completeSkillRun(run, output);
       await saveSkillRun(db, run);
+      void writeSkillMemories(registered.manifest.outputSchemaRef, output, observation, run.id);
       result.completedSkillRunIds.push(run.id);
       result.skillRunMetrics.push({
         skillId,
@@ -1485,6 +1626,9 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
   } catch (error) {
     result.errors.push(error instanceof Error ? error.message : 'Agent cycle failed.');
   } finally {
+    void pruneExpiredMemories(db).catch((err) => {
+      console.warn('[agent-memory] Failed to prune expired memories:', err);
+    });
     result.totalDurationMs = Date.now() - cycleStart;
     await setCycleState({
       running: false,

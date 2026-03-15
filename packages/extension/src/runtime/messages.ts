@@ -1,6 +1,7 @@
 import type {
   ActionBundle,
   ActionLogEntry,
+  AgentMemory,
   AgentObservation,
   AgentPlan,
   AnchorCapability,
@@ -56,9 +57,18 @@ export interface RuntimeSummary {
   activeCoopId?: string;
 }
 
+export interface CoopBadgeSummary {
+  coopId: string;
+  coopName: string;
+  pendingDrafts: number;
+  artifactCount: number;
+  pendingActions: number;
+}
+
 export interface DashboardResponse {
   coops: CoopSharedState[];
   activeCoopId?: string;
+  coopBadges: CoopBadgeSummary[];
   drafts: ReviewDraft[];
   candidates: TabCandidate[];
   summary: RuntimeSummary;
@@ -125,6 +135,7 @@ export interface AgentDashboardResponse {
   skillRuns: SkillRun[];
   manifests: SkillManifest[];
   autoRunSkillIds: string[];
+  memories: AgentMemory[];
 }
 
 export type RuntimeRequest =

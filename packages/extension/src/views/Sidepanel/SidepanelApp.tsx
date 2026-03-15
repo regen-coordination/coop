@@ -13,6 +13,7 @@ import { playCoopSound } from '../../runtime/audio';
 import { InferenceBridge, type InferenceBridgeState } from '../../runtime/inference-bridge';
 import { type AgentDashboardResponse, sendRuntimeMessage } from '../../runtime/messages';
 import { ErrorBoundary } from '../ErrorBoundary';
+import { CoopSwitcher } from './CoopSwitcher';
 import { OnboardingOverlay } from './OnboardingOverlay';
 import { TabStrip } from './TabStrip';
 import { describeLocalHelperState, formatRoundUpTiming } from './helpers';
@@ -885,22 +886,15 @@ export function SidepanelApp() {
             <strong>{dashboard?.summary.syncState ?? 'Loading'}</strong>
           </div>
         </div>
-        {dashboard?.coops.length ? (
-          <div className="field-grid">
-            <label htmlFor="active-coop-select">Active nest</label>
-            <select
-              id="active-coop-select"
-              onChange={(event) => void selectActiveCoop(event.target.value)}
-              value={dashboard.activeCoopId ?? activeCoop?.profile.id ?? ''}
-            >
-              {(dashboard.coops ?? []).map((coop) => (
-                <option key={coop.profile.id} value={coop.profile.id}>
-                  {coop.profile.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
+        <CoopSwitcher
+          coops={(dashboard?.coops ?? []).map((coop) => ({
+            id: coop.profile.id,
+            name: coop.profile.name,
+          }))}
+          activeCoopId={dashboard?.activeCoopId ?? activeCoop?.profile.id}
+          coopBadges={dashboard?.coopBadges ?? []}
+          onSwitch={selectActiveCoop}
+        />
         <div className="state-text">
           Local-first unless you share · Round-up:{' '}
           {formatRoundUpTiming(dashboard?.summary.captureMode ?? 'manual')} · Local helper:{' '}

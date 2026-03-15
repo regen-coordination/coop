@@ -56,7 +56,7 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 - `receiver`: PWA receiver and cross-device sync
 - `privacy`: Semaphore ZK membership proofs + anonymous publishing
 - `stealth`: ERC-5564 stealth addresses (secp256k1)
-- `agent`: Agent harness, skills, observation triggers, inference cascade
+- `agent`: Agent harness, skills, observation triggers, inference cascade, cross-session memory persistence
 - `operator`: Anchor/trusted-node runtime behavior
 - `policy`: Action approval workflows, typed action bundles
 - `session`: Scoped execution permissions, time-bounded capabilities

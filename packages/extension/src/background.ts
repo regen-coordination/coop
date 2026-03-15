@@ -23,6 +23,7 @@ import type {
   RuntimeActionResponse,
   RuntimeRequest,
 } from './runtime/messages';
+import { notifyDashboardUpdated } from './runtime/messages';
 import { filterVisibleReceiverPairings } from './runtime/receiver';
 
 // ---- Context (shared state) ----
@@ -415,6 +416,8 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
         return;
       case 'set-active-coop':
         await setLocalSetting(stateKeys.activeCoopId, message.payload.coopId);
+        await refreshBadge();
+        void notifyDashboardUpdated();
         sendResponse({ ok: true } satisfies RuntimeActionResponse);
         return;
       case 'persist-coop-state': {

@@ -26,6 +26,7 @@ import {
   approveAgentPlan as markAgentPlanApproved,
   rejectAgentPlan as markAgentPlanRejected,
   nowIso,
+  queryRecentMemories,
   resolveGreenGoodsGapAdminChanges,
   saveAgentObservation,
   saveAgentPlan,
@@ -598,13 +599,17 @@ async function getAgentDashboard(): Promise<AgentDashboardResponse> {
       listReceiverCaptures(db),
       getTrustedNodeContext(),
     ]);
+
+  const activeCoopId = trustedNodeContext.ok ? trustedNodeContext.coop.profile.id : undefined;
+  const memories = activeCoopId ? await queryRecentMemories(db, activeCoopId, { limit: 20 }) : [];
+
   const filtered = filterAgentDashboardState({
     observations,
     plans,
     skillRuns,
     drafts,
     captures,
-    activeCoopId: trustedNodeContext.ok ? trustedNodeContext.coop.profile.id : undefined,
+    activeCoopId,
     activeMemberId: trustedNodeContext.ok ? trustedNodeContext.member.id : undefined,
     operatorAccess: trustedNodeContext.ok,
   });
@@ -614,6 +619,7 @@ async function getAgentDashboard(): Promise<AgentDashboardResponse> {
     skillRuns: filtered.skillRuns,
     manifests: listRegisteredSkills().map((entry) => entry.manifest),
     autoRunSkillIds,
+    memories,
   };
 }
 

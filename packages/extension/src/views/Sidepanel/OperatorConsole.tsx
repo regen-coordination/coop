@@ -2,6 +2,7 @@ import type {
   ActionBundle,
   ActionLogEntry,
   ActionPolicy,
+  AgentMemory,
   AgentObservation,
   AgentPlan,
   AnchorCapability,
@@ -21,6 +22,7 @@ import type {
   SkillRun,
 } from '@coop/shared';
 import {
+  AgentMemorySection,
   AgentObservationsSection,
   GardenRequestsSection,
   PermitSection,
@@ -105,6 +107,7 @@ type OperatorConsoleProps = {
     request: GreenGoodsAssessmentRequest,
   ): void | Promise<void>;
   onQueueGreenGoodsGapAdminSync?(coopId: string): void | Promise<void>;
+  memories?: AgentMemory[];
 };
 
 export function OperatorConsole(props: OperatorConsoleProps) {
@@ -132,6 +135,8 @@ export function OperatorConsole(props: OperatorConsoleProps) {
         onRejectPlan={props.onRejectPlan}
         onRetrySkillRun={props.onRetrySkillRun}
       />
+
+      <AgentMemorySection memories={props.memories ?? []} />
 
       <TrustedNestControlsSection
         anchorCapability={props.anchorCapability}

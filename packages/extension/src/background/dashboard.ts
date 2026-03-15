@@ -24,7 +24,7 @@ import {
   savePermitLogEntry,
 } from '@coop/shared';
 import { isTrustedNodeRole } from '../runtime/agent-harness';
-import type { DashboardResponse, RuntimeSummary } from '../runtime/messages';
+import type { CoopBadgeSummary, DashboardResponse, RuntimeSummary } from '../runtime/messages';
 import { filterVisibleReceiverPairings } from '../runtime/receiver';
 import { sessionCapabilityChanged } from '../runtime/session-capability';
 import {
@@ -261,9 +261,21 @@ export async function getDashboard(): Promise<DashboardResponse> {
       )
     : [];
 
+  const coopBadges: CoopBadgeSummary[] = coops.map((coop) => ({
+    coopId: coop.profile.id,
+    coopName: coop.profile.name,
+    pendingDrafts: orderedDrafts.filter((d) => d.suggestedTargetCoopIds.includes(coop.profile.id))
+      .length,
+    artifactCount: coop.artifacts.length,
+    pendingActions: operatorAccess
+      ? pendingBundles(actionBundles.filter((b) => b.coopId === coop.profile.id)).length
+      : 0,
+  }));
+
   return {
     coops,
     activeCoopId: activeContext.activeCoopId ?? summary.activeCoopId,
+    coopBadges,
     drafts: visibleDrafts,
     candidates: candidates.reverse().slice(-12).reverse(),
     summary,
