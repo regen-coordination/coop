@@ -146,6 +146,103 @@ describe('describeArchiveReceipt', () => {
     expect(details.summary).toContain('flock members');
     expect(details.summary).toContain('shared finds');
   });
+
+  it('populates filecoinDeals from filecoinInfo', () => {
+    const state = createTestState();
+    const receipt = createTestReceipt(state, {
+      filecoinInfo: {
+        pieceCid: 'baga6ea4seaq-piece',
+        aggregates: [],
+        deals: [
+          { aggregate: 'agg-1', provider: 'f01234', dealId: '12345' },
+          { aggregate: 'agg-2', provider: 'f05678' },
+        ],
+        lastUpdatedAt: '2026-03-13T15:00:00.000Z',
+      },
+    });
+
+    const details = describeArchiveReceipt({ receipt, state });
+
+    expect(details.filecoinDeals).toHaveLength(2);
+    expect(details.filecoinDeals[0]).toEqual({
+      aggregate: 'agg-1',
+      provider: 'f01234',
+      dealId: '12345',
+    });
+    expect(details.filecoinDeals[1]).toEqual({
+      aggregate: 'agg-2',
+      provider: 'f05678',
+    });
+  });
+
+  it('populates filecoinAggregates from filecoinInfo', () => {
+    const state = createTestState();
+    const receipt = createTestReceipt(state, {
+      filecoinInfo: {
+        pieceCid: 'baga6ea4seaq-piece',
+        aggregates: [
+          { aggregate: 'agg-1', inclusionProofAvailable: true },
+          { aggregate: 'agg-2', inclusionProofAvailable: false },
+        ],
+        deals: [],
+        lastUpdatedAt: '2026-03-13T15:00:00.000Z',
+      },
+    });
+
+    const details = describeArchiveReceipt({ receipt, state });
+
+    expect(details.filecoinAggregates).toHaveLength(2);
+    expect(details.filecoinAggregates[0]).toEqual({
+      aggregate: 'agg-1',
+      inclusionProofAvailable: true,
+    });
+    expect(details.filecoinAggregates[1]).toEqual({
+      aggregate: 'agg-2',
+      inclusionProofAvailable: false,
+    });
+  });
+
+  it('populates filecoinInfoLastUpdatedAt from filecoinInfo', () => {
+    const state = createTestState();
+    const receipt = createTestReceipt(state, {
+      filecoinInfo: {
+        pieceCid: 'baga6ea4seaq-piece',
+        aggregates: [],
+        deals: [],
+        lastUpdatedAt: '2026-03-13T15:00:00.000Z',
+      },
+    });
+
+    const details = describeArchiveReceipt({ receipt, state });
+
+    expect(details.filecoinInfoLastUpdatedAt).toBe('2026-03-13T15:00:00.000Z');
+  });
+
+  it('returns empty arrays and undefined when filecoinInfo is absent', () => {
+    const state = createTestState();
+    const receipt = createTestReceipt(state);
+
+    const details = describeArchiveReceipt({ receipt, state });
+
+    expect(details.filecoinDeals).toEqual([]);
+    expect(details.filecoinAggregates).toEqual([]);
+    expect(details.filecoinInfoLastUpdatedAt).toBeUndefined();
+  });
+
+  it('returns empty deals and aggregates when filecoinInfo has empty arrays', () => {
+    const state = createTestState();
+    const receipt = createTestReceipt(state, {
+      filecoinInfo: {
+        aggregates: [],
+        deals: [],
+      },
+    });
+
+    const details = describeArchiveReceipt({ receipt, state });
+
+    expect(details.filecoinDeals).toEqual([]);
+    expect(details.filecoinAggregates).toEqual([]);
+  });
 });
 
 describe('buildCoopArchiveStory', () => {
@@ -196,5 +293,109 @@ describe('buildCoopArchiveStory', () => {
 
     const story = buildCoopArchiveStory(stateWithFlagged);
     expect(story.archiveWorthyArtifactCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('computes totalArchiveReceipts from the receipt list', () => {
+    const state = createTestState();
+    const r1 = createTestReceipt(state, { id: 'r1' });
+    const r2 = createTestReceipt(state, { id: 'r2', scope: 'snapshot', artifactIds: [] });
+
+    const stateWithReceipts = { ...state, archiveReceipts: [r1, r2] };
+    const story = buildCoopArchiveStory(stateWithReceipts);
+
+    expect(story.totalArchiveReceipts).toBe(2);
+  });
+
+  it('computes totalSealedDeals across all receipts', () => {
+    const state = createTestState();
+    const r1 = createTestReceipt(state, {
+      id: 'r1',
+      filecoinInfo: {
+        aggregates: [],
+        deals: [
+          { aggregate: 'agg-1', provider: 'f01234', dealId: '100' },
+          { aggregate: 'agg-2', provider: 'f05678', dealId: '101' },
+        ],
+      },
+    });
+    const r2 = createTestReceipt(state, {
+      id: 'r2',
+      filecoinInfo: {
+        aggregates: [],
+        deals: [{ aggregate: 'agg-3', provider: 'f01234', dealId: '102' }],
+      },
+    });
+
+    const stateWithReceipts = { ...state, archiveReceipts: [r1, r2] };
+    const story = buildCoopArchiveStory(stateWithReceipts);
+
+    expect(story.totalSealedDeals).toBe(3);
+  });
+
+  it('computes totalArtifacts from the state artifact count', () => {
+    const state = createTestState();
+    const story = buildCoopArchiveStory(state);
+
+    expect(story.totalArtifacts).toBe(state.artifacts.length);
+  });
+
+  it('collects uniqueProviders across all receipts', () => {
+    const state = createTestState();
+    const r1 = createTestReceipt(state, {
+      id: 'r1',
+      filecoinInfo: {
+        aggregates: [],
+        deals: [
+          { aggregate: 'agg-1', provider: 'f01234', dealId: '100' },
+          { aggregate: 'agg-2', provider: 'f05678', dealId: '101' },
+        ],
+      },
+    });
+    const r2 = createTestReceipt(state, {
+      id: 'r2',
+      filecoinInfo: {
+        aggregates: [],
+        deals: [
+          { aggregate: 'agg-3', provider: 'f01234', dealId: '102' },
+          { aggregate: 'agg-4', provider: 'f09999', dealId: '103' },
+        ],
+      },
+    });
+
+    const stateWithReceipts = { ...state, archiveReceipts: [r1, r2] };
+    const story = buildCoopArchiveStory(stateWithReceipts);
+
+    expect(story.uniqueProviders).toHaveLength(3);
+    expect(story.uniqueProviders).toContain('f01234');
+    expect(story.uniqueProviders).toContain('f05678');
+    expect(story.uniqueProviders).toContain('f09999');
+  });
+
+  it('computes totalDataPoints as the total artifacts count', () => {
+    const state = createTestState();
+    const story = buildCoopArchiveStory(state);
+
+    expect(story.totalDataPoints).toBe(state.artifacts.length);
+  });
+
+  it('returns zero aggregate stats when no receipts or filecoinInfo', () => {
+    const state = createTestState();
+    const story = buildCoopArchiveStory(state);
+
+    expect(story.totalArchiveReceipts).toBe(0);
+    expect(story.totalSealedDeals).toBe(0);
+    expect(story.uniqueProviders).toEqual([]);
+  });
+
+  it('handles receipts with no filecoinInfo gracefully in aggregate stats', () => {
+    const state = createTestState();
+    const r1 = createTestReceipt(state, { id: 'r1' }); // no filecoinInfo
+
+    const stateWithReceipts = { ...state, archiveReceipts: [r1] };
+    const story = buildCoopArchiveStory(stateWithReceipts);
+
+    expect(story.totalArchiveReceipts).toBe(1);
+    expect(story.totalSealedDeals).toBe(0);
+    expect(story.uniqueProviders).toEqual([]);
   });
 });

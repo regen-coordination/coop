@@ -13,7 +13,7 @@ const server = http.createServer((_request, response) => {
   response.end('okay');
 });
 
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 
 function send(connection, message) {
   if (
@@ -71,7 +71,12 @@ function onConnection(connection) {
   connection.on('message', (rawMessage) => {
     let message = rawMessage;
     if (typeof message === 'string' || message instanceof Buffer) {
-      message = JSON.parse(message);
+      try {
+        message = JSON.parse(message);
+      } catch {
+        console.warn('[ws] malformed JSON from client, dropping');
+        return;
+      }
     }
 
     if (!message?.type || closed) {
@@ -124,6 +129,18 @@ server.on('upgrade', (request, socket, head) => {
     wss.emit('connection', connection, request);
   });
 });
+
+function shutdown() {
+  console.log('Shutting down signaling server…');
+  for (const client of wss.clients) {
+    client.close(1001, 'server shutting down');
+  }
+  wss.close();
+  server.close();
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 
 server.listen(port, host, () => {
   console.log(`Coop signaling server listening on http://${host}:${port}`);
