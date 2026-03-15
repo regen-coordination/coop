@@ -1,54 +1,75 @@
 import type { ReceiverCapture } from '@coop/shared';
-import type { ChangeEvent, RefObject } from 'react';
+import type { RefObject } from 'react';
+import { Button } from '../../components/Button';
+import { Card } from '../../components/Card';
+import { SyncPill } from '../../components/SyncPill';
 import type { CaptureCard } from './index';
 
-export type CapturePanelProps = {
+type CaptureViewProps = {
   isRecording: boolean;
-  newestCapture: ReceiverCapture | undefined;
+  newestCapture: ReceiverCapture | null;
   hatchedCaptureId: string | null;
   captures: CaptureCard[];
-  canShare: boolean;
   pairingReady: boolean;
+  canShare: boolean;
   photoInputRef: RefObject<HTMLInputElement | null>;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onStartRecording: () => void;
-  onFinishRecording: (mode: 'save' | 'cancel') => void;
-  onPickFile: (event: ChangeEvent<HTMLInputElement>, kind: 'photo' | 'file') => void;
-  onNavigateToInbox: () => void;
-  onNavigateToPair: () => void;
+  onFinishRecording: (action: 'save' | 'cancel') => void;
+  onPickFile: (event: React.ChangeEvent<HTMLInputElement>, kind: 'photo' | 'file') => void;
   onShareCapture: (card: CaptureCard) => void;
-  syncStateLabel: (state: ReceiverCapture['syncState']) => string;
-  receiverPreviewLabel: (kind: ReceiverCapture['kind']) => string;
-  sizeLabel: (byteSize: number) => string;
+  onNavigateInbox: () => void;
+  onNavigatePair: () => void;
 };
 
-export function CapturePanel({
+function sizeLabel(byteSize: number) {
+  if (byteSize < 1024) {
+    return `${byteSize} B`;
+  }
+  if (byteSize < 1024 * 1024) {
+    return `${Math.max(1, Math.round(byteSize / 102.4) / 10)} KB`;
+  }
+  return `${Math.max(0.1, Math.round(byteSize / (1024 * 102.4)) / 10)} MB`;
+}
+
+function receiverPreviewLabel(kind: ReceiverCapture['kind']) {
+  switch (kind) {
+    case 'audio':
+      return 'Chick';
+    case 'photo':
+      return 'Feather';
+    case 'file':
+      return 'Twig';
+    case 'link':
+      return 'Trail';
+  }
+}
+
+export function CaptureView({
   isRecording,
   newestCapture,
   hatchedCaptureId,
   captures,
-  canShare,
   pairingReady,
+  canShare,
   photoInputRef,
   fileInputRef,
   onStartRecording,
   onFinishRecording,
   onPickFile,
-  onNavigateToInbox,
-  onNavigateToPair,
   onShareCapture,
-  syncStateLabel,
-  receiverPreviewLabel,
-  sizeLabel,
-}: CapturePanelProps) {
+  onNavigateInbox,
+  onNavigatePair,
+}: CaptureViewProps) {
   return (
     <section className="receiver-grid">
-      <article className="nest-card receiver-card receiver-capture-card">
+      <Card className="receiver-capture-card">
         <p className="eyebrow">Primary Capture</p>
         <h2>Audio first, in one thumb-sized action.</h2>
         <div className="egg-stage">
           <button
             aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+            aria-pressed={isRecording}
             className={isRecording ? 'egg-button is-recording' : 'egg-button'}
             onClick={() => (isRecording ? onFinishRecording('save') : void onStartRecording())}
             type="button"
@@ -56,6 +77,9 @@ export function CapturePanel({
             <span className="egg-shell" />
             <span className="egg-core">{isRecording ? 'Stop' : 'Record'}</span>
           </button>
+          <output aria-live="polite" className="sr-only">
+            {isRecording ? 'Recording started' : ''}
+          </output>
           <p className="quiet-note">
             {isRecording
               ? 'The egg is pulsing. Tap again to save, or cancel if you are not ready.'
@@ -63,39 +87,23 @@ export function CapturePanel({
           </p>
           {isRecording ? (
             <div className="cta-row">
-              <button
-                className="button button-primary"
-                onClick={() => onFinishRecording('save')}
-                type="button"
-              >
+              <Button variant="primary" onClick={() => onFinishRecording('save')}>
                 Save voice note
-              </button>
-              <button
-                className="button button-secondary"
-                onClick={() => onFinishRecording('cancel')}
-                type="button"
-              >
+              </Button>
+              <Button variant="secondary" onClick={() => onFinishRecording('cancel')}>
                 Cancel
-              </button>
+              </Button>
             </div>
           ) : null}
         </div>
 
         <div className="receiver-actions-grid">
-          <button
-            className="button button-secondary"
-            onClick={() => photoInputRef.current?.click()}
-            type="button"
-          >
+          <Button variant="secondary" onClick={() => photoInputRef.current?.click()}>
             Take photo
-          </button>
-          <button
-            className="button button-secondary"
-            onClick={() => fileInputRef.current?.click()}
-            type="button"
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
             Attach file
-          </button>
+          </Button>
         </div>
         <p className="quiet-note">
           Shared URLs from other apps land here as link chicks when the installed PWA is used as a
@@ -117,11 +125,11 @@ export function CapturePanel({
           ref={fileInputRef}
           type="file"
         />
-      </article>
+      </Card>
 
-      <article className="nest-card receiver-card">
-        <p className="eyebrow">Round Up Preview</p>
-        <h2>Fresh captures settle into the Roost as chicks.</h2>
+      <Card>
+        <p className="eyebrow">Hatch Preview</p>
+        <h2>Fresh captures settle into the inbox as chicks.</h2>
         {newestCapture ? (
           <article
             className={
@@ -130,9 +138,7 @@ export function CapturePanel({
           >
             <div className="nest-item-topline">
               <span className="nest-item-chick">{receiverPreviewLabel(newestCapture.kind)}</span>
-              <span className={`sync-pill is-${newestCapture.syncState}`}>
-                {syncStateLabel(newestCapture.syncState)}
-              </span>
+              <SyncPill state={newestCapture.syncState} />
             </div>
             <strong>{newestCapture.title}</strong>
             <p>
@@ -141,35 +147,27 @@ export function CapturePanel({
                 `${sizeLabel(newestCapture.byteSize)} · ${newestCapture.mimeType}`}
             </p>
             <div className="cta-row">
-              <button
-                className="button button-secondary button-small"
-                onClick={onNavigateToInbox}
-                type="button"
-              >
-                Open Roost
-              </button>
+              <Button variant="secondary" size="small" onClick={onNavigateInbox}>
+                Open inbox
+              </Button>
               {!pairingReady ? (
-                <button
-                  className="button button-secondary button-small"
-                  onClick={onNavigateToPair}
-                  type="button"
-                >
-                  Pair to sync
-                </button>
+                <Button variant="secondary" size="small" onClick={onNavigatePair}>
+                  Mate to sync
+                </Button>
               ) : null}
               {canShare ? (
-                <button
-                  className="button button-secondary button-small"
+                <Button
+                  variant="secondary"
+                  size="small"
                   onClick={() => {
                     const card = captures.find(
                       (entry) => entry.capture.id === newestCapture.id,
                     ) ?? { capture: newestCapture };
                     void onShareCapture(card);
                   }}
-                  type="button"
                 >
                   Share
-                </button>
+                </Button>
               ) : null}
             </div>
           </article>
@@ -178,7 +176,7 @@ export function CapturePanel({
             Save a voice note, photo, file, or shared link and the first chick appears here.
           </div>
         )}
-      </article>
+      </Card>
     </section>
   );
 }

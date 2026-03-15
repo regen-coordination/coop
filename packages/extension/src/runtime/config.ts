@@ -48,6 +48,20 @@ export function isLocalEnhancementEnabled(raw?: string) {
   return raw !== 'off';
 }
 
+export function resolveConfiguredFvmChain(raw?: string): 'filecoin' | 'filecoin-calibration' {
+  return raw === 'filecoin' ? 'filecoin' : 'filecoin-calibration';
+}
+
+export function resolveConfiguredFvmRegistryAddress(raw?: string): string | undefined {
+  if (!raw || !/^0x[a-fA-F0-9]{40}$/.test(raw)) return undefined;
+  return raw;
+}
+
+export function resolveConfiguredFvmOperatorKey(raw?: string): string | undefined {
+  if (!raw || !/^0x[a-fA-F0-9]{64}$/.test(raw)) return undefined;
+  return raw;
+}
+
 function parseConfiguredProofs(raw?: string) {
   if (!raw) {
     return [];

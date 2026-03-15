@@ -1,64 +1,47 @@
 import type { ReceiverPairingPayload } from '@coop/shared';
-import { type RefObject, useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
+import { Button } from '../../components/Button';
+import { Card } from '../../components/Card';
 
-export type PairingPanelProps = {
+type PairViewProps = {
   pairingInput: string;
-  pendingPairing: ReceiverPairingPayload | null;
-  pairingError: string;
-  qrScanError: string;
-  isQrScannerOpen: boolean;
-  qrVideoRef: RefObject<HTMLVideoElement | null>;
   onPairingInputChange: (value: string) => void;
-  onReviewPairing: (value: string) => void;
-  onConfirmPairing: () => void;
-  onCancelPairing: () => void;
+  onReviewPairing: (input: string) => void;
   onStartQrScanner: () => void;
   onStopQrScanner: () => void;
-  onNavigateToReceiver: () => void;
+  onNavigateHatch: () => void;
+  isQrScannerOpen: boolean;
+  qrScanError: string;
+  qrVideoRef: RefObject<HTMLVideoElement | null>;
+  qrDialogRef: RefObject<HTMLDialogElement | null>;
+  qrStopButtonRef: RefObject<HTMLButtonElement | null>;
+  pairingError: string;
+  pendingPairing: ReceiverPairingPayload | null;
+  onConfirmPairing: () => void;
+  onCancelPairing: () => void;
 };
 
-export function PairingPanel({
+export function PairView({
   pairingInput,
-  pendingPairing,
-  pairingError,
-  qrScanError,
-  isQrScannerOpen,
-  qrVideoRef,
   onPairingInputChange,
   onReviewPairing,
-  onConfirmPairing,
-  onCancelPairing,
   onStartQrScanner,
   onStopQrScanner,
-  onNavigateToReceiver,
-}: PairingPanelProps) {
-  const stopButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  // Close scanner on Escape key (document-level so it works regardless of focus)
-  useEffect(() => {
-    if (!isQrScannerOpen) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onStopQrScanner();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [isQrScannerOpen, onStopQrScanner]);
-
-  // Auto-focus the stop button when scanner opens
-  useEffect(() => {
-    if (isQrScannerOpen) {
-      stopButtonRef.current?.focus();
-    }
-  }, [isQrScannerOpen]);
-
+  onNavigateHatch,
+  isQrScannerOpen,
+  qrScanError,
+  qrVideoRef,
+  qrDialogRef,
+  qrStopButtonRef,
+  pairingError,
+  pendingPairing,
+  onConfirmPairing,
+  onCancelPairing,
+}: PairViewProps) {
   return (
     <section className="receiver-grid">
-      <article className="nest-card receiver-card">
-        <p className="eyebrow">Pair</p>
+      <Card>
+        <p className="eyebrow">Mate</p>
         <h2>Paste a nest code, scan a QR, or open a coop link.</h2>
         <p className="lede">
           This stays local to this browser. Once joined, anything already hatched here can queue
@@ -68,7 +51,7 @@ export function PairingPanel({
           className="receiver-form"
           onSubmit={(event) => {
             event.preventDefault();
-            void onReviewPairing(pairingInput);
+            onReviewPairing(pairingInput);
           }}
         >
           <label className="receiver-label" htmlFor="pairing-payload">
@@ -81,40 +64,42 @@ export function PairingPanel({
             value={pairingInput}
           />
           <div className="cta-row">
-            <button className="button button-primary" type="submit">
+            <Button variant="primary" type="submit">
               Check nest code
-            </button>
-            <button
-              className="button button-secondary"
-              onClick={() => void onStartQrScanner()}
-              type="button"
-            >
+            </Button>
+            <Button variant="secondary" onClick={() => void onStartQrScanner()}>
               Scan QR
-            </button>
-            <button
-              className="button button-secondary"
-              onClick={onNavigateToReceiver}
-              type="button"
-            >
-              Round up offline
-            </button>
+            </Button>
+            <Button variant="secondary" onClick={onNavigateHatch}>
+              Hatch offline
+            </Button>
           </div>
         </form>
         {isQrScannerOpen ? (
-          // biome-ignore lint/a11y/useSemanticElements: inline conditional overlay, not a modal dialog
-          <div className="stack" role="dialog" aria-modal="true" aria-label="QR code scanner">
+          <dialog
+            className="qr-scanner-dialog"
+            ref={qrDialogRef}
+            aria-label="QR code scanner"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                onStopQrScanner();
+              }
+            }}
+            onClose={onStopQrScanner}
+          >
             <video autoPlay className="nest-photo" muted playsInline ref={qrVideoRef} />
             <div className="cta-row">
               <button
                 className="button button-secondary"
                 onClick={onStopQrScanner}
-                ref={stopButtonRef}
+                ref={qrStopButtonRef}
                 type="button"
               >
                 Stop scanner
               </button>
             </div>
-          </div>
+          </dialog>
         ) : null}
         {qrScanError ? <p className="receiver-error">{qrScanError}</p> : null}
         {pairingError ? <p className="receiver-error">{pairingError}</p> : null}
@@ -140,22 +125,18 @@ export function PairingPanel({
               </div>
             </div>
             <div className="cta-row">
-              <button
-                className="button button-primary"
-                onClick={() => void onConfirmPairing()}
-                type="button"
-              >
+              <Button variant="primary" onClick={onConfirmPairing}>
                 Join this coop
-              </button>
-              <button className="button button-secondary" onClick={onCancelPairing} type="button">
+              </Button>
+              <Button variant="secondary" onClick={onCancelPairing}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}
-      </article>
+      </Card>
 
-      <article className="nest-card receiver-card">
+      <Card>
         <p className="eyebrow">What this nest code adds</p>
         <ul className="check-list">
           <li>Device-local receiver identity</li>
@@ -167,7 +148,7 @@ export function PairingPanel({
           Existing local captures stay local until a valid nest code is accepted, whether the
           extension is running locally or against the production PWA.
         </p>
-      </article>
+      </Card>
     </section>
   );
 }

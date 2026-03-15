@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { playCoopSound } from '../../runtime/audio';
 import { InferenceBridge, type InferenceBridgeState } from '../../runtime/inference-bridge';
 import { type AgentDashboardResponse, sendRuntimeMessage } from '../../runtime/messages';
+import { ErrorBoundary } from '../ErrorBoundary';
 import { OnboardingOverlay } from './OnboardingOverlay';
 import { TabStrip } from './TabStrip';
 import { describeLocalHelperState, formatRoundUpTiming } from './helpers';
@@ -817,6 +818,24 @@ export function SidepanelApp() {
     });
   }
 
+  function handleFvmRegister(receiptId: string) {
+    if (!activeCoop) return;
+    void sendRuntimeMessage({
+      type: 'fvm-register-archive',
+      payload: {
+        coopId: activeCoop.profile.id,
+        receiptId,
+      },
+    }).then(async (result) => {
+      setMessage(
+        result.ok
+          ? 'Saved proof registered on Filecoin.'
+          : (result.error ?? 'Filecoin registration had trouble.'),
+      );
+      await loadDashboard();
+    });
+  }
+
   // --- Main render ---
 
   if (onboarding.loading) {
@@ -909,117 +928,132 @@ export function SidepanelApp() {
         {message ? <div className="panel-card helper-text">{message}</div> : null}
 
         {panelTab === 'Loose Chickens' && (
-          <LooseChickensTab dashboard={dashboard} tabCapture={tabCapture} />
+          <ErrorBoundary>
+            <LooseChickensTab dashboard={dashboard} tabCapture={tabCapture} />
+          </ErrorBoundary>
         )}
 
         {panelTab === 'Roost' && (
-          <RoostTab
-            dashboard={dashboard}
-            visibleDrafts={visibleDrafts}
-            draftEditor={draftEditor}
-            inferenceState={inferenceState}
-            runtimeConfig={runtimeConfig}
-          />
+          <ErrorBoundary>
+            <RoostTab
+              dashboard={dashboard}
+              visibleDrafts={visibleDrafts}
+              draftEditor={draftEditor}
+              inferenceState={inferenceState}
+              runtimeConfig={runtimeConfig}
+            />
+          </ErrorBoundary>
         )}
 
         {panelTab === 'Nest' && (
-          <NestTab
-            activeCoop={activeCoop}
-            runtimeConfig={runtimeConfig}
-            stealthMetaAddress={stealthMetaAddress}
-            coopForm={coopForm}
-            inviteResult={inviteResult}
-            createInvite={createInvite}
-            createReceiverPairing={createReceiverPairing}
-            activeReceiverPairing={activeReceiverPairing}
-            activeReceiverPairingStatus={activeReceiverPairingStatus}
-            activeReceiverProtocolLink={activeReceiverProtocolLink}
-            visibleReceiverPairings={visibleReceiverPairings}
-            selectReceiverPairing={selectReceiverPairing}
-            copyText={copyText}
-            receiverIntake={receiverIntake}
-            draftEditor={draftEditor}
-          />
+          <ErrorBoundary>
+            <NestTab
+              activeCoop={activeCoop}
+              runtimeConfig={runtimeConfig}
+              stealthMetaAddress={stealthMetaAddress}
+              coopForm={coopForm}
+              inviteResult={inviteResult}
+              createInvite={createInvite}
+              createReceiverPairing={createReceiverPairing}
+              activeReceiverPairing={activeReceiverPairing}
+              activeReceiverPairingStatus={activeReceiverPairingStatus}
+              activeReceiverProtocolLink={activeReceiverProtocolLink}
+              visibleReceiverPairings={visibleReceiverPairings}
+              selectReceiverPairing={selectReceiverPairing}
+              copyText={copyText}
+              receiverIntake={receiverIntake}
+              draftEditor={draftEditor}
+            />
+          </ErrorBoundary>
         )}
 
         {panelTab === 'Coop Feed' && (
-          <CoopFeedTab
-            dashboard={dashboard}
-            activeCoop={activeCoop}
-            archiveStory={archiveStory}
-            archiveReceipts={archiveReceipts}
-            refreshableArchiveReceipts={refreshableArchiveReceipts}
-            runtimeConfig={runtimeConfig}
-            hasTrustedNodeAccess={hasTrustedNodeAccess}
-            agentDashboard={agentDashboard}
-            actionPolicies={actionPolicies}
-            boardUrl={boardUrl}
-            archiveSnapshot={archiveSnapshot}
-            exportLatestReceipt={exportLatestReceipt}
-            refreshArchiveStatus={refreshArchiveStatus}
-            archiveArtifact={archiveArtifact}
-            toggleArtifactArchiveWorthiness={toggleArtifactArchiveWorthiness}
-            toggleAnchorMode={toggleAnchorMode}
-            handleRunAgentCycle={handleRunAgentCycle}
-            handleApproveAgentPlan={handleApproveAgentPlan}
-            handleRejectAgentPlan={handleRejectAgentPlan}
-            handleRetrySkillRun={handleRetrySkillRun}
-            handleToggleSkillAutoRun={handleToggleSkillAutoRun}
-            handleSetPolicy={handleSetPolicy}
-            handleProposeAction={handleProposeAction}
-            handleApproveAction={handleApproveAction}
-            handleRejectAction={handleRejectAction}
-            handleExecuteAction={handleExecuteAction}
-            handleIssuePermit={handleIssuePermit}
-            handleRevokePermit={handleRevokePermit}
-            handleExecuteWithPermit={handleExecuteWithPermit}
-            handleIssueSessionCapability={handleIssueSessionCapability}
-            handleRotateSessionCapability={handleRotateSessionCapability}
-            handleRevokeSessionCapability={handleRevokeSessionCapability}
-            handleQueueGreenGoodsWorkApproval={handleQueueGreenGoodsWorkApproval}
-            handleQueueGreenGoodsAssessment={handleQueueGreenGoodsAssessment}
-            handleQueueGreenGoodsGapAdminSync={handleQueueGreenGoodsGapAdminSync}
-            onAnchorOnChain={handleAnchorOnChain}
-            loadDashboard={loadDashboard}
-            setMessage={setMessage}
-          />
+          <ErrorBoundary>
+            <CoopFeedTab
+              dashboard={dashboard}
+              activeCoop={activeCoop}
+              archiveStory={archiveStory}
+              archiveReceipts={archiveReceipts}
+              refreshableArchiveReceipts={refreshableArchiveReceipts}
+              runtimeConfig={runtimeConfig}
+              hasTrustedNodeAccess={hasTrustedNodeAccess}
+              agentDashboard={agentDashboard}
+              actionPolicies={actionPolicies}
+              boardUrl={boardUrl}
+              archiveSnapshot={archiveSnapshot}
+              exportLatestReceipt={exportLatestReceipt}
+              refreshArchiveStatus={refreshArchiveStatus}
+              archiveArtifact={archiveArtifact}
+              toggleArtifactArchiveWorthiness={toggleArtifactArchiveWorthiness}
+              toggleAnchorMode={toggleAnchorMode}
+              handleRunAgentCycle={handleRunAgentCycle}
+              handleApproveAgentPlan={handleApproveAgentPlan}
+              handleRejectAgentPlan={handleRejectAgentPlan}
+              handleRetrySkillRun={handleRetrySkillRun}
+              handleToggleSkillAutoRun={handleToggleSkillAutoRun}
+              handleSetPolicy={handleSetPolicy}
+              handleProposeAction={handleProposeAction}
+              handleApproveAction={handleApproveAction}
+              handleRejectAction={handleRejectAction}
+              handleExecuteAction={handleExecuteAction}
+              handleIssuePermit={handleIssuePermit}
+              handleRevokePermit={handleRevokePermit}
+              handleExecuteWithPermit={handleExecuteWithPermit}
+              handleIssueSessionCapability={handleIssueSessionCapability}
+              handleRotateSessionCapability={handleRotateSessionCapability}
+              handleRevokeSessionCapability={handleRevokeSessionCapability}
+              handleQueueGreenGoodsWorkApproval={handleQueueGreenGoodsWorkApproval}
+              handleQueueGreenGoodsAssessment={handleQueueGreenGoodsAssessment}
+              handleQueueGreenGoodsGapAdminSync={handleQueueGreenGoodsGapAdminSync}
+              onAnchorOnChain={handleAnchorOnChain}
+              onFvmRegister={handleFvmRegister}
+              loadDashboard={loadDashboard}
+              setMessage={setMessage}
+            />
+          </ErrorBoundary>
         )}
 
         {panelTab === 'Flock Meeting' && (
-          <FlockMeetingTab
-            activeCoop={activeCoop}
-            meetingMode={meetingMode}
-            meetingSettings={meetingSettings}
-            setMeetingSettings={setMeetingSettings}
-            saveMeetingSettingsAction={saveMeetingSettingsAction}
-            draftEditor={draftEditor}
-            inferenceState={inferenceState}
-            runtimeConfig={runtimeConfig}
-            coops={dashboard?.coops ?? []}
-          />
+          <ErrorBoundary>
+            <FlockMeetingTab
+              activeCoop={activeCoop}
+              meetingMode={meetingMode}
+              meetingSettings={meetingSettings}
+              setMeetingSettings={setMeetingSettings}
+              saveMeetingSettingsAction={saveMeetingSettingsAction}
+              draftEditor={draftEditor}
+              inferenceState={inferenceState}
+              runtimeConfig={runtimeConfig}
+              coops={dashboard?.coops ?? []}
+            />
+          </ErrorBoundary>
         )}
 
         {panelTab === 'Nest Tools' && (
-          <NestToolsTab
-            dashboard={dashboard}
-            activeCoop={activeCoop}
-            runtimeConfig={runtimeConfig}
-            authSession={authSession}
-            soundPreferences={soundPreferences}
-            inferenceState={inferenceState}
-            browserUxCapabilities={browserUxCapabilities}
-            configuredReceiverAppUrl={configuredReceiverAppUrl}
-            tabCapture={tabCapture}
-            updateSound={updateSound}
-            testSound={testSound}
-            toggleLocalInferenceOptIn={toggleLocalInferenceOptIn}
-            updateUiPreferences={updateUiPreferences}
-            archiveLatestArtifact={archiveLatestArtifact}
-            archiveSnapshot={archiveSnapshot}
-            exportSnapshot={exportSnapshot}
-            exportLatestArtifact={exportLatestArtifact}
-            exportLatestReceipt={exportLatestReceipt}
-          />
+          <ErrorBoundary>
+            <NestToolsTab
+              dashboard={dashboard}
+              activeCoop={activeCoop}
+              runtimeConfig={runtimeConfig}
+              authSession={authSession}
+              soundPreferences={soundPreferences}
+              inferenceState={inferenceState}
+              browserUxCapabilities={browserUxCapabilities}
+              configuredReceiverAppUrl={configuredReceiverAppUrl}
+              tabCapture={tabCapture}
+              updateSound={updateSound}
+              testSound={testSound}
+              toggleLocalInferenceOptIn={toggleLocalInferenceOptIn}
+              updateUiPreferences={updateUiPreferences}
+              archiveLatestArtifact={archiveLatestArtifact}
+              archiveSnapshot={archiveSnapshot}
+              exportSnapshot={exportSnapshot}
+              exportLatestArtifact={exportLatestArtifact}
+              exportLatestReceipt={exportLatestReceipt}
+              loadDashboard={loadDashboard}
+              setMessage={setMessage}
+            />
+          </ErrorBoundary>
         )}
       </main>
     </div>

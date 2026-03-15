@@ -1,37 +1,57 @@
 import type { ReceiverCapture } from '@coop/shared';
+import { Button } from '../../components/Button';
+import { Card } from '../../components/Card';
+import { SyncPill } from '../../components/SyncPill';
 import { isSafeExternalUrl } from '../../url-safety';
 import type { CaptureCard } from './index';
 
-export type InboxPanelProps = {
+type InboxViewProps = {
   captures: CaptureCard[];
   hatchedCaptureId: string | null;
   canShare: boolean;
   onShareCapture: (card: CaptureCard) => void;
-  onDownloadCapture: (card: CaptureCard) => void;
   onCopyCaptureLink: (capture: ReceiverCapture) => void;
+  onDownloadCapture: (card: CaptureCard) => void;
   onRetrySync: (captureId: string) => void;
-  syncStateLabel: (state: ReceiverCapture['syncState']) => string;
-  receiverItemLabel: (kind: ReceiverCapture['kind']) => string;
-  sizeLabel: (byteSize: number) => string;
 };
 
-export function InboxPanel({
+function sizeLabel(byteSize: number) {
+  if (byteSize < 1024) {
+    return `${byteSize} B`;
+  }
+  if (byteSize < 1024 * 1024) {
+    return `${Math.max(1, Math.round(byteSize / 102.4) / 10)} KB`;
+  }
+  return `${Math.max(0.1, Math.round(byteSize / (1024 * 102.4)) / 10)} MB`;
+}
+
+function receiverItemLabel(kind: ReceiverCapture['kind']) {
+  switch (kind) {
+    case 'audio':
+      return 'Voice chick';
+    case 'photo':
+      return 'Photo chick';
+    case 'file':
+      return 'File chick';
+    case 'link':
+      return 'Link chick';
+  }
+}
+
+export function InboxView({
   captures,
   hatchedCaptureId,
   canShare,
   onShareCapture,
-  onDownloadCapture,
   onCopyCaptureLink,
+  onDownloadCapture,
   onRetrySync,
-  syncStateLabel,
-  receiverItemLabel,
-  sizeLabel,
-}: InboxPanelProps) {
+}: InboxViewProps) {
   return (
     <section className="receiver-grid">
-      <article className="nest-card receiver-card receiver-inbox-card">
+      <Card className="receiver-inbox-card">
         <p className="eyebrow">Your Roost</p>
-        <h2>Everything stays local until this nest is paired and one trusted browser syncs.</h2>
+        <h2>Everything stays local until this nest is mated and one trusted browser syncs.</h2>
         <div className="receiver-list">
           {captures.map((card) => (
             <article
@@ -44,9 +64,7 @@ export function InboxPanel({
             >
               <div className="nest-item-topline">
                 <span className="nest-item-chick">{receiverItemLabel(card.capture.kind)}</span>
-                <span className={`sync-pill is-${card.capture.syncState}`}>
-                  {syncStateLabel(card.capture.syncState)}
-                </span>
+                <SyncPill state={card.capture.syncState} />
               </div>
               <strong>{card.capture.title}</strong>
               <p>
@@ -73,55 +91,55 @@ export function InboxPanel({
                 <p>{card.capture.note || 'Shared link saved locally.'}</p>
               ) : null}
               {card.capture.kind !== 'link' && card.previewUrl ? (
-                <button
-                  className="button button-secondary button-small"
+                <Button
+                  variant="secondary"
+                  size="small"
                   onClick={() => void onDownloadCapture(card)}
-                  type="button"
                 >
                   Download local file
-                </button>
+                </Button>
               ) : null}
               <div className="cta-row">
                 {canShare ? (
-                  <button
-                    className="button button-secondary button-small"
+                  <Button
+                    variant="secondary"
+                    size="small"
                     onClick={() => void onShareCapture(card)}
-                    type="button"
                   >
                     Share
-                  </button>
+                  </Button>
                 ) : null}
                 {card.capture.kind === 'link' && card.capture.sourceUrl ? (
-                  <button
-                    className="button button-secondary button-small"
+                  <Button
+                    variant="secondary"
+                    size="small"
                     onClick={() => void onCopyCaptureLink(card.capture)}
-                    type="button"
                   >
                     Copy link
-                  </button>
+                  </Button>
                 ) : null}
               </div>
               {card.capture.syncError ? (
                 <p className="receiver-error">{card.capture.syncError}</p>
               ) : null}
               {card.capture.syncState === 'failed' ? (
-                <button
-                  className="button button-secondary button-small"
+                <Button
+                  variant="secondary"
+                  size="small"
                   onClick={() => void onRetrySync(card.capture.id)}
-                  type="button"
                 >
                   Retry sync
-                </button>
+                </Button>
               ) : null}
             </article>
           ))}
         </div>
         {captures.length === 0 ? (
           <div className="empty-nest">
-            Your Roost is empty. Head to Round Up to capture the first note, photo, or link.
+            Your inbox is empty. Head to Capture to hatch the first note, photo, or link.
           </div>
         ) : null}
-      </article>
+      </Card>
     </section>
   );
 }

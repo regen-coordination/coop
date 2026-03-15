@@ -18,6 +18,7 @@ export default defineConfig({
       'packages/app/src/**/*.test.{ts,tsx}',
       'packages/extension/src/**/*.test.{ts,tsx}',
       'packages/shared/src/**/*.test.{ts,tsx}',
+      'packages/signaling/**/*.test.{ts,tsx}',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
     globals: true,

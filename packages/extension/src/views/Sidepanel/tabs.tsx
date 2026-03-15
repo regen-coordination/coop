@@ -14,6 +14,7 @@ import {
 } from '@coop/shared';
 import type { InferenceBridgeState } from '../../runtime/inference-bridge';
 import type { AgentDashboardResponse, DashboardResponse } from '../../runtime/messages';
+import { ArchiveSetupWizard } from './ArchiveSetupWizard';
 import { OperatorConsole } from './OperatorConsole';
 import {
   ArchiveReceiptCard,
@@ -842,6 +843,7 @@ export interface CoopFeedTabProps {
   ) => Promise<void>;
   handleQueueGreenGoodsGapAdminSync: (coopId: string) => Promise<void>;
   onAnchorOnChain: (receiptId: string) => void;
+  onFvmRegister?: (receiptId: string) => void;
   loadDashboard: () => Promise<void>;
   setMessage: (msg: string) => void;
 }
@@ -883,6 +885,7 @@ export function CoopFeedTab({
   handleQueueGreenGoodsAssessment,
   handleQueueGreenGoodsGapAdminSync,
   onAnchorOnChain,
+  onFvmRegister,
 }: CoopFeedTabProps) {
   return (
     <section className="stack">
@@ -908,6 +911,18 @@ export function CoopFeedTab({
                 <span>Saved proof</span>
                 <strong>{activeCoop?.archiveReceipts.length ?? 0}</strong>
               </div>
+              {(archiveStory?.totalSealedDeals ?? 0) > 0 ? (
+                <div className="summary-card">
+                  <span>Sealed deals</span>
+                  <strong>{archiveStory?.totalSealedDeals ?? 0}</strong>
+                </div>
+              ) : null}
+              {(archiveStory?.uniqueProviders.length ?? 0) > 0 ? (
+                <div className="summary-card">
+                  <span>Providers</span>
+                  <strong>{archiveStory?.uniqueProviders.length ?? 0}</strong>
+                </div>
+              ) : null}
             </div>
             <div className="action-row">
               {boardUrl ? (
@@ -1028,6 +1043,33 @@ export function CoopFeedTab({
                 'Saved proof appears here once a shared find is preserved.'}
             </p>
           </div>
+          {archiveStory && archiveStory.totalArchiveReceipts > 0 ? (
+            <>
+              <div>
+                <strong>Archived</strong>
+                <p className="helper-text">
+                  {archiveStory.archivedArtifactCount} of {archiveStory.totalArtifacts} finds
+                  archived across {archiveStory.totalArchiveReceipts} receipt(s)
+                </p>
+              </div>
+              {archiveStory.uniqueProviders.length > 0 ? (
+                <div>
+                  <strong>Filecoin providers</strong>
+                  <p className="helper-text">
+                    {archiveStory.uniqueProviders.length} unique provider(s) storing coop data
+                  </p>
+                </div>
+              ) : null}
+              {archiveStory.totalSealedDeals > 0 ? (
+                <div>
+                  <strong>Sealed deals</strong>
+                  <p className="helper-text">
+                    {archiveStory.totalSealedDeals} sealed deal(s) across all receipts
+                  </p>
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </article>
 
@@ -1063,6 +1105,7 @@ export function CoopFeedTab({
               liveArchiveAvailable={dashboard?.operator.liveArchiveAvailable ?? true}
               refreshArchiveStatus={refreshArchiveStatus}
               onAnchorOnChain={onAnchorOnChain}
+              onFvmRegister={onFvmRegister}
             />
           ))}
         </div>
@@ -1290,6 +1333,8 @@ export interface NestToolsTabProps {
   exportSnapshot: (format: 'json' | 'text') => Promise<void>;
   exportLatestArtifact: (format: 'json' | 'text') => Promise<void>;
   exportLatestReceipt: (format: 'json' | 'text') => Promise<void>;
+  loadDashboard: () => Promise<void>;
+  setMessage: (msg: string) => void;
 }
 
 export function NestToolsTab({
@@ -1311,6 +1356,8 @@ export function NestToolsTab({
   exportSnapshot,
   exportLatestArtifact,
   exportLatestReceipt,
+  loadDashboard,
+  setMessage,
 }: NestToolsTabProps) {
   return (
     <section className="stack">
@@ -1437,6 +1484,16 @@ export function NestToolsTab({
           </a>
         </div>
       </article>
+
+      {activeCoop ? (
+        <ArchiveSetupWizard
+          coopId={activeCoop.profile.id}
+          coopName={activeCoop.profile.name}
+          archiveConfig={activeCoop.archiveConfig}
+          onComplete={loadDashboard}
+          setMessage={setMessage}
+        />
+      ) : null}
 
       <article className="panel-card">
         <h2>Local Helper</h2>

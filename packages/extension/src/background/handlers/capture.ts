@@ -7,6 +7,7 @@ import {
   getAuthSession,
   nowIso,
   runPassivePipeline,
+  saveReceiverCapture,
 } from '@coop/shared';
 import type { RuntimeActionResponse } from '../../runtime/messages';
 import { resolveReceiverPairingMember } from '../../runtime/receiver';
@@ -166,8 +167,7 @@ export async function captureVisibleScreenshot(): Promise<ReceiverCapture> {
     updatedAt: timestamp,
   } satisfies ReceiverCapture;
 
-  const shared = await import('@coop/shared');
-  await shared.saveReceiverCapture(db, capture, blob);
+  await saveReceiverCapture(db, capture, blob);
   await refreshBadge();
   await notifyExtensionEvent({
     eventKind: 'screenshot-saved',

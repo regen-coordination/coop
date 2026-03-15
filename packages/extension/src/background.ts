@@ -29,6 +29,7 @@ import { filterVisibleReceiverPairings } from './runtime/receiver';
 import {
   contextMenuIds,
   db,
+  ensureDbReady,
   ensureDefaults,
   ensureReceiverSyncOffscreenDocument,
   getCoops,
@@ -86,6 +87,8 @@ import {
   handleExportArtifact,
   handleExportReceipt,
   handleExportSnapshot,
+  handleFvmRegistration,
+  handleProvisionArchiveSpace,
   handleRefreshArchiveStatus,
   handleRemoveCoopArchiveConfig,
   handleRetrieveArchiveBundle,
@@ -184,6 +187,7 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 chrome.runtime.onInstalled.addListener(async () => {
+  await ensureDbReady();
   await ensureDefaults();
   await registerContextMenus();
   await syncCaptureAlarm(await getLocalSetting(stateKeys.captureMode, 'manual'));
@@ -195,6 +199,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  await ensureDbReady();
   await ensureDefaults();
   await registerContextMenus();
   await syncCaptureAlarm(await getLocalSetting(stateKeys.captureMode, 'manual'));
@@ -205,6 +210,7 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  await ensureDbReady();
   if (alarm.name === 'archive-status-poll') {
     await pollUnsealedArchiveReceipts();
     return;
@@ -221,6 +227,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendResponse) => {
   void (async () => {
+    await ensureDbReady();
     await ensureDefaults();
 
     const isExtensionContext = !sender.tab && sender.id === chrome.runtime.id;
@@ -352,6 +359,9 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
       case 'retrieve-archive-bundle':
         sendResponse(await handleRetrieveArchiveBundle(message));
         return;
+      case 'provision-archive-space':
+        sendResponse(await handleProvisionArchiveSpace(message.payload));
+        return;
       case 'set-coop-archive-config':
         sendResponse(await handleSetCoopArchiveConfig(message.payload));
         return;
@@ -360,6 +370,9 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
         return;
       case 'anchor-archive-cid':
         sendResponse(await handleAnchorArchiveCid(message.payload));
+        return;
+      case 'fvm-register-archive':
+        sendResponse(await handleFvmRegistration(message.payload));
         return;
       case 'export-snapshot':
         sendResponse(await handleExportSnapshot(message));

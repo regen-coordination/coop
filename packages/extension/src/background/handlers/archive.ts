@@ -8,6 +8,7 @@ import {
   createMockArchiveReceipt,
   createStorachaArchiveClient,
   encodeArchiveAnchorCalldata,
+  encodeFvmRegisterArchiveCalldata,
   exportArchiveReceiptJson,
   exportArchiveReceiptTextBundle,
   exportArtifactJson,
@@ -16,9 +17,11 @@ import {
   exportSnapshotTextBundle,
   getAnchorCapability,
   getAuthSession,
+  getFvmChainConfig,
   isArchiveReceiptRefreshable,
   issueArchiveDelegation,
   nowIso,
+  provisionStorachaSpace,
   recordArchiveReceipt,
   removeCoopArchiveSecrets,
   requestArchiveReceiptFilecoinInfo,
@@ -28,13 +31,17 @@ import {
   uploadArchiveBundleToStoracha,
   withArchiveWorthiness,
 } from '@coop/shared';
-import type { Address } from 'viem';
+import { http, type Address, createWalletClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import type { RuntimeActionResponse, RuntimeRequest } from '../../runtime/messages';
 import { describeArchiveLiveFailure, requireAnchorModeForFeature } from '../../runtime/operator';
 import { resolveReceiverPairingMember } from '../../runtime/receiver';
 import {
   configuredArchiveMode,
   configuredChain,
+  configuredFvmChain,
+  configuredFvmOperatorKey,
+  configuredFvmRegistryAddress,
   configuredOnchainMode,
   configuredPimlicoApiKey,
   db,
@@ -560,6 +567,48 @@ export async function pollUnsealedArchiveReceipts() {
   }
 }
 
+export async function handleProvisionArchiveSpace(
+  payload: Extract<RuntimeRequest, { type: 'provision-archive-space' }>['payload'],
+): Promise<RuntimeActionResponse> {
+  const coops = await getCoops();
+  const coop = coops.find((item) => item.profile.id === payload.coopId);
+  if (!coop) {
+    return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
+  }
+
+  try {
+    const result = await provisionStorachaSpace({
+      email: payload.email,
+      coopName: payload.coopName,
+    });
+
+    // Store secrets locally (never synced)
+    await setCoopArchiveSecrets(db, payload.coopId, {
+      ...result.secrets,
+      coopId: payload.coopId,
+    });
+
+    // Store public config in CRDT state (synced)
+    const validatedConfig = coopArchiveConfigSchema.parse(result.publicConfig);
+    const nextState = {
+      ...coop,
+      archiveConfig: validatedConfig,
+    } satisfies CoopSharedState;
+    await saveState(nextState);
+
+    return {
+      ok: true,
+      data: { spaceDid: result.publicConfig.spaceDid },
+    } satisfies RuntimeActionResponse;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Space provisioning failed.';
+    return {
+      ok: false,
+      error: detail,
+    } satisfies RuntimeActionResponse;
+  }
+}
+
 export async function handleSetCoopArchiveConfig(
   payload: Extract<RuntimeRequest, { type: 'set-coop-archive-config' }>['payload'],
 ): Promise<RuntimeActionResponse> {
@@ -800,6 +849,158 @@ export async function handleExportArtifact(
         ? exportArtifactJson(artifact)
         : exportArtifactTextBundle(artifact),
   } satisfies RuntimeActionResponse<string>;
+}
+
+export async function handleFvmRegistration(
+  input: Extract<RuntimeRequest, { type: 'fvm-register-archive' }>['payload'],
+): Promise<RuntimeActionResponse> {
+  const coops = await getCoops();
+  const coop = coops.find((item) => item.profile.id === input.coopId);
+  if (!coop) {
+    return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
+  }
+
+  const receipt = coop.archiveReceipts.find((r) => r.id === input.receiptId);
+  if (!receipt) {
+    return { ok: false, error: 'Archive receipt not found.' } satisfies RuntimeActionResponse;
+  }
+
+  if (!receipt.rootCid) {
+    return {
+      ok: false,
+      error: 'Archive receipt has no root CID to register.',
+    } satisfies RuntimeActionResponse;
+  }
+
+  const authSession = await getAuthSession(db);
+  const member = resolveReceiverPairingMember(coop, authSession);
+
+  // Verify anchor mode
+  try {
+    requireAnchorModeForFeature({
+      capability: await getAnchorCapability(db),
+      authSession,
+      feature: 'Filecoin registry registration',
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Anchor mode is required.';
+    return { ok: false, error: detail } satisfies RuntimeActionResponse;
+  }
+
+  // Mock mode: skip tx, return deterministic hash
+  if (
+    configuredArchiveMode === 'mock' ||
+    !configuredFvmRegistryAddress ||
+    !configuredFvmOperatorKey
+  ) {
+    const mockTxHash = `0x${'f'.repeat(64)}`;
+    const nextReceipt = {
+      ...receipt,
+      fvmRegistryTxHash: mockTxHash,
+      fvmChainKey: configuredFvmChain,
+    };
+    const nextState = updateArchiveReceipt(coop, receipt.id, nextReceipt);
+    await saveState(nextState);
+    await logPrivilegedAction({
+      actionType: 'fvm-register-archive',
+      status: 'succeeded',
+      detail: `Mock FVM registration for CID ${receipt.rootCid}.`,
+      coop,
+      memberId: member?.id,
+      memberDisplayName: member?.displayName,
+      authSession,
+      receiptId: input.receiptId,
+      archiveScope: receipt.scope,
+    });
+    return {
+      ok: true,
+      data: { txHash: mockTxHash, status: 'mock' },
+    } satisfies RuntimeActionResponse;
+  }
+
+  await logPrivilegedAction({
+    actionType: 'fvm-register-archive',
+    status: 'attempted',
+    detail: `Registering CID ${receipt.rootCid} on FVM CoopRegistry.`,
+    coop,
+    memberId: member?.id,
+    memberDisplayName: member?.displayName,
+    authSession,
+    receiptId: input.receiptId,
+    archiveScope: receipt.scope,
+  });
+
+  try {
+    const fvmConfig = getFvmChainConfig(configuredFvmChain);
+    const account = privateKeyToAccount(configuredFvmOperatorKey as `0x${string}`);
+    const walletClient = createWalletClient({
+      account,
+      chain: fvmConfig.chain,
+      transport: http(),
+    });
+
+    const scope = receipt.scope === 'artifact' ? 0 : 1;
+    const calldata = encodeFvmRegisterArchiveCalldata({
+      rootCid: receipt.rootCid,
+      pieceCid: receipt.pieceCids[0] ?? '',
+      scope: scope as 0 | 1,
+      coopId: input.coopId,
+    });
+
+    const txHash = await walletClient.sendTransaction({
+      to: configuredFvmRegistryAddress as Address,
+      data: calldata,
+    });
+
+    const nextReceipt = { ...receipt, fvmRegistryTxHash: txHash, fvmChainKey: configuredFvmChain };
+    const nextState = updateArchiveReceipt(coop, receipt.id, nextReceipt);
+    await saveState(nextState);
+
+    await logPrivilegedAction({
+      actionType: 'fvm-register-archive',
+      status: 'succeeded',
+      detail: `CID ${receipt.rootCid} registered on FVM via tx ${txHash}.`,
+      coop,
+      memberId: member?.id,
+      memberDisplayName: member?.displayName,
+      authSession,
+      receiptId: input.receiptId,
+      archiveScope: receipt.scope,
+    });
+
+    await notifyExtensionEvent({
+      eventKind: 'fvm-register-archive',
+      entityId: input.receiptId,
+      state: txHash,
+      title: 'Saved proof registered on Filecoin',
+      message: `Your saved proof for ${coop.profile.name} is now on the Filecoin registry.`,
+    });
+
+    await refreshBadge();
+
+    return { ok: true, data: { txHash, status: 'registered' } } satisfies RuntimeActionResponse;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Filecoin registration failed.';
+    await logPrivilegedAction({
+      actionType: 'fvm-register-archive',
+      status: 'failed',
+      detail,
+      coop,
+      memberId: member?.id,
+      memberDisplayName: member?.displayName,
+      authSession,
+      receiptId: input.receiptId,
+      archiveScope: receipt.scope,
+    });
+    await notifyExtensionEvent({
+      eventKind: 'fvm-register-archive',
+      entityId: input.receiptId,
+      state: 'failed',
+      title: 'Filecoin registration had trouble',
+      message: detail,
+    });
+    return { ok: false, error: detail } satisfies RuntimeActionResponse;
+  }
 }
 
 export async function handleExportReceipt(

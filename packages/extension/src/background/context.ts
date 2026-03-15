@@ -9,14 +9,18 @@ import {
   defaultSoundPreferences,
   detectLocalEnhancementAvailability,
   getAuthSession,
+  getCoopArchiveSecrets,
   getSoundPreferences,
+  getTrustedNodeArchiveConfig,
   getUiPreferences,
   hydrateCoopDoc,
+  mergeCoopArchiveConfig,
   readCoopState,
   saveCoopState,
   selectActiveReceiverPairingsForSync,
   setAuthSession,
   setSoundPreferences,
+  setTrustedNodeArchiveConfig,
   setUiPreferences,
   uiPreferencesSchema,
 } from '@coop/shared';
@@ -26,6 +30,9 @@ import {
   parseConfiguredSignalingUrls,
   resolveConfiguredArchiveMode,
   resolveConfiguredChain,
+  resolveConfiguredFvmChain,
+  resolveConfiguredFvmOperatorKey,
+  resolveConfiguredFvmRegistryAddress,
   resolveConfiguredOnchainMode,
   resolveConfiguredPrivacyMode,
   resolveConfiguredProviderMode,
@@ -38,6 +45,56 @@ import type { ReceiverSyncRuntimeStatus } from '../runtime/messages';
 // ---- Database ----
 
 export const db = createCoopDb('coop-extension');
+
+let dbReadyPromise: Promise<void> | null = null;
+
+function isPrimaryKeyUpgradeError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.name === 'UpgradeError' &&
+    /changing primary key|Not yet support for changing primary key/i.test(error.message)
+  );
+}
+
+/**
+ * Ensures the Dexie database is open and compatible with the current schema.
+ * If the schema has changed in a way that breaks primary keys (common after
+ * extension updates), the database is deleted and recreated automatically.
+ */
+export async function ensureDbReady(): Promise<void> {
+  if (dbReadyPromise) {
+    await dbReadyPromise;
+    return;
+  }
+
+  dbReadyPromise = (async () => {
+    try {
+      if (!db.isOpen()) {
+        await db.open();
+      }
+      return;
+    } catch (error) {
+      if (!isPrimaryKeyUpgradeError(error)) {
+        throw error;
+      }
+    }
+
+    console.warn(
+      '[coop-extension] IndexedDB schema is incompatible with this build. Resetting local db.',
+    );
+    try {
+      db.close();
+    } catch {
+      // already closed or never opened
+    }
+    await db.delete();
+    await db.open();
+  })().finally(() => {
+    dbReadyPromise = null;
+  });
+
+  await dbReadyPromise;
+}
 
 // ---- Types ----
 
@@ -94,6 +151,13 @@ export const configuredPimlicoApiKey =
     : undefined;
 export const configuredReceiverAppUrl = resolveReceiverAppUrl(
   import.meta.env.VITE_COOP_RECEIVER_APP_URL,
+);
+export const configuredFvmChain = resolveConfiguredFvmChain(import.meta.env.VITE_COOP_FVM_CHAIN);
+export const configuredFvmRegistryAddress = resolveConfiguredFvmRegistryAddress(
+  import.meta.env.VITE_COOP_FVM_REGISTRY_ADDRESS,
+);
+export const configuredFvmOperatorKey = resolveConfiguredFvmOperatorKey(
+  import.meta.env.VITE_COOP_FVM_OPERATOR_KEY,
 );
 export const prefersLocalEnhancement = isLocalEnhancementEnabled(
   import.meta.env.VITE_COOP_LOCAL_ENHANCEMENT,
@@ -180,17 +244,6 @@ export async function saveResolvedUiPreferences(value: UiPreferences) {
   await Promise.all([setUiPreferences(db, next), writeSyncedUiPreferences(next)]);
   return next;
 }
-
-// Restore persisted local inference preference
-chrome.storage.local.get('coop:localInferenceOptIn', (result) => {
-  if (typeof result['coop:localInferenceOptIn'] === 'boolean') {
-    localInferenceOptIn = result['coop:localInferenceOptIn'];
-    uiPreferences = uiPreferencesSchema.parse({
-      ...uiPreferences,
-      localInferenceOptIn,
-    });
-  }
-});
 
 // ---- Notification System ----
 
@@ -383,13 +436,6 @@ export async function reportReceiverSyncRuntime(patch: Partial<ReceiverSyncRunti
 }
 
 // ---- Archive Config Resolution ----
-
-import {
-  getCoopArchiveSecrets,
-  getTrustedNodeArchiveConfig,
-  mergeCoopArchiveConfig,
-  setTrustedNodeArchiveConfig,
-} from '@coop/shared';
 
 export async function ensureTrustedNodeArchiveBootstrap() {
   const existing = await getTrustedNodeArchiveConfig(db);

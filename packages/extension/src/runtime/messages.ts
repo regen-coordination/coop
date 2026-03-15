@@ -358,6 +358,14 @@ export type RuntimeRequest =
   | { type: 'get-stealth-meta-address'; payload: { coopId: string } }
   | { type: 'get-membership-commitments'; payload: { coopId: string } }
   | {
+      type: 'provision-archive-space';
+      payload: {
+        coopId: string;
+        email: string;
+        coopName: string;
+      };
+    }
+  | {
       type: 'set-coop-archive-config';
       payload: {
         coopId: string;
@@ -388,6 +396,13 @@ export type RuntimeRequest =
     }
   | {
       type: 'anchor-archive-cid';
+      payload: {
+        coopId: string;
+        receiptId: string;
+      };
+    }
+  | {
+      type: 'fvm-register-archive';
       payload: {
         coopId: string;
         receiptId: string;
