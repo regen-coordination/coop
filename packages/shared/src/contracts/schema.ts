@@ -52,6 +52,7 @@ export const filecoinStatusSchema = z.enum(['pending', 'offered', 'indexed', 'se
 export const archiveDelegationOperationSchema = z.enum(['upload', 'follow-up']);
 export const soundEventSchema = z.enum(['coop-created', 'artifact-published', 'sound-test']);
 export const coopChainKeySchema = z.enum(['arbitrum', 'sepolia']);
+export const fvmChainKeySchema = z.enum(['filecoin', 'filecoin-calibration']);
 export const providerModeSchema = z.enum(['standard', 'kohaku']);
 export type ProviderMode = z.infer<typeof providerModeSchema>;
 
@@ -866,6 +867,17 @@ export const onchainStateSchema = z
     }
   });
 
+export const fvmRegistryStateSchema = z.object({
+  chainKey: fvmChainKeySchema,
+  chainId: z.number().int().positive(),
+  registryAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  signerAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .optional(),
+  statusNote: z.string(),
+});
+
 export const syncRoomConfigSchema = z.object({
   coopId: z.string().min(1),
   roomSecret: z.string().min(1),
@@ -1227,6 +1239,8 @@ export const archiveReceiptSchema = z.object({
   anchorTxHash: z.string().optional(),
   anchorChainKey: coopChainKeySchema.optional(),
   anchorStatus: z.enum(['pending', 'anchored', 'skipped']).default('pending'),
+  fvmRegistryTxHash: z.string().optional(),
+  fvmChainKey: fvmChainKeySchema.optional(),
 });
 
 export const archiveBundleSchema = z.object({
@@ -1533,6 +1547,7 @@ export const coopSharedStateSchema = z.object({
   agentIdentity: erc8004AgentStateSchema.optional(),
   archiveConfig: coopArchiveConfigSchema.optional(),
   memberCommitments: z.array(z.string()).default([]),
+  fvmState: fvmRegistryStateSchema.optional(),
 });
 
 export const localEnhancementAvailabilitySchema = z.object({
@@ -1615,6 +1630,8 @@ export type CoopArchiveSecrets = z.infer<typeof coopArchiveSecretsSchema>;
 export type CoopSharedState = z.infer<typeof coopSharedStateSchema>;
 export type CoopSoul = z.infer<typeof coopSoulSchema>;
 export type ExtensionIconState = z.infer<typeof extensionIconStateSchema>;
+export type FvmChainKey = z.infer<typeof fvmChainKeySchema>;
+export type FvmRegistryState = z.infer<typeof fvmRegistryStateSchema>;
 export type GreenGoodsDomain = z.infer<typeof greenGoodsDomainSchema>;
 export type GreenGoodsGardenBootstrapOutput = z.infer<typeof greenGoodsGardenBootstrapOutputSchema>;
 export type GreenGoodsGardenState = z.infer<typeof greenGoodsGardenStateSchema>;
