@@ -49,11 +49,11 @@ Expected output:
 
 **Tab 3 – Signaling Server:**
 ```bash
-bun run dev:api
+bun run dev:signaling
 ```
 Expected output:
 ```
-  [signaling] listening on ws://127.0.0.1:4444
+  Yjs signaling server listening on http://127.0.0.1:4444
 ```
 
 ✅ **All 3 should start cleanly.** If any fails, let me know the error.
@@ -80,8 +80,8 @@ Expected output:
 Once the sidepanel is open:
 
 **Check these settings:**
-1. Click **Settings** (gear icon in sidepanel)
-2. Go to **Nest Runtime**
+1. Click the **Nest Tools** tab (bottom of the vertical tab list in the sidepanel)
+2. In Nest Tools, find the **Nest Runtime** section
 3. Verify you see:
    - Chain: `sepolia` ✅
    - Onchain mode: `mock` ✅
