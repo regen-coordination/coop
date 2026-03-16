@@ -4,8 +4,7 @@
 :root {
   font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
   font-size-adjust: 0.5;
-  --coop-line: rgba(79, 46, 31, 0.18);
-  --coop-shadow: 0 24px 60px rgba(79, 46, 31, 0.12);
+  --coop-shadow: var(--coop-shadow-lg);
 }
 
 * {
@@ -55,8 +54,8 @@ pre {
 .backdrop {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(rgba(79, 46, 31, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 46, 31, 0.04) 1px, transparent 1px);
+  background-image: linear-gradient(var(--coop-brown-4) 1px, transparent 1px),
+    linear-gradient(90deg, var(--coop-brown-4) 1px, transparent 1px);
   background-size: 52px 52px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 70%);
   pointer-events: none;
@@ -272,7 +271,7 @@ pre {
 
 .timeline-step {
   padding: 1.2rem;
-  border-radius: 26px;
+  border-radius: var(--coop-radius-card);
   background: rgba(255, 250, 246, 0.76);
   border: 1px solid var(--coop-line);
 }
@@ -485,7 +484,7 @@ pre {
 }
 
 .empty-state {
-  border-radius: 24px;
+  border-radius: var(--coop-radius-card);
   padding: 1.2rem;
   border: 1px dashed var(--coop-line);
   background: rgba(255, 255, 255, 0.64);
@@ -585,7 +584,7 @@ html.has-receiver {
 .receiver-mark {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: var(--coop-radius-sm);
 }
 
 .receiver-screen-title {
@@ -772,7 +771,7 @@ html.has-receiver {
   width: 100%;
   min-height: 11rem;
   padding: 1rem 1.1rem;
-  border-radius: 24px;
+  border-radius: var(--coop-radius-card);
   border: 1px solid var(--coop-line);
   background: rgba(255, 255, 255, 0.82);
   color: var(--coop-brown);
@@ -811,7 +810,7 @@ html.has-receiver {
   border: none;
   border-radius: 48% 48% 46% 46% / 60% 60% 34% 34%;
   background: linear-gradient(180deg, #fffaf4 0%, #ffe8c9 54%, #ffc06d 100%);
-  box-shadow: 0 22px 50px rgba(79, 46, 31, 0.18);
+  box-shadow: 0 22px 50px var(--coop-brown-18);
   color: var(--coop-brown);
   display: grid;
   place-items: center;
@@ -833,7 +832,7 @@ html.has-receiver {
 .egg-button::after {
   inset: auto 22% 14% 22%;
   height: 18%;
-  background: radial-gradient(circle, rgba(79, 46, 31, 0.16), transparent 72%);
+  background: radial-gradient(circle, var(--coop-brown-16), transparent 72%);
 }
 
 .egg-shell {
@@ -868,7 +867,7 @@ html.has-receiver {
 }
 
 .empty-nest {
-  border-radius: 24px;
+  border-radius: var(--coop-radius-card);
   padding: 1.2rem;
   border: 1px dashed var(--coop-line);
   background: rgba(255, 255, 255, 0.64);
@@ -879,7 +878,7 @@ html.has-receiver {
   display: grid;
   gap: 0.8rem;
   padding: 1.2rem;
-  border-radius: 24px;
+  border-radius: var(--coop-radius-card);
   border: 1px solid var(--coop-brown-14);
   background: radial-gradient(circle at top, rgba(255, 255, 255, 0.88), transparent 52%),
     linear-gradient(180deg, rgba(255, 252, 249, 0.94) 0%, rgba(247, 236, 221, 0.96) 100%);
@@ -934,6 +933,27 @@ html.has-receiver {
   color: var(--coop-error);
 }
 
+button.sync-pill {
+  border: none;
+  cursor: pointer;
+}
+
+.sync-pill-popover {
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--coop-line);
+  border-radius: var(--coop-radius-chip);
+  background: rgba(255, 252, 249, 0.96);
+  backdrop-filter: blur(12px);
+  font-size: 0.75rem;
+  color: var(--coop-brown-soft);
+  box-shadow: var(--coop-shadow-sm);
+}
+
+.sync-pill-popover::backdrop {
+  display: none;
+}
+
 .nest-photo,
 audio {
   width: 100%;
@@ -986,7 +1006,7 @@ audio {
   0%,
   100% {
     transform: translateY(0) scale(1);
-    box-shadow: 0 22px 50px rgba(79, 46, 31, 0.18);
+    box-shadow: 0 22px 50px var(--coop-brown-18);
   }
 
   50% {
@@ -1013,9 +1033,9 @@ audio {
   border-radius: var(--coop-radius-card);
   background: linear-gradient(
     90deg,
-    rgba(79, 46, 31, 0.06) 25%,
-    rgba(79, 46, 31, 0.12) 50%,
-    rgba(79, 46, 31, 0.06) 75%
+    var(--coop-brown-6) 25%,
+    var(--coop-brown-12) 50%,
+    var(--coop-brown-6) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-pulse 1.5s ease infinite;
@@ -1034,7 +1054,7 @@ audio {
 .skeleton-text {
   height: 1rem;
   width: 80%;
-  border-radius: 6px;
+  border-radius: var(--coop-radius-xs);
 }
 
 @keyframes skeleton-pulse {
@@ -1094,6 +1114,11 @@ audio {
 @media (prefers-reduced-motion: no-preference) {
   .qr-scanner-dialog[open] {
     animation: dialog-slide-up 280ms ease;
+    transition: transform 280ms ease, opacity 280ms ease;
+    @starting-style {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
   }
 }
 
@@ -1127,7 +1152,7 @@ audio {
   max-width: 100%;
   background: rgba(255, 252, 249, 0.96);
   backdrop-filter: blur(14px);
-  box-shadow: 0 -14px 40px rgba(79, 46, 31, 0.12);
+  box-shadow: 0 -14px 40px var(--coop-brown-12);
 }
 
 .bottom-sheet::backdrop {
@@ -1148,7 +1173,7 @@ audio {
   width: 2.5rem;
   height: 0.25rem;
   border-radius: var(--coop-radius-pill);
-  background: rgba(79, 46, 31, 0.2);
+  background: var(--coop-brown-20);
   margin: 0 auto;
 }
 
@@ -1168,6 +1193,10 @@ audio {
 @media (prefers-reduced-motion: no-preference) {
   .bottom-sheet[open] {
     animation: sheet-slide-up 280ms ease;
+    transition: transform 280ms ease;
+    @starting-style {
+      transform: translateY(100%);
+    }
   }
 }
 
@@ -1210,7 +1239,24 @@ audio {
 
 .receiver-shell button:active,
 .receiver-shell .receiver-appbar-link:active {
-  transform: scale(0.97);
+  filter: brightness(0.94);
+  box-shadow: none;
+}
+
+.button:active {
+  filter: brightness(0.92);
+  box-shadow: none;
+}
+
+.nest-item-card:active {
+  filter: brightness(0.97);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .receiver-shell button:active,
+  .receiver-shell .receiver-appbar-link:active {
+    transform: scale(0.97);
+  }
 }
 
 /* Kill base hover in receiver — touch-only by default */
@@ -1434,7 +1480,7 @@ audio {
 .board-canvas {
   height: 72vh;
   min-height: 38rem;
-  border-radius: 22px;
+  border-radius: var(--coop-radius-card);
   overflow: hidden;
   border: 1px solid var(--coop-brown-8);
   background: radial-gradient(
@@ -1479,7 +1525,7 @@ audio {
   gap: 0.45rem;
   flex-wrap: wrap;
   padding: 0.75rem 0.8rem;
-  border-radius: 16px;
+  border-radius: var(--coop-radius-input);
   background: var(--coop-brown-4);
   color: rgba(37, 25, 16, 0.82);
 }
@@ -1577,7 +1623,7 @@ audio {
   min-width: 13.25rem;
   max-width: 14rem;
   padding: 0.85rem 0.95rem;
-  border-radius: 22px;
+  border-radius: var(--coop-radius-card);
   border: 1px solid var(--coop-brown-14);
   background: rgba(255, 251, 243, 0.98);
   box-shadow: 0 16px 34px var(--coop-brown-14);
@@ -1649,7 +1695,7 @@ audio {
 }
 
 .coop-board-node.is-archive-worthy {
-  box-shadow: 0 16px 34px rgba(79, 46, 31, 0.14), 0 0 0 2px rgba(253, 138, 1, 0.28);
+  box-shadow: 0 16px 34px var(--coop-brown-14), 0 0 0 2px rgba(253, 138, 1, 0.28);
 }
 
 @media (max-width: 1180px) {
@@ -1759,6 +1805,10 @@ audio {
   }
 
   .qr-scanner-dialog {
+    background: rgba(30, 24, 20, 0.96);
+  }
+
+  .sync-pill-popover {
     background: rgba(30, 24, 20, 0.96);
   }
 }

@@ -36,6 +36,7 @@
   --coop-brown-14: color-mix(in srgb, var(--coop-brown) 14%, transparent);
   --coop-brown-16: color-mix(in srgb, var(--coop-brown) 16%, transparent);
   --coop-brown-18: color-mix(in srgb, var(--coop-brown) 18%, transparent);
+  --coop-brown-20: color-mix(in srgb, var(--coop-brown) 20%, transparent);
   --coop-green-12: color-mix(in srgb, var(--coop-green) 12%, transparent);
   --coop-green-14: color-mix(in srgb, var(--coop-green) 14%, transparent);
   --coop-green-16: color-mix(in srgb, var(--coop-green) 16%, transparent);
@@ -52,6 +53,8 @@
   --coop-radius-input-lg: 20px;
   --coop-radius-photo: 18px;
   --coop-radius-chip: 12px;
+  --coop-radius-sm: 8px;
+  --coop-radius-xs: 6px;
 
   /* ── Spacing ── */
   --coop-space-3xs: 0.15rem;
@@ -91,4 +94,20 @@
     --coop-shadow-md: 0 16px 40px rgba(0, 0, 0, 0.24);
     --coop-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.24);
   }
+}
+
+/* ── Font metric overrides (CLS reduction for missing system fonts) ── */
+
+@font-face {
+  font-family: "Avenir Next";
+  src: local("Avenir Next");
+  size-adjust: 100%;
+  ascent-override: 92%;
+}
+
+@font-face {
+  font-family: "Gill Sans";
+  src: local("Gill Sans");
+  size-adjust: 100%;
+  ascent-override: 90%;
 }
