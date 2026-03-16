@@ -10,20 +10,23 @@ sidebar_position: 5
 **Reviewer**: Claude Code (deep codebase audit)
 **Validated**: All 20 claims verified against source code. Corrections applied.
 
+**Last Re-Audited**: 2026-03-15 — Status labels updated against current `main` branch.
+
 ---
 
 ## Critical Issues
 
 ### 1. Monolithic Component Architecture
 **Severity**: High (maintainability, testability)
-**Status**: CONFIRMED (worse than initially estimated)
+**Status**: LARGELY RESOLVED (2026-03-15 re-audit)
 
-- `packages/app/src/app.tsx`: **1,771 lines**, single React component with 20+ useState, 15+ useRef, 14+ useEffect, 20+ useCallback hooks
-- `packages/extension/src/views/Sidepanel/sidepanel-app.tsx`: **3,135 lines** (not 1,000+ as initially estimated)
-- `packages/extension/src/background.ts`: **5,794 lines** service worker
-- `SettingsPanel` accepts **19 props** (prop drilling)
+- `packages/app/src/app.tsx`: ~~1,771 lines~~ **518 lines** (major refactor, components extracted)
+- `packages/extension/src/views/Sidepanel/SidepanelApp.tsx`: ~~3,135 lines~~ **1,055 lines** (hooks and components extracted)
+- `packages/extension/src/background.ts`: ~~5,794 lines~~ **632 lines** (massive refactor)
+- Extracted: `TabStrip.tsx`, `OperatorConsole.tsx`, `CoopSwitcher.tsx`, `cards.tsx`, `tabs.tsx`, `ArchiveSetupWizard.tsx`, `OnboardingOverlay.tsx`
+- Custom hooks extracted: `useOnboarding`, `useSyncBindings`, `useCoopForm`, `useDraftEditor`, `useDashboard`, `useTabCapture`
 
-**Impact**: Difficult to reason about state, test in isolation, or refactor safely. Any change risks unintended side effects across unrelated features.
+**Remaining**: Files are still large by component standards but no longer monolithic. Further extraction possible but not critical.
 
 ### 2. Polling-Based State Updates (No Event-Driven Architecture)
 **Severity**: High (performance, battery)
@@ -37,13 +40,14 @@ sidebar_position: 5
 
 ### 3. No Loading States or Skeletons
 **Severity**: Medium (UX)
-**Status**: CONFIRMED, zero matches for loading/spinner/skeleton/Suspense/fallback across all .tsx and .css files
+**Status**: RESOLVED (2026-03-15 re-audit)
 
-- Dashboard loads via polling with no visual feedback on first load
-- Route transitions show nothing while `refreshLocalState()` runs
-- Board view shows nothing between handoff extraction and ReactFlow mount
+- Skeleton component added: `packages/app/src/components/Skeleton.tsx`
+- Skeleton loading patterns in: `SidepanelApp.tsx`, `tabs.tsx`, `cards.tsx`
+- Skeleton CSS in: `styles.css`, `global.css`
+- Test coverage: `skeleton-loading.test.tsx`
 
-**Impact**: Users see blank screens or stale content during transitions, especially on slower devices.
+**Remaining**: Board view initial load may still lack skeleton.
 
 ---
 
@@ -220,9 +224,9 @@ Tests may pass via regex fallback but test the wrong UI element.
 
 ## Validated Recommendations (Priority Order)
 
-1. **Extract state into custom hooks**: Break `app.tsx` (1,771 lines) and `sidepanel-app.tsx` (3,135 lines) into `useCapture()`, `useSync()`, `usePairing()`, etc.
+1. ~~**Extract state into custom hooks**~~: DONE — `app.tsx` (518 lines), `SidepanelApp.tsx` (1,055 lines), `background.ts` (632 lines). Hooks extracted: `useCapture`, `useSync`, `usePairing`, `useDashboard`, `useDraftEditor`, `useCoopForm`, `useOnboarding`, `useSyncBindings`, `useTabCapture`
 2. **Replace polling with message-based updates**: Use `chrome.runtime.onMessage` from background to sidepanel instead of 3.5s polling
-3. **Add loading skeletons**: At minimum for initial dashboard load and route transitions
+3. ~~**Add loading skeletons**~~: DONE — Skeleton component + CSS + tests added
 4. **Unify terminology**: Pick one name per concept and enforce across all surfaces
 5. **Add focus traps to modals**: Onboarding overlay, QR scanner
 6. **Progressive disclosure for Operator Console**: Collapse advanced sections by default using `<details>`

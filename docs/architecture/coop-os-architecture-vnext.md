@@ -6,9 +6,9 @@ sidebar_position: 1
 
 # Coop V1 Build Plan
 
-**Status**: Canonical v1 plan  
-**Updated**: 2026-03-11  
-**Build Context**: PL Genesis hackathon prototype  
+**Status**: Canonical v1 plan
+**Updated**: 2026-03-15
+**Build Context**: PL Genesis hackathon prototype
 **Document Role**: Single source of truth for the first Coop implementation
 
 ---
@@ -171,8 +171,15 @@ These were not part of the locked prototype loop. Items marked *(since shipped)*
 - encrypted archive workflows for sensitive content
 - full Green Goods garden binding
 - built-in API-key-based LLM integrations
-- ~~autonomous agent execution~~ *(since shipped — agent harness with 14-skill pipeline, 3-tier inference)*
-- ~~session-key based transactions~~ *(since shipped — session module with time-bounded capabilities)*
+- ~~autonomous agent execution~~ *(since shipped -- agent harness with 14-skill pipeline, 3-tier inference)*
+- ~~session-key based transactions~~ *(since shipped -- session module with time-bounded capabilities)*
+- ~~ZK membership proofs~~ *(since shipped -- privacy module with Semaphore v4 proofs and anonymous publishing)*
+- ~~stealth addresses~~ *(since shipped -- stealth module with ERC-5564 secp256k1 stealth addresses)*
+- ~~action approval workflows~~ *(since shipped -- policy module with typed EIP-712 action bundles, replay protection, bounded executor)*
+- ~~execution permits~~ *(since shipped -- permit module with delegated action enforcement and privilege logs)*
+- ~~operator/anchor runtime~~ *(since shipped -- operator module with anchor capability and privileged action logging)*
+- ~~on-chain agent registry~~ *(since shipped -- ERC-8004 module with identity registration, reputation, and agent manifests)*
+- ~~self-hosted API server~~ *(since shipped -- packages/api with Hono + Bun, WebSocket signaling relay, deployed to Fly.io)*
 - end-user skill management UI
 
 The app package started as landing-page-only but now also hosts the receiver PWA shell.
@@ -242,6 +249,7 @@ This keeps the long-term Coop OS direction intact without pulling that UX into t
 ```text
 docs/
 packages/
+  api/
   app/
   extension/
   shared/
@@ -254,7 +262,8 @@ bun.lock
 
 ```text
 packages/
-  app/         # responsive landing page only for v1
+  api/         # Hono + Bun API server: signaling WebSocket relay, health routes, Fly.io deployed
+  app/         # responsive landing page + receiver PWA shell
   extension/   # extension node: capture, review, publish, sync, settings
   shared/      # schemas, types, state contracts, sync contracts, adapters, UI primitives
 docs/          # builder-facing Docusaurus documentation
@@ -279,6 +288,11 @@ Coop should align with the Green Goods stack where it helps:
 - `@mozilla/readability`
 - `viem`
 - `permissionless`
+- `@semaphore-protocol/core` (ZK membership proofs)
+- `@bandada/api-sdk` (Bandada group management)
+- `@noble/secp256k1` (stealth address cryptography)
+- `@rhinestone/module-sdk` (Smart Sessions for session keys)
+- `hono` (API server framework)
 - Docusaurus
 
 ### 5.4 Dependency Rules
@@ -391,9 +405,10 @@ Stage 0 is complete when:
 
 The runtime split for v1 is:
 
-- landing page in `packages/app`
+- landing page and receiver PWA in `packages/app`
 - browser runtime in `packages/extension`
 - product logic and contracts in `packages/shared`
+- API server (signaling relay + health) in `packages/api`
 - builder docs in `docs`
 
 ### 7.2 Data Layers
@@ -440,7 +455,10 @@ Lives onchain or is derived from onchain state:
 
 - coop Safe address
 - signer status
-- future Garden or archive linkage
+- ERC-8004 agent identity registration and reputation scores
+- ERC-5564 stealth address announcements
+- Smart Session module installation and permission IDs
+- Green Goods garden and GAP linkage
 
 #### Long-Term Archive
 
@@ -992,7 +1010,7 @@ Human approval remains the default boundary for:
 - garden ownership changes
 - archive publishing receipts with financial implications
 
-Session keys and autonomous actions are future work.
+Session keys and autonomous actions have been implemented. The policy module enforces typed EIP-712 action bundles with mandatory approval workflows and replay protection. The session module provides time-bounded, usage-limited Smart Session keys for a subset of Green Goods contract interactions. The permit module enables delegated execution for archive and publish actions with capped usage and revocation. Anchor mode (operator module) gates live execution behind an explicit opt-in per authenticated member session.
 
 ---
 
@@ -1039,6 +1057,11 @@ The coop document should only contain shared memory, not raw browsing exhaust.
 - draft-generation intermediates
 - per-user heuristics and caches
 - unpublished thoughts
+- Semaphore privacy identities and exported private keys
+- stealth key pairs and meta-addresses
+- encrypted session signer material
+- execution permit records and permit logs
+- action bundle logs and replay guard state
 
 ### 13.4 Room Bootstrap And Access Control
 
@@ -1085,9 +1108,7 @@ Coop remains:
 - peer-oriented
 - collaborative without a central data backend
 
-The prototype does not need permanent high-availability relay infrastructure.
-
-It needs reliable two-peer happy-path sync in the demo.
+The signaling relay (`packages/api`) is a Hono + Bun server deployed to Fly.io. It handles WebSocket-based topic pub/sub for y-webrtc peer discovery and a `/health` endpoint for monitoring. It does not store any coop data; it only relays signaling messages between peers.
 
 ### 13.7 Archive Privacy Boundary
 
@@ -1099,6 +1120,7 @@ For v1:
 - Storacha/Filecoin archive is explicit long-term publication or backup
 - only approved artifacts or coop snapshots may cross into the archive layer
 - drafts, raw readable extracts, and passive browsing exhaust must never be archived automatically
+- the privacy module enables anonymous publishing: a member can prove coop membership via a Semaphore ZK proof without revealing which member they are, scoped per-coop to prevent cross-coop replay
 
 This distinction should be visible in both docs and product language.
 
@@ -1632,6 +1654,18 @@ Join outcome:
 - `InferenceAdapter`
 - `WalletAdapter`
 
+Since the original plan, the following contract types have been added to support the implemented modules:
+
+- `ActionPolicy`, `PolicyActionClass`, `DelegatedActionClass` -- policy module
+- `ActionBundle`, `ActionBundleStatus`, `TypedActionBundle` -- policy action bundles
+- `ActionLogEntry`, `ActionLogEventType` -- policy audit log
+- `SessionCapability`, `SessionCapabilityScope`, `SessionCapabilityStatus`, `SessionCapabilityFailureReason`, `SessionCapableActionClass` -- session module
+- `SessionCapabilityLogEntry`, `EncryptedSessionMaterial` -- session audit and material storage
+- `ExecutionPermit`, `PermitStatus`, `PermitLogEntry`, `PermitLogEventType` -- permit module
+- `AnchorCapability`, `PrivilegedActionLogEntry`, `PrivilegedActionType`, `PrivilegedActionStatus`, `PrivilegedActionContext` -- operator module
+- `PrivacyIdentity`, `MembershipProof` -- privacy module
+- `StealthKeys`, `StealthMetaAddress`, `StealthAddress`, `StealthAnnouncement` -- stealth module
+
 The `InferenceAdapter` contract should target local inference paths in v1.
 
 Do not implement cloud-provider adapters as part of the initial product loop.
@@ -1735,11 +1769,9 @@ The memory profile is meant to tune matching and review quality, not become a se
 
 ---
 
-## 18. Coop OS Modules And Future Action Stubs
+## 18. Coop OS Modules And Action Infrastructure
 
-V1 should establish modular typed future capability areas in code.
-
-These are not end-user “skills” in the UI.
+The shared package contains domain modules under `packages/shared/src/modules/`. Each module owns its schemas, pure functions, and Dexie integration. Modules are not end-user “skills” in the UI -- they provide the typed infrastructure that runtime packages compose.
 
 ### 18.1 Required Action Families
 
@@ -1748,18 +1780,135 @@ These are not end-user “skills” in the UI.
 - `ArchiveAction`
 - `GardenAction`
 
-### 18.2 Why This Exists In V1
+### 18.2 Privacy Module (`privacy`)
 
-This keeps the architecture extensible for:
+Provides Semaphore v4 zero-knowledge membership proofs for anonymous publishing, backed by Bandada group management.
+
+**Files:** `membership.ts`, `groups.ts`, `anonymous-publish.ts`, `lifecycle.ts`
+
+Key capabilities:
+
+- **Identity creation:** `createPrivacyIdentity()` generates a Semaphore v4 identity (random private key). `restorePrivacyIdentity(secret)` deterministically restores one from a seed string.
+- **Group management:** `createMembershipGroup(commitments)` builds an off-chain Semaphore group from member identity commitments. `createBandadaGroup()`, `addGroupMember()`, `removeGroupMember()` manage Bandada-backed on-chain groups via the Bandada API SDK.
+- **Proof generation:** `generateMembershipProof(identity, group, message, scope)` produces a ZK proof that an identity belongs to a group without revealing which member. `verifyMembershipProof(proof)` verifies it.
+- **Anonymous publishing:** `generateAnonymousPublishProof(db, { coopId, memberId, artifactOriginId })` retrieves the member's stored identity and all coop member commitments from Dexie, then generates a scoped proof tied to a specific artifact publish action. The scope (coop ID) prevents cross-coop replay.
+- **Lifecycle hooks:** `initializeCoopPrivacy(db, { coopId, memberId })` runs at coop creation, generating both a Semaphore identity and stealth keys. `initializeMemberPrivacy(db, { coopId, memberId })` runs at join (idempotent).
+
+### 18.3 Stealth Module (`stealth`)
+
+Implements ERC-5564 scheme 1 (secp256k1 with view tags) for one-time stealth addresses. All operations are pure cryptography -- no network access required.
+
+**Files:** `stealth.ts`
+
+Key capabilities:
+
+- **Key generation:** `generateStealthKeys()` produces a spending/viewing key pair using `@noble/secp256k1`.
+- **Meta-address:** `computeStealthMetaAddress(keys)` concatenates the compressed spending and viewing public keys into a publishable meta-address.
+- **Address generation:** `generateStealthAddress(metaAddress)` creates a fresh ephemeral key, computes ECDH shared secret with the recipient's viewing public key, and derives a one-time stealth address. Returns the stealth address, ephemeral public key, and view tag.
+- **Scanning:** `checkStealthAddress({ stealthAddress, ephemeralPublicKey, viewTag, spendingPublicKey, viewingPrivateKey })` uses view-tag fast filtering followed by full address derivation to check ownership.
+- **Spending:** `computeStealthPrivateKey({ spendingPrivateKey, viewingPrivateKey, ephemeralPublicKey })` derives the private key needed to spend from a stealth address.
+- **Announcements:** `prepareStealthAnnouncement()` formats data for on-chain ERC-5564 Announcer events.
+
+### 18.4 Policy Module (`policy`)
+
+Typed action approval workflows with EIP-712-compatible action bundles, a bounded executor, and replay protection.
+
+**Files:** `policy.ts`, `action-bundle.ts`, `approval.ts`, `executor.ts`, `replay.ts`, `log.ts`
+
+Key capabilities:
+
+- **Policy management:** `createPolicy()` and `createDefaultPolicies()` produce `ActionPolicy` records scoped by action class, coop, and member. Policies control whether approval is required, support optional expiry, and enable replay protection. `findMatchingPolicy()` resolves the applicable policy for a given action.
+- **Action bundles:** `createActionBundle()` wraps an action payload with EIP-712 typed data (`CoopActionBundle` struct), a 24-hour TTL, and a unique replay ID. `buildTypedActionBundle()` produces the full EIP-712 typed data including domain (chain ID, Safe address) and computes the digest via `viem.hashTypedData`. `resolveScopedActionPayload()` validates and normalizes payloads for 14 action classes (archive, publish, Safe deployment, Green Goods operations, ERC-8004 registration/feedback).
+- **Approval state machine:** `approveBundle()`, `rejectBundle()`, `markBundleExecuted()`, `markBundleFailed()`, `expireBundle()` transition bundles through `proposed -> approved -> executed` (or `rejected`/`failed`/`expired`). `expireStaleBundles()` batch-expires past-due bundles.
+- **Bounded executor:** `executeBundle()` validates policy compliance, replay protection, expiry, and digest integrity before dispatching to a registered `ActionHandler`. On success it records the replay ID; on failure it marks the bundle failed.
+- **Replay protection:** `ReplayGuard` tracks consumed replay IDs in a `Set<string>`. `checkReplayId()` rejects duplicates. `exportConsumedReplayIds()` serializes for persistence.
+- **Action log:** `createActionLogEntry()` and `appendActionLog()` maintain a capped audit trail with event types covering proposal, approval, rejection, execution, failure, replay rejection, and expiry.
+
+### 18.5 Session Module (`session`)
+
+Scoped execution permissions using Rhinestone Smart Sessions for time-bounded, usage-limited on-chain capabilities.
+
+**Files:** `session.ts`
+
+Key capabilities:
+
+- **Session key generation:** `createSessionSignerMaterial()` generates a fresh private key and derives an ownable validator configuration. `createSessionCapability()` builds a `SessionCapability` record with scope (allowed actions, target allowlist, chain, Safe address, expiry, max uses).
+- **Smart Session construction:** `buildSmartSession()` composes a Rhinestone `Session` object with time-frame and usage-limit policies, mapping action classes to Green Goods contract function selectors and target addresses. `buildEnableSessionExecution()` and `buildRemoveSessionExecution()` produce the Safe execution payloads for installing and removing session modules.
+- **Validation:** `validateSessionCapabilityForBundle()` performs comprehensive checks: action class eligibility, capability status (active/revoked/expired/exhausted), encrypted material presence, Pimlico API key availability, Safe existence, chain match, Safe address match, action allowlist, target allowlist, and typed authorization metadata. Returns an updated capability with detailed status and failure reasons.
+- **Lifecycle:** `refreshSessionCapabilityStatus()` recomputes status from expiry, revocation, and usage. `revokeSessionCapability()`, `rotateSessionCapability()`, and `incrementSessionCapabilityUsage()` handle lifecycle transitions.
+- **Session material encryption:** `encryptSessionPrivateKey()` wraps the session signer private key with AES-256-GCM derived from PBKDF2 (120k iterations). `decryptSessionPrivateKey()` unwraps it. Material is stored per-browser-profile.
+- **Session key signing:** `wrapUseSessionSignature()` encodes a Smart Session USE-mode signature wrapping the validator's signature and permission ID.
+
+### 18.6 Permit Module (`permit`)
+
+Execution permits for delegated actions with expiry, usage limits, and privilege logging.
+
+**Files:** `permit.ts`, `enforcement.ts`, `log.ts`
+
+Key capabilities:
+
+- **Permit creation:** `createExecutionPermit()` issues a permit scoped to a coop, bound to a named executor (with optional local passkey identity), with an action allowlist (`DelegatedActionClass`: archive-artifact, archive-snapshot, refresh-archive-status, publish-ready-draft), target allowlist, max uses, and expiry.
+- **Status management:** `computePermitStatus()` derives `active | expired | revoked | exhausted` from revocation timestamp, expiry, and usage count. `revokePermit()` and `incrementPermitUsage()` mutate the permit.
+- **Enforcement:** `validatePermitForExecution()` checks revocation, expiry, usage limits, coop scope, action allowlist, executor binding (label and local identity), target allowlist, and replay protection (reuses `ReplayGuard` from the policy module). Returns typed rejection reasons.
+- **Audit log:** `createPermitLogEntry()` and `appendPermitLog()` maintain a capped log with event types: permit-issued, permit-revoked, permit-expired, delegated-execution-attempted/succeeded/failed, delegated-replay-rejected, delegated-exhausted-rejected.
+
+### 18.7 Operator Module (`operator`)
+
+Anchor/trusted-node runtime behavior for the extension's privileged execution context.
+
+**Files:** `operator.ts`
+
+Key capabilities:
+
+- **Anchor capability:** `createAnchorCapability()` produces an `AnchorCapability` record tracking whether anchor mode is enabled, which authenticated member activated it, and the node ID. `isAnchorCapabilityActive()` checks that the current auth session matches the anchor actor.
+- **Status description:** `describeAnchorCapabilityStatus()` returns a human-readable status object indicating whether anchor mode is off, active for the current member, or enabled for a different member session.
+- **Privileged action logging:** `createPrivilegedActionLogEntry()` records privileged operations (live archive, Safe actions, archive follow-up) with typed action types, statuses (proposed, approved, rejected, executed, failed), detail text, and optional context (coop ID, member ID, Safe address). `appendPrivilegedActionLog()` maintains a capped (50-entry) audit trail.
+
+### 18.8 ERC-8004 Module (`erc8004`)
+
+On-chain agent identity registration and reputation via the ERC-8004 standard.
+
+**Files:** `erc8004.ts`
+
+Key capabilities:
+
+- **Deployment addresses:** `getErc8004Deployment(chainKey)` returns Identity Registry and Reputation Registry contract addresses for Arbitrum and Sepolia.
+- **Agent registration:** `registerAgentIdentity()` calls `register(agentURI, metadata)` on the Identity Registry via a Safe executor callback. In mock mode, returns a deterministic agent ID. Parses the `Registered` event from the transaction receipt to extract the on-chain agent ID.
+- **Agent URI update:** `updateAgentURI()` calls `setAgentURI(agentId, newURI)` for existing agents.
+- **Reputation reads:** `readAgentReputation()` reads `getSummary(agentId)` (score + feedback count). `readAgentFeedbackHistory()` reads all feedback entries for an agent.
+- **Feedback submission:** `giveAgentFeedback()` calls `giveFeedback(targetAgentId, value, tag1, tag2, comment)` on the Reputation Registry.
+- **Agent manifest:** `buildAgentManifest()` constructs an ERC-8004 registration-v1 manifest from coop profile, onchain state, and skill list. Includes capabilities, guardrails, operator Safe address, and supported trust mechanisms. `encodeAgentManifestURI()` serializes it as a `data:application/json;base64,...` URI.
+- **Log export:** `buildAgentLogExport()` formats agent execution logs for external observability tooling.
+
+### 18.9 API Server (`packages/api`)
+
+Hono + Bun TypeScript API server replacing the original `server.mjs` signaling relay. Deployed to Fly.io.
+
+**Files:** `app.ts`, `index.ts`, `routes/`, `ws/`, `middleware/`, `lib/`
+
+Key capabilities:
+
+- **WebSocket signaling relay:** Topic-based pub/sub for y-webrtc peer discovery. Clients subscribe to topic names (derived from coop room secrets), and the server relays `publish` messages to all subscribers on that topic. Supports `subscribe`, `unsubscribe`, `publish`, and `ping/pong` message types.
+- **Topic registry:** `TopicRegistry` class manages per-topic subscriber sets keyed on stable Bun `ServerWebSocket` references (not Hono's per-event `WSContext` wrappers). Automatically cleans up on disconnect.
+- **Health endpoint:** `GET /health` returns `{ status: “ok” }`. `GET /` returns `”okay”` for monitoring probes when no WebSocket upgrade is requested.
+- **Middleware:** Request logging via a custom Hono middleware.
+- **Runtime:** Bun native server with configurable port/host, 64KB max WebSocket payload, 30-second idle timeout, and graceful shutdown on `SIGTERM`/`SIGINT`.
+
+### 18.10 Why These Modules Exist
+
+This infrastructure keeps the architecture extensible for:
 
 - Green Goods garden binding
 - Filecoin or Storacha publishing
 - capital actions and treasury flows
-- future autonomous or semi-autonomous workflows
+- autonomous or semi-autonomous agent workflows
+- privacy-preserving group actions via ZK proofs
+- stealth-address-based private fund flows
+- delegated execution with bounded trust scopes
 
-### 18.3 V1 UI Rule
+### 18.11 UI Rule
 
-These modules should appear in code, docs, and internal architecture, but not as a visible skill launcher for end users.
+These modules appear in code, docs, and internal architecture. They power extension and operator surfaces (OperatorConsole, action approval panels), but are not exposed as a visible skill launcher for end users.
 
 ---
 
@@ -1780,6 +1929,12 @@ The top-level Docusaurus site should ship with lightweight builder documentation
 - `Archive And Long-Term Storage`
 - `Notifications And Sound`
 - `Coop OS Action Stubs`
+- `Privacy And Anonymous Publishing` (Semaphore, Bandada, stealth addresses)
+- `Policy And Action Bundles` (approval workflows, EIP-712, replay protection)
+- `Session Keys And Permits` (Smart Sessions, execution permits, delegation)
+- `Operator And Anchor Mode` (privileged actions, anchor capability)
+- `ERC-8004 Agent Registry` (agent identity, reputation, manifests)
+- `API Server` (signaling relay, deployment)
 - `Hackathon Demo Flow`
 
 ### 19.2 Documentation Rule
@@ -1931,19 +2086,22 @@ Deliver:
 
 After the core loop is solid, the most aligned next areas are:
 
-- mobile receiver shell
-- mobile voice capture
+- ~~mobile receiver shell~~ *(shipped)*
+- ~~mobile voice capture~~ *(shipped)*
 - local file and folder ingest
 - richer board and review flows
 - richer archive browsing and retrieval UX
 - encrypted archive workflows
 - automated archive cadence and snapshot policies
 - optional external-tool automations built on exported data
-- Green Goods garden binding
-- session-key and agent-assisted actions
+- ~~Green Goods garden binding~~ *(shipped -- greengoods module)*
+- ~~session-key and agent-assisted actions~~ *(shipped -- session, policy, permit, and operator modules)*
+- ~~ZK membership and anonymous publishing~~ *(shipped -- privacy module with Semaphore v4)*
+- ~~stealth addresses for private fund flows~~ *(shipped -- stealth module with ERC-5564)*
+- ~~on-chain agent registry~~ *(shipped -- ERC-8004 module)*
 - broader Coop OS runtime reuse across more surfaces
 
-These should not be allowed to creep into the hackathon critical path.
+The remaining items should not be allowed to creep into the demo-critical path.
 
 ---
 

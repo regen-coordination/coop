@@ -7,6 +7,7 @@ sidebar_position: 2
 # Coop Scoped Roadmap
 
 Date: March 11, 2026
+Last consolidated: March 15, 2026
 
 This roadmap scopes the requested expansion on top of the current repo state. It is intentionally split into:
 
@@ -47,6 +48,12 @@ For the agentic and onchain roadmap, these are the right standards to plan aroun
 - [Storacha upload guide](https://docs.storacha.network/how-to/upload/) for delegated upload architecture
 - [Storacha Filecoin info](https://docs.storacha.network/how-to/filecoin-info/) for piece-level deal and proof follow-up
 
+Additional standards adopted since the original plan:
+
+- [ERC-5564](https://eips.ethereum.org/EIPS/eip-5564) for stealth addresses enabling private on-chain interactions
+- [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) for on-chain agent registry (skill registered: `erc8004-register`)
+- [Semaphore](https://semaphore.pse.dev/) for zero-knowledge group membership proofs and anonymous publishing
+
 Important caution:
 
 - [Safe EIP-7702 guidance](https://docs.safe.global/advanced/eip-7702/7702-safe) is still experimental. It should stay out of the demo-critical path.
@@ -77,21 +84,25 @@ This is the highest-value scope for the next few days:
 This should start immediately after the hackathon-critical slice is stable:
 
 - real local model execution path: **STUBBED** (heuristic only)
-- trusted-node or anchor runtime behavior: **CONCEPTUAL** (role flags exist, no operational anchor)
+- trusted-node or anchor runtime behavior: **DONE** (OperatorConsole built, anchor mode operational, action log panel shipped)
 - trusted-node local delegation for live archive upload: **DONE** (runs in trusted extension nodes)
 - Filecoin lifecycle follow-up using piece-level info: **NOT STARTED**
-- richer identity envelopes and signed coop events: **PARTIAL** (passkey works, no DID/signed envelopes)
+- richer identity envelopes and signed coop events: **PARTIAL** (passkey works, stealth addresses and ZK proofs added; DID/signed envelopes still pending)
 
 ### 3.3 Agentic Platform
 
 This should be scoped as a second architecture milestone:
 
 - autonomous agent execution with scoped permissions: **NOT STARTED** (correctly deferred)
-- session-key or delegated execution policy model: **NOT STARTED**
+- session-key or delegated execution policy model: **PARTIAL** (session capability schema, permit system, and policy engine implemented in shared; UI integration pending)
 - coop-level Ethereum agent identity: **NOT STARTED**
 - capital and governance execution flows driven by typed intents and review policies: **NOT STARTED**
 
 ## 4. Workstream Plan
+
+### Infrastructure: API Server (DONE)
+
+The `api` package provides a Hono + Bun API server deployed on Fly.io at `wss://signal.coop.town`. This was not in the original roadmap but provides the signaling and routing backbone for P2P sync.
 
 ## 4.1 Receiver PWA: DONE
 
@@ -180,7 +191,7 @@ Move from pure heuristics to a real local inference path without making the exte
 
 Do not make full WebLLM a blocker for the hackathon demo. Land the interface, capability detection, and one explicit local-refine action first.
 
-## 4.3 Trusted-Node Or Anchor Runtime: CONCEPTUAL
+## 4.3 Trusted-Node Or Anchor Runtime: DONE
 
 ### Goal
 
@@ -188,9 +199,11 @@ Make “trusted member” and “anchor” mean something operationally, not jus
 
 ### Hackathon-Complete Scope
 
-- add an `anchor mode` capability flag in the extension
-- gate scheduled jobs, live archive upload, and live onchain actions behind anchor mode
-- add an action log panel for outward or privileged actions
+- add an `anchor mode` capability flag in the extension: **DONE**
+- gate scheduled jobs, live archive upload, and live onchain actions behind anchor mode: **DONE**
+- add an action log panel for outward or privileged actions: **DONE**
+
+The `operator` module provides the anchor/trusted-node runtime with an OperatorConsole UI (1,072 lines). Anchor mode is now operational.
 
 ### Near-Term Platform
 
@@ -321,6 +334,15 @@ Bridge the current passkey-first implementation toward the richer identity model
   - publish actions
   - archive requests
 
+### New Capabilities Landed
+
+The following privacy and identity primitives have been implemented:
+
+- **`privacy` module**: Semaphore ZK membership proofs, anonymous publishing, group management, membership lifecycle
+- **`stealth` module**: ERC-5564 secp256k1 stealth addresses — key generation, one-time address creation, view tag scanning
+
+These bring the identity model closer to the near-term platform goals, though DID/signed envelopes remain pending.
+
 ### Near-Term Platform
 
 - introduce per-coop `did:key` member identifiers
@@ -364,7 +386,7 @@ Add a visual knowledge and contribution view without turning the product into a 
 
 This should be a read and presentation surface first, not a freeform editor.
 
-## 4.10 Autonomous Agent Execution, Session Keys, And Agentic Identity: NOT STARTED
+## 4.10 Autonomous Agent Execution, Session Keys, And Agentic Identity: PARTIAL
 
 ### Goal
 
@@ -377,6 +399,7 @@ Enable Coop to act onchain and offchain with bounded autonomy.
 - typed action and intent payloads: `EIP-712`
 - modular account architecture: `ERC-7579`
 - wallet permission request compatibility target: `ERC-7715`
+- on-chain agent registry: `ERC-8004`
 
 ### What Not To Do In The Hackathon Slice
 
@@ -384,23 +407,34 @@ Enable Coop to act onchain and offchain with bounded autonomy.
 - do not allow unrestricted agent execution
 - do not let the agent move funds without explicit policy and human approval
 
+### Current Progress
+
+The foundational infrastructure for session-key and policy-based execution is now implemented in shared modules:
+
+- **`policy` module**: Action approval workflows, typed EIP-712-compatible bundles, replay protection
+- **`session` module**: Scoped execution permissions, time-bounded capability windows, member constraints
+- **`permit` module**: Execution permits with expiry, privilege logs for audit trails
+
+UI integration for these capabilities remains pending. The autonomous agent execution layer itself is still not started (correctly deferred).
+
 ### Near-Term Platform
 
-- introduce a policy engine for allowed actions
+- ~~introduce a policy engine for allowed actions~~ **DONE** (policy module)
 - support low-risk allowed actions first:
   - archive upload
   - social or comms draft publishing
   - garden proposal drafting
   - non-financial onchain proposals
 - require human confirmation for treasury-moving actions
+- integrate session and permit UI into the extension
 
 ### Session-Key Plan
 
 Phase 1:
 
-- implement coop policy objects in shared state
-- implement scoped action bundles signed by the coop account or approved signer set
-- store action logs and replay IDs
+- implement coop policy objects in shared state: **DONE**
+- implement scoped action bundles signed by the coop account or approved signer set: **DONE**
+- store action logs and replay IDs: **DONE**
 
 Phase 2:
 
@@ -467,6 +501,15 @@ Add these named suites after the relevant features land:
 
 These should plug into `scripts/validate.ts` so Codex can keep running the product as a set of named flows instead of one monolithic test command.
 
+### Current Validation Coverage
+
+Since the original plan, 100+ new test files have landed across:
+
+- Privacy, stealth, onchain, archive, storage, and policy modules
+- Agent harness testing (registry, knowledge, models, inference)
+- Runtime testing (operator, messages, session capability, anchor CID)
+- UI testing (operator console, privacy UI, archive config)
+
 ## 7. Bottom Line
 
 This roadmap supports your requested direction, but it should not be treated as one undifferentiated sprint.
@@ -483,41 +526,3 @@ The right build order is:
 
 That ordering keeps the demo legible, expands the product meaningfully, and avoids collapsing the current working core under too many experimental layers at once.
 
----
-
-## 8. Status Update - March 14, 2026
-
-Since the roadmap was written, significant new capabilities have landed:
-
-### New Modules (not in original roadmap)
-
-| Module | Status | Description |
-|--------|--------|-------------|
-| `privacy` | **DONE** | Semaphore ZK membership proofs, anonymous publishing, group management, membership lifecycle |
-| `stealth` | **DONE** | ERC-5564 secp256k1 stealth addresses - key generation, one-time address creation, view tag scanning |
-| `policy` | **DONE** | Action approval workflows, typed EIP-712-compatible bundles, replay protection |
-| `session` | **DONE** | Scoped execution permissions, time-bounded capability windows, member constraints |
-| `permit` | **DONE** | Execution permits with expiry, privilege logs for audit trails |
-| `operator` | **DONE** | Anchor/trusted-node runtime with OperatorConsole UI (1,072 lines) |
-| `api` | **DONE** | Hono + Bun API server (Fly.io deployed at `wss://signal.coop.town`) |
-
-### Updated Workstream Status
-
-| Workstream | Was | Now | Notes |
-|-----------|-----|-----|-------|
-| 4.3 Trusted-Node Runtime | CONCEPTUAL | **DONE** | OperatorConsole built, anchor mode operational, action log panel shipped |
-| 4.10 Session Keys | NOT STARTED | **PARTIAL** | Session capability schema, permit system, and policy engine implemented in shared; UI integration pending |
-| 3.2 Near-term: Identity | PARTIAL | **PARTIAL** | Stealth addresses and ZK proofs added; DID/signed envelopes still pending |
-
-### Additional Standards Adopted
-
-- **ERC-5564**: Stealth addresses for private on-chain interactions
-- **ERC-8004**: On-chain agent registry (skill registered: `erc8004-register`)
-- **Semaphore**: Zero-knowledge group membership proofs for anonymous publishing
-
-### New Validation Coverage
-
-- 100+ new test files across privacy, stealth, onchain, archive, storage, policy modules
-- Agent harness testing (registry, knowledge, models, inference)
-- Runtime testing (operator, messages, session capability, anchor CID)
-- UI testing (operator console, privacy UI, archive config)
