@@ -39,7 +39,7 @@ Through its Green Goods integration, coops can also bootstrap on-chain gardens f
 | `@coop/shared` | Schemas, flows, sync contracts, and 16 domain modules |
 | `@coop/app` | Landing page + receiver PWA (audio, photo, file, link capture) |
 | `@coop/extension` | MV3 browser extension (popup, sidepanel, background, offscreen) |
-| `@coop/signaling` | y-webrtc signaling server (Fly.io deployed) |
+| `@coop/api` | Hono + Bun API server (Fly.io deployed) |
 
 ## What's novel
 
@@ -58,7 +58,7 @@ ERC-4337, ERC-1271, EIP-712, ERC-7579, ERC-5564, ERC-8004, Semaphore, Storacha/F
 ```bash
 bun install            # Install dependencies
 bun dev                # Start app + extension concurrently
-bun dev:signaling      # Start signaling server
+bun dev:api            # Start API server
 bun run test           # Run tests
 bun build              # Build everything
 bun run validate full  # Validate before merging

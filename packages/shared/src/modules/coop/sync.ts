@@ -1,7 +1,7 @@
+import { defaultIceServers, defaultSignalingUrls } from '@coop/api';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import { type SignalingConn, WebrtcProvider } from 'y-webrtc';
 import * as Y from 'yjs';
-import { defaultIceServers, defaultSignalingUrls } from '../../../../signaling/config';
 import {
   type CoopSharedState,
   type SyncRoomBootstrap,
@@ -15,7 +15,8 @@ export {
   buildIceServers,
   defaultIceServers,
   defaultSignalingUrls,
-} from '../../../../signaling/config';
+  parseSignalingUrls,
+} from '@coop/api';
 const sharedKeys = [
   'profile',
   'setupInsights',

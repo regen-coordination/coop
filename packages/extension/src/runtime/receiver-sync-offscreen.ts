@@ -1,6 +1,7 @@
 import {
   type ReceiverCapture,
   type ReceiverSyncEnvelope,
+  buildIceServers,
   connectReceiverSyncProviders,
   connectReceiverSyncRelay,
   createReceiverSyncDoc,
@@ -10,7 +11,6 @@ import {
   markReceiverCaptureSyncFailed,
   patchReceiverSyncEnvelope,
 } from '@coop/shared';
-import { buildIceServers } from '@coop/signaling';
 import { AGENT_LOOP_POLL_INTERVAL_MS } from './agent-config';
 import { runAgentCycle } from './agent-runner';
 import type {

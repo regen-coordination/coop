@@ -13,6 +13,7 @@ import {
   buildMeetingModeSections,
   buildReceiverPairingProtocolLink,
   createCoopBoardSnapshot,
+  defaultSignalingUrls,
   defaultSoundPreferences,
   describeArchiveReceipt,
   detectBrowserUxCapabilities,
@@ -22,7 +23,6 @@ import {
   isArchiveWorthy,
   sessionToMember,
 } from '@coop/shared';
-import { defaultSignalingUrls } from '@coop/signaling';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   parseConfiguredSignalingUrls,

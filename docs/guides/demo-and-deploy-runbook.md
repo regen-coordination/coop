@@ -49,7 +49,7 @@ Run these from the repo root:
 bun install
 bun run dev:app
 bun run dev:extension
-bun run dev:signaling
+bun run dev:api
 ```
 
 Expected local surfaces:
@@ -142,7 +142,7 @@ This is the release target.
 - Self-host the open-source signaling server using the existing repo script as the baseline:
 
 ```bash
-bun run dev:signaling
+bun run dev:api
 ```
 
 - Move that service behind a durable `wss://` endpoint before public release.

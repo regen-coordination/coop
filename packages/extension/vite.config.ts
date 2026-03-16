@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@coop/shared': path.resolve(__dirname, '../shared/src/index.ts'),
-        '@coop/signaling': path.resolve(__dirname, '../signaling/config.ts'),
+        '@coop/api': path.resolve(__dirname, '../api/config.ts'),
       },
     },
     build: {

@@ -32,7 +32,7 @@ module.exports = defineConfig({
       timeout: 120_000,
     },
     {
-      command: 'node ./packages/signaling/server.mjs',
+      command: 'bun run --filter @coop/api start',
       url: 'http://127.0.0.1:4444',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

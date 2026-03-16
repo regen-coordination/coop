@@ -6,6 +6,7 @@ import {
   createCoopDb,
   createId,
   createReceiverCapture,
+  defaultSignalingUrls,
   defaultSoundPreferences,
   detectLocalEnhancementAvailability,
   getAuthSession,
@@ -24,7 +25,6 @@ import {
   setUiPreferences,
   uiPreferencesSchema,
 } from '@coop/shared';
-import { defaultSignalingUrls } from '@coop/signaling';
 import {
   isLocalEnhancementEnabled,
   parseConfiguredSignalingUrls,

@@ -15,10 +15,10 @@ const server = Bun.serve({
   hostname: host,
 });
 
-console.log(`Coop signaling server listening on http://${host}:${port}`);
+console.log(`Coop API server listening on http://${host}:${port}`);
 
 function shutdown() {
-  console.log('Shutting down signaling server\u2026');
+  console.log('Shutting down API server\u2026');
   server.stop();
 }
 

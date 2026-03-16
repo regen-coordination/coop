@@ -139,7 +139,7 @@ Install dependencies with Bun, then run the pieces you need:
 bun install
 bun run dev:app
 bun run dev:extension
-bun run dev:signaling
+bun run dev:api
 ```
 
 The extension uses explicit signaling URLs instead of assuming a public signaling service is healthy. For local multi-profile sync and end-to-end tests, run the local signaling server on `ws://127.0.0.1:4444` or point `VITE_COOP_SIGNALING_URLS` at your own hosted `ws://` or `wss://` endpoints.

@@ -9,7 +9,7 @@ bun install                  # Install dependencies
 bun dev                      # Start app + extension (concurrent)
 bun dev:app                  # Start app only
 bun dev:extension            # Start extension only (watch build)
-bun dev:signaling            # Start y-webrtc signaling server
+bun dev:api                  # Start API server (signaling + routes)
 bun format && bun lint       # Format (Biome) and lint workspace
 bun run test                 # Run all unit tests (vitest)
 bun run test:e2e             # Run all Playwright E2E tests
@@ -45,7 +45,7 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 1. **shared** (`@coop/shared`) → Schemas, flows, sync contracts, all domain modules
 2. **app** (`@coop/app`) → Landing page + receiver PWA shell
 3. **extension** (`@coop/extension`) → MV3 browser extension (popup, sidepanel, background worker)
-4. **signaling** (`@coop/signaling`) → y-webrtc signaling server (Fly.io deployed)
+4. **api** (`@coop/api`) → Hono + Bun API server (Fly.io deployed)
 
 ### Shared Modules
 - `auth`: Passkey-first identity + onchain auth

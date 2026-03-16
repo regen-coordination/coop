@@ -8,5 +8,5 @@
     "noEmit": false,
     "skipLibCheck": true
   },
-  "include": ["src", "../signaling/config.ts"]
+  "include": ["src", "../api/config.ts"]
 }

@@ -1,5 +1,6 @@
 import {
   type CoopSharedState,
+  buildIceServers,
   connectSyncProviders,
   createCoopDoc,
   hashJson,
@@ -7,7 +8,6 @@ import {
   summarizeSyncTransportHealth,
   writeCoopState,
 } from '@coop/shared';
-import { buildIceServers } from '@coop/signaling';
 import { useEffect, useRef } from 'react';
 import { sendRuntimeMessage } from '../../../runtime/messages';
 

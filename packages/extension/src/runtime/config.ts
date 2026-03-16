@@ -30,7 +30,7 @@ export function resolveConfiguredProviderMode(raw?: string): ProviderMode {
   return raw === 'kohaku' ? 'kohaku' : 'standard';
 }
 
-export { parseSignalingUrls as parseConfiguredSignalingUrls } from '@coop/signaling';
+export { parseSignalingUrls as parseConfiguredSignalingUrls } from '@coop/shared';
 
 export function resolveArchiveGatewayUrl(raw?: string) {
   return raw ?? 'https://storacha.link';

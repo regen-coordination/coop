@@ -31,6 +31,18 @@
         "ws": "^8.19.0",
       },
     },
+    "packages/api": {
+      "name": "@coop/api",
+      "version": "0.0.0",
+      "dependencies": {
+        "hono": "^4.7.0",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.2.0",
+        "typescript": "^5.7.0",
+        "ws": "^8.19.0",
+      },
+    },
     "packages/app": {
       "name": "@coop/app",
       "version": "0.1.0",
@@ -72,18 +84,6 @@
         "y-webrtc": "^10.3.0",
         "yjs": "^13.6.24",
         "zod": "^3.24.2",
-      },
-    },
-    "packages/signaling": {
-      "name": "@coop/signaling",
-      "version": "0.0.0",
-      "dependencies": {
-        "hono": "^4.7.0",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.2.0",
-        "typescript": "^5.7.0",
-        "ws": "^8.19.0",
       },
     },
   },
@@ -162,13 +162,13 @@
 
     "@commander-js/extra-typings": ["@commander-js/extra-typings@12.1.0", "", { "peerDependencies": { "commander": "~12.1.0" } }, "sha512-wf/lwQvWAA0goIghcb91dQYpkLBcyhOhQNqG/VgWhnKzgt+UOMvra7EX/2fv70arm5RW+PUHoQHHDa6/p77Eqg=="],
 
+    "@coop/api": ["@coop/api@workspace:packages/api"],
+
     "@coop/app": ["@coop/app@workspace:packages/app"],
 
     "@coop/extension": ["@coop/extension@workspace:packages/extension"],
 
     "@coop/shared": ["@coop/shared@workspace:packages/shared"],
-
-    "@coop/signaling": ["@coop/signaling@workspace:packages/signaling"],
 
     "@csstools/color-helpers": ["@csstools/color-helpers@5.1.0", "", {}, "sha512-S11EXWJyy0Mz5SYvRmY8nJYTFFd1LCNV+7cXyAgQtOOuzb4EsgfqDufL+9esx72/eLhsRdGZwaldu/h+E4t4BA=="],
 

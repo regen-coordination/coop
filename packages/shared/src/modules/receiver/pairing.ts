@@ -1,4 +1,4 @@
-import { filterUsableSignalingUrls } from '../../../../signaling/config';
+import { filterUsableSignalingUrls } from '@coop/api';
 import {
   type ReceiverPairingPayload,
   type ReceiverPairingRecord,
@@ -90,7 +90,7 @@ export function isReceiverPairingExpired(
   return Date.parse(pairing.expiresAt) <= nowMs;
 }
 
-export { filterUsableSignalingUrls as filterUsableReceiverSignalingUrls } from '../../../../signaling/config';
+export { filterUsableSignalingUrls as filterUsableReceiverSignalingUrls } from '@coop/api';
 
 export function getReceiverPairingStatus(
   pairing: Pick<

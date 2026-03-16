@@ -8,7 +8,7 @@
     "dev": "bunx concurrently -n app,extension \"bun run --filter @coop/app dev\" \"bun run --filter @coop/extension dev\"",
     "dev:app": "bun run --filter @coop/app dev",
     "dev:extension": "bun run --filter @coop/extension dev",
-    "dev:signaling": "bun run --filter @coop/signaling start",
+    "dev:api": "bun run --filter @coop/api start",
     "build": "bun run --filter @coop/shared build && bun run --filter @coop/app build && bun run --filter @coop/extension build",
     "test": "vitest run",
     "test:coverage": "mkdir -p coverage/.tmp && vitest run --coverage",

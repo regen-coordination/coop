@@ -717,4 +717,4 @@ summarizeSyncTransportHealth(webrtc?) → {
 | **Privacy** | `packages/shared/src/modules/privacy/` |
 | **Stealth addresses** | `packages/shared/src/modules/stealth/stealth.ts` |
 | **Operator console** | `packages/extension/src/views/Sidepanel/OperatorConsole.tsx` |
-| **Signaling server** | `packages/signaling/server.mjs` |
+| **API server** | `packages/api/src/index.ts` |

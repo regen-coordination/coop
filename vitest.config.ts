@@ -8,7 +8,7 @@ export default defineConfig({
     alias: {
       '@coop/shared/contracts': path.resolve(__dirname, 'packages/shared/src/contracts/index.ts'),
       '@coop/shared': path.resolve(__dirname, 'packages/shared/src/index.ts'),
-      '@coop/signaling': path.resolve(__dirname, 'packages/signaling/config.ts'),
+      '@coop/api': path.resolve(__dirname, 'packages/api/config.ts'),
     },
   },
   test: {
@@ -18,7 +18,7 @@ export default defineConfig({
       'packages/app/src/**/*.test.{ts,tsx}',
       'packages/extension/src/**/*.test.{ts,tsx}',
       'packages/shared/src/**/*.test.{ts,tsx}',
-      'packages/signaling/**/*.test.{ts,tsx}',
+      'packages/api/**/*.test.{ts,tsx}',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
     globals: true,

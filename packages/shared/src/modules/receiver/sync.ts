@@ -1,7 +1,7 @@
+import { defaultIceServers, filterUsableSignalingUrls } from '@coop/api';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import { WebrtcProvider } from 'y-webrtc';
 import * as Y from 'yjs';
-import { defaultIceServers, filterUsableSignalingUrls } from '../../../../signaling/config';
 import { type ReceiverSyncEnvelope, receiverSyncEnvelopeSchema } from '../../contracts/schema';
 
 const ROOT_KEY = 'receiver-sync';

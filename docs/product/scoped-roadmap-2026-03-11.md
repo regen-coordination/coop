@@ -499,7 +499,7 @@ Since the roadmap was written, significant new capabilities have landed:
 | `session` | **DONE** | Scoped execution permissions, time-bounded capability windows, member constraints |
 | `permit` | **DONE** | Execution permits with expiry, privilege logs for audit trails |
 | `operator` | **DONE** | Anchor/trusted-node runtime with OperatorConsole UI (1,072 lines) |
-| `signaling` | **DONE** | Standalone y-webrtc signaling server (Fly.io deployed at `wss://signal.coop.town`) |
+| `api` | **DONE** | Hono + Bun API server (Fly.io deployed at `wss://signal.coop.town`) |
 
 ### Updated Workstream Status
 

@@ -5,6 +5,7 @@ import {
   type ReceiverSyncEnvelope,
   assertReceiverSyncRelayAck,
   blobToReceiverSyncAsset,
+  buildIceServers,
   connectReceiverSyncProviders,
   connectReceiverSyncRelay,
   createReceiverSyncDoc,
@@ -25,7 +26,6 @@ import {
   updateReceiverCapture,
   upsertReceiverSyncEnvelope,
 } from '@coop/shared';
-import { buildIceServers } from '@coop/signaling';
 import { useCallback, useEffect, useRef } from 'react';
 import type { receiverDb as ReceiverDbType } from '../app';
 import type { CaptureCard } from '../views/Receiver';
