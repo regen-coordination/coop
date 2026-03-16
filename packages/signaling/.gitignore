@@ -1,4 +1,6 @@
-# Compiled TypeScript output
+dist/
+
+# Compiled TypeScript output (config.ts is consumed as source)
 config.js
 config.d.ts
 config.d.ts.map

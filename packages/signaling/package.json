@@ -8,10 +8,15 @@
     "./config": "./config.ts"
   },
   "scripts": {
-    "start": "node server.mjs",
-    "dev": "node server.mjs"
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch src/index.ts"
   },
   "dependencies": {
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.7.0",
     "ws": "^8.19.0"
   }
 }

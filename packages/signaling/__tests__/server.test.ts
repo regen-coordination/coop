@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 
 const SERVER_DIR = path.resolve(__dirname, '..');
-const SERVER_FILE = path.join(SERVER_DIR, 'server.mjs');
+const SERVER_FILE = path.join(SERVER_DIR, 'src', 'index.ts');
 const HOST = '127.0.0.1';
 // Use a high ephemeral port to avoid conflicts
 const PORT = 54_321;
@@ -81,7 +81,7 @@ function closeClient(ws: WebSocket): Promise<void> {
 
 describe('signaling server', () => {
   beforeAll(async () => {
-    serverProcess = spawn('node', [SERVER_FILE], {
+    serverProcess = spawn('bun', ['run', SERVER_FILE], {
       env: { ...process.env, PORT: String(PORT), HOST },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -129,6 +129,27 @@ describe('signaling server', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toBe('okay');
+    });
+
+    it('returns JSON health status at /health', async () => {
+      const response = await new Promise<{ statusCode: number; body: string }>(
+        (resolve, reject) => {
+          http
+            .get(`${HTTP_URL}/health`, (res) => {
+              let body = '';
+              res.on('data', (chunk: Buffer) => {
+                body += chunk.toString();
+              });
+              res.on('end', () => resolve({ statusCode: res.statusCode ?? 0, body }));
+              res.on('error', reject);
+            })
+            .on('error', reject);
+        },
+      );
+
+      expect(response.statusCode).toBe(200);
+      const json = JSON.parse(response.body);
+      expect(json.status).toBe('ok');
     });
   });
 

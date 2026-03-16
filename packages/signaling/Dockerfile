@@ -1,9 +1,10 @@
-FROM node:20-alpine
+FROM oven/bun:1-alpine
 WORKDIR /app
-COPY package.json .
-RUN npm install --production
-COPY server.mjs .
+COPY package.json bun.lock* ./
+RUN bun install --production
+COPY src/ src/
+COPY config.ts ./
 EXPOSE 8080
 ENV HOST=0.0.0.0
 ENV PORT=8080
-CMD ["node", "server.mjs"]
+CMD ["bun", "run", "src/index.ts"]
