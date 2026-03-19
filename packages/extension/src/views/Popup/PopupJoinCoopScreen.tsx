@@ -1,3 +1,4 @@
+import { PopupOnboardingHero } from './PopupOnboardingHero';
 import type { PopupJoinFormState } from './popup-types';
 
 export function PopupJoinCoopScreen(props: {
@@ -5,17 +6,29 @@ export function PopupJoinCoopScreen(props: {
   submitting: boolean;
   onChange: (patch: Partial<PopupJoinFormState>) => void;
   onSubmit: () => void | Promise<void>;
-  onCancel: () => void;
 }) {
-  const { form, submitting, onChange, onSubmit, onCancel } = props;
+  const { form, submitting, onChange, onSubmit } = props;
 
   const disabled = submitting || !form.inviteCode.trim() || !form.displayName.trim();
 
+  async function handlePasteInviteCode() {
+    try {
+      const value = await navigator.clipboard.readText();
+      if (!value.trim()) {
+        return;
+      }
+      onChange({ inviteCode: value });
+    } catch {
+      // Ignore clipboard failures in the popup.
+    }
+  }
+
   return (
-    <section className="popup-screen">
+    <section className="popup-screen popup-screen--onboarding">
+      <PopupOnboardingHero variant="join" />
       <div className="popup-copy-block">
-        <h1>Join a coop</h1>
-        <p>Paste an invite code, add your name, and you are in.</p>
+        <span className="popup-eyebrow">Join</span>
+        <h1>Find your coop.</h1>
       </div>
 
       <form
@@ -26,10 +39,22 @@ export function PopupJoinCoopScreen(props: {
         }}
       >
         <label className="popup-field">
-          <span>Invite code</span>
-          <textarea
+          <div className="popup-field__label-row">
+            <span>Invite code</span>
+            <button
+              aria-label="Paste invite code"
+              className="popup-field-action"
+              onClick={() => void handlePasteInviteCode()}
+              type="button"
+            >
+              Paste
+            </button>
+          </div>
+          <input
+            autoCapitalize="none"
             onChange={(event) => onChange({ inviteCode: event.target.value })}
-            placeholder="Paste invite code"
+            placeholder="Paste your invite code."
+            spellCheck={false}
             value={form.inviteCode}
           />
         </label>
@@ -43,24 +68,9 @@ export function PopupJoinCoopScreen(props: {
           />
         </label>
 
-        <details className="popup-disclosure">
-          <summary>Starter note (optional)</summary>
-          <label className="popup-field">
-            <span>Starter note</span>
-            <textarea
-              onChange={(event) => onChange({ starterNote: event.target.value })}
-              placeholder="What are you bringing into the coop?"
-              value={form.starterNote}
-            />
-          </label>
-        </details>
-
         <div className="popup-stack">
           <button className="popup-primary-action" disabled={disabled} type="submit">
             {submitting ? 'Joining...' : 'Join coop'}
-          </button>
-          <button className="popup-secondary-action" onClick={onCancel} type="button">
-            Cancel
           </button>
         </div>
       </form>

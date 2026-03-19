@@ -13,6 +13,11 @@ export function PopupDraftDetailScreen(props: {
 
   return (
     <section className="popup-screen">
+      <div className="popup-copy-block">
+        <h1>Review draft</h1>
+        <p>Tighten it up, then mark it ready to share.</p>
+      </div>
+
       <div className="popup-copy-block popup-copy-block--compact">
         <p className="popup-draft-meta">
           {draft.sources[0]?.domain ?? 'coop.local'} /{' '}
@@ -69,7 +74,7 @@ export function PopupDraftDetailScreen(props: {
 
       <div className="popup-inline-actions">
         <button className="popup-text-button" onClick={onOpenWorkspace} type="button">
-          Advanced edit in workspace
+          Open full editor
         </button>
       </div>
     </section>

@@ -106,7 +106,7 @@ export function useCoopActions(deps: {
       if (response.soundEvent) {
         await playCoopSound(response.soundEvent, soundPreferences);
       }
-      setMessage(`Coop created. ${onchainState.statusNote}`);
+      setMessage('Coop created.');
       await loadDashboard();
       return response.data ?? null;
     } catch (error) {
@@ -135,7 +135,7 @@ export function useCoopActions(deps: {
         setMessage(response.error ?? 'Could not join this coop.');
         return null;
       }
-      setMessage('Joined coop and saved your starter note.');
+      setMessage('Joined coop.');
       await loadDashboard();
       return response.data ?? null;
     } catch (error) {

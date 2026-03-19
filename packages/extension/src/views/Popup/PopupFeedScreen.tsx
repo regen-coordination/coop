@@ -8,6 +8,11 @@ export function PopupFeedScreen(props: {
 
   return (
     <section className="popup-screen">
+      <div className="popup-copy-block popup-copy-block--compact">
+        <h1>Feed</h1>
+        <p>Shared notes from your coop.</p>
+      </div>
+
       {artifacts.length > 0 ? (
         <ul className="popup-list-reset popup-activity-list">
           {artifacts.map((artifact) => (
@@ -21,9 +26,7 @@ export function PopupFeedScreen(props: {
           ))}
         </ul>
       ) : (
-        <p className="popup-empty-state">
-          No shared items yet. Share something from Drafts to start the feed.
-        </p>
+        <p className="popup-empty-state">Nothing shared yet. Publish a draft to start the feed.</p>
       )}
 
       <div className="popup-inline-actions">

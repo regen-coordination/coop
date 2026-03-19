@@ -7,7 +7,7 @@ export default defineConfig({
   envDir: path.resolve(__dirname, '../..'),
   resolve: {
     alias: {
-      '@coop/shared': path.resolve(__dirname, '../shared/src/index.ts'),
+      '@coop/shared': path.resolve(__dirname, '../shared/src/app-entry.ts'),
       '@coop/api': path.resolve(__dirname, '../api/config.ts'),
     },
   },

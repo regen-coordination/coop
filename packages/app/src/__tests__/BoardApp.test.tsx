@@ -193,7 +193,10 @@ describe('board app routes', () => {
         'Open the board from the extension sidepanel so it can hand off a member-scoped snapshot.',
       ),
     ).toBeVisible();
-    expect(screen.getByText('Back to landing')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Back to landing' })).toHaveAttribute(
+      'href',
+      '/landing',
+    );
     expect(screen.getByTestId('board-empty-nest')).toBeVisible();
   });
 

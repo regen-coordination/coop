@@ -10,8 +10,6 @@ export function PopupHomeScreen(props: {
   onCaptureTab: () => void;
   onOpenFeed: () => void;
   onOpenDrafts: () => void;
-  onOpenSettings: () => void;
-  onOpenWorkspace: () => void;
 }) {
   const {
     draftCount,
@@ -23,12 +21,25 @@ export function PopupHomeScreen(props: {
     onCaptureTab,
     onOpenFeed,
     onOpenDrafts,
-    onOpenSettings,
-    onOpenWorkspace,
   } = props;
 
   return (
     <section className="popup-screen">
+      <div className="popup-stat-grid" aria-label="Quick status">
+        <div className="popup-stat">
+          <span>Drafts</span>
+          <strong>{draftCount}</strong>
+        </div>
+        <div className="popup-stat">
+          <span>Last roundup</span>
+          <strong>{lastCaptureLabel}</strong>
+        </div>
+        <div className="popup-stat">
+          <span>Sync</span>
+          <strong>{syncLabel}</strong>
+        </div>
+      </div>
+
       <div className="popup-stack">
         <button className="popup-primary-action" onClick={onPrimaryAction} type="button">
           {primaryActionLabel}
@@ -43,24 +54,9 @@ export function PopupHomeScreen(props: {
         </div>
       </div>
 
-      <div className="popup-stat-grid" aria-label="Quick status">
-        <div className="popup-stat">
-          <span>Drafts</span>
-          <strong>{draftCount}</strong>
-        </div>
-        <div className="popup-stat">
-          <span>Last capture</span>
-          <strong>{lastCaptureLabel}</strong>
-        </div>
-        <div className="popup-stat">
-          <span>Sync</span>
-          <strong>{syncLabel}</strong>
-        </div>
-      </div>
-
       <section className="popup-list-section">
         <div className="popup-section-heading">
-          <strong>Next up</strong>
+          <strong>What&apos;s waiting</strong>
           {draftCount > 0 ? (
             <button className="popup-text-button" onClick={onOpenDrafts} type="button">
               Review drafts
@@ -80,21 +76,11 @@ export function PopupHomeScreen(props: {
             ))}
           </ul>
         ) : (
-          <p className="popup-empty-state">Nothing is waiting right now. Capture a tab to start.</p>
+          <p className="popup-empty-state">
+            Nothing&apos;s loose right now. Capture a tab to start.
+          </p>
         )}
       </section>
-
-      <div className="popup-inline-actions">
-        <button className="popup-text-button" onClick={onOpenDrafts} type="button">
-          Drafts
-        </button>
-        <button className="popup-text-button" onClick={onOpenSettings} type="button">
-          Settings
-        </button>
-        <button className="popup-text-button" onClick={onOpenWorkspace} type="button">
-          Open workspace
-        </button>
-      </div>
     </section>
   );
 }

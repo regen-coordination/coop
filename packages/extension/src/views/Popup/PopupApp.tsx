@@ -17,6 +17,7 @@ import { PopupSettingsScreen } from './PopupSettingsScreen';
 import { PopupShell } from './PopupShell';
 import { usePopupDashboard } from './hooks/usePopupDashboard';
 import { usePopupNavigation } from './hooks/usePopupNavigation';
+import { usePopupTheme } from './hooks/usePopupTheme';
 import type { PopupActivityItem } from './popup-types';
 
 function formatRelativeTime(timestamp?: string) {
@@ -69,6 +70,7 @@ function toActivityItems(input: {
 
 export function PopupApp() {
   const navigation = usePopupNavigation();
+  const theme = usePopupTheme();
   const {
     dashboard,
     loading,
@@ -89,6 +91,12 @@ export function PopupApp() {
       setMessage(dashboardError);
     }
   }, [dashboardError]);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(''), 4000);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   const captureActions = useCaptureActions({
     setMessage,
@@ -328,13 +336,7 @@ export function PopupApp() {
   }
 
   const headerTitle = activeCoop?.profile.name ?? 'Coop';
-  const headerStatus = dashboard?.summary.iconLabel ?? 'Loading';
-  const headerSubtitle =
-    currentScreen === 'home'
-      ? (dashboard?.summary.syncState ?? 'Loading')
-      : currentScreen === 'settings'
-        ? 'Popup settings'
-        : (activeCoop?.profile.purpose ?? 'Local-first shared intelligence');
+  const headerSubtitle = undefined;
 
   let content: JSX.Element;
 
@@ -349,8 +351,6 @@ export function PopupApp() {
       <PopupNoCoopScreen
         onCreate={() => navigation.navigate('create')}
         onJoin={() => navigation.navigate('join')}
-        onOpenSettings={() => navigation.navigate('settings')}
-        onOpenWorkspace={() => void openWorkspace()}
       />
     );
   } else if (currentScreen === 'create') {
@@ -360,7 +360,6 @@ export function PopupApp() {
         submitting={createSubmitting}
         onChange={navigation.setCreateForm}
         onSubmit={handleCreateSubmit}
-        onCancel={() => navigation.goHome()}
       />
     );
   } else if (currentScreen === 'join') {
@@ -370,7 +369,6 @@ export function PopupApp() {
         submitting={joinSubmitting}
         onChange={navigation.setJoinForm}
         onSubmit={handleJoinSubmit}
-        onCancel={() => navigation.goHome()}
       />
     );
   } else if (currentScreen === 'drafts') {
@@ -448,18 +446,17 @@ export function PopupApp() {
         onCaptureTab={() => void captureActions.runActiveTabCapture()}
         onOpenFeed={() => navigation.navigate('feed')}
         onOpenDrafts={() => navigation.navigate('drafts')}
-        onOpenSettings={() => navigation.navigate('settings')}
-        onOpenWorkspace={() => void openWorkspace()}
       />
     );
   }
 
   return (
-    <PopupShell message={message}>
+    <PopupShell message={message} theme={theme.resolvedTheme}>
       <PopupHeader
         title={headerTitle}
         subtitle={headerSubtitle}
-        status={headerStatus}
+        themePreference={theme.themePreference}
+        onSetTheme={theme.setThemePreference}
         onBack={
           ['create', 'join', 'drafts', 'draft-detail', 'feed', 'settings', 'switcher'].includes(
             currentScreen,
@@ -475,8 +472,21 @@ export function PopupApp() {
             ? () => navigation.navigate('switcher')
             : undefined
         }
+        onOpenDrafts={
+          currentScreen === 'home' && activeCoop
+            ? () => navigation.navigate('drafts')
+            : undefined
+        }
+        onOpenSettings={
+          currentScreen === 'home' && activeCoop
+            ? () => navigation.navigate('settings')
+            : undefined
+        }
+        onOpenWorkspace={
+          currentScreen === 'home' && activeCoop ? () => void openWorkspace() : undefined
+        }
       />
-      {content}
+      <div className="popup-scroll-pane">{content}</div>
     </PopupShell>
   );
 }

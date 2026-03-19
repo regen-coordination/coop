@@ -2,12 +2,31 @@ import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
+const sharedRootEntry = path.resolve(__dirname, 'packages/shared/src/index.ts');
+const sharedAppEntry = path.resolve(__dirname, 'packages/shared/src/app-entry.ts');
+const appImporterSegment = `${path.sep}packages${path.sep}app${path.sep}`;
+const testImporterSegment = `${path.sep}__tests__${path.sep}`;
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'app-shared-entry-alias',
+      enforce: 'pre',
+      resolveId(source, importer) {
+        if (source !== '@coop/shared') {
+          return null;
+        }
+
+        return importer?.includes(appImporterSegment) && !importer.includes(testImporterSegment)
+          ? sharedAppEntry
+          : sharedRootEntry;
+      },
+    },
+  ],
   resolve: {
     alias: {
       '@coop/shared/contracts': path.resolve(__dirname, 'packages/shared/src/contracts/index.ts'),
-      '@coop/shared': path.resolve(__dirname, 'packages/shared/src/index.ts'),
       '@coop/api': path.resolve(__dirname, 'packages/api/config.ts'),
     },
   },

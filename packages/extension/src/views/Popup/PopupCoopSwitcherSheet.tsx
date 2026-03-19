@@ -9,6 +9,11 @@ export function PopupCoopSwitcherSheet(props: {
 
   return (
     <section className="popup-screen">
+      <div className="popup-copy-block popup-copy-block--compact">
+        <h1>Switch coop</h1>
+        <p>Hop between coops.</p>
+      </div>
+
       <ul className="popup-list-reset popup-switcher-list">
         {coops.map((coop) => (
           <li key={coop.id}>

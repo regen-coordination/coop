@@ -8,6 +8,10 @@ export type PopupScreen =
   | 'settings'
   | 'switcher';
 
+export type PopupThemePreference = 'light' | 'dark' | 'system';
+
+export type PopupResolvedTheme = Exclude<PopupThemePreference, 'system'>;
+
 export interface PopupCreateFormState {
   coopName: string;
   creatorName: string;

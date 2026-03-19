@@ -1,3 +1,4 @@
+import { PopupOnboardingHero } from './PopupOnboardingHero';
 import type { PopupCreateFormState } from './popup-types';
 
 export function PopupCreateCoopScreen(props: {
@@ -5,20 +6,30 @@ export function PopupCreateCoopScreen(props: {
   submitting: boolean;
   onChange: (patch: Partial<PopupCreateFormState>) => void;
   onSubmit: () => void | Promise<void>;
-  onCancel: () => void;
 }) {
-  const { form, submitting, onChange, onSubmit, onCancel } = props;
+  const { form, submitting, onChange, onSubmit } = props;
 
   const disabled =
     submitting || !form.coopName.trim() || !form.creatorName.trim() || !form.purpose.trim();
 
+  async function handlePastePurpose() {
+    try {
+      const value = await navigator.clipboard.readText();
+      if (!value.trim()) {
+        return;
+      }
+      onChange({ purpose: value });
+    } catch {
+      // Ignore clipboard failures in the popup.
+    }
+  }
+
   return (
-    <section className="popup-screen">
+    <section className="popup-screen popup-screen--onboarding">
+      <PopupOnboardingHero variant="create" />
       <div className="popup-copy-block">
-        <h1>Create a coop</h1>
-        <p>
-          Start with the essentials. You can configure archive, sync, and advanced settings later.
-        </p>
+        <span className="popup-eyebrow">Create</span>
+        <h1>Start your coop.</h1>
       </div>
 
       <form
@@ -47,32 +58,27 @@ export function PopupCreateCoopScreen(props: {
         </label>
 
         <label className="popup-field">
-          <span>What is this coop for?</span>
+          <div className="popup-field__label-row">
+            <span>What is this coop for?</span>
+            <button
+              aria-label="Paste purpose"
+              className="popup-field-action"
+              onClick={() => void handlePastePurpose()}
+              type="button"
+            >
+              Paste
+            </button>
+          </div>
           <textarea
             onChange={(event) => onChange({ purpose: event.target.value })}
-            placeholder="Tracking leads, notes, and next steps without losing context."
+            placeholder="Paste or write what this coop is gathering."
             value={form.purpose}
           />
         </label>
 
-        <details className="popup-disclosure">
-          <summary>Starter note (optional)</summary>
-          <label className="popup-field">
-            <span>Starter note</span>
-            <textarea
-              onChange={(event) => onChange({ starterNote: event.target.value })}
-              placeholder="What should Coop remember first?"
-              value={form.starterNote}
-            />
-          </label>
-        </details>
-
         <div className="popup-stack">
           <button className="popup-primary-action" disabled={disabled} type="submit">
             {submitting ? 'Creating...' : 'Create coop'}
-          </button>
-          <button className="popup-secondary-action" onClick={onCancel} type="button">
-            Cancel
           </button>
         </div>
       </form>

@@ -146,6 +146,20 @@ describe('PopupApp', () => {
   beforeEach(() => {
     mockSendRuntimeMessage.mockReset();
 
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn().mockImplementation(() => ({
+        matches: false,
+        media: '(prefers-color-scheme: dark)',
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
     Object.defineProperty(globalThis, 'chrome', {
       configurable: true,
       value: {
@@ -193,12 +207,50 @@ describe('PopupApp', () => {
     const user = userEvent.setup();
     render(<PopupApp />);
 
-    expect(await screen.findByText('Set up Coop')).toBeInTheDocument();
+    expect(await screen.findByText('Ready to round up your loose chickens?')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Everything stays local and private until you share.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open workspace' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Create a coop' }));
 
-    expect(await screen.findByRole('heading', { name: 'Create a coop' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Start your coop.' })).toBeInTheDocument();
     expect(screen.getByLabelText('Coop name')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Paste purpose' })).toBeInTheDocument();
+    expect(screen.queryByText('Starter note (optional)')).not.toBeInTheDocument();
+  });
+
+  it('routes into the simplified join flow', async () => {
+    mockSendRuntimeMessage.mockImplementation(async (message: { type: string }) => {
+      if (message.type === 'get-dashboard') {
+        return {
+          ok: true,
+          data: makeDashboard({
+            coops: [],
+            activeCoopId: undefined,
+            coopBadges: [],
+            summary: {
+              ...makeDashboard().summary,
+              coopCount: 0,
+              iconLabel: 'No coop yet',
+              activeCoopId: undefined,
+            },
+          }),
+        };
+      }
+      return { ok: true };
+    });
+
+    const user = userEvent.setup();
+    render(<PopupApp />);
+
+    await user.click(await screen.findByRole('button', { name: 'Join with code' }));
+
+    expect(await screen.findByRole('heading', { name: 'Find your coop.' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Paste invite code' })).toBeInTheDocument();
+    expect(screen.queryByText('Starter note (optional)')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Paste your invite code.').tagName).toBe('INPUT');
   });
 
   it('uses round-up as the primary action when no drafts are waiting', async () => {
@@ -228,6 +280,27 @@ describe('PopupApp', () => {
       expect(mockSendRuntimeMessage).toHaveBeenCalledWith({ type: 'manual-capture' });
     });
     expect(await screen.findByText(/Round-up complete\./i)).toBeInTheDocument();
+  });
+
+  it('switches the popup theme from settings', async () => {
+    mockSendRuntimeMessage.mockImplementation(async (message: { type: string }) => {
+      if (message.type === 'get-dashboard') {
+        return {
+          ok: true,
+          data: makeDashboard(),
+        };
+      }
+      return { ok: true };
+    });
+
+    const user = userEvent.setup();
+    render(<PopupApp />);
+
+    await user.click(await screen.findByRole('button', { name: /Theme toggle/i }));
+
+    await waitFor(() => {
+      expect(document.body.dataset.theme).toBe('dark');
+    });
   });
 
   it('opens the workspace explicitly from the popup', async () => {

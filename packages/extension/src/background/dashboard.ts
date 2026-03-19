@@ -83,10 +83,10 @@ export function extensionIconPaths(state: RuntimeSummary['iconState']) {
   switch (state) {
     case 'idle':
       return {
-        16: 'icons/icon-idle-16.png',
-        32: 'icons/icon-idle-32.png',
-        48: 'icons/icon-idle-48.png',
-        128: 'icons/icon-idle-128.png',
+        16: 'icons/icon-16.png',
+        32: 'icons/icon-32.png',
+        48: 'icons/icon-48.png',
+        128: 'icons/icon-128.png',
       };
     case 'watching':
       return {
@@ -170,7 +170,9 @@ export async function refreshBadge() {
   await chrome.action.setIcon({ path: extensionIconPaths(summary.iconState) });
   await chrome.action.setBadgeText({ text: badge.text });
   await chrome.action.setBadgeBackgroundColor({ color: badge.color });
-  await chrome.action.setTitle({ title: `Coop: ${summary.iconLabel}` });
+  await chrome.action.setTitle({
+    title: summary.iconState === 'idle' ? 'Coop' : `Coop: ${summary.iconLabel}`,
+  });
 }
 
 // ---- Full Dashboard ----

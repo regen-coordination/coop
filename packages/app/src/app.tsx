@@ -553,7 +553,7 @@ export function RootApp({
   }
 
   if (route.kind === 'landing') {
-    return <LandingPage appHref="/pair" />;
+    return <LandingPage appHref="/" />;
   }
 
   if (route.kind === 'board') {

@@ -19,6 +19,11 @@ export function PopupSettingsScreen(props: {
 
   return (
     <section className="popup-screen">
+      <div className="popup-copy-block popup-copy-block--compact">
+        <h1>Settings</h1>
+        <p>Tune how Coop feels on this device.</p>
+      </div>
+
       <div className="popup-settings-list">
         <label className="popup-setting-row">
           <span>Coop sounds</span>

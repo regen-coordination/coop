@@ -11,6 +11,11 @@ export function PopupDraftListScreen(props: {
 
   return (
     <section className="popup-screen">
+      <div className="popup-copy-block popup-copy-block--compact">
+        <h1>Drafts</h1>
+        <p>Sort the loose chickens before they pile up.</p>
+      </div>
+
       {drafts.length > 0 ? (
         <ul className="popup-list-reset popup-draft-list">
           {drafts.slice(0, 5).map((draft) => (
@@ -52,7 +57,7 @@ export function PopupDraftListScreen(props: {
           ))}
         </ul>
       ) : (
-        <p className="popup-empty-state">No drafts are waiting. Round up a tab to start.</p>
+        <p className="popup-empty-state">No loose chickens waiting right now.</p>
       )}
 
       <div className="popup-inline-actions">

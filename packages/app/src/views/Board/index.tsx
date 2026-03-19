@@ -194,7 +194,7 @@ export function BoardView({
               snapshot.
             </p>
             <div className="board-empty-nest" data-testid="board-empty-nest" />
-            <a className="button button-secondary" href="/">
+            <a className="button button-secondary" href="/landing">
               Back to landing
             </a>
           </section>
@@ -214,7 +214,7 @@ export function BoardView({
         </div>
         <div className="board-topbar-actions">
           <div className="state-pill">Read-only snapshot</div>
-          <a className="button button-secondary button-small" href="/">
+          <a className="button button-secondary button-small" href="/landing">
             Landing
           </a>
         </div>
