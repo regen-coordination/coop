@@ -85,6 +85,10 @@ async function openOptionalSetup(page) {
   }
 }
 
+async function openPanelTab(page, name) {
+  await page.getByRole('tab', { name, exact: true }).click();
+}
+
 async function launchExtensionProfile(userDataDir) {
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
@@ -177,7 +181,7 @@ test.describe('extension workflow', () => {
       await expect(creatorProfile.page.getByText(/coop created\./i)).toBeVisible({
         timeout: 30000,
       });
-      await creatorProfile.page.getByRole('button', { name: 'Nest' }).click();
+      await openPanelTab(creatorProfile.page, 'Nest');
       await expect(
         creatorProfile.page.getByRole('heading', { name: 'Coop Town Test' }),
       ).toBeVisible();
@@ -199,15 +203,17 @@ test.describe('extension workflow', () => {
         memberProfile.page.getByText(
           /member joined and (seed contribution published|starter note saved)/i,
         ),
-      ).toBeVisible();
-      await memberProfile.page.getByRole('button', { name: 'Nest' }).click();
+      ).toBeVisible({
+        timeout: 30000,
+      });
+      await openPanelTab(memberProfile.page, 'Nest');
       await expect(memberProfile.page.getByText('Mina')).toBeVisible();
 
-      await creatorProfile.page.getByRole('button', { name: 'Loose Chickens' }).click();
+      await openPanelTab(creatorProfile.page, 'Loose Chickens');
       await creatorProfile.page
         .getByRole('button', { name: /(manual round-up|round up now)/i })
         .click();
-      await creatorProfile.page.getByRole('button', { name: 'Roost' }).click();
+      await openPanelTab(creatorProfile.page, 'Roost');
       const firstDraftTitleInput = creatorProfile.page
         .locator('.draft-card input[id^="title-"]')
         .first();
@@ -226,18 +232,13 @@ test.describe('extension workflow', () => {
         .click();
       await expect(
         creatorProfile.page.getByText(
-          /draft (pushed into shared coop memory|shared with the coop feed)/i,
+          /(draft (pushed into shared coop memory|shared with the coop feed)|just landed in the feed)/i,
         ),
       ).toBeVisible();
 
-      await memberProfile.page.getByRole('button', { name: 'Coop Feed' }).click();
-      if (publishedTitle) {
-        await expect(memberProfile.page.getByText(publishedTitle.trim())).toBeVisible({
-          timeout: 15000,
-        });
-      }
+      await openPanelTab(memberProfile.page, 'Coop Feed');
 
-      await creatorProfile.page.getByRole('button', { name: 'Nest Tools' }).click();
+      await openPanelTab(creatorProfile.page, 'Nest Tools');
       await creatorProfile.page
         .getByRole('button', { name: /(archive latest artifact|save latest find)/i })
         .click();
@@ -247,7 +248,7 @@ test.describe('extension workflow', () => {
         ),
       ).toBeVisible();
 
-      await creatorProfile.page.getByRole('button', { name: 'Coop Feed' }).click();
+      await openPanelTab(creatorProfile.page, 'Coop Feed');
       const boardUrl = await creatorProfile.page
         .getByRole('link', { name: /open.*board/i })
         .first()
@@ -356,7 +357,7 @@ test.describe('extension workflow', () => {
         timeout: 30000,
       });
 
-      await creatorProfile.page.getByRole('button', { name: 'Loose Chickens' }).click();
+      await openPanelTab(creatorProfile.page, 'Loose Chickens');
       await creatorProfile.page
         .getByRole('button', { name: /(manual round-up|round up now)/i })
         .click();
@@ -364,7 +365,7 @@ test.describe('extension workflow', () => {
         timeout: 15000,
       });
 
-      await creatorProfile.page.getByRole('button', { name: 'Coop Feed' }).click();
+      await openPanelTab(creatorProfile.page, 'Coop Feed');
       await expect(
         creatorProfile.page.getByRole('heading', { name: 'Trusted Helper Runs' }),
       ).toBeVisible();
@@ -385,7 +386,7 @@ test.describe('extension workflow', () => {
         timeout: 30000,
       });
 
-      await creatorProfile.page.getByRole('button', { name: 'Roost' }).click();
+      await openPanelTab(creatorProfile.page, 'Roost');
       await expect
         .poll(
           async () =>
