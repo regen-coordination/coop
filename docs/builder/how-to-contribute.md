@@ -68,6 +68,26 @@ Community pages should stay plain-language and task-oriented. Builder pages shou
 implementation-aware. Reference pages preserve deeper source material that should not dominate the
 main navigation.
 
+## Branch And Commit Conventions
+
+Branches follow `type/description`:
+
+```
+feature/receiver-pwa
+fix/sync-race
+```
+
+Commits follow Conventional Commits with scope:
+
+```
+feat(shared): add archive receipt schema
+fix(extension): resolve sync race in sidepanel
+docs(app): update receiver route table
+```
+
+Valid types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `ci`.
+Common scopes: `shared`, `extension`, `app`, `claude`.
+
 ## Good Contribution Hygiene
 
 - prefer small, coherent changes over mixed refactors

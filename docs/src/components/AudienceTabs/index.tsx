@@ -1,14 +1,14 @@
-import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import { useLocation } from '@docusaurus/router';
-import { useEffect, useState } from 'react';
 import {
   DEFAULT_AUDIENCE_PATHS,
+  type DocsAudience,
   getDocsAudience,
   getRememberedAudiencePath,
   rememberAudiencePath,
-  type DocsAudience,
 } from '@site/src/lib/docsAudience';
+import clsx from 'clsx';
+import { useEffect, useState } from 'react';
 import styles from './styles.module.css';
 
 const AUDIENCES: DocsAudience[] = ['community', 'builder'];

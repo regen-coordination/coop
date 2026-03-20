@@ -37,10 +37,11 @@ work.
 That split is part of the product's trust design. It keeps the common path simple without pretending
 every action carries the same risk.
 
-## Pairing The Companion App
+## Pairing The Receiver
 
-After joining, a member can also pair the companion app so mobile captures flow back into the coop's
-private intake path. That is useful when the important context starts as:
+After joining, a member can pair the receiver — the companion app for mobile and secondary-device
+capture — so captures flow back into the coop's private intake path. That is useful when the
+important context starts as:
 
 - a voice memo after a meeting
 - a photo of a whiteboard or field visit

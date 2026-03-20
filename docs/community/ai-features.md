@@ -20,9 +20,9 @@ Today the AI layer is aimed at practical support work:
 
 ## Why The Browser Matters
 
-The technical direction in the repo is browser-native inference with a fallback ladder. In plain
-language, that means Coop tries to do useful work locally first instead of assuming a cloud model is
-the product.
+Coop tries to do useful work locally first instead of assuming a cloud model is the product. The
+browser can run AI analysis on the device, with graceful fallback when local hardware cannot support
+the heaviest models.
 
 That matters because it keeps the privacy story coherent:
 

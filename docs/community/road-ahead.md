@@ -5,12 +5,12 @@ slug: /road-ahead
 
 # The Road Ahead
 
-This page translates the current roadmap into the plain-language product direction. The underlying
-source roadmap is dated March 11, 2026 and was consolidated again on March 15, 2026.
+Coop is past early proof-of-concept. The foundation is working, and the direction ahead is about
+making the product stronger, more trustworthy, and easier for communities to rely on.
 
 ## What Is Already Landed
 
-As of the current roadmap pass, these pieces are already in place:
+As of March 2026, these pieces are already in place:
 
 - the receiver PWA for mobile capture and pairing
 - sync from the receiver into extension intake

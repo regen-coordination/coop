@@ -20,7 +20,8 @@ turning every rough note into group-visible state.
 
 ## What Can Be Shared
 
-The current system is designed around artifacts such as:
+Once your Loose Chickens have been rounded up and refined, the system is designed around artifacts
+such as:
 
 - funding leads
 - research summaries
@@ -32,13 +33,13 @@ Each published artifact can be routed into one or more coops when that makes sen
 
 ## Where Shared Knowledge Shows Up
 
-After publish, knowledge becomes visible in the coop feed and in the board-style view of the shared
-graph. Those surfaces make it easier to understand:
+After publish, knowledge becomes visible in the Coop Feed and in the board view of the shared graph.
+Those surfaces make it easier to understand:
 
 - who contributed context
 - what draft or capture a shared artifact came from
 - what should be reviewed next
-- which items have durable archive receipts
+- which items carry durable archive receipts
 
 ## What Stays Local
 
@@ -53,9 +54,9 @@ This is a feature, not a failure. Not every fragment deserves to become communal
 
 ## Archive And Provenance
 
-When a coop wants durable proof and long-memory, it can archive artifacts and snapshots. That adds a
-receipt trail on top of the shared artifact story, giving the group a stronger provenance path than
-"someone remembers where we found this."
+When a coop wants durable proof and long-memory, it can archive artifacts and snapshots. That creates
+archive receipts on top of the shared artifact story, giving the group a stronger provenance path
+than "someone remembers where we found this."
 
 ## Why This Matters
 

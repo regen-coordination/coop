@@ -5,8 +5,8 @@ slug: /creating-a-coop
 
 # Creating A Coop
 
-Creating a coop is the setup ritual that turns a loose group of people into a shared workspace with
-memory, membership, and publishing boundaries.
+Launching the Coop is the setup ritual that turns a loose group of people into a shared workspace
+with memory, membership, and publishing boundaries.
 
 ## What You Set Up
 
@@ -61,6 +61,6 @@ an optional extension of the coop's coordination surface, not a requirement for 
 The cleanest first coop is one with:
 
 - a clear purpose statement
-- a few seed contributions that show what "useful signal" looks like
-- at least one trusted member besides the creator when shared operations matter
+- a few seed contributions that show what useful signal looks like for this coop
+- at least one trusted member besides the creator when bounded operations matter
 - a shared understanding that publish is explicit, not automatic

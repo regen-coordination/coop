@@ -82,6 +82,7 @@ bun build
 bun run validate smoke
 bun run validate core-loop
 bun run validate full
+bun run validate list          # discover all available suites
 ```
 
 ## Where To Read Next

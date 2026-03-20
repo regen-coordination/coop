@@ -1,11 +1,11 @@
-import clsx from 'clsx';
 import { ErrorCauseBoundary, ThemeClassNames, useThemeConfig } from '@docusaurus/theme-common';
-import { splitNavbarItems, useNavbarMobileSidebar } from '@docusaurus/theme-common/internal';
 import type { NavbarItemConfig } from '@docusaurus/theme-common';
-import NavbarItem from '@theme/NavbarItem';
+import { splitNavbarItems, useNavbarMobileSidebar } from '@docusaurus/theme-common/internal';
+import AudienceTabs from '@site/src/components/AudienceTabs';
 import NavbarLogo from '@theme/Navbar/Logo';
 import NavbarMobileSidebarToggle from '@theme/Navbar/MobileSidebar/Toggle';
-import AudienceTabs from '@site/src/components/AudienceTabs';
+import NavbarItem from '@theme/NavbarItem';
+import clsx from 'clsx';
 import styles from './styles.module.css';
 
 function useNavbarItems(): NavbarItemConfig[] {

@@ -40,6 +40,10 @@ A member with elevated responsibility for more sensitive or bounded operations.
 The companion app surface used for mobile or secondary-device capture such as audio, photos, files,
 and links.
 
+### Rooster Call
+
+The success sound and feedback moment played when a significant action completes in the extension.
+
 ### Archive Receipt
 
 A receipt that records the outcome of a durable archive action so the provenance trail remains

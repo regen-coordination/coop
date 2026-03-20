@@ -58,4 +58,7 @@ If Coop is working, a group should feel three things:
 - it can review and publish shared knowledge without a complicated setup ceremony
 - it can keep that knowledge portable enough to survive changes in tools, maintainers, or hosting
 
-That is the path forward this docs set is trying to explain.
+That is the standard this project holds itself to.
+
+For the full alignment context, see the
+[Ethereum Foundation Mandate](/reference/ethereum-foundation-mandate) reference document.

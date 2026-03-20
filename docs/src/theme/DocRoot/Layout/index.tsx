@@ -1,7 +1,7 @@
 import { useLocation } from '@docusaurus/router';
-import type { ComponentProps } from 'react';
-import DocRootLayout from '@theme-original/DocRoot/Layout';
 import { getDocsAudience } from '@site/src/lib/docsAudience';
+import DocRootLayout from '@theme-original/DocRoot/Layout';
+import type { ComponentProps } from 'react';
 
 type Props = ComponentProps<typeof DocRootLayout>;
 

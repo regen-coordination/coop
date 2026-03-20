@@ -12,8 +12,8 @@ humans, and then share only what should become part of a group's memory.
 
 Capture starts from the places communities already work:
 
-- browser tabs rounded up from the extension
-- audio, photos, files, and links captured from the companion app
+- browser tabs — your Loose Chickens — rounded up from the extension
+- audio, photos, files, and links captured from the receiver (the companion app)
 - member notes and seed contributions added during coop setup or join flows
 
 The point is not to create more input chores. It is to make useful fragments easier to catch before
@@ -46,7 +46,7 @@ should pass through human judgment.
 
 When a member publishes a draft, it becomes shared coop state. That shared state can then:
 
-- appear in the coop feed
+- appear in the Coop Feed
 - show up in the board view
 - sync to peers over the local-first replication layer
 - be archived with receipts when the group wants durable proof and provenance
@@ -54,7 +54,7 @@ When a member publishes a draft, it becomes shared coop state. That shared state
 ## Where Each Surface Fits
 
 The extension is the primary workspace. It is where people create coops, join them, review drafts,
-and manage the shared feed.
+and manage the Coop Feed.
 
 The app exists to make mobile and secondary-device capture practical. It is especially useful when a
 piece of context starts as a voice memo, photo, or quick link rather than a browser tab.
