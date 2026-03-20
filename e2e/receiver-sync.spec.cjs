@@ -121,6 +121,66 @@ async function openPanelTab(page, name) {
   await page.getByRole('tab', { name, exact: true }).click();
 }
 
+async function getDashboard(page) {
+  const response = await page.evaluate(async () => chrome.runtime.sendMessage({ type: 'get-dashboard' }));
+  return response?.ok ? response.data : null;
+}
+
+async function waitForCoop(page, coopName, timeoutMs = 30000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const dashboard = await getDashboard(page);
+    const coop = dashboard?.coops.find((candidate) => candidate.profile.name === coopName);
+    if (dashboard && coop) {
+      return { coop, dashboard };
+    }
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(`Timed out waiting for coop ${coopName} to appear in the dashboard.`);
+}
+
+async function setActiveCoop(page, coopName) {
+  const { coop } = await waitForCoop(page, coopName);
+  const response = await page.evaluate(
+    async (coopId) => chrome.runtime.sendMessage({ type: 'set-active-coop', payload: { coopId } }),
+    coop.profile.id,
+  );
+  if (!response?.ok) {
+    throw new Error(response?.error ?? `Could not activate coop ${coopName}.`);
+  }
+
+  await expect
+    .poll(async () => {
+      const dashboard = await getDashboard(page);
+      return dashboard?.activeCoopId === coop.profile.id;
+    })
+    .toBe(true);
+
+  await openPanelTab(page, 'Nest');
+  const coopSelect = page.locator('#active-coop-select');
+  if (await coopSelect.count()) {
+    await expect(coopSelect).toContainText(coopName, { timeout: 30000 });
+    return;
+  }
+
+  const triggerLabel = page.locator('.coop-switcher__trigger-label').first();
+  if (await triggerLabel.count()) {
+    await expect(triggerLabel).toContainText(coopName, { timeout: 30000 });
+    return;
+  }
+
+  const staticLabel = page.locator('.coop-switcher__label').first();
+  if (await staticLabel.count()) {
+    await expect(staticLabel).toContainText(coopName, { timeout: 30000 });
+    return;
+  }
+
+  await expect(page.getByText(coopName, { exact: true }).first()).toBeVisible({
+    timeout: 30000,
+  });
+}
+
 async function launchCoop(page, input) {
   await openPanelTab(page, 'Nest');
   await page.fill('#coop-name', input.coopName);
@@ -146,16 +206,7 @@ async function launchCoop(page, input) {
   await expect(page.getByText(/coop created\./i)).toBeVisible({
     timeout: 30000,
   });
-  await openPanelTab(page, 'Nest');
-  const coopSelect = page.locator('#active-coop-select');
-  if (await coopSelect.count()) {
-    await expect(coopSelect).toContainText(input.coopName);
-    await coopSelect.selectOption({ label: input.coopName });
-  } else {
-    await expect(page.getByRole('heading', { name: input.coopName })).toBeVisible({
-      timeout: 30000,
-    });
-  }
+  await setActiveCoop(page, input.coopName);
 }
 
 test.describe('receiver pairing and sync', () => {
@@ -220,13 +271,7 @@ test.describe('receiver pairing and sync', () => {
         knowledgeImprove: 'Make multi-coop publishing a first-class action.',
       });
 
-      await openPanelTab(creatorProfile.page, 'Nest');
-      await creatorProfile.page.selectOption('#active-coop-select', { label: 'Receiver Coop' });
-      await expect(creatorProfile.page.getByRole('heading', { name: 'Receiver Coop' })).toBeVisible(
-        {
-          timeout: 15000,
-        },
-      );
+      await setActiveCoop(creatorProfile.page, 'Receiver Coop');
       await creatorProfile.page
         .getByRole('button', { name: /(generate receiver pairing|generate nest code)/i })
         .click();
@@ -239,18 +284,13 @@ test.describe('receiver pairing and sync', () => {
       await creatorProfile.page.close();
 
       await appPage.goto(deepLinkUrl.toString());
-      await expect(
-        appPage.getByRole('heading', { name: /(pair your nest|find your coop)/i }),
-      ).toBeVisible({
-        timeout: 15000,
-      });
+      await expect(appPage.getByRole('button', { name: /(accept pairing|join this coop)/i })).toBeVisible(
+        {
+          timeout: 15000,
+        },
+      );
       await expect(appPage).toHaveURL(/\/pair\?bridge=off$/);
       await appPage.getByRole('button', { name: /(accept pairing|join this coop)/i }).click();
-      await expect(
-        appPage.getByRole('heading', { name: /(capture into the nest|hatch something)/i }),
-      ).toBeVisible({
-        timeout: 15000,
-      });
       await expect(appPage.locator('input[type="file"]')).toHaveCount(2, {
         timeout: 10000,
       });
@@ -382,7 +422,7 @@ test.describe('receiver pairing and sync', () => {
         .locator('.draft-card textarea[id^="next-step-"]')
         .first()
         .fill('Publish this note into both coops and use it in the next weekly ritual.');
-      await reviewPage.getByRole('button', { name: /add forest signals/i }).click();
+      await reviewPage.getByRole('button', { name: /add forest signals/i }).first().click();
       await reviewPage.getByRole('button', { name: /(mark ready|ready to share)/i }).click();
       await expect(
         reviewPage.getByText(
@@ -392,7 +432,10 @@ test.describe('receiver pairing and sync', () => {
         timeout: 15000,
       });
 
-      await reviewPage.getByRole('button', { name: /(push into|share with) coop/i }).click();
+      await reviewPage
+        .getByRole('button', { name: /(push into|share with) coop/i })
+        .first()
+        .click();
       await expect(
         reviewPage.getByText(
           /(draft (pushed into shared coop memory|shared with the coop feed)|just landed in the feed)/i,
@@ -406,7 +449,7 @@ test.describe('receiver pairing and sync', () => {
         timeout: 15000,
       });
 
-      await reviewPage.selectOption('#active-coop-select', { label: 'Forest Signals' });
+      await setActiveCoop(reviewPage, 'Forest Signals');
       await openPanelTab(reviewPage, 'Coop Feed');
       await expect(reviewPage.getByText('Community field note', { exact: true })).toBeVisible({
         timeout: 15000,

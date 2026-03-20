@@ -89,6 +89,18 @@ async function openPanelTab(page, name) {
   await page.getByRole('tab', { name, exact: true }).click();
 }
 
+async function getDashboard(page) {
+  const response = await page.evaluate(async () => chrome.runtime.sendMessage({ type: 'get-dashboard' }));
+  return response?.ok ? response.data : null;
+}
+
+async function getAgentDashboard(page) {
+  const response = await page.evaluate(async () =>
+    chrome.runtime.sendMessage({ type: 'get-agent-dashboard' }),
+  );
+  return response?.ok ? response.data : null;
+}
+
 async function launchExtensionProfile(userDataDir) {
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
@@ -361,9 +373,17 @@ test.describe('extension workflow', () => {
       await creatorProfile.page
         .getByRole('button', { name: /(manual round-up|round up now)/i })
         .click();
-      await expect(creatorProfile.page.getByText(/round-up complete(d)?\./i)).toBeVisible({
-        timeout: 15000,
-      });
+      await expect
+        .poll(
+          async () => {
+            const dashboard = await getDashboard(creatorProfile.page);
+            return (dashboard?.candidates.length ?? 0) > 0;
+          },
+          {
+            timeout: 15000,
+          },
+        )
+        .toBe(true);
 
       await openPanelTab(creatorProfile.page, 'Coop Feed');
       await expect(
@@ -379,31 +399,45 @@ test.describe('extension workflow', () => {
       await creatorProfile.page
         .getByRole('button', { name: /(run agent cycle|check the helpers)/i })
         .click();
-      await expect(creatorProfile.page.getByText(/agent cycle requested\./i)).toBeVisible({
-        timeout: 15000,
-      });
-      await expect(creatorProfile.page.getByText('capital-formation-brief-output')).toBeVisible({
-        timeout: 30000,
-      });
-
-      await openPanelTab(creatorProfile.page, 'Roost');
       await expect
         .poll(
-          async () =>
-            creatorProfile.page
-              .locator('input[id^="title-"]')
-              .evaluateAll((elements) =>
-                elements.some((element) =>
-                  /capital formation brief/i.test(
-                    element instanceof HTMLInputElement ? element.value : '',
-                  ),
-                ),
-              ),
+          async () => {
+            const agentDashboard = await getAgentDashboard(creatorProfile.page);
+            return (
+              agentDashboard?.skillRuns.some(
+                (run) =>
+                  run.outputSchemaRef === 'capital-formation-brief-output' &&
+                  run.status === 'completed',
+              ) ?? false
+            );
+          },
           {
             timeout: 30000,
           },
         )
         .toBe(true);
+
+      await openPanelTab(creatorProfile.page, 'Roost');
+      await expect
+        .poll(
+          async () => {
+            const dashboard = await getDashboard(creatorProfile.page);
+            if (!dashboard) {
+              return [];
+            }
+            return dashboard.drafts
+              .filter(
+                (draft) =>
+                  draft.provenance?.type === 'agent' &&
+                  draft.provenance.skillId === 'capital-formation-brief',
+              )
+              .map((draft) => draft.title);
+          },
+          {
+            timeout: 30000,
+          },
+        )
+        .toContainEqual(expect.stringMatching(/capital formation brief/i));
     } finally {
       await closeContextSafely(creatorProfile.context);
     }

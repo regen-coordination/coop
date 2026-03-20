@@ -1,0 +1,21 @@
+## Session State
+- **Current task**: Finish Playwright/e2e extension validation for the active harness, routed roundup, and receiver sync changes.
+- **Progress**: Shared sync bootstrap bug fixed for invited members; extension and receiver e2e assertions updated to follow current UI/runtime behavior; `e2e/extension.spec.cjs` and `e2e/receiver-sync.spec.cjs` now pass on the desktop Playwright project.
+- **Files modified**:
+  - `e2e/extension.spec.cjs`
+  - `e2e/receiver-sync.spec.cjs`
+  - `packages/shared/src/contracts/schema.ts`
+  - `packages/shared/src/modules/coop/sync.ts`
+  - `packages/shared/src/modules/coop/__tests__/sync.test.ts`
+  - `packages/shared/src/modules/coop/__tests__/flows.test.ts`
+  - `packages/shared/src/modules/storage/__tests__/db.test.ts`
+- **Tests**:
+  - Passed: `bun run test -- packages/shared/src/modules/coop/__tests__/flows.test.ts packages/shared/src/modules/coop/__tests__/sync.test.ts`
+  - Passed: `bun run test -- packages/shared/src/modules/storage/__tests__/db.test.ts`
+  - Passed: `bunx tsc -p packages/shared/tsconfig.json --noEmit`
+  - Passed: `bunx playwright test e2e/extension.spec.cjs --project=desktop --reporter=line`
+  - Passed: `bunx playwright test e2e/receiver-sync.spec.cjs --project=desktop --reporter=line`
+- **Next steps**:
+  - If desired, run the broader `bun run test:e2e` or `bun run validate core-loop` / `bun run validate full` suites.
+  - Decide whether to keep the local API/signaling server running (`session 3798`) or stop it.
+- **Blocked by**: No current blocker.
