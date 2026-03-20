@@ -6,6 +6,8 @@ let audioContext: AudioContext | null = null;
 export const soundFileMap: Record<SoundEvent, { fileName: string; volume: number }> = {
   'coop-created': { fileName: 'coop-rooster-call.mp3', volume: 0.72 },
   'artifact-published': { fileName: 'coop-soft-cluck.mp3', volume: 0.62 },
+  'review-digest-ready': { fileName: 'coop-soft-cluck.mp3', volume: 0.64 },
+  'action-awaiting-review': { fileName: 'coop-rooster-call.mp3', volume: 0.68 },
   'sound-test': { fileName: 'coop-squeaky-test.mp3', volume: 0.68 },
 };
 

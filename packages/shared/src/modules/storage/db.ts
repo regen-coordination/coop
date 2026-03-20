@@ -32,6 +32,7 @@ import type {
   SoundPreferences,
   StealthKeyPairRecord,
   TabCandidate,
+  TabRouting,
   TrustedNodeArchiveConfig,
   UiPreferences,
 } from '../../contracts/schema';
@@ -55,9 +56,11 @@ import {
   sessionCapabilitySchema,
   skillRunSchema,
   soundPreferencesSchema,
+  tabRoutingSchema,
   trustedNodeArchiveConfigSchema,
   uiPreferencesSchema,
 } from '../../contracts/schema';
+import { nowIso } from '../../utils';
 import { createCoopDoc, encodeCoopDoc, hydrateCoopDoc, readCoopState } from '../coop/sync';
 
 export interface CoopDocRecord {
@@ -111,6 +114,7 @@ export class CoopDexie extends Dexie {
   agentObservations!: EntityTable<AgentObservation, 'id'>;
   agentPlans!: EntityTable<AgentPlan, 'id'>;
   skillRuns!: EntityTable<SkillRun, 'id'>;
+  tabRoutings!: EntityTable<TabRouting, 'id'>;
   knowledgeSkills!: EntityTable<KnowledgeSkill, 'id'>;
   coopKnowledgeSkillOverrides!: EntityTable<CoopKnowledgeSkillOverride, 'id'>;
   agentLogs!: EntityTable<AgentLog, 'id'>;
@@ -352,6 +356,38 @@ export class CoopDexie extends Dexie {
       stealthKeyPairs: 'id, coopId, createdAt',
       agentMemories: 'id, coopId, type, domain, createdAt, expiresAt, contentHash',
     });
+    this.version(12).stores({
+      tabCandidates: 'id, canonicalUrl, domain, capturedAt',
+      pageExtracts: 'id, canonicalUrl, domain, createdAt',
+      reviewDrafts: 'id, category, createdAt, workflowStage',
+      coopDocs: 'id, updatedAt',
+      captureRuns: 'id, state, capturedAt',
+      settings: 'key',
+      identities: 'id, ownerAddress, displayName, createdAt, lastUsedAt',
+      receiverPairings: 'pairingId, coopId, memberId, roomId, issuedAt, acceptedAt, active',
+      receiverCaptures:
+        'id, kind, createdAt, syncState, pairingId, coopId, memberId, intakeStatus, linkedDraftId',
+      receiverBlobs: 'captureId',
+      actionBundles: 'id, status, coopId, actionClass, createdAt',
+      actionLogEntries: 'id, bundleId, eventType, createdAt',
+      replayIds: 'replayId, bundleId, executedAt',
+      executionPermits: 'id, coopId, status, createdAt, expiresAt',
+      permitLogEntries: 'id, permitId, eventType, createdAt',
+      sessionCapabilities: 'id, coopId, status, createdAt, updatedAt, sessionAddress',
+      sessionCapabilityLogEntries: 'id, capabilityId, eventType, createdAt',
+      encryptedSessionMaterials: 'capabilityId, sessionAddress, wrappedAt',
+      agentObservations: 'id, status, trigger, coopId, createdAt, fingerprint',
+      agentPlans: 'id, observationId, status, createdAt, updatedAt',
+      skillRuns: 'id, observationId, planId, skillId, status, startedAt',
+      tabRoutings:
+        'id, [extractId+coopId], sourceCandidateId, extractId, coopId, status, createdAt, updatedAt',
+      knowledgeSkills: 'id, &url, name, domain, enabled',
+      coopKnowledgeSkillOverrides: 'id, [coopId+knowledgeSkillId], coopId',
+      agentLogs: 'id, traceId, spanType, skillId, observationId, level, timestamp',
+      privacyIdentities: 'id, [coopId+memberId], coopId, memberId, commitment, createdAt',
+      stealthKeyPairs: 'id, coopId, createdAt',
+      agentMemories: 'id, coopId, type, domain, createdAt, expiresAt, contentHash',
+    });
   }
 }
 
@@ -364,7 +400,7 @@ export async function saveCoopState(db: CoopDexie, state: CoopSharedState) {
   await db.coopDocs.put({
     id: state.profile.id,
     encodedState: encodeCoopDoc(doc),
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso(),
   });
 }
 
@@ -845,6 +881,56 @@ export async function listSkillRunsByPlanId(db: CoopDexie, planId: string) {
   return db.skillRuns.where('planId').equals(planId).reverse().sortBy('startedAt');
 }
 
+// --- Tab routing persistence ---
+
+export async function saveTabRouting(db: CoopDexie, routing: TabRouting) {
+  const parsed = tabRoutingSchema.parse(routing);
+  const existing = await db.tabRoutings
+    .where('[extractId+coopId]')
+    .equals([parsed.extractId, parsed.coopId])
+    .first();
+  await db.tabRoutings.put({
+    ...parsed,
+    id: existing?.id ?? parsed.id,
+    createdAt: existing?.createdAt ?? parsed.createdAt,
+  });
+}
+
+export async function getTabRoutingByExtractAndCoop(
+  db: CoopDexie,
+  extractId: string,
+  coopId: string,
+) {
+  return db.tabRoutings.where('[extractId+coopId]').equals([extractId, coopId]).first();
+}
+
+export async function listTabRoutings(
+  db: CoopDexie,
+  options: {
+    coopId?: string;
+    extractId?: string;
+    sourceCandidateId?: string;
+    status?: TabRouting['status'][];
+    limit?: number;
+  } = {},
+) {
+  let results = await db.tabRoutings.orderBy('updatedAt').reverse().toArray();
+  if (options.coopId) {
+    results = results.filter((routing) => routing.coopId === options.coopId);
+  }
+  if (options.extractId) {
+    results = results.filter((routing) => routing.extractId === options.extractId);
+  }
+  if (options.sourceCandidateId) {
+    results = results.filter((routing) => routing.sourceCandidateId === options.sourceCandidateId);
+  }
+  if (options.status?.length) {
+    const allowed = new Set(options.status);
+    results = results.filter((routing) => allowed.has(routing.status));
+  }
+  return typeof options.limit === 'number' ? results.slice(0, options.limit) : results;
+}
+
 // --- Knowledge skills ---
 
 export async function saveKnowledgeSkill(db: CoopDexie, skill: KnowledgeSkill) {
@@ -949,7 +1035,7 @@ export async function migrateLegacyChainKeys(db: CoopDexie) {
     await db.coopDocs.put({
       ...record,
       encodedState: Y.encodeStateAsUpdate(doc),
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso(),
     });
   }
 }

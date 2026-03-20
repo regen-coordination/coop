@@ -1,6 +1,7 @@
 import * as StorachaClient from '@storacha/client';
 import * as Ed25519 from '@ucanto/principal/ed25519';
 import type { CoopArchiveConfig, CoopArchiveSecrets } from '../../contracts/schema';
+import { bytesToBase64 } from '../../utils';
 
 export interface ProvisionStorachaSpaceInput {
   email: string;
@@ -11,22 +12,6 @@ export interface ProvisionStorachaSpaceInput {
 export interface ProvisionStorachaSpaceResult {
   publicConfig: CoopArchiveConfig;
   secrets: Omit<CoopArchiveSecrets, 'coopId'>;
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  if (typeof globalThis.btoa === 'function') {
-    let binary = '';
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
-    }
-    return globalThis.btoa(binary);
-  }
-
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(bytes).toString('base64');
-  }
-
-  throw new Error('Base64 encoding is unavailable in this runtime.');
 }
 
 async function encodeDelegation(delegation: { archive(): unknown }) {
@@ -71,8 +56,10 @@ export async function extractClientCredentials(
   const spaceDid = space.did();
   const agentDid = client.did();
 
-  // Encode the agent's Ed25519 private key so it can be stored and later
-  // reconstituted with Ed25519.decode().
+  // FRAGILE: Accesses @storacha/client private `_agent.issuer` via double type
+  // assertion. No public API exists for retrieving the agent signer as of
+  // @storacha/client@2.1.x. If this breaks after a version bump, check whether
+  // the library has added a public accessor. Pin the dependency until verified.
   const agentSigner = (client as unknown as { _agent: { issuer: { encode(): Uint8Array } } })._agent
     .issuer;
   const agentKeyBytes = Ed25519.encode(agentSigner as Parameters<typeof Ed25519.encode>[0]);

@@ -12,6 +12,7 @@ import {
   archiveDelegationRequestSchema,
   trustedNodeArchiveConfigSchema,
 } from '../../contracts/schema';
+import { bytesToBase64 } from '../../utils';
 import { summarizeArchiveFilecoinInfo } from './archive';
 
 export interface ArchiveUploadResult {
@@ -67,22 +68,6 @@ function bytesFromHex(value: string) {
     bytes[index / 2] = next;
   }
   return bytes;
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  if (typeof globalThis.btoa === 'function') {
-    let binary = '';
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
-    }
-    return globalThis.btoa(binary);
-  }
-
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(bytes).toString('base64');
-  }
-
-  throw new Error('Base64 encoding is unavailable in this runtime.');
 }
 
 function decodeAgentSigner(value: string) {

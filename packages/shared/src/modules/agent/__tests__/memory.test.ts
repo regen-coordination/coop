@@ -400,6 +400,46 @@ describe('queryMemoriesForSkill', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('returns member memories before coop memories', async () => {
+    await createAgentMemory(db, {
+      scope: 'coop',
+      coopId: 'coop-1',
+      type: 'skill-pattern',
+      content: 'Coop pattern',
+      confidence: 0.8,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      scope: 'coop',
+      coopId: 'coop-1',
+      type: 'observation-outcome',
+      content: 'Coop outcome',
+      confidence: 0.7,
+      createdAt: '2026-01-02T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      scope: 'member',
+      memberId: 'member-1',
+      type: 'user-feedback',
+      content: 'Member preference',
+      confidence: 0.9,
+      createdAt: '2026-01-03T00:00:00.000Z',
+    });
+
+    const results = await queryMemoriesForSkill(
+      db,
+      { coopId: 'coop-1', memberId: 'member-1' },
+      'test-skill',
+      { limit: 5 },
+    );
+
+    expect(results.map((memory) => memory.content)).toEqual([
+      'Member preference',
+      'Coop pattern',
+      'Coop outcome',
+    ]);
+  });
+
   it('respects the limit option', async () => {
     for (let i = 0; i < 15; i++) {
       await createAgentMemory(db, {

@@ -152,11 +152,19 @@ export function decodeBase64Url(value: string) {
 }
 
 export function bytesToBase64(bytes: Uint8Array) {
-  let binary = '';
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
+  if (typeof globalThis.btoa === 'function') {
+    let binary = '';
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+    return globalThis.btoa(binary);
   }
-  return btoa(binary);
+
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64');
+  }
+
+  throw new Error('Base64 encoding is unavailable in this runtime.');
 }
 
 export function bytesToBase64Url(bytes: Uint8Array) {

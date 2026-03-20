@@ -201,6 +201,7 @@ describe('create, join, and publish flows', () => {
     expect(bootstrapped.profile.id).toBe(created.state.profile.id);
     expect(invite.bootstrap.bootstrapState?.syncRoom.roomId).toBe(created.state.syncRoom.roomId);
     expect(bootstrapped.syncRoom.roomId).toBe(created.state.syncRoom.roomId);
+    expect(bootstrapped.syncRoom.roomSecret).toBe(created.state.syncRoom.roomSecret);
     expect(bootstrapped.syncRoom.inviteSigningSecret.startsWith('bootstrap:')).toBe(true);
     expect(joined.state.members).toHaveLength(2);
     expect(joined.state.members[1]?.displayName).toBe('Mina');

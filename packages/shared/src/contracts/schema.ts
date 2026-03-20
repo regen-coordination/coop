@@ -50,7 +50,13 @@ export const archiveScopeSchema = z.enum(['artifact', 'snapshot']);
 export const archiveStatusSchema = z.enum(['not-archived', 'pending', 'archived']);
 export const filecoinStatusSchema = z.enum(['pending', 'offered', 'indexed', 'sealed']);
 export const archiveDelegationOperationSchema = z.enum(['upload', 'follow-up']);
-export const soundEventSchema = z.enum(['coop-created', 'artifact-published', 'sound-test']);
+export const soundEventSchema = z.enum([
+  'coop-created',
+  'artifact-published',
+  'review-digest-ready',
+  'action-awaiting-review',
+  'sound-test',
+]);
 export const coopChainKeySchema = z.enum(['arbitrum', 'sepolia']);
 export const fvmChainKeySchema = z.enum(['filecoin', 'filecoin-calibration']);
 export const providerModeSchema = z.enum(['standard', 'kohaku']);
@@ -87,6 +93,9 @@ export const privilegedActionTypeSchema = z.enum([
   'archive-anchor',
   'safe-deployment',
   'green-goods-transaction',
+  'erc8004-registration',
+  'erc8004-feedback',
+  'fvm-register-archive',
 ]);
 
 export const policyActionClassSchema = z.enum([
@@ -370,7 +379,9 @@ export const encryptedSessionMaterialSchema = z.object({
 });
 
 export const agentObservationTriggerSchema = z.enum([
+  'roundup-batch-ready',
   'high-confidence-draft',
+  'memory-insight-due',
   'receiver-backlog',
   'stale-archive-receipt',
   'ritual-review-due',
@@ -425,9 +436,11 @@ export const skillToolSchema = z.enum([
 export const skillRunStatusSchema = z.enum(['pending', 'completed', 'failed', 'skipped']);
 
 export const skillOutputSchemaRefSchema = z.enum([
+  'tab-router-output',
   'opportunity-extractor-output',
   'grant-fit-scorer-output',
   'capital-formation-brief-output',
+  'memory-insight-output',
   'review-digest-output',
   'ecosystem-entity-extractor-output',
   'theme-clusterer-output',
@@ -453,6 +466,58 @@ export const actionProposalSchema = z.object({
   permitId: z.string().min(1).optional(),
   generatedBySkillId: z.string().min(1).optional(),
   createdAt: z.string().datetime(),
+});
+
+export const tabRoutingStatusSchema = z.enum(['routed', 'drafted', 'dismissed', 'published']);
+
+export const tabRoutingSchema = z.object({
+  id: z.string().min(1),
+  sourceCandidateId: z.string().min(1),
+  extractId: z.string().min(1),
+  coopId: z.string().min(1),
+  relevanceScore: z.number().min(0).max(1),
+  matchedRitualLenses: z.array(ritualLensSchema).default([]),
+  category: artifactCategorySchema,
+  tags: z.array(z.string()).default([]),
+  rationale: z.string().min(1),
+  suggestedNextStep: z.string().min(1),
+  archiveWorthinessHint: z.boolean().default(false),
+  provider: agentProviderSchema,
+  status: tabRoutingStatusSchema,
+  draftId: z.string().min(1).optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const tabRouterOutputItemSchema = z.object({
+  sourceCandidateId: z.string().min(1),
+  extractId: z.string().min(1),
+  coopId: z.string().min(1),
+  relevanceScore: z.number().min(0).max(1),
+  matchedRitualLenses: z.array(ritualLensSchema).default([]),
+  category: artifactCategorySchema,
+  tags: z.array(z.string()).default([]),
+  rationale: z.string().min(1),
+  suggestedNextStep: z.string().min(1),
+  archiveWorthinessHint: z.boolean().default(false),
+});
+
+export const tabRouterOutputSchema = z.object({
+  routings: z.array(tabRouterOutputItemSchema).default([]),
+});
+
+export const memoryInsightOutputItemSchema = z.object({
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  whyItMatters: z.string().min(1),
+  suggestedNextStep: z.string().min(1),
+  tags: z.array(z.string()).default([]),
+  category: artifactCategorySchema.default('insight'),
+  confidence: z.number().min(0).max(1).default(0.72),
+});
+
+export const memoryInsightOutputSchema = z.object({
+  insights: z.array(memoryInsightOutputItemSchema).default([]),
 });
 
 export const agentPlanStepSchema = z.object({
@@ -615,7 +680,7 @@ export const greenGoodsGardenSyncOutputSchema = z.object({
   rationale: z.string().min(1),
 });
 
-export const greenGoodsWorkApprovalRequestSchema = z.object({
+const baseWorkApprovalFields = {
   actionUid: z.number().int().nonnegative(),
   workUid: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
   approved: z.boolean(),
@@ -623,61 +688,54 @@ export const greenGoodsWorkApprovalRequestSchema = z.object({
   confidence: z.number().int().min(0).max(255).default(100),
   verificationMethod: z.number().int().min(0).max(255).default(0),
   reviewNotesCid: z.string().default(''),
+};
+
+export const greenGoodsWorkApprovalRequestSchema = z.object({
+  ...baseWorkApprovalFields,
   rationale: z.string().min(1).default('Queue a Green Goods work approval attestation.'),
 });
 
-export const greenGoodsAssessmentRequestSchema = z
-  .object({
-    title: z.string().min(1),
-    description: z.string().min(1),
-    assessmentConfigCid: z.string().min(1),
-    domain: greenGoodsDomainSchema.default('agro'),
-    startDate: z.number().int().nonnegative(),
-    endDate: z.number().int().nonnegative(),
-    location: z.string().default(''),
-    rationale: z.string().min(1).default('Queue a Green Goods assessment attestation.'),
-  })
-  .superRefine((value, ctx) => {
-    if (value.endDate < value.startDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['endDate'],
-        message: 'endDate must be greater than or equal to startDate.',
-      });
-    }
-  });
-
 export const greenGoodsWorkApprovalOutputSchema = z.object({
-  actionUid: z.number().int().nonnegative(),
-  workUid: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
-  approved: z.boolean(),
-  feedback: z.string().default(''),
-  confidence: z.number().int().min(0).max(255).default(100),
-  verificationMethod: z.number().int().min(0).max(255).default(0),
-  reviewNotesCid: z.string().default(''),
+  ...baseWorkApprovalFields,
   rationale: z.string().min(1),
 });
 
+const baseAssessmentFields = {
+  title: z.string().min(1),
+  description: z.string().min(1),
+  assessmentConfigCid: z.string().min(1),
+  domain: greenGoodsDomainSchema.default('agro'),
+  startDate: z.number().int().nonnegative(),
+  endDate: z.number().int().nonnegative(),
+  location: z.string().default(''),
+};
+
+function refineAssessmentDates(
+  value: { startDate: number; endDate: number },
+  ctx: z.RefinementCtx,
+) {
+  if (value.endDate < value.startDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['endDate'],
+      message: 'endDate must be greater than or equal to startDate.',
+    });
+  }
+}
+
+export const greenGoodsAssessmentRequestSchema = z
+  .object({
+    ...baseAssessmentFields,
+    rationale: z.string().min(1).default('Queue a Green Goods assessment attestation.'),
+  })
+  .superRefine(refineAssessmentDates);
+
 export const greenGoodsAssessmentOutputSchema = z
   .object({
-    title: z.string().min(1),
-    description: z.string().min(1),
-    assessmentConfigCid: z.string().min(1),
-    domain: greenGoodsDomainSchema.default('agro'),
-    startDate: z.number().int().nonnegative(),
-    endDate: z.number().int().nonnegative(),
-    location: z.string().default(''),
+    ...baseAssessmentFields,
     rationale: z.string().min(1),
   })
-  .superRefine((value, ctx) => {
-    if (value.endDate < value.startDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['endDate'],
-        message: 'endDate must be greater than or equal to startDate.',
-      });
-    }
-  });
+  .superRefine(refineAssessmentDates);
 
 export const greenGoodsGapAdminSyncOutputSchema = z.object({
   addAdmins: z.array(z.string().regex(/^0x[a-fA-F0-9]{40}$/)).default([]),
@@ -772,20 +830,41 @@ export const agentMemoryTypeSchema = z.enum([
   'coop-context',
 ]);
 
-export const agentMemorySchema = z.object({
-  id: z.string().min(1),
-  coopId: z.string().min(1),
-  type: agentMemoryTypeSchema,
-  domain: z.string().default('general'),
-  content: z.string().min(1),
-  contentHash: z.string().min(1),
-  confidence: z.number().min(0).max(1),
-  authorMemberId: z.string().optional(),
-  sourceObservationId: z.string().optional(),
-  sourceSkillRunId: z.string().optional(),
-  createdAt: z.string().datetime(),
-  expiresAt: z.string().datetime().optional(),
-});
+export const agentMemoryScopeSchema = z.enum(['member', 'coop']);
+
+export const agentMemorySchema = z
+  .object({
+    id: z.string().min(1),
+    scope: agentMemoryScopeSchema.default('coop'),
+    coopId: z.string().min(1).optional(),
+    memberId: z.string().min(1).optional(),
+    type: agentMemoryTypeSchema,
+    domain: z.string().default('general'),
+    content: z.string().min(1),
+    contentHash: z.string().min(1),
+    confidence: z.number().min(0).max(1),
+    authorMemberId: z.string().optional(),
+    sourceObservationId: z.string().optional(),
+    sourceSkillRunId: z.string().optional(),
+    createdAt: z.string().datetime(),
+    expiresAt: z.string().datetime().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.scope === 'coop' && !value.coopId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'coop-scoped memories require coopId',
+        path: ['coopId'],
+      });
+    }
+    if (value.scope === 'member' && !value.memberId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'member-scoped memories require memberId',
+        path: ['memberId'],
+      });
+    }
+  });
 
 export const privilegedActionStatusSchema = z.enum(['attempted', 'succeeded', 'failed']);
 export const archiveWorthinessSchema = z.object({
@@ -798,7 +877,7 @@ export const legacyOnchainChainKeyMap = {
   'celo-sepolia': 'sepolia',
 } as const satisfies Record<string, z.infer<typeof coopChainKeySchema>>;
 
-const supportedOnchainChainIds = {
+export const supportedOnchainChainIds = {
   arbitrum: 42161,
   sepolia: 11155111,
 } as const satisfies Record<z.infer<typeof coopChainKeySchema>, number>;
@@ -917,6 +996,7 @@ export const syncRoomConfigSchema = z.object({
 export const syncRoomBootstrapSchema = z.object({
   coopId: z.string().min(1),
   roomId: z.string().min(1),
+  roomSecret: z.string().min(1).optional(),
   signalingUrls: z.array(z.string().url()).default([]),
 });
 
@@ -1501,7 +1581,10 @@ export const erc8004FeedbackOutputSchema = z.object({
   rationale: z.string(),
 });
 
-export const inviteCoopBootstrapSnapshotSchema = z.object({
+// Split so syncRoom stays between memoryProfile and onchainState — invite
+// proof verification relies on JSON.stringify key order matching the object
+// created by createInviteBootstrapSnapshot (flows.ts).
+const baseBootstrapFieldsPre = {
   profile: coopProfileSchema,
   setupInsights: setupInsightsSchema,
   soul: coopSoulSchema,
@@ -1511,24 +1594,28 @@ export const inviteCoopBootstrapSnapshotSchema = z.object({
   reviewBoard: z.array(reviewBoardGroupSchema).default([]),
   archiveReceipts: z.array(archiveReceiptSchema).default([]),
   memoryProfile: coopMemoryProfileSchema,
-  syncRoom: syncRoomBootstrapSchema,
+};
+
+const baseBootstrapFieldsPost = {
   onchainState: onchainStateSchema,
   greenGoods: greenGoodsGardenStateSchema.optional(),
+};
+
+const baseBootstrapFields = {
+  ...baseBootstrapFieldsPre,
+  ...baseBootstrapFieldsPost,
+};
+
+export const inviteCoopBootstrapSnapshotSchema = z.object({
+  ...baseBootstrapFieldsPre,
+  syncRoom: syncRoomBootstrapSchema,
+  ...baseBootstrapFieldsPost,
 });
 
 export const coopBootstrapSnapshotSchema = z.object({
-  profile: coopProfileSchema,
-  setupInsights: setupInsightsSchema,
-  soul: coopSoulSchema,
-  rituals: z.array(ritualDefinitionSchema).min(1),
-  members: z.array(memberSchema).min(1),
-  artifacts: z.array(artifactSchema).default([]),
-  reviewBoard: z.array(reviewBoardGroupSchema).default([]),
-  archiveReceipts: z.array(archiveReceiptSchema).default([]),
-  memoryProfile: coopMemoryProfileSchema,
+  ...baseBootstrapFieldsPre,
   syncRoom: syncRoomConfigSchema,
-  onchainState: onchainStateSchema,
-  greenGoods: greenGoodsGardenStateSchema.optional(),
+  ...baseBootstrapFieldsPost,
 });
 
 export const soundPreferencesSchema = z.object({
@@ -1557,22 +1644,15 @@ export const uiPreferencesSchema = z.object({
   localInferenceOptIn: z.boolean().default(false),
   preferredExportMethod: preferredExportMethodSchema.default('download'),
   heartbeatEnabled: z.boolean().default(true),
+  agentCadenceMinutes: z
+    .union([z.literal(10), z.literal(15), z.literal(30), z.literal(60)])
+    .default(60),
 });
 
 export const coopSharedStateSchema = z.object({
-  profile: coopProfileSchema,
-  setupInsights: setupInsightsSchema,
-  soul: coopSoulSchema,
-  rituals: z.array(ritualDefinitionSchema).min(1),
-  members: z.array(memberSchema).min(1),
+  ...baseBootstrapFields,
   invites: z.array(inviteCodeSchema).default([]),
-  artifacts: z.array(artifactSchema).default([]),
-  reviewBoard: z.array(reviewBoardGroupSchema).default([]),
-  archiveReceipts: z.array(archiveReceiptSchema).default([]),
-  memoryProfile: coopMemoryProfileSchema,
   syncRoom: syncRoomConfigSchema,
-  onchainState: onchainStateSchema,
-  greenGoods: greenGoodsGardenStateSchema.optional(),
   agentIdentity: erc8004AgentStateSchema.optional(),
   archiveConfig: coopArchiveConfigSchema.optional(),
   memberCommitments: z.array(z.string()).default([]),
@@ -1758,6 +1838,10 @@ export type SkillApprovalMode = z.infer<typeof skillApprovalModeSchema>;
 export type SkillTool = z.infer<typeof skillToolSchema>;
 export type SkillRunStatus = z.infer<typeof skillRunStatusSchema>;
 export type SkillOutputSchemaRef = z.infer<typeof skillOutputSchemaRefSchema>;
+export type TabRoutingStatus = z.infer<typeof tabRoutingStatusSchema>;
+export type TabRouting = z.infer<typeof tabRoutingSchema>;
+export type TabRouterOutput = z.infer<typeof tabRouterOutputSchema>;
+export type MemoryInsightOutput = z.infer<typeof memoryInsightOutputSchema>;
 export type ActionProposal = z.infer<typeof actionProposalSchema>;
 export type AgentPlanStep = z.infer<typeof agentPlanStepSchema>;
 export type AgentPlan = z.infer<typeof agentPlanSchema>;
@@ -1780,6 +1864,7 @@ export type AgentLogSpanType = z.infer<typeof agentLogSpanTypeSchema>;
 export type AgentLogLevel = z.infer<typeof agentLogLevelSchema>;
 export type AgentLog = z.infer<typeof agentLogSchema>;
 export type AgentMemoryType = z.infer<typeof agentMemoryTypeSchema>;
+export type AgentMemoryScope = z.infer<typeof agentMemoryScopeSchema>;
 export type AgentMemory = z.infer<typeof agentMemorySchema>;
 
 // ---------------------------------------------------------------------------

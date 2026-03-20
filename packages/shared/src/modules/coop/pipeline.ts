@@ -20,6 +20,7 @@ import {
   createId,
   extractDomain,
   hashText,
+  nowIso,
   truncateWords,
   unique,
 } from '../../utils';
@@ -92,7 +93,7 @@ export function buildReadablePageExtract(input: PageSignalInput): ReadablePageEx
     salientTextBlocks,
     textHash,
     previewImageUrl: input.previewImageUrl,
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso(),
   };
 }
 
@@ -391,7 +392,7 @@ export function shapeReviewDraft(
       extractId: extract.id,
       sourceCandidateId: extract.sourceCandidateId,
     },
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso(),
   };
 }
 
@@ -422,7 +423,7 @@ export function runPassivePipeline(input: {
 export function buildMemoryProfileSeed(profile?: Partial<CoopMemoryProfile>): CoopMemoryProfile {
   return {
     version: 1,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso(),
     topDomains: profile?.topDomains ?? [],
     topTags: profile?.topTags ?? [],
     categoryStats: profile?.categoryStats ?? [],

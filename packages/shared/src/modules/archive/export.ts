@@ -4,6 +4,7 @@ import type {
   CoopSharedState,
   ReviewDraft,
 } from '../../contracts/schema';
+import { nowIso } from '../../utils';
 
 export function exportReviewDraftJson(draft: ReviewDraft) {
   return JSON.stringify(
@@ -71,7 +72,7 @@ export function exportCoopSnapshotJson(state: CoopSharedState) {
   return JSON.stringify(
     {
       type: 'coop-snapshot',
-      exportedAt: new Date().toISOString(),
+      exportedAt: nowIso(),
       snapshot: state,
     },
     null,

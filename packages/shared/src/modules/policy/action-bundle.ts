@@ -7,7 +7,7 @@ import type {
   PolicyActionClass,
   TypedActionBundle,
 } from '../../contracts/schema';
-import { actionBundleSchema } from '../../contracts/schema';
+import { actionBundleSchema, supportedOnchainChainIds } from '../../contracts/schema';
 import { createId, hashJson, nowIso } from '../../utils';
 import { isPolicyExpired } from './policy';
 
@@ -718,7 +718,7 @@ export function buildTypedActionBundle(input: {
     domain: {
       name: 'Coop Action Bundle',
       version: '1',
-      chainId: input.chainId ?? 11155111,
+      chainId: input.chainId ?? supportedOnchainChainIds.sepolia,
       verifyingContract: input.safeAddress ?? zeroAddress,
     },
     types: {

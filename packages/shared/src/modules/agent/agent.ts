@@ -7,6 +7,7 @@ import type {
   AgentProvider,
   ArtifactCategory,
   CapitalFormationBriefOutput,
+  MemoryInsightOutput,
   OpportunityCandidate,
   PublishReadinessCheckOutput,
   ReviewDigestOutput,
@@ -30,11 +31,13 @@ import {
   greenGoodsGardenBootstrapOutputSchema,
   greenGoodsGardenSyncOutputSchema,
   greenGoodsWorkApprovalOutputSchema,
+  memoryInsightOutputSchema,
   opportunityExtractorOutputSchema,
   publishReadinessCheckOutputSchema,
   reviewDigestOutputSchema,
   skillManifestSchema,
   skillRunSchema,
+  tabRouterOutputSchema,
   themeClustererOutputSchema,
 } from '../../contracts/schema';
 import { createId, hashJson, nowIso, slugify, truncateWords } from '../../utils';
@@ -43,9 +46,11 @@ export const skillOutputSchemas: Record<
   SkillOutputSchemaRef,
   { parse: (value: unknown) => unknown }
 > = {
+  'tab-router-output': tabRouterOutputSchema,
   'opportunity-extractor-output': opportunityExtractorOutputSchema,
   'grant-fit-scorer-output': grantFitScorerOutputSchema,
   'capital-formation-brief-output': capitalFormationBriefOutputSchema,
+  'memory-insight-output': memoryInsightOutputSchema,
   'review-digest-output': reviewDigestOutputSchema,
   'ecosystem-entity-extractor-output': ecosystemEntityExtractorOutputSchema,
   'theme-clusterer-output': themeClustererOutputSchema,
@@ -413,6 +418,30 @@ export function createReviewDigestDraft(input: {
     tags: input.output.tags,
     category: 'insight',
     confidence: 0.76,
+  });
+}
+
+export function createMemoryInsightDraft(input: {
+  observationId: string;
+  planId: string;
+  skillRunId: string;
+  skillId: string;
+  coopId: string;
+  output: MemoryInsightOutput['insights'][number];
+}) {
+  return createAgentGeneratedDraft({
+    observationId: input.observationId,
+    planId: input.planId,
+    skillRunId: input.skillRunId,
+    skillId: input.skillId,
+    coopId: input.coopId,
+    title: buildAgentDraftTitle('Memory insight', input.output.title),
+    summary: input.output.summary,
+    whyItMatters: input.output.whyItMatters,
+    suggestedNextStep: input.output.suggestedNextStep,
+    tags: input.output.tags,
+    category: input.output.category,
+    confidence: input.output.confidence,
   });
 }
 

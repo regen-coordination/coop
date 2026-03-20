@@ -14,6 +14,7 @@ import type {
   SessionCapability,
   SessionCapabilityLogEntry,
   SkillRun,
+  TabRouting,
   TrustedNodeArchiveConfig,
 } from '../../../contracts/schema';
 import { createMockPasskeyIdentity } from '../../auth/identity';
@@ -40,6 +41,7 @@ import {
   getSessionCapability,
   getSkillRun,
   getSoundPreferences,
+  getTabRoutingByExtractAndCoop,
   getTrustedNodeArchiveConfig,
   getUiPreferences,
   isReplayIdRecorded,
@@ -64,6 +66,7 @@ import {
   listSessionCapabilityLogEntries,
   listSkillRuns,
   listSkillRunsByPlanId,
+  listTabRoutings,
   loadCoopState,
   recordReplayId,
   saveActionBundle,
@@ -79,6 +82,7 @@ import {
   saveSessionCapability,
   saveSessionCapabilityLogEntry,
   saveSkillRun,
+  saveTabRouting,
   setActionPolicies,
   setActiveReceiverPairing,
   setAnchorCapability,
@@ -330,6 +334,27 @@ function buildSkillRun(overrides: Partial<SkillRun> = {}): SkillRun {
   };
 }
 
+function buildTabRouting(overrides: Partial<TabRouting> = {}): TabRouting {
+  return {
+    id: `routing:${crypto.randomUUID()}`,
+    sourceCandidateId: 'candidate-1',
+    extractId: 'extract-1',
+    coopId: 'coop-1',
+    relevanceScore: 0.22,
+    matchedRitualLenses: ['capital-formation'],
+    category: 'insight',
+    tags: ['routing'],
+    rationale: 'Relevant to the coop.',
+    suggestedNextStep: 'Review locally.',
+    archiveWorthinessHint: false,
+    provider: 'transformers',
+    status: 'routed',
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
 afterEach(async () => {
   while (databases.length > 0) {
     const db = databases.pop();
@@ -455,6 +480,7 @@ describe('settings persistence', () => {
       localInferenceOptIn: true,
       preferredExportMethod: 'file-picker',
       heartbeatEnabled: true,
+      agentCadenceMinutes: 60,
     });
 
     expect(await getUiPreferences(db)).toEqual({
@@ -462,6 +488,28 @@ describe('settings persistence', () => {
       localInferenceOptIn: true,
       preferredExportMethod: 'file-picker',
       heartbeatEnabled: true,
+      agentCadenceMinutes: 60,
+    });
+  });
+
+  it('defaults agentCadenceMinutes to 60 when absent', async () => {
+    const db = freshDb();
+    await db.settings.put({
+      key: 'ui-preferences',
+      value: {
+        notificationsEnabled: true,
+        localInferenceOptIn: false,
+        preferredExportMethod: 'download',
+        heartbeatEnabled: true,
+      },
+    });
+
+    expect(await getUiPreferences(db)).toEqual({
+      notificationsEnabled: true,
+      localInferenceOptIn: false,
+      preferredExportMethod: 'download',
+      heartbeatEnabled: true,
+      agentCadenceMinutes: 60,
     });
   });
 
@@ -1516,5 +1564,27 @@ describe('skill run persistence', () => {
 
     const limited = await listSkillRuns(db, 2);
     expect(limited).toHaveLength(2);
+  });
+});
+
+describe('tab routing persistence', () => {
+  it('deduplicates by extractId + coopId by updating in place', async () => {
+    const db = freshDb();
+    const first = buildTabRouting();
+    await saveTabRouting(db, first);
+
+    await saveTabRouting(db, {
+      ...first,
+      relevanceScore: 0.31,
+      status: 'drafted',
+      updatedAt: LATER,
+    });
+
+    const stored = await getTabRoutingByExtractAndCoop(db, first.extractId, first.coopId);
+    expect(stored).toBeDefined();
+    expect(stored?.id).toBe(first.id);
+    expect(stored?.relevanceScore).toBe(0.31);
+    expect(stored?.status).toBe('drafted');
+    expect(await listTabRoutings(db, { coopId: first.coopId })).toHaveLength(1);
   });
 });

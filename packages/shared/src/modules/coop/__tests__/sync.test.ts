@@ -374,16 +374,15 @@ describe('updateCoopState', () => {
 });
 
 describe('toSyncRoomBootstrap', () => {
-  it('extracts only coopId, roomId, and signalingUrls from a full config', () => {
+  it('extracts the peer sync room credentials needed by invited members', () => {
     const room = createSyncRoomConfig('coop-bootstrap-test');
 
     const bootstrap = toSyncRoomBootstrap(room);
 
     expect(bootstrap.coopId).toBe(room.coopId);
     expect(bootstrap.roomId).toBe(room.roomId);
+    expect(bootstrap.roomSecret).toBe(room.roomSecret);
     expect(bootstrap.signalingUrls).toEqual(room.signalingUrls);
-    // Must NOT include secrets
-    expect(bootstrap).not.toHaveProperty('roomSecret');
     expect(bootstrap).not.toHaveProperty('inviteSigningSecret');
   });
 
@@ -391,6 +390,11 @@ describe('toSyncRoomBootstrap', () => {
     const room = createSyncRoomConfig('coop-shape-test');
     const bootstrap = toSyncRoomBootstrap(room);
 
-    expect(Object.keys(bootstrap).sort()).toEqual(['coopId', 'roomId', 'signalingUrls']);
+    expect(Object.keys(bootstrap).sort()).toEqual([
+      'coopId',
+      'roomId',
+      'roomSecret',
+      'signalingUrls',
+    ]);
   });
 });

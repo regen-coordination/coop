@@ -58,6 +58,7 @@ export function toSyncRoomBootstrap(room: SyncRoomConfig): SyncRoomBootstrap {
   return {
     coopId: room.coopId,
     roomId: room.roomId,
+    roomSecret: room.roomSecret,
     signalingUrls: room.signalingUrls,
   };
 }
@@ -70,7 +71,7 @@ export function createBootstrapSyncRoomConfig(
     coopId: input.coopId,
     roomId: input.roomId,
     signalingUrls: input.signalingUrls,
-    roomSecret: `bootstrap:${input.roomId}`,
+    roomSecret: input.roomSecret ?? `bootstrap:${input.roomId}`,
     inviteSigningSecret: `bootstrap:${inviteId}`,
   };
 }
