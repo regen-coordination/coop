@@ -33,6 +33,7 @@ import {
 import { refreshBadge } from '../dashboard';
 import { getOperatorState, logPrivilegedAction } from '../operator';
 import { emitAgentObservationIfMissing, requestAgentCycle } from './agent';
+import { primeCoopRoundup } from './capture';
 
 export async function handleSetAnchorMode(
   message: Extract<RuntimeRequest, { type: 'set-anchor-mode' }>,
@@ -178,6 +179,7 @@ export async function handleResolveOnchainState(
 }
 
 export async function handleCreateCoop(message: Extract<RuntimeRequest, { type: 'create-coop' }>) {
+  const existingCoops = await getCoops();
   const created = createCoop(message.payload);
   await saveState(created.state);
   await setLocalSetting(stateKeys.activeCoopId, created.state.profile.id);
@@ -216,6 +218,13 @@ export async function handleCreateCoop(message: Extract<RuntimeRequest, { type: 
     console.warn('[coop:privacy] Failed to initialize coop privacy:', privacyError);
   }
   await syncCaptureAlarm(created.state.profile.captureMode);
+  try {
+    await primeCoopRoundup(created.state, {
+      captureOpenTabs: existingCoops.length === 0,
+    });
+  } catch (roundupError) {
+    console.warn('[coop:roundup] Failed to bootstrap roundup for new coop:', roundupError);
+  }
   await refreshBadge();
   return {
     ok: true,

@@ -473,14 +473,10 @@ export function PopupApp() {
             : undefined
         }
         onOpenDrafts={
-          currentScreen === 'home' && activeCoop
-            ? () => navigation.navigate('drafts')
-            : undefined
+          currentScreen === 'home' && activeCoop ? () => navigation.navigate('drafts') : undefined
         }
         onOpenSettings={
-          currentScreen === 'home' && activeCoop
-            ? () => navigation.navigate('settings')
-            : undefined
+          currentScreen === 'home' && activeCoop ? () => navigation.navigate('settings') : undefined
         }
         onOpenWorkspace={
           currentScreen === 'home' && activeCoop ? () => void openWorkspace() : undefined

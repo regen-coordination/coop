@@ -312,3 +312,23 @@ table th {
     transform: translateY(0);
   }
 }
+
+/* ── Audience Navigation ──
+   Persistent header tabs + single-sidebar filtering.
+   ========================================================================== */
+
+.docsAudienceRoot[data-docs-audience="community"] .docs-audience-group--builder,
+.docsAudienceRoot[data-docs-audience="builder"] .docs-audience-group--community {
+  display: none;
+}
+
+.docs-audience-group > .menu__list-item-collapsible > .menu__link {
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+}
+
+@media (max-width: 996px) {
+  .docs-navbar-github {
+    display: none;
+  }
+}

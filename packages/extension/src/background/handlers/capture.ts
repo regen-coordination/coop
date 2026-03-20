@@ -1,13 +1,17 @@
 import {
+  type CoopSharedState,
   type ReceiverCapture,
+  type ReviewDraft,
   type TabCandidate,
   createId,
   createLocalEnhancementAdapter,
   createReceiverCapture,
   getAuthSession,
+  interpretExtractForCoop,
   nowIso,
   runPassivePipeline,
   saveReceiverCapture,
+  shapeReviewDraft,
 } from '@coop/shared';
 import type { RuntimeActionResponse } from '../../runtime/messages';
 import { resolveReceiverPairingMember } from '../../runtime/receiver';
@@ -28,6 +32,14 @@ import {
 import { refreshBadge } from '../dashboard';
 import { getActiveReviewContextForSession } from '../operator';
 import { syncHighConfidenceDraftObservations } from './agent';
+
+function createPassiveInferenceAdapter() {
+  return createLocalEnhancementAdapter({
+    prefersLocalModels: prefersLocalEnhancement,
+    hasWorkerRuntime: true,
+    hasWebGpu: typeof navigator !== 'undefined' && 'gpu' in navigator,
+  });
+}
 
 export async function collectCandidate(
   tab: chrome.tabs.Tab,
@@ -67,11 +79,7 @@ export async function collectCandidate(
 export async function runCaptureForTabs(tabs: chrome.tabs.Tab[]) {
   const coops = await getCoops();
   const candidates: TabCandidate[] = [];
-  const inferenceAdapter = createLocalEnhancementAdapter({
-    prefersLocalModels: prefersLocalEnhancement,
-    hasWorkerRuntime: true,
-    hasWebGpu: typeof navigator !== 'undefined' && 'gpu' in navigator,
-  });
+  const inferenceAdapter = createPassiveInferenceAdapter();
   let lastCaptureError: string | undefined;
 
   for (const tab of tabs) {
@@ -118,6 +126,51 @@ export async function runCaptureForTabs(tabs: chrome.tabs.Tab[]) {
   await refreshBadge();
 
   return candidates.length;
+}
+
+export async function seedCoopFromStoredRoundup(coop: CoopSharedState) {
+  const [extracts, existingDrafts] = await Promise.all([
+    db.pageExtracts.toArray(),
+    db.reviewDrafts.toArray(),
+  ]);
+
+  const existingExtractIds = new Set(
+    existingDrafts
+      .filter((draft) => draft.suggestedTargetCoopIds.includes(coop.profile.id))
+      .map((draft) => draft.extractId),
+  );
+  const inferenceAdapter = createPassiveInferenceAdapter();
+  const drafts = extracts
+    .filter((extract) => !existingExtractIds.has(extract.id))
+    .map((extract) => {
+      const interpretation = interpretExtractForCoop(extract, coop, inferenceAdapter);
+      if (interpretation.relevanceScore < 0.18) {
+        return null;
+      }
+      return shapeReviewDraft(extract, interpretation, coop.profile);
+    })
+    .filter((draft): draft is ReviewDraft => draft !== null);
+
+  if (drafts.length === 0) {
+    return 0;
+  }
+
+  await db.reviewDrafts.bulkPut(drafts);
+  await syncHighConfidenceDraftObservations(drafts);
+  await refreshBadge();
+  return drafts.length;
+}
+
+export async function primeCoopRoundup(
+  coop: CoopSharedState,
+  options: { captureOpenTabs?: boolean } = {},
+) {
+  const seededDrafts = await seedCoopFromStoredRoundup(coop);
+  const capturedTabs = options.captureOpenTabs ? await runCaptureCycle() : 0;
+  return {
+    seededDrafts,
+    capturedTabs,
+  };
 }
 
 export async function runCaptureCycle() {

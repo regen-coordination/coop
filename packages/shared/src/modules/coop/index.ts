@@ -5,4 +5,5 @@ export * from './pipeline';
 export * from './presets';
 export * from './publish';
 export * from './review';
+export * from './setup-insights';
 export * from './sync';

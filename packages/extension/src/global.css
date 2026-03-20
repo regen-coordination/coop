@@ -577,9 +577,28 @@ button:disabled {
   transition: background-color 180ms ease, border-color 180ms ease;
 }
 
+.coop-switcher__trigger.has-activity {
+  border-color: rgba(90, 125, 16, 0.35);
+  box-shadow: 0 0 0 1px rgba(90, 125, 16, 0.08);
+}
+
 .coop-switcher__trigger:hover {
   background: rgba(253, 138, 1, 0.08);
   border-color: var(--coop-orange-16, rgba(253, 138, 1, 0.16));
+}
+
+.coop-switcher__trigger-label {
+  min-width: 0;
+}
+
+.coop-switcher__trigger-indicator,
+.coop-switcher__status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--coop-green, #5a7d10);
+  box-shadow: 0 0 0 3px rgba(90, 125, 16, 0.14);
+  flex-shrink: 0;
 }
 
 .coop-switcher__caret {
@@ -636,6 +655,14 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.coop-switcher__name-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .coop-switcher__badges {

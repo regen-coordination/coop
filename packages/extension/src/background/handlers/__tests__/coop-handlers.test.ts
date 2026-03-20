@@ -57,8 +57,13 @@ vi.mock('../agent', () => ({
   requestAgentCycle: vi.fn(),
 }));
 
+vi.mock('../capture', () => ({
+  primeCoopRoundup: vi.fn().mockResolvedValue({ seededDrafts: 0, capturedTabs: 0 }),
+}));
+
 const { handleCreateCoop, handleJoinCoop, handleSetAnchorMode } = await import('../coop');
 const { saveState, setLocalSetting } = await import('../../context');
+const { primeCoopRoundup } = await import('../capture');
 
 describe('coop handlers', () => {
   it('creates a coop with valid input and persists state', async () => {
@@ -108,6 +113,9 @@ describe('coop handlers', () => {
     expect(result.soundEvent).toBeDefined();
     expect(vi.mocked(saveState)).toHaveBeenCalled();
     expect(vi.mocked(setLocalSetting)).toHaveBeenCalledWith('active-coop-id', expect.any(String));
+    expect(vi.mocked(primeCoopRoundup)).toHaveBeenCalledWith(expect.any(Object), {
+      captureOpenTabs: true,
+    });
   });
 
   it('rejects anchor mode toggle when no auth session exists', async () => {

@@ -24,7 +24,12 @@ import {
   savePermitLogEntry,
 } from '@coop/shared';
 import { isTrustedNodeRole } from '../runtime/agent-harness';
-import type { CoopBadgeSummary, DashboardResponse, RuntimeSummary } from '../runtime/messages';
+import {
+  type CoopBadgeSummary,
+  type DashboardResponse,
+  type RuntimeSummary,
+  notifyDashboardUpdated,
+} from '../runtime/messages';
 import { filterVisibleReceiverPairings } from '../runtime/receiver';
 import { sessionCapabilityChanged } from '../runtime/session-capability';
 import {
@@ -173,6 +178,7 @@ export async function refreshBadge() {
   await chrome.action.setTitle({
     title: summary.iconState === 'idle' ? 'Coop' : `Coop: ${summary.iconLabel}`,
   });
+  void notifyDashboardUpdated();
 }
 
 // ---- Full Dashboard ----

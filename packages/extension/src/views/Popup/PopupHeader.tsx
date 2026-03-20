@@ -39,15 +39,7 @@ function SettingsIcon() {
 function WorkspaceIcon() {
   return (
     <svg aria-hidden="true" className="popup-theme-option__icon" fill="none" viewBox="0 0 20 20">
-      <rect
-        height="12"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        width="14"
-        x="3"
-        y="4"
-      />
+      <rect height="12" rx="2" stroke="currentColor" strokeWidth="1.4" width="14" x="3" y="4" />
       <path d="M11.5 4v12" stroke="currentColor" strokeWidth="1.3" />
     </svg>
   );

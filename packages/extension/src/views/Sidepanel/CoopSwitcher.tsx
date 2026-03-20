@@ -28,6 +28,14 @@ export function CoopSwitcher({ coops, activeCoopId, coopBadges, onSwitch }: Coop
 
   const activeCoop = coops.find((c) => c.id === activeCoopId) ?? coops[0];
   const badgeMap = new Map(coopBadges.map((b) => [b.coopId, b]));
+  const otherCoopsWithActivity = coops.filter((coop) => {
+    if (coop.id === activeCoop.id) {
+      return false;
+    }
+    const badge = badgeMap.get(coop.id);
+    return (badge?.pendingDrafts ?? 0) > 0 || (badge?.pendingActions ?? 0) > 0;
+  });
+  const hasOtherCoopActivity = otherCoopsWithActivity.length > 0;
 
   // 1 coop: static label
   if (coops.length === 1) {
@@ -53,13 +61,21 @@ export function CoopSwitcher({ coops, activeCoopId, coopBadges, onSwitch }: Coop
   return (
     <div className="coop-switcher" ref={ref} onKeyDown={handleKeyDown}>
       <button
-        className="coop-switcher__trigger"
+        className={`coop-switcher__trigger${hasOtherCoopActivity ? ' has-activity' : ''}`}
         onClick={() => setOpen((prev) => !prev)}
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
+        title={
+          hasOtherCoopActivity
+            ? `${otherCoopsWithActivity.length} other coop${otherCoopsWithActivity.length === 1 ? '' : 's'} has roundup waiting.`
+            : undefined
+        }
       >
-        {activeCoop.name}
+        <span className="coop-switcher__trigger-label">{activeCoop.name}</span>
+        {hasOtherCoopActivity ? (
+          <span className="coop-switcher__trigger-indicator" aria-hidden="true" />
+        ) : null}
         <span className="coop-switcher__caret" aria-hidden="true">
           {open ? '\u25B4' : '\u25BE'}
         </span>
@@ -69,6 +85,7 @@ export function CoopSwitcher({ coops, activeCoopId, coopBadges, onSwitch }: Coop
           {coops.map((coop) => {
             const badge = badgeMap.get(coop.id);
             const isActive = coop.id === activeCoopId;
+            const hasActivity = (badge?.pendingDrafts ?? 0) > 0 || (badge?.pendingActions ?? 0) > 0;
             return (
               <div key={coop.id} role="menuitem" tabIndex={0} aria-current={isActive || undefined}>
                 <button
@@ -76,7 +93,12 @@ export function CoopSwitcher({ coops, activeCoopId, coopBadges, onSwitch }: Coop
                   onClick={() => handleSelect(coop.id)}
                   type="button"
                 >
-                  <span className="coop-switcher__name">{coop.name}</span>
+                  <span className="coop-switcher__name-row">
+                    {hasActivity ? (
+                      <span className="coop-switcher__status-dot" aria-hidden="true" />
+                    ) : null}
+                    <span className="coop-switcher__name">{coop.name}</span>
+                  </span>
                   {badge ? (
                     <span className="coop-switcher__badges">
                       {badge.pendingDrafts > 0 ? (
