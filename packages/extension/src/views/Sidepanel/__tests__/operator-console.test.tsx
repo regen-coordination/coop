@@ -14,6 +14,7 @@ import type {
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { AgentDashboardKnowledgeSkill } from '../../../runtime/messages';
 import { OperatorConsole } from '../OperatorConsole';
 
 const baseProps = {
@@ -75,11 +76,17 @@ const baseProps = {
   skillRuns: [] as SkillRun[],
   skillManifests: [] as SkillManifest[],
   autoRunSkillIds: [] as string[],
+  knowledgeSkills: [] as AgentDashboardKnowledgeSkill[],
+  activeCoopName: 'Coop Town',
   onRunAgentCycle: vi.fn(),
   onApprovePlan: vi.fn(),
   onRejectPlan: vi.fn(),
   onRetrySkillRun: vi.fn(),
   onToggleSkillAutoRun: vi.fn(),
+  onImportKnowledgeSkill: vi.fn(),
+  onRefreshKnowledgeSkill: vi.fn(),
+  onSetCoopKnowledgeSkillEnabled: vi.fn(),
+  onSaveKnowledgeSkillTriggerPatterns: vi.fn(),
 };
 
 describe('operator console', () => {
@@ -114,6 +121,128 @@ describe('operator console', () => {
     expect(screen.getByRole('heading', { name: 'Garden Requests' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: /sync garden admins/i }));
     expect(onQueueGreenGoodsGapAdminSync).toHaveBeenCalledWith('coop-1');
+  });
+
+  it('shows member bindings and queues gardener sync actions', async () => {
+    const user = userEvent.setup();
+    const onQueueGreenGoodsMemberSync = vi.fn();
+
+    render(
+      <OperatorConsole
+        {...baseProps}
+        greenGoodsContext={{
+          coopId: 'coop-1',
+          coopName: 'Coop Town',
+          enabled: true,
+          gardenAddress: '0x1111111111111111111111111111111111111111',
+          memberBindings: [
+            {
+              memberId: 'member-1',
+              memberDisplayName: 'Ari',
+              actorAddress: '0x2222222222222222222222222222222222222222',
+              desiredRoles: ['gardener', 'operator'],
+              currentRoles: [],
+              status: 'pending-sync',
+            },
+          ],
+        }}
+        actionQueue={[
+          {
+            id: 'bundle-1',
+            actionClass: 'green-goods-add-gardener',
+            status: 'approved',
+            coopId: 'coop-1',
+            memberId: 'member-admin',
+            policyId: 'policy-add',
+            chainId: 11155111,
+            chainKey: 'sepolia',
+            safeAddress: '0x9999999999999999999999999999999999999999',
+            payload: {
+              coopId: 'coop-1',
+              memberId: 'member-1',
+              gardenerAddress: '0x2222222222222222222222222222222222222222',
+            },
+            rationale: 'Sync member into the garden.',
+            approvals: [],
+            rejections: [],
+            executionAttempts: [],
+            createdAt: '2026-03-20T00:05:00.000Z',
+            updatedAt: '2026-03-20T00:05:00.000Z',
+          } as ActionBundle,
+        ]}
+        actionHistory={[
+          {
+            id: 'history-1',
+            bundleId: 'bundle-1',
+            actionClass: 'green-goods-add-gardener',
+            eventType: 'executed',
+            detail: 'Added gardener 0x2222... to the linked garden.',
+            createdAt: '2026-03-20T00:06:00.000Z',
+          } as ActionLogEntry,
+        ]}
+        onQueueGreenGoodsMemberSync={onQueueGreenGoodsMemberSync}
+      />,
+    );
+
+    expect(screen.getAllByText('Ari').length).toBeGreaterThan(0);
+    expect(screen.getByText(/pending-sync/i)).toBeVisible();
+    expect(screen.getByText(/queued bundles/i)).toBeVisible();
+    expect(screen.getAllByText(/add gardener/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/added gardener 0x2222/i).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: /queue gardener sync/i }));
+    expect(onQueueGreenGoodsMemberSync).toHaveBeenCalledWith('coop-1');
+  });
+
+  it('renders imported knowledge skills and updates coop settings', async () => {
+    const user = userEvent.setup();
+    const onSetCoopKnowledgeSkillEnabled = vi.fn();
+    const onSaveKnowledgeSkillTriggerPatterns = vi.fn();
+    const onRefreshKnowledgeSkill = vi.fn();
+
+    render(
+      <OperatorConsole
+        {...baseProps}
+        knowledgeSkills={[
+          {
+            skill: {
+              id: 'knowledge-1',
+              url: 'https://example.com/skills/watershed/SKILL.md',
+              name: 'watershed-playbook',
+              description: 'Watershed partnership signals and funder context.',
+              domain: 'watershed',
+              content: '# Watershed playbook',
+              contentHash: 'hash-1',
+              fetchedAt: '2026-03-20T00:00:00.000Z',
+              enabled: true,
+              triggerPatterns: ['watershed', 'river'],
+            },
+            effectiveEnabled: true,
+            freshness: 'fresh',
+          },
+        ]}
+        onRefreshKnowledgeSkill={onRefreshKnowledgeSkill}
+        onSaveKnowledgeSkillTriggerPatterns={onSaveKnowledgeSkillTriggerPatterns}
+        onSetCoopKnowledgeSkillEnabled={onSetCoopKnowledgeSkillEnabled}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Knowledge Skills' })).toBeVisible();
+    expect(screen.getByText('watershed-playbook')).toBeVisible();
+
+    await user.click(screen.getByRole('checkbox', { name: /enable for coop town/i }));
+    expect(onSetCoopKnowledgeSkillEnabled).toHaveBeenCalledWith('knowledge-1', false);
+
+    const patterns = screen.getByLabelText(/trigger patterns/i);
+    await user.clear(patterns);
+    await user.type(patterns, 'river, salmon');
+    await user.click(screen.getByRole('button', { name: /save patterns/i }));
+    expect(onSaveKnowledgeSkillTriggerPatterns).toHaveBeenCalledWith('knowledge-1', [
+      'river',
+      'salmon',
+    ]);
+
+    await user.click(screen.getByRole('button', { name: /refresh skill/i }));
+    expect(onRefreshKnowledgeSkill).toHaveBeenCalledWith('knowledge-1');
   });
 
   describe('policy settings section', () => {

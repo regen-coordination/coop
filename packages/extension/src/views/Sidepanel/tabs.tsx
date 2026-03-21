@@ -1,4 +1,5 @@
 import {
+  type ActionBundle,
   type CaptureMode,
   type CoopSharedState,
   type CoopSpaceType,
@@ -9,6 +10,8 @@ import {
   type ReviewDraft,
   type SoundPreferences,
   formatCoopSpaceTypeLabel,
+  formatMemberAccountStatus,
+  formatMemberAccountType,
   getCoopChainLabel,
   getReceiverPairingStatus,
 } from '@coop/shared';
@@ -43,6 +46,20 @@ import type { CreateFormState } from './setup-insights';
 type DraftEditorReturn = ReturnType<typeof useDraftEditor>;
 type TabCaptureReturn = ReturnType<typeof useTabCapture>;
 type CoopFormReturn = ReturnType<typeof useCoopForm>;
+
+function isGardenerActionBundle(bundle: ActionBundle) {
+  return (
+    bundle.actionClass === 'green-goods-add-gardener' ||
+    bundle.actionClass === 'green-goods-remove-gardener'
+  );
+}
+
+function readBundleTargetMemberId(bundle: ActionBundle) {
+  const targetMemberId = bundle.payload.memberId;
+  return typeof targetMemberId === 'string' && targetMemberId.length > 0
+    ? targetMemberId
+    : undefined;
+}
 
 // ---------------------------------------------------------------------------
 // LooseChickensTab
@@ -273,6 +290,7 @@ export function RoostTab({
 
 export interface NestTabProps {
   activeCoop: CoopSharedState | undefined;
+  activeMember: CoopSharedState['members'][number] | undefined;
   runtimeConfig: DashboardResponse['runtimeConfig'];
   stealthMetaAddress: string | null;
   coopForm: CoopFormReturn;
@@ -287,10 +305,29 @@ export interface NestTabProps {
   copyText: (label: string, value: string) => void;
   receiverIntake: ReceiverCapture[];
   draftEditor: DraftEditorReturn;
+  greenGoodsActionQueue: ActionBundle[];
+  onProvisionMemberOnchainAccount: () => Promise<void>;
+  onSubmitGreenGoodsWorkSubmission: (input: {
+    actionUid: number;
+    title: string;
+    feedback: string;
+    metadataCid: string;
+    mediaCids: string[];
+  }) => Promise<void>;
+  onSubmitGreenGoodsImpactReport: (input: {
+    title: string;
+    description: string;
+    domain: 'solar' | 'agro' | 'edu' | 'waste';
+    reportCid: string;
+    metricsSummary: string;
+    reportingPeriodStart: number;
+    reportingPeriodEnd: number;
+  }) => Promise<void>;
 }
 
 export function NestTab({
   activeCoop,
+  activeMember,
   runtimeConfig,
   stealthMetaAddress,
   coopForm,
@@ -305,7 +342,48 @@ export function NestTab({
   copyText,
   receiverIntake,
   draftEditor,
+  greenGoodsActionQueue,
+  onProvisionMemberOnchainAccount,
+  onSubmitGreenGoodsWorkSubmission,
+  onSubmitGreenGoodsImpactReport,
 }: NestTabProps) {
+  const [impactReportDraft, setImpactReportDraft] = useState({
+    title: '',
+    description: '',
+    domain: 'agro' as 'solar' | 'agro' | 'edu' | 'waste',
+    reportCid: '',
+    metricsSummary: '',
+    reportingPeriodStart: '',
+    reportingPeriodEnd: '',
+  });
+  const [workSubmissionDraft, setWorkSubmissionDraft] = useState({
+    actionUid: '6',
+    title: '',
+    feedback: '',
+    metadataCid: '',
+    mediaCids: '',
+  });
+  const memberAccount =
+    activeCoop && activeMember
+      ? activeCoop.memberAccounts.find((account) => account.memberId === activeMember.id)
+      : undefined;
+  const memberBinding =
+    activeCoop?.greenGoods?.memberBindings.find(
+      (binding) => binding.memberId === activeMember?.id,
+    ) ?? undefined;
+  const canSubmitMemberGreenGoodsActions = Boolean(
+    activeCoop?.greenGoods?.gardenAddress &&
+      activeMember &&
+      memberAccount?.accountAddress &&
+      (memberAccount.status === 'predicted' || memberAccount.status === 'active'),
+  );
+  const memberGardenerBundles = activeMember
+    ? greenGoodsActionQueue.filter(
+        (bundle) =>
+          isGardenerActionBundle(bundle) && readBundleTargetMemberId(bundle) === activeMember.id,
+      )
+    : [];
+
   return (
     <section className="stack">
       <article className="panel-card">
@@ -761,6 +839,377 @@ export function NestTab({
         </article>
       ) : null}
 
+      {activeCoop ? (
+        <article className="panel-card">
+          <h2>Green Goods Access</h2>
+          {!activeCoop.greenGoods?.enabled ? (
+            <p className="helper-text">
+              Green Goods is not enabled for this coop yet. Provisioning a member garden account is
+              only useful once the coop requests a garden.
+            </p>
+          ) : !activeMember ? (
+            <p className="helper-text">
+              Open this coop as the member who should own the garden account before provisioning or
+              submitting impact.
+            </p>
+          ) : (
+            <div className="stack">
+              <div className="summary-strip">
+                <div className="summary-card">
+                  <span>Garden link</span>
+                  <strong>{activeCoop.greenGoods.gardenAddress ? 'Linked' : 'Waiting'}</strong>
+                </div>
+                <div className="summary-card">
+                  <span>Your garden account</span>
+                  <strong>
+                    {memberAccount
+                      ? formatMemberAccountStatus(memberAccount.status)
+                      : 'Not provisioned'}
+                  </strong>
+                </div>
+                <div className="summary-card">
+                  <span>Binding</span>
+                  <strong>{memberBinding?.status ?? 'pending-account'}</strong>
+                </div>
+                <div className="summary-card">
+                  <span>Garden sync queue</span>
+                  <strong>
+                    {memberGardenerBundles.length > 0
+                      ? `${memberGardenerBundles.length} queued`
+                      : memberBinding?.status === 'pending-sync'
+                        ? 'Waiting'
+                        : memberBinding?.status === 'synced'
+                          ? 'Synced'
+                          : memberBinding?.status === 'error'
+                            ? 'Needs retry'
+                            : 'Not queued'}
+                  </strong>
+                </div>
+              </div>
+              <div className="detail-grid">
+                <div>
+                  <strong>Garden</strong>
+                  <p className="helper-text">
+                    {activeCoop.greenGoods.gardenAddress ?? 'No garden address yet.'}
+                  </p>
+                </div>
+                <div>
+                  <strong>Account type</strong>
+                  <p className="helper-text">
+                    {memberAccount
+                      ? formatMemberAccountType(memberAccount.accountType)
+                      : 'Safe smart account'}
+                  </p>
+                </div>
+                <div>
+                  <strong>Predicted actor address</strong>
+                  <p className="helper-text">
+                    {memberAccount?.accountAddress ??
+                      memberBinding?.actorAddress ??
+                      'Provision this browser to derive your member smart account.'}
+                  </p>
+                </div>
+                <div>
+                  <strong>Status note</strong>
+                  <p className="helper-text">
+                    {memberAccount?.statusNote ??
+                      'Your member garden account will lazy-deploy on the first live transaction.'}
+                  </p>
+                </div>
+                <div>
+                  <strong>Last garden sync</strong>
+                  <p className="helper-text">
+                    {memberBinding?.lastSyncedAt
+                      ? new Date(memberBinding.lastSyncedAt).toLocaleString()
+                      : memberBinding?.status === 'pending-sync'
+                        ? 'Waiting for a trusted operator to sync this member into the garden.'
+                        : 'No completed garden sync yet.'}
+                  </p>
+                </div>
+                <div>
+                  <strong>Recent member activity</strong>
+                  <p className="helper-text">
+                    {activeCoop.greenGoods.lastWorkSubmissionAt
+                      ? `Work submission ${new Date(activeCoop.greenGoods.lastWorkSubmissionAt).toLocaleString()}`
+                      : activeCoop.greenGoods.lastImpactReportAt
+                        ? `Impact report ${new Date(activeCoop.greenGoods.lastImpactReportAt).toLocaleString()}`
+                        : 'No member attestations recorded yet.'}
+                  </p>
+                </div>
+              </div>
+              {memberGardenerBundles.length > 0 ? (
+                <div className="operator-log-list">
+                  {memberGardenerBundles.map((bundle) => (
+                    <article className="operator-log-entry" key={bundle.id}>
+                      <div className="badge-row">
+                        <span className="badge">{bundle.status}</span>
+                        <span className="badge">
+                          {bundle.actionClass === 'green-goods-add-gardener'
+                            ? 'Add gardener'
+                            : 'Remove gardener'}
+                        </span>
+                      </div>
+                      <strong>{bundle.payload.gardenerAddress as string}</strong>
+                      <div className="helper-text">
+                        Queued {new Date(bundle.createdAt).toLocaleString()}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+              <div className="action-row">
+                <button
+                  className="primary-button"
+                  onClick={() => void onProvisionMemberOnchainAccount()}
+                  type="button"
+                >
+                  {memberAccount?.accountAddress
+                    ? 'Refresh local garden account'
+                    : 'Provision my garden account'}
+                </button>
+              </div>
+              {canSubmitMemberGreenGoodsActions ? (
+                <div className="detail-grid operator-console-grid">
+                  <form
+                    className="form-grid"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void onSubmitGreenGoodsImpactReport({
+                        title: impactReportDraft.title,
+                        description: impactReportDraft.description,
+                        domain: impactReportDraft.domain,
+                        reportCid: impactReportDraft.reportCid,
+                        metricsSummary: impactReportDraft.metricsSummary,
+                        reportingPeriodStart: Number(impactReportDraft.reportingPeriodStart),
+                        reportingPeriodEnd: Number(impactReportDraft.reportingPeriodEnd),
+                      });
+                    }}
+                  >
+                    <strong>Impact report</strong>
+                    <div className="field-grid">
+                      <label htmlFor="impact-title">Impact report title</label>
+                      <input
+                        id="impact-title"
+                        required
+                        value={impactReportDraft.title}
+                        onChange={(event) =>
+                          setImpactReportDraft((current) => ({
+                            ...current,
+                            title: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="field-grid">
+                      <label htmlFor="impact-description">What changed?</label>
+                      <textarea
+                        id="impact-description"
+                        required
+                        value={impactReportDraft.description}
+                        onChange={(event) =>
+                          setImpactReportDraft((current) => ({
+                            ...current,
+                            description: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="detail-grid">
+                      <div className="field-grid">
+                        <label htmlFor="impact-domain">Domain</label>
+                        <select
+                          id="impact-domain"
+                          value={impactReportDraft.domain}
+                          onChange={(event) =>
+                            setImpactReportDraft((current) => ({
+                              ...current,
+                              domain: event.target.value as 'solar' | 'agro' | 'edu' | 'waste',
+                            }))
+                          }
+                        >
+                          <option value="solar">solar</option>
+                          <option value="agro">agro</option>
+                          <option value="edu">edu</option>
+                          <option value="waste">waste</option>
+                        </select>
+                      </div>
+                      <div className="field-grid">
+                        <label htmlFor="impact-cid">Report CID</label>
+                        <input
+                          id="impact-cid"
+                          required
+                          value={impactReportDraft.reportCid}
+                          onChange={(event) =>
+                            setImpactReportDraft((current) => ({
+                              ...current,
+                              reportCid: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="field-grid">
+                      <label htmlFor="impact-metrics">Metrics summary</label>
+                      <textarea
+                        id="impact-metrics"
+                        required
+                        value={impactReportDraft.metricsSummary}
+                        onChange={(event) =>
+                          setImpactReportDraft((current) => ({
+                            ...current,
+                            metricsSummary: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="detail-grid">
+                      <div className="field-grid">
+                        <label htmlFor="impact-start">Period start (unix seconds)</label>
+                        <input
+                          id="impact-start"
+                          min="0"
+                          required
+                          type="number"
+                          value={impactReportDraft.reportingPeriodStart}
+                          onChange={(event) =>
+                            setImpactReportDraft((current) => ({
+                              ...current,
+                              reportingPeriodStart: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="field-grid">
+                        <label htmlFor="impact-end">Period end (unix seconds)</label>
+                        <input
+                          id="impact-end"
+                          min="0"
+                          required
+                          type="number"
+                          value={impactReportDraft.reportingPeriodEnd}
+                          onChange={(event) =>
+                            setImpactReportDraft((current) => ({
+                              ...current,
+                              reportingPeriodEnd: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="action-row">
+                      <button className="primary-button" type="submit">
+                        Submit impact from my account
+                      </button>
+                    </div>
+                  </form>
+
+                  <form
+                    className="form-grid"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void onSubmitGreenGoodsWorkSubmission({
+                        actionUid: Number(workSubmissionDraft.actionUid),
+                        title: workSubmissionDraft.title,
+                        feedback: workSubmissionDraft.feedback,
+                        metadataCid: workSubmissionDraft.metadataCid,
+                        mediaCids: workSubmissionDraft.mediaCids
+                          .split(/[\n,]+/)
+                          .map((value) => value.trim())
+                          .filter(Boolean),
+                      });
+                    }}
+                  >
+                    <strong>Work submission</strong>
+                    <div className="field-grid">
+                      <label htmlFor="work-action-uid">Action UID</label>
+                      <input
+                        id="work-action-uid"
+                        min="0"
+                        required
+                        type="number"
+                        value={workSubmissionDraft.actionUid}
+                        onChange={(event) =>
+                          setWorkSubmissionDraft((current) => ({
+                            ...current,
+                            actionUid: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="field-grid">
+                      <label htmlFor="work-title">Submission title</label>
+                      <input
+                        id="work-title"
+                        required
+                        value={workSubmissionDraft.title}
+                        onChange={(event) =>
+                          setWorkSubmissionDraft((current) => ({
+                            ...current,
+                            title: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="field-grid">
+                      <label htmlFor="work-feedback">Feedback</label>
+                      <textarea
+                        id="work-feedback"
+                        value={workSubmissionDraft.feedback}
+                        onChange={(event) =>
+                          setWorkSubmissionDraft((current) => ({
+                            ...current,
+                            feedback: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="field-grid">
+                      <label htmlFor="work-metadata-cid">Metadata CID</label>
+                      <input
+                        id="work-metadata-cid"
+                        required
+                        value={workSubmissionDraft.metadataCid}
+                        onChange={(event) =>
+                          setWorkSubmissionDraft((current) => ({
+                            ...current,
+                            metadataCid: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="field-grid">
+                      <label htmlFor="work-media-cids">Media CIDs</label>
+                      <textarea
+                        id="work-media-cids"
+                        placeholder="One CID per line or comma-separated"
+                        value={workSubmissionDraft.mediaCids}
+                        onChange={(event) =>
+                          setWorkSubmissionDraft((current) => ({
+                            ...current,
+                            mediaCids: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="action-row">
+                      <button className="primary-button" type="submit">
+                        Submit work submission
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                <p className="helper-text">
+                  {activeCoop.greenGoods.gardenAddress
+                    ? 'Provision your local garden account first. Once the address is predicted, this browser can submit impact and work submissions directly from your member smart account.'
+                    : 'Wait for the coop garden to be linked before submitting member attestations.'}
+                </p>
+              )}
+            </div>
+          )}
+        </article>
+      ) : null}
+
       <article className="panel-card">
         <h2>Mate Pocket Coop</h2>
         <p className="helper-text">
@@ -909,6 +1358,13 @@ export interface CoopFeedTabProps {
   handleRejectAgentPlan: (planId: string) => Promise<void>;
   handleRetrySkillRun: (skillRunId: string) => Promise<void>;
   handleToggleSkillAutoRun: (skillId: string, enabled: boolean) => Promise<void>;
+  handleImportKnowledgeSkill: (url: string) => Promise<void>;
+  handleRefreshKnowledgeSkill: (skillId: string) => Promise<void>;
+  handleSetCoopKnowledgeSkillEnabled: (skillId: string, enabled: boolean) => Promise<void>;
+  handleSaveKnowledgeSkillTriggerPatterns: (
+    skillId: string,
+    triggerPatterns: string[],
+  ) => Promise<void>;
   handleSetPolicy: (
     actionClass: import('@coop/shared').PolicyActionClass,
     approvalRequired: boolean,
@@ -949,6 +1405,7 @@ export interface CoopFeedTabProps {
     request: import('@coop/shared').GreenGoodsAssessmentRequest,
   ) => Promise<void>;
   handleQueueGreenGoodsGapAdminSync: (coopId: string) => Promise<void>;
+  handleQueueGreenGoodsMemberSync: (coopId: string) => Promise<void>;
   onAnchorOnChain: (receiptId: string) => void;
   onFvmRegister?: (receiptId: string) => void;
   loadDashboard: () => Promise<void>;
@@ -977,6 +1434,10 @@ export function CoopFeedTab({
   handleRejectAgentPlan,
   handleRetrySkillRun,
   handleToggleSkillAutoRun,
+  handleImportKnowledgeSkill,
+  handleRefreshKnowledgeSkill,
+  handleSetCoopKnowledgeSkillEnabled,
+  handleSaveKnowledgeSkillTriggerPatterns,
   handleSetPolicy,
   handleProposeAction,
   handleApproveAction,
@@ -991,6 +1452,7 @@ export function CoopFeedTab({
   handleQueueGreenGoodsWorkApproval,
   handleQueueGreenGoodsAssessment,
   handleQueueGreenGoodsGapAdminSync,
+  handleQueueGreenGoodsMemberSync,
   onAnchorOnChain,
   onFvmRegister,
 }: CoopFeedTabProps) {
@@ -1082,6 +1544,10 @@ export function CoopFeedTab({
           onRunAgentCycle={handleRunAgentCycle}
           onToggleAnchor={toggleAnchorMode}
           onToggleSkillAutoRun={handleToggleSkillAutoRun}
+          onImportKnowledgeSkill={handleImportKnowledgeSkill}
+          onRefreshKnowledgeSkill={handleRefreshKnowledgeSkill}
+          onSetCoopKnowledgeSkillEnabled={handleSetCoopKnowledgeSkillEnabled}
+          onSaveKnowledgeSkillTriggerPatterns={handleSaveKnowledgeSkillTriggerPatterns}
           onchainMode={dashboard?.operator.onchainMode ?? runtimeConfig.onchainMode}
           refreshableReceiptCount={refreshableArchiveReceipts.length}
           policies={actionPolicies}
@@ -1110,12 +1576,21 @@ export function CoopFeedTab({
                   coopName: activeCoop.profile.name,
                   enabled: activeCoop.greenGoods?.enabled ?? false,
                   gardenAddress: activeCoop.greenGoods?.gardenAddress,
+                  memberBindings: (activeCoop.greenGoods?.memberBindings ?? []).map((binding) => ({
+                    ...binding,
+                    memberDisplayName:
+                      activeCoop.members.find((member) => member.id === binding.memberId)
+                        ?.displayName ?? binding.memberId,
+                  })),
                 }
               : undefined
           }
           onQueueGreenGoodsWorkApproval={handleQueueGreenGoodsWorkApproval}
           onQueueGreenGoodsAssessment={handleQueueGreenGoodsAssessment}
           onQueueGreenGoodsGapAdminSync={handleQueueGreenGoodsGapAdminSync}
+          onQueueGreenGoodsMemberSync={handleQueueGreenGoodsMemberSync}
+          activeCoopName={activeCoop?.profile.name}
+          knowledgeSkills={agentDashboard?.knowledgeSkills ?? []}
           skillManifests={agentDashboard?.manifests ?? []}
           skillRuns={agentDashboard?.skillRuns ?? []}
           memories={agentDashboard?.memories ?? []}

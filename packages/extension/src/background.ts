@@ -14,6 +14,7 @@ import {
   selectActiveReceiverPairingsForSync,
   setAuthSession,
   setSoundPreferences,
+  setWebAuthnCredentialGetFnOverride,
   upsertLocalIdentity,
 } from '@coop/shared';
 import { listRegisteredSkills } from './runtime/agent-registry';
@@ -24,6 +25,9 @@ import type {
   RuntimeRequest,
 } from './runtime/messages';
 import { filterVisibleReceiverPairings } from './runtime/receiver';
+import { requestWebAuthnCredentialViaExtensionBridge } from './runtime/webauthn-bridge';
+
+setWebAuthnCredentialGetFnOverride(requestWebAuthnCredentialViaExtensionBridge);
 
 // ---- Context (shared state) ----
 import {
@@ -65,6 +69,7 @@ import {
   handleGetPermits,
   handleIssuePermit,
   handleProposeAction,
+  handleQueueGreenGoodsMemberSync,
   handleRejectAction,
   handleRevokePermit,
   handleSetActionPolicy,
@@ -74,14 +79,18 @@ import {
   ensureOnboardingBurst,
   handleApproveAgentPlan,
   handleGetAgentDashboard,
+  handleImportKnowledgeSkill,
   handleListSkillManifests,
   handleQueueGreenGoodsAssessment,
   handleQueueGreenGoodsGapAdminSync,
   handleQueueGreenGoodsWorkApproval,
+  handleRefreshKnowledgeSkill,
   handleRejectAgentPlan,
   handleRetrySkillRun,
   handleRunAgentCycle,
   handleSetAgentSkillAutoRun,
+  handleSetCoopKnowledgeSkillEnabled,
+  handleSetKnowledgeSkillTriggerPatterns,
   runProactiveAgentCycle,
   syncAgentObservations,
 } from './background/handlers/agent';
@@ -115,6 +124,11 @@ import {
   handleResolveOnchainState,
   handleSetAnchorMode,
 } from './background/handlers/coop';
+import {
+  handleProvisionMemberOnchainAccount,
+  handleSubmitGreenGoodsImpactReport,
+  handleSubmitGreenGoodsWorkSubmission,
+} from './background/handlers/member-account';
 import {
   handleArchiveReceiverIntake,
   handleConvertReceiverIntake,
@@ -370,6 +384,15 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
       case 'join-coop':
         sendResponse(await handleJoinCoop(message));
         return;
+      case 'provision-member-onchain-account':
+        sendResponse(await handleProvisionMemberOnchainAccount(message));
+        return;
+      case 'submit-green-goods-impact-report':
+        sendResponse(await handleSubmitGreenGoodsImpactReport(message));
+        return;
+      case 'submit-green-goods-work-submission':
+        sendResponse(await handleSubmitGreenGoodsWorkSubmission(message));
+        return;
       case 'publish-draft':
         sendResponse(await handlePublishDraft(message));
         return;
@@ -493,6 +516,9 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
       case 'queue-green-goods-gap-admin-sync':
         sendResponse(await handleQueueGreenGoodsGapAdminSync(message));
         return;
+      case 'queue-green-goods-member-sync':
+        sendResponse(await handleQueueGreenGoodsMemberSync(message));
+        return;
       case 'get-agent-dashboard':
         sendResponse(await handleGetAgentDashboard());
         return;
@@ -513,6 +539,18 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
         return;
       case 'set-agent-skill-auto-run':
         sendResponse(await handleSetAgentSkillAutoRun(message));
+        return;
+      case 'import-knowledge-skill':
+        sendResponse(await handleImportKnowledgeSkill(message));
+        return;
+      case 'refresh-knowledge-skill':
+        sendResponse(await handleRefreshKnowledgeSkill(message));
+        return;
+      case 'set-coop-knowledge-skill-enabled':
+        sendResponse(await handleSetCoopKnowledgeSkillEnabled(message));
+        return;
+      case 'set-knowledge-skill-trigger-patterns':
+        sendResponse(await handleSetKnowledgeSkillTriggerPatterns(message));
         return;
       case 'get-action-policies':
         sendResponse(await handleGetActionPolicies());

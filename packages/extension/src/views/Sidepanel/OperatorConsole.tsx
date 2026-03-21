@@ -9,6 +9,7 @@ import type {
   DelegatedActionClass,
   ExecutionPermit,
   GreenGoodsAssessmentRequest,
+  GreenGoodsMemberBinding,
   GreenGoodsWorkApprovalRequest,
   IntegrationMode,
   PermitLogEntry,
@@ -21,10 +22,12 @@ import type {
   SkillManifest,
   SkillRun,
 } from '@coop/shared';
+import type { AgentDashboardKnowledgeSkill } from '../../runtime/messages';
 import {
   AgentMemorySection,
   AgentObservationsSection,
   GardenRequestsSection,
+  KnowledgeSkillsSection,
   PermitSection,
   PolicyAndQueueSection,
   SessionCapabilitySection,
@@ -87,16 +90,26 @@ type OperatorConsoleProps = {
   skillRuns: SkillRun[];
   skillManifests: SkillManifest[];
   autoRunSkillIds: string[];
+  knowledgeSkills: AgentDashboardKnowledgeSkill[];
+  activeCoopName?: string;
   onRunAgentCycle(): void | Promise<void>;
   onApprovePlan(planId: string): void | Promise<void>;
   onRejectPlan(planId: string): void | Promise<void>;
   onRetrySkillRun(skillRunId: string): void | Promise<void>;
   onToggleSkillAutoRun(skillId: string, enabled: boolean): void | Promise<void>;
+  onImportKnowledgeSkill(url: string): void | Promise<void>;
+  onRefreshKnowledgeSkill(skillId: string): void | Promise<void>;
+  onSetCoopKnowledgeSkillEnabled(skillId: string, enabled: boolean): void | Promise<void>;
+  onSaveKnowledgeSkillTriggerPatterns(
+    skillId: string,
+    triggerPatterns: string[],
+  ): void | Promise<void>;
   greenGoodsContext?: {
     coopId: string;
     coopName: string;
     enabled: boolean;
     gardenAddress?: string;
+    memberBindings?: Array<GreenGoodsMemberBinding & { memberDisplayName: string }>;
   };
   onQueueGreenGoodsWorkApproval?(
     coopId: string,
@@ -107,6 +120,7 @@ type OperatorConsoleProps = {
     request: GreenGoodsAssessmentRequest,
   ): void | Promise<void>;
   onQueueGreenGoodsGapAdminSync?(coopId: string): void | Promise<void>;
+  onQueueGreenGoodsMemberSync?(coopId: string): void | Promise<void>;
   memories?: AgentMemory[];
 };
 
@@ -120,11 +134,23 @@ export function OperatorConsole(props: OperatorConsoleProps) {
         onToggleSkillAutoRun={props.onToggleSkillAutoRun}
       />
 
+      <KnowledgeSkillsSection
+        activeCoopName={props.activeCoopName}
+        knowledgeSkills={props.knowledgeSkills}
+        onImportKnowledgeSkill={props.onImportKnowledgeSkill}
+        onRefreshKnowledgeSkill={props.onRefreshKnowledgeSkill}
+        onSaveKnowledgeSkillTriggerPatterns={props.onSaveKnowledgeSkillTriggerPatterns}
+        onSetCoopKnowledgeSkillEnabled={props.onSetCoopKnowledgeSkillEnabled}
+      />
+
       <GardenRequestsSection
         greenGoodsContext={props.greenGoodsContext}
+        actionQueue={props.actionQueue}
+        actionHistory={props.actionHistory}
         onQueueGreenGoodsWorkApproval={props.onQueueGreenGoodsWorkApproval}
         onQueueGreenGoodsAssessment={props.onQueueGreenGoodsAssessment}
         onQueueGreenGoodsGapAdminSync={props.onQueueGreenGoodsGapAdminSync}
+        onQueueGreenGoodsMemberSync={props.onQueueGreenGoodsMemberSync}
       />
 
       <AgentObservationsSection

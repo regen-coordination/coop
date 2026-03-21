@@ -8,6 +8,7 @@ import type {
   DelegatedActionClass,
   ExecutionPermit,
   GreenGoodsAssessmentRequest,
+  GreenGoodsMemberBinding,
   GreenGoodsWorkApprovalRequest,
   IntegrationMode,
   PermitLogEntry,
@@ -30,6 +31,7 @@ import {
   formatSessionCapabilityStatusLabel,
 } from '@coop/shared';
 import { useState } from 'react';
+import type { AgentDashboardKnowledgeSkill } from '../../runtime/messages';
 
 /* ------------------------------------------------------------------ */
 /*  Shared helpers (module-private)                                    */
@@ -120,6 +122,30 @@ function defaultSessionActions(gardenAddress?: string): SessionCapableActionClas
     : ['green-goods-create-garden'];
 }
 
+function isGardenerActionClass(
+  actionClass: ActionBundle['actionClass'] | ActionLogEntry['actionClass'],
+) {
+  return (
+    actionClass === 'green-goods-add-gardener' || actionClass === 'green-goods-remove-gardener'
+  );
+}
+
+function readPayloadString(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function formatKnowledgeSkillFreshness(freshness: AgentDashboardKnowledgeSkill['freshness']) {
+  switch (freshness) {
+    case 'fresh':
+      return 'fresh';
+    case 'stale':
+      return 'stale';
+    case 'never-fetched':
+      return 'never fetched';
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  1. SkillManifestSection                                            */
 /* ------------------------------------------------------------------ */
@@ -183,7 +209,145 @@ export function SkillManifestSection(props: SkillManifestSectionProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  2. GardenRequestsSection                                           */
+/*  2. KnowledgeSkillsSection                                          */
+/* ------------------------------------------------------------------ */
+
+export type KnowledgeSkillsSectionProps = {
+  knowledgeSkills: AgentDashboardKnowledgeSkill[];
+  activeCoopName?: string;
+  onImportKnowledgeSkill(url: string): void | Promise<void>;
+  onRefreshKnowledgeSkill(skillId: string): void | Promise<void>;
+  onSetCoopKnowledgeSkillEnabled(skillId: string, enabled: boolean): void | Promise<void>;
+  onSaveKnowledgeSkillTriggerPatterns(
+    skillId: string,
+    triggerPatterns: string[],
+  ): void | Promise<void>;
+};
+
+export function KnowledgeSkillsSection(props: KnowledgeSkillsSectionProps) {
+  const [importUrl, setImportUrl] = useState('');
+  const [draftPatterns, setDraftPatterns] = useState<Record<string, string>>({});
+  const coopLabel = props.activeCoopName ?? 'this coop';
+
+  return (
+    <details className="panel-card collapsible-card" open={props.knowledgeSkills.length > 0}>
+      <summary>
+        <h3>Knowledge Skills</h3>
+      </summary>
+      <div className="collapsible-card__content">
+        <p className="helper-text">
+          Import external <code>SKILL.md</code> references and decide how they should shape this
+          coop&apos;s local prompts.
+        </p>
+        <div className="action-row">
+          <input
+            aria-label="Knowledge skill URL"
+            onChange={(event) => setImportUrl(event.target.value)}
+            placeholder="https://example.com/path/to/SKILL.md"
+            type="url"
+            value={importUrl}
+          />
+          <button
+            className="secondary-button"
+            disabled={!importUrl.trim()}
+            onClick={async () => {
+              await props.onImportKnowledgeSkill(importUrl.trim());
+              setImportUrl('');
+            }}
+            type="button"
+          >
+            Import skill
+          </button>
+        </div>
+        {props.knowledgeSkills.map((entry) => {
+          const patternValue =
+            draftPatterns[entry.skill.id] ?? entry.skill.triggerPatterns.join(', ');
+
+          return (
+            <article className="operator-log-entry" key={entry.skill.id}>
+              <div className="badge-row">
+                <span className="badge">{formatKnowledgeSkillFreshness(entry.freshness)}</span>
+                <span className="badge">{entry.effectiveEnabled ? 'enabled' : 'disabled'}</span>
+              </div>
+              <strong>{entry.skill.name}</strong>
+              <p className="helper-text">{entry.skill.description || 'No description yet.'}</p>
+              <a href={entry.skill.url} rel="noreferrer" target="_blank">
+                {entry.skill.url}
+              </a>
+              <label className="helper-text">
+                <input
+                  checked={entry.effectiveEnabled}
+                  onChange={() =>
+                    void props.onSetCoopKnowledgeSkillEnabled(
+                      entry.skill.id,
+                      !entry.effectiveEnabled,
+                    )
+                  }
+                  type="checkbox"
+                />{' '}
+                Enable for {coopLabel}
+              </label>
+              <label className="helper-text" htmlFor={`knowledge-patterns-${entry.skill.id}`}>
+                Trigger patterns
+              </label>
+              <textarea
+                id={`knowledge-patterns-${entry.skill.id}`}
+                onChange={(event) =>
+                  setDraftPatterns((current) => ({
+                    ...current,
+                    [entry.skill.id]: event.target.value,
+                  }))
+                }
+                rows={3}
+                value={patternValue}
+              />
+              <div className="action-row">
+                <button
+                  className="secondary-button"
+                  onClick={() => void props.onRefreshKnowledgeSkill(entry.skill.id)}
+                  type="button"
+                >
+                  Refresh skill
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={() =>
+                    void props.onSaveKnowledgeSkillTriggerPatterns(
+                      entry.skill.id,
+                      patternValue
+                        .split(/[\n,]/)
+                        .map((pattern) => pattern.trim())
+                        .filter(Boolean),
+                    )
+                  }
+                  type="button"
+                >
+                  Save patterns
+                </button>
+              </div>
+              <div className="helper-text">
+                {entry.override
+                  ? `Coop override is ${entry.override.enabled ? 'enabled' : 'disabled'}.`
+                  : 'Using the global default for this skill.'}
+              </div>
+              {entry.skill.fetchedAt ? (
+                <div className="helper-text">
+                  Last fetched {new Date(entry.skill.fetchedAt).toLocaleString()}
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+        {props.knowledgeSkills.length === 0 ? (
+          <div className="empty-state">No knowledge skills imported yet.</div>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  3. GardenRequestsSection                                           */
 /* ------------------------------------------------------------------ */
 
 export type GardenRequestsSectionProps = {
@@ -192,7 +356,10 @@ export type GardenRequestsSectionProps = {
     coopName: string;
     enabled: boolean;
     gardenAddress?: string;
+    memberBindings?: Array<GreenGoodsMemberBinding & { memberDisplayName: string }>;
   };
+  actionQueue: ActionBundle[];
+  actionHistory: ActionLogEntry[];
   onQueueGreenGoodsWorkApproval?(
     coopId: string,
     request: GreenGoodsWorkApprovalRequest,
@@ -202,12 +369,24 @@ export type GardenRequestsSectionProps = {
     request: GreenGoodsAssessmentRequest,
   ): void | Promise<void>;
   onQueueGreenGoodsGapAdminSync?(coopId: string): void | Promise<void>;
+  onQueueGreenGoodsMemberSync?(coopId: string): void | Promise<void>;
 };
 
 export function GardenRequestsSection(props: GardenRequestsSectionProps) {
   const canQueueGreenGoods = Boolean(
     props.greenGoodsContext?.enabled && props.greenGoodsContext.gardenAddress,
   );
+  const memberBindings = props.greenGoodsContext?.memberBindings ?? [];
+  const syncableBindings = memberBindings.filter((binding) => binding.status !== 'synced');
+  const pendingAccountBindings = memberBindings.filter(
+    (binding) => binding.status === 'pending-account',
+  );
+  const queuedGardenerBundles = props.actionQueue.filter((bundle) =>
+    isGardenerActionClass(bundle.actionClass),
+  );
+  const recentGardenerLogEntries = props.actionHistory
+    .filter((entry) => isGardenerActionClass(entry.actionClass))
+    .slice(0, 6);
 
   const [workApproval, setWorkApproval] = useState({
     actionUid: '',
@@ -240,6 +419,24 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
               Queue bounded garden actions for {props.greenGoodsContext.coopName}. The garden
               address is {props.greenGoodsContext.gardenAddress}.
             </p>
+            <div className="summary-strip">
+              <div className="summary-card">
+                <span>Garden actors</span>
+                <strong>{memberBindings.length}</strong>
+              </div>
+              <div className="summary-card">
+                <span>Need sync</span>
+                <strong>{syncableBindings.length}</strong>
+              </div>
+              <div className="summary-card">
+                <span>Waiting on account</span>
+                <strong>{pendingAccountBindings.length}</strong>
+              </div>
+              <div className="summary-card">
+                <span>Queued bundles</span>
+                <strong>{queuedGardenerBundles.length}</strong>
+              </div>
+            </div>
             <div className="action-row">
               <button
                 className="secondary-button"
@@ -250,7 +447,84 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
               >
                 Sync garden admins
               </button>
+              <button
+                className="secondary-button"
+                disabled={syncableBindings.length === 0}
+                onClick={() =>
+                  void props.onQueueGreenGoodsMemberSync?.(props.greenGoodsContext.coopId)
+                }
+                type="button"
+              >
+                Queue gardener sync
+              </button>
             </div>
+            {memberBindings.length > 0 ? (
+              <div className="operator-log-list">
+                {memberBindings.map((binding) => (
+                  <article className="operator-log-entry" key={binding.memberId}>
+                    <div className="badge-row">
+                      <span className="badge">{binding.status}</span>
+                      <span className="badge">{binding.desiredRoles.join(', ') || 'no roles'}</span>
+                    </div>
+                    <strong>{binding.memberDisplayName}</strong>
+                    <div className="helper-text">
+                      Actor: {binding.actorAddress ?? 'awaiting local provisioning'}
+                    </div>
+                    {binding.syncedActorAddress ? (
+                      <div className="helper-text">
+                        Last synced actor: {binding.syncedActorAddress}
+                      </div>
+                    ) : null}
+                    {binding.lastError ? (
+                      <div className="helper-text">Last error: {binding.lastError}</div>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            ) : null}
+            {queuedGardenerBundles.length > 0 ? (
+              <div className="operator-log-list">
+                {queuedGardenerBundles.map((bundle) => {
+                  const targetMemberId = readPayloadString(bundle.payload, 'memberId');
+                  const targetMemberName =
+                    memberBindings.find((binding) => binding.memberId === targetMemberId)
+                      ?.memberDisplayName ??
+                    targetMemberId ??
+                    'Unknown member';
+                  const gardenerAddress = readPayloadString(bundle.payload, 'gardenerAddress');
+
+                  return (
+                    <article className="operator-log-entry" key={bundle.id}>
+                      <div className="badge-row">
+                        <span className="badge">{bundle.status}</span>
+                        <span className="badge">{formatActionClassLabel(bundle.actionClass)}</span>
+                      </div>
+                      <strong>{targetMemberName}</strong>
+                      <div className="helper-text">
+                        {gardenerAddress
+                          ? `Gardener ${gardenerAddress}`
+                          : 'Gardener address pending'}{' '}
+                        · Queued {new Date(bundle.createdAt).toLocaleString()}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : null}
+            {recentGardenerLogEntries.length > 0 ? (
+              <div className="operator-log-list">
+                {recentGardenerLogEntries.map((entry) => (
+                  <article className="operator-log-entry" key={entry.id}>
+                    <div className="badge-row">
+                      <span className="badge">{formatActionLogEventLabel(entry.eventType)}</span>
+                      <span className="badge">{formatActionClassLabel(entry.actionClass)}</span>
+                    </div>
+                    <strong>{entry.detail}</strong>
+                    <div className="helper-text">{new Date(entry.createdAt).toLocaleString()}</div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
             <div className="detail-grid operator-console-grid">
               <form
                 onSubmit={(event) => {
@@ -893,6 +1167,7 @@ export type SessionCapabilitySectionProps = {
     coopName: string;
     enabled: boolean;
     gardenAddress?: string;
+    memberBindings?: Array<GreenGoodsMemberBinding & { memberDisplayName: string }>;
   };
   onIssueSessionCapability(input: {
     coopId: string;

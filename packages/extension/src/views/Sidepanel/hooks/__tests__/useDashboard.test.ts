@@ -25,6 +25,8 @@ vi.mock('../../../../runtime/config', () => ({
   resolveConfiguredArchiveMode: () => 'mock',
   resolveConfiguredOnchainMode: () => 'mock',
   resolveConfiguredSessionMode: () => 'passkey',
+  resolveConfiguredProviderMode: () => 'auto',
+  resolveConfiguredPrivacyMode: () => 'off',
   resolveReceiverAppUrl: () => 'https://app.test',
   parseConfiguredSignalingUrls: () => [],
 }));
@@ -117,6 +119,8 @@ function makeAgentDashboardResponse() {
       skillRuns: [],
       manifests: [],
       autoRunSkillIds: [],
+      memories: [],
+      knowledgeSkills: [],
     },
   };
 }

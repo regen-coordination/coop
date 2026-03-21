@@ -235,6 +235,85 @@ export function SidepanelApp() {
     await loadDashboard();
   }
 
+  async function handleProvisionMemberOnchainAccount() {
+    if (!activeCoop || !activeMember) {
+      setMessage('Open the coop as the member who should own the garden account first.');
+      return;
+    }
+
+    const response = await sendRuntimeMessage({
+      type: 'provision-member-onchain-account',
+      payload: {
+        coopId: activeCoop.profile.id,
+        memberId: activeMember.id,
+      },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not provision the member smart account.');
+      return;
+    }
+    setMessage('Member smart account predicted and stored on this browser.');
+    await loadDashboard();
+  }
+
+  async function handleSubmitGreenGoodsImpactReport(input: {
+    title: string;
+    description: string;
+    domain: 'solar' | 'agro' | 'edu' | 'waste';
+    reportCid: string;
+    metricsSummary: string;
+    reportingPeriodStart: number;
+    reportingPeriodEnd: number;
+  }) {
+    if (!activeCoop || !activeMember) {
+      setMessage('Open the coop as the member who should submit this report first.');
+      return;
+    }
+
+    const response = await sendRuntimeMessage({
+      type: 'submit-green-goods-impact-report',
+      payload: {
+        coopId: activeCoop.profile.id,
+        memberId: activeMember.id,
+        report: input,
+      },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not submit the Green Goods impact report.');
+      return;
+    }
+    setMessage('Green Goods impact report submitted from your member smart account.');
+    await loadDashboard();
+  }
+
+  async function handleSubmitGreenGoodsWorkSubmission(input: {
+    actionUid: number;
+    title: string;
+    feedback: string;
+    metadataCid: string;
+    mediaCids: string[];
+  }) {
+    if (!activeCoop || !activeMember) {
+      setMessage('Open the coop as the member who should submit this work first.');
+      return;
+    }
+
+    const response = await sendRuntimeMessage({
+      type: 'submit-green-goods-work-submission',
+      payload: {
+        coopId: activeCoop.profile.id,
+        memberId: activeMember.id,
+        submission: input,
+      },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not submit the Green Goods work submission.');
+      return;
+    }
+    setMessage('Green Goods work submission submitted from your member smart account.');
+    await loadDashboard();
+  }
+
   async function selectReceiverPairing(pairingId: string) {
     const response = await sendRuntimeMessage({
       type: 'set-active-receiver-pairing',
@@ -627,6 +706,72 @@ export function SidepanelApp() {
     await loadAgentDashboard();
   }
 
+  async function handleImportKnowledgeSkill(url: string) {
+    const response = await sendRuntimeMessage<AgentDashboardResponse>({
+      type: 'import-knowledge-skill',
+      payload: { url },
+    });
+    if (!response.ok || !response.data) {
+      setMessage(response.error ?? 'Could not import the knowledge skill.');
+      return;
+    }
+    setAgentDashboard(response.data);
+    setMessage('Knowledge skill imported.');
+  }
+
+  async function handleRefreshKnowledgeSkill(skillId: string) {
+    const response = await sendRuntimeMessage<AgentDashboardResponse>({
+      type: 'refresh-knowledge-skill',
+      payload: { skillId },
+    });
+    if (!response.ok || !response.data) {
+      setMessage(response.error ?? 'Could not refresh the knowledge skill.');
+      return;
+    }
+    setAgentDashboard(response.data);
+    setMessage('Knowledge skill refreshed.');
+  }
+
+  async function handleSetCoopKnowledgeSkillEnabled(skillId: string, enabled: boolean) {
+    if (!activeCoop) {
+      setMessage('Select a coop before updating knowledge skills.');
+      return;
+    }
+
+    const response = await sendRuntimeMessage<AgentDashboardResponse>({
+      type: 'set-coop-knowledge-skill-enabled',
+      payload: {
+        coopId: activeCoop.profile.id,
+        knowledgeSkillId: skillId,
+        enabled,
+      },
+    });
+    if (!response.ok || !response.data) {
+      setMessage(response.error ?? 'Could not update the coop knowledge-skill setting.');
+      return;
+    }
+    setAgentDashboard(response.data);
+    setMessage(
+      `Knowledge skill ${enabled ? 'enabled' : 'disabled'} for ${activeCoop.profile.name}.`,
+    );
+  }
+
+  async function handleSaveKnowledgeSkillTriggerPatterns(
+    skillId: string,
+    triggerPatterns: string[],
+  ) {
+    const response = await sendRuntimeMessage<AgentDashboardResponse>({
+      type: 'set-knowledge-skill-trigger-patterns',
+      payload: { skillId, triggerPatterns },
+    });
+    if (!response.ok || !response.data) {
+      setMessage(response.error ?? 'Could not save trigger patterns.');
+      return;
+    }
+    setAgentDashboard(response.data);
+    setMessage('Knowledge skill trigger patterns saved.');
+  }
+
   async function handleQueueGreenGoodsWorkApproval(
     coopId: string,
     request: GreenGoodsWorkApprovalRequest,
@@ -672,6 +817,35 @@ export function SidepanelApp() {
     }
     setMessage('Green Goods GAP admin sync queued.');
     await loadAgentDashboard();
+    await loadDashboard();
+  }
+
+  async function handleQueueGreenGoodsMemberSync(coopId: string) {
+    const response = await sendRuntimeMessage<{
+      proposed: number;
+      skippedMemberIds: string[];
+    }>({
+      type: 'queue-green-goods-member-sync',
+      payload: { coopId },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not queue gardener sync.');
+      return;
+    }
+
+    const proposed = response.data?.proposed ?? 0;
+    const skipped = response.data?.skippedMemberIds.length ?? 0;
+    setMessage(
+      proposed > 0
+        ? `Queued ${proposed} gardener sync action${proposed === 1 ? '' : 's'}${
+            skipped > 0
+              ? ` and skipped ${skipped} member${skipped === 1 ? '' : 's'} waiting on provisioning.`
+              : '.'
+          }`
+        : skipped > 0
+          ? `No gardener actions were needed. ${skipped} member${skipped === 1 ? '' : 's'} still need a local account.`
+          : 'Garden member bindings are already in sync.',
+    );
     await loadDashboard();
   }
 
@@ -929,6 +1103,7 @@ export function SidepanelApp() {
           <ErrorBoundary>
             <NestTab
               activeCoop={activeCoop}
+              activeMember={activeMember}
               runtimeConfig={runtimeConfig}
               stealthMetaAddress={stealthMetaAddress}
               coopForm={coopForm}
@@ -943,6 +1118,10 @@ export function SidepanelApp() {
               copyText={copyText}
               receiverIntake={receiverIntake}
               draftEditor={draftEditor}
+              greenGoodsActionQueue={dashboard?.operator.policyActionQueue ?? []}
+              onProvisionMemberOnchainAccount={handleProvisionMemberOnchainAccount}
+              onSubmitGreenGoodsWorkSubmission={handleSubmitGreenGoodsWorkSubmission}
+              onSubmitGreenGoodsImpactReport={handleSubmitGreenGoodsImpactReport}
             />
           </ErrorBoundary>
         )}
@@ -971,6 +1150,10 @@ export function SidepanelApp() {
               handleRejectAgentPlan={handleRejectAgentPlan}
               handleRetrySkillRun={handleRetrySkillRun}
               handleToggleSkillAutoRun={handleToggleSkillAutoRun}
+              handleImportKnowledgeSkill={handleImportKnowledgeSkill}
+              handleRefreshKnowledgeSkill={handleRefreshKnowledgeSkill}
+              handleSetCoopKnowledgeSkillEnabled={handleSetCoopKnowledgeSkillEnabled}
+              handleSaveKnowledgeSkillTriggerPatterns={handleSaveKnowledgeSkillTriggerPatterns}
               handleSetPolicy={handleSetPolicy}
               handleProposeAction={handleProposeAction}
               handleApproveAction={handleApproveAction}
@@ -985,6 +1168,7 @@ export function SidepanelApp() {
               handleQueueGreenGoodsWorkApproval={handleQueueGreenGoodsWorkApproval}
               handleQueueGreenGoodsAssessment={handleQueueGreenGoodsAssessment}
               handleQueueGreenGoodsGapAdminSync={handleQueueGreenGoodsGapAdminSync}
+              handleQueueGreenGoodsMemberSync={handleQueueGreenGoodsMemberSync}
               onAnchorOnChain={handleAnchorOnChain}
               onFvmRegister={handleFvmRegister}
               loadDashboard={loadDashboard}

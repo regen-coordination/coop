@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { registerWebAuthnCredentialBridge } from '../../runtime/webauthn-bridge';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { SidepanelApp } from './SidepanelApp';
 import '../../global.css';
@@ -7,6 +8,8 @@ import '../../global.css';
 window.addEventListener('unhandledrejection', (event) => {
   console.warn('[coop:sidepanel] unhandled rejection:', event.reason);
 });
+
+registerWebAuthnCredentialBridge();
 
 const rootElement = document.getElementById('root');
 
