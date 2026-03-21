@@ -102,7 +102,9 @@ export function PopupProfilePanel(props: {
                     <button
                       className="popup-text-button popup-text-button--small"
                       onClick={() => {
-                        onCopyInviteCode(coop.name, coop.inviteCode!);
+                        const code = coop.inviteCode;
+                        if (!code) return;
+                        onCopyInviteCode(coop.name, code);
                         setCopiedCoopName(coop.name);
                         setTimeout(() => setCopiedCoopName(null), 2000);
                       }}

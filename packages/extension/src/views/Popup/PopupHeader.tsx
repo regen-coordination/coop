@@ -74,8 +74,18 @@ export function PopupHeader(props: {
       }
     }
 
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setPopoverOpen(false);
+      }
+    }
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, [popoverOpen]);
 
   const showPlusButton = onCreateCoop || onJoinCoop;
@@ -129,6 +139,8 @@ export function PopupHeader(props: {
                   <button
                     {...targetProps}
                     aria-label="Create or join"
+                    aria-expanded={popoverOpen}
+                    aria-haspopup="menu"
                     className="popup-icon-button"
                     onClick={() => setPopoverOpen((current) => !current)}
                     type="button"
@@ -140,10 +152,11 @@ export function PopupHeader(props: {
                 )}
               </PopupTooltip>
               {popoverOpen ? (
-                <div className="popup-create-popover">
+                <div className="popup-create-popover" role="menu">
                   {onCreateCoop ? (
                     <button
                       className="popup-create-popover__item"
+                      role="menuitem"
                       onClick={() => {
                         setPopoverOpen(false);
                         onCreateCoop();
@@ -156,6 +169,7 @@ export function PopupHeader(props: {
                   {onJoinCoop ? (
                     <button
                       className="popup-create-popover__item"
+                      role="menuitem"
                       onClick={() => {
                         setPopoverOpen(false);
                         onJoinCoop();

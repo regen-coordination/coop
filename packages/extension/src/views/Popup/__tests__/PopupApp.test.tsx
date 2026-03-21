@@ -755,10 +755,10 @@ describe('PopupApp', () => {
 
     await user.click(plusButton);
 
-    expect(await screen.findByRole('button', { name: 'Create coop' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Join with code' })).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Create coop' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Join with code' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Create coop' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Create coop' }));
 
     expect(await screen.findByRole('heading', { name: 'Start your coop.' })).toBeInTheDocument();
   });

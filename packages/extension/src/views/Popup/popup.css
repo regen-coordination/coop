@@ -1360,6 +1360,11 @@ body::-webkit-scrollbar,
   background: var(--popup-active-bg);
 }
 
+.popup-create-popover__item:focus-visible {
+  outline: 2px solid var(--popup-active-border);
+  outline-offset: -2px;
+}
+
 .popup-profile-panel__coop-list {
   display: flex;
   flex-direction: column;
