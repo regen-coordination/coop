@@ -1,4 +1,4 @@
-import type { ArtifactCategory, ReviewDraftWorkflowStage } from '@coop/shared';
+import type { Artifact, ArtifactCategory, ReviewDraftWorkflowStage } from '@coop/shared';
 
 export type PopupScreen =
   | 'home'
@@ -50,6 +50,10 @@ export interface PopupHomeQueueItem {
   category: ArtifactCategory;
   coopLabel: string;
   workflowStage: ReviewDraftWorkflowStage;
+}
+
+export interface PopupFeedArtifactItem extends Artifact {
+  coopLabel: string;
 }
 
 export type PopupFooterTab = 'home' | 'feed' | 'coops';

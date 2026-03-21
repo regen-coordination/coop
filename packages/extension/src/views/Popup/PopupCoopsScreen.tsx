@@ -1,5 +1,5 @@
 export function PopupCoopsScreen(props: {
-  coops: { id: string; name: string; badgeText?: string }[];
+  coops: { id: string; name: string; badgeText?: string; disabled?: boolean }[];
   activeCoopId?: string;
   onSwitch: (coopId: string) => void | Promise<void>;
   onCreate: () => void;
@@ -28,6 +28,7 @@ export function PopupCoopsScreen(props: {
             <li key={coop.id}>
               <button
                 className={`popup-switcher-row${coop.id === activeCoopId ? ' is-active' : ''}`}
+                disabled={coop.disabled}
                 onClick={() => void onSwitch(coop.id)}
                 type="button"
               >
@@ -38,9 +39,7 @@ export function PopupCoopsScreen(props: {
           ))}
         </ul>
       ) : (
-        <p className="popup-empty-state">
-          This browser is only connected to one coop right now.
-        </p>
+        <p className="popup-empty-state">This browser is only connected to one coop right now.</p>
       )}
 
       <div className="popup-stack">

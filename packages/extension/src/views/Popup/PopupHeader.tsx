@@ -74,10 +74,10 @@ export function PopupHeader(props: {
     workspaceOpen && workspaceCanClose ? 'Close sidepanel' : 'Open sidepanel';
   const workspaceTooltip =
     workspaceOpen && workspaceCanClose
-      ? 'Close the Coop sidepanel in this window.'
+      ? 'Close sidepanel'
       : workspaceOpen
-        ? 'The Coop sidepanel is already open in this window.'
-        : 'Open the Coop sidepanel in this window.';
+        ? 'Sidepanel already open'
+        : 'Open sidepanel';
 
   return (
     <header className="popup-header">

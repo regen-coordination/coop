@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import type { ReviewDraft } from '@coop/shared';
+import { useState } from 'react';
 
 export function PopupDraftDetailScreen(props: {
   draft: ReviewDraft;
@@ -8,9 +8,8 @@ export function PopupDraftDetailScreen(props: {
   onSave: () => void | Promise<void>;
   onToggleReady: () => void | Promise<void>;
   onShare: () => void | Promise<void>;
-  onOpenWorkspace: () => void;
 }) {
-  const { draft, saving, onChange, onSave, onToggleReady, onShare, onOpenWorkspace } = props;
+  const { draft, saving, onChange, onSave, onToggleReady, onShare } = props;
   const [previewMissing, setPreviewMissing] = useState(false);
 
   return (
@@ -83,12 +82,6 @@ export function PopupDraftDetailScreen(props: {
             ) : null}
           </div>
         </div>
-      </div>
-
-      <div className="popup-inline-actions">
-        <button className="popup-text-button" onClick={onOpenWorkspace} type="button">
-          Open sidepanel for synthesis
-        </button>
       </div>
     </section>
   );

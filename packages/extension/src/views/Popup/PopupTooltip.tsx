@@ -1,5 +1,12 @@
-import type { HTMLAttributes, ReactNode } from 'react';
-import { useId, useRef, useState } from 'react';
+import type { CSSProperties, HTMLAttributes, ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+
+type TooltipPlacement = 'above' | 'below';
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
 
 export function PopupTooltip(props: {
   content: string;
@@ -8,21 +15,85 @@ export function PopupTooltip(props: {
 }) {
   const { content, align = 'center', children } = props;
   const [open, setOpen] = useState(false);
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  const [placement, setPlacement] = useState<TooltipPlacement>('above');
+  const [bubbleStyle, setBubbleStyle] = useState<CSSProperties | null>(null);
   const tooltipId = useId();
-  const ref = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    setHost(document.querySelector<HTMLElement>('[data-popup-tooltip-root]'));
+  }, []);
+
+  const updatePosition = useCallback(() => {
+    if (!open || !host || !wrapperRef.current || !bubbleRef.current) {
+      setBubbleStyle(null);
+      return;
+    }
+
+    const gap = 8;
+    const inset = 4;
+    const hostRect = host.getBoundingClientRect();
+    const wrapperRect = wrapperRef.current.getBoundingClientRect();
+    const bubbleRect = bubbleRef.current.getBoundingClientRect();
+    const maxLeft = Math.max(inset, hostRect.width - bubbleRect.width - inset);
+    const maxTop = Math.max(inset, hostRect.height - bubbleRect.height - inset);
+
+    const alignedLeft =
+      align === 'start'
+        ? wrapperRect.left - hostRect.left
+        : align === 'end'
+          ? wrapperRect.right - hostRect.left - bubbleRect.width
+          : wrapperRect.left - hostRect.left + wrapperRect.width / 2 - bubbleRect.width / 2;
+    const left = clamp(alignedLeft, inset, maxLeft);
+
+    const preferredTop = wrapperRect.top - hostRect.top - bubbleRect.height - gap;
+    const nextPlacement: TooltipPlacement = preferredTop >= inset ? 'above' : 'below';
+    const rawTop =
+      nextPlacement === 'above' ? preferredTop : wrapperRect.bottom - hostRect.top + gap;
+    const top = clamp(rawTop, inset, maxTop);
+
+    setPlacement(nextPlacement);
+    setBubbleStyle({
+      left,
+      top,
+    });
+  }, [align, host, open]);
+
+  useLayoutEffect(() => {
+    updatePosition();
+  }, [content, open, updatePosition]);
+
+  useEffect(() => {
+    if (!open || !host) {
+      return;
+    }
+
+    const update = () => {
+      updatePosition();
+    };
+
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [host, open, updatePosition]);
 
   return (
     <div
       className={`popup-tooltip popup-tooltip--${align}`}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
-      ref={ref}
+      ref={wrapperRef}
     >
       {children({
         targetProps: {
           'aria-describedby': open ? tooltipId : undefined,
           onBlur: (event) => {
-            if (ref.current?.contains(event.relatedTarget as Node | null)) {
+            if (wrapperRef.current?.contains(event.relatedTarget as Node | null)) {
               return;
             }
             setOpen(false);
@@ -35,15 +106,20 @@ export function PopupTooltip(props: {
           },
         },
       })}
-      {open ? (
-        <span
-          className={`popup-tooltip__bubble popup-tooltip__bubble--${align} is-open`}
-          id={tooltipId}
-          role="tooltip"
-        >
-          {content}
-        </span>
-      ) : null}
+      {open && host
+        ? createPortal(
+            <span
+              className={`popup-tooltip__bubble popup-tooltip__bubble--${placement} is-open`}
+              id={tooltipId}
+              ref={bubbleRef}
+              role="tooltip"
+              style={bubbleStyle ?? { left: 0, top: 0, visibility: 'hidden' }}
+            >
+              {content}
+            </span>,
+            host,
+          )
+        : null}
     </div>
   );
 }

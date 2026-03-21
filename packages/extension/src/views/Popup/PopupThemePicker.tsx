@@ -1,10 +1,10 @@
-import type { PopupThemePreference } from './popup-types';
 import { PopupTooltip } from './PopupTooltip';
+import type { PopupThemePreference } from './popup-types';
 
 const themeOrder: PopupThemePreference[] = ['system', 'dark', 'light'];
 const themeLabels: Record<PopupThemePreference, string> = {
-  light: 'Light',
   dark: 'Dark',
+  light: 'Light',
   system: 'System',
 };
 
@@ -59,14 +59,15 @@ export function PopupThemeToggle(props: {
 }) {
   const { themePreference, onSetTheme } = props;
   const upcomingTheme = nextTheme(themePreference);
-  const tooltipLabel = `Theme: ${themeLabels[themePreference]}. Switch to ${themeLabels[upcomingTheme]}.`;
+  const tooltipLabel = 'Change theme';
+  const ariaLabel = `Change theme. Current theme: ${themeLabels[themePreference]}. Next: ${themeLabels[upcomingTheme]}.`;
 
   return (
     <PopupTooltip align="end" content={tooltipLabel}>
       {({ targetProps }) => (
         <button
           {...targetProps}
-          aria-label={tooltipLabel}
+          aria-label={ariaLabel}
           className="popup-theme-toggle"
           onClick={() => onSetTheme(upcomingTheme)}
           type="button"

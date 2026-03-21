@@ -5,9 +5,8 @@ export function PopupDraftListScreen(props: {
   onOpenDraft: (draftId: string) => void;
   onMarkReady: (draft: ReviewDraft) => void | Promise<void>;
   onShare: (draft: ReviewDraft) => void | Promise<void>;
-  onOpenWorkspace: () => void;
 }) {
-  const { drafts, onOpenDraft, onMarkReady, onShare, onOpenWorkspace } = props;
+  const { drafts, onOpenDraft, onMarkReady, onShare } = props;
 
   return (
     <section className="popup-screen">
@@ -59,12 +58,6 @@ export function PopupDraftListScreen(props: {
       ) : (
         <p className="popup-empty-state">No items are waiting for review right now.</p>
       )}
-
-      <div className="popup-inline-actions">
-        <button className="popup-text-button" onClick={onOpenWorkspace} type="button">
-          Open sidepanel for deeper review
-        </button>
-      </div>
     </section>
   );
 }

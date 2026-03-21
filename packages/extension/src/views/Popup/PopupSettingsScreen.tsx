@@ -7,7 +7,6 @@ export function PopupSettingsScreen(props: {
   onToggleNotifications: (enabled: boolean) => void | Promise<void>;
   onToggleLocalHelper: (enabled: boolean) => void | Promise<void>;
   onSetAgentCadence: (minutes: UiPreferences['agentCadenceMinutes']) => void | Promise<void>;
-  onOpenWorkspace: () => void;
 }) {
   const {
     soundPreferences,
@@ -16,7 +15,6 @@ export function PopupSettingsScreen(props: {
     onToggleNotifications,
     onToggleLocalHelper,
     onSetAgentCadence,
-    onOpenWorkspace,
   } = props;
 
   return (
@@ -76,12 +74,6 @@ export function PopupSettingsScreen(props: {
             <option value="on">On</option>
           </select>
         </label>
-      </div>
-
-      <div className="popup-inline-actions">
-        <button className="popup-text-button" onClick={onOpenWorkspace} type="button">
-          Open sidepanel for advanced controls
-        </button>
       </div>
     </section>
   );

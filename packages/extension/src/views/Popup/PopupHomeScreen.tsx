@@ -59,7 +59,7 @@ export function PopupHomeScreen(props: {
   } = props;
 
   return (
-    <section className="popup-screen">
+    <section className="popup-screen popup-screen--home">
       <div className="popup-stat-grid" aria-label="Quick status">
         <div className="popup-stat">
           <span>Drafts</span>
@@ -83,23 +83,21 @@ export function PopupHomeScreen(props: {
         </PopupTooltip>
       </div>
 
-      <div className="popup-stack">
+      <div className="popup-home-actions">
         <button className="popup-primary-action" onClick={onPrimaryAction} type="button">
           {primaryActionLabel}
         </button>
         <button className="popup-secondary-action" onClick={onCaptureTab} type="button">
-          Capture this tab
+          Capture tab
         </button>
       </div>
 
       <section className="popup-list-section">
         <div className="popup-section-heading">
           <strong>Review queue</strong>
-          {draftCount > 0 ? (
-            <button className="popup-text-button" onClick={onOpenDrafts} type="button">
-              See all
-            </button>
-          ) : null}
+          <button className="popup-text-button" onClick={onOpenDrafts} type="button">
+            See all
+          </button>
         </div>
         {reviewQueue.length > 0 ? (
           <ul className="popup-list-reset popup-review-queue">
@@ -117,10 +115,10 @@ export function PopupHomeScreen(props: {
                     <strong>{item.title}</strong>
                     <span className="popup-review-queue__summary">{item.summary}</span>
                     <span className="popup-review-queue__pills">
-                      <span className="popup-mini-pill">
-                        {formatCategoryLabel(item.category)}
+                      <span className="popup-mini-pill">{formatCategoryLabel(item.category)}</span>
+                      <span className="popup-mini-pill popup-mini-pill--muted">
+                        {item.coopLabel}
                       </span>
-                      <span className="popup-mini-pill popup-mini-pill--muted">{item.coopLabel}</span>
                     </span>
                   </span>
                 </button>
@@ -129,7 +127,8 @@ export function PopupHomeScreen(props: {
           </ul>
         ) : (
           <p className="popup-empty-state">
-            Nothing is waiting for review right now. Round up a tab to start a fresh queue.
+            Nothing is waiting for review right now. You can still open the queue or round up a new
+            tab.
           </p>
         )}
       </section>

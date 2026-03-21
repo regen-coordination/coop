@@ -6,11 +6,13 @@ export function PopupShell({
   footer,
   header,
   message,
+  overlay,
   theme,
 }: PropsWithChildren<{
   footer?: JSX.Element | null;
   header?: JSX.Element | null;
   message?: string;
+  overlay?: JSX.Element | null;
   theme: PopupResolvedTheme;
 }>) {
   useEffect(() => {
@@ -23,15 +25,19 @@ export function PopupShell({
   return (
     <div className="popup-app" data-theme={theme}>
       <div className="popup-surface">
-        {message ? (
-          <output className="popup-banner" aria-live="polite">
-            {message}
-          </output>
-        ) : null}
         {header}
         <div className="popup-scroll-pane">{children}</div>
         {footer}
       </div>
+      {message ? (
+        <div className="popup-toast-layer">
+          <output aria-live="polite" className="popup-toast" role="status">
+            {message}
+          </output>
+        </div>
+      ) : null}
+      {overlay ? <div className="popup-overlay-layer">{overlay}</div> : null}
+      <div className="popup-tooltip-layer" data-popup-tooltip-root />
     </div>
   );
 }
