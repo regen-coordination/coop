@@ -90,7 +90,9 @@ async function openPanelTab(page, name) {
 }
 
 async function getDashboard(page) {
-  const response = await page.evaluate(async () => chrome.runtime.sendMessage({ type: 'get-dashboard' }));
+  const response = await page.evaluate(async () =>
+    chrome.runtime.sendMessage({ type: 'get-dashboard' }),
+  );
   return response?.ok ? response.data : null;
 }
 

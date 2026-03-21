@@ -857,7 +857,7 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
             )
             .fromTo(heroCopyRef.current, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -32 }, 0.5)
             .fromTo(howItWorksRef.current, { autoAlpha: 0.55 }, { autoAlpha: 1 }, 0.38)
-            .fromTo(howItWorksHeading, { autoAlpha: 0.6, y: 34 }, { autoAlpha: 1, y: 0 }, 0.40)
+            .fromTo(howItWorksHeading, { autoAlpha: 0.6, y: 34 }, { autoAlpha: 1, y: 0 }, 0.4)
             .fromTo(
               howItWorksCards,
               {
@@ -1462,7 +1462,11 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
                     key={card.id}
                   >
                     {isOpen ? (
-                      <div aria-label={card.title} className="flashcard-back" id={`flashcard-panel-${card.id}`} role="region">
+                      <section
+                        aria-label={card.title}
+                        className="flashcard-back"
+                        id={`flashcard-panel-${card.id}`}
+                      >
                         <div className="flashcard-header">
                           <div>
                             <span className="flashcard-number">{card.eyebrow}</span>
@@ -1548,7 +1552,7 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
                             />
                           </label>
                         </div>
-                      </div>
+                      </section>
                     ) : (
                       <button
                         aria-expanded={isOpen}

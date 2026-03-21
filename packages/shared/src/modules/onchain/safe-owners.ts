@@ -323,14 +323,14 @@ export function validateOwnerChange(
   switch (change.changeType) {
     case 'add-owner': {
       if (!change.ownerToAdd) return { ok: false, reason: 'Missing ownerToAdd' };
-      if (currentOwners.some((o) => o.toLowerCase() === change.ownerToAdd!.toLowerCase())) {
+      if (currentOwners.some((o) => o.toLowerCase() === change.ownerToAdd?.toLowerCase())) {
         return { ok: false, reason: `${change.ownerToAdd} is already an owner` };
       }
       break;
     }
     case 'remove-owner': {
       if (!change.ownerToRemove) return { ok: false, reason: 'Missing ownerToRemove' };
-      if (!currentOwners.some((o) => o.toLowerCase() === change.ownerToRemove!.toLowerCase())) {
+      if (!currentOwners.some((o) => o.toLowerCase() === change.ownerToRemove?.toLowerCase())) {
         return { ok: false, reason: `${change.ownerToRemove} is not an owner` };
       }
       if (currentOwners.length <= 1) {
@@ -342,10 +342,10 @@ export function validateOwnerChange(
       if (!change.ownerToSwapOut || !change.ownerToSwapIn) {
         return { ok: false, reason: 'Missing swap addresses' };
       }
-      if (!currentOwners.some((o) => o.toLowerCase() === change.ownerToSwapOut!.toLowerCase())) {
+      if (!currentOwners.some((o) => o.toLowerCase() === change.ownerToSwapOut?.toLowerCase())) {
         return { ok: false, reason: `${change.ownerToSwapOut} is not an owner` };
       }
-      if (currentOwners.some((o) => o.toLowerCase() === change.ownerToSwapIn!.toLowerCase())) {
+      if (currentOwners.some((o) => o.toLowerCase() === change.ownerToSwapIn?.toLowerCase())) {
         return { ok: false, reason: `${change.ownerToSwapIn} is already an owner` };
       }
       break;

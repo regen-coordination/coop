@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-  greenGoodsWorkApprovalRequestSchema,
-  greenGoodsWorkApprovalOutputSchema,
-  greenGoodsAssessmentRequestSchema,
   greenGoodsAssessmentOutputSchema,
+  greenGoodsAssessmentRequestSchema,
+  greenGoodsWorkApprovalOutputSchema,
+  greenGoodsWorkApprovalRequestSchema,
 } from '../schema';
 
 describe('greenGoodsWorkApprovalRequestSchema', () => {
   const validRequest = {
     actionUid: 1,
-    workUid: '0x' + 'ab'.repeat(32),
+    workUid: `0x${'ab'.repeat(32)}`,
     approved: true,
   };
 
@@ -40,7 +40,7 @@ describe('greenGoodsWorkApprovalRequestSchema', () => {
 describe('greenGoodsWorkApprovalOutputSchema', () => {
   const validOutput = {
     actionUid: 1,
-    workUid: '0x' + 'ab'.repeat(32),
+    workUid: `0x${'ab'.repeat(32)}`,
     approved: true,
     rationale: 'Approved based on evidence.',
   };
@@ -66,7 +66,7 @@ describe('greenGoodsWorkApprovalOutputSchema', () => {
     // Both schemas should accept the same base fields
     const base = {
       actionUid: 5,
-      workUid: '0x' + 'cd'.repeat(32),
+      workUid: `0x${'cd'.repeat(32)}`,
       approved: false,
       feedback: 'Needs more evidence',
       confidence: 80,

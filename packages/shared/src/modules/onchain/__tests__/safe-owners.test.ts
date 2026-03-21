@@ -1,20 +1,20 @@
-import { describe, expect, it } from 'vitest';
 import type { Address } from 'viem';
+import { describe, expect, it } from 'vitest';
 import {
+  type SafeOwnerChange,
+  createMockOwnerChangeResult,
   encodeAddOwnerCalldata,
+  encodeChangeThresholdCalldata,
   encodeRemoveOwnerCalldata,
   encodeSwapOwnerCalldata,
-  encodeChangeThresholdCalldata,
-  resolvePreviousOwner,
-  proposeAddOwner,
-  proposeRemoveOwner,
-  proposeSwapOwner,
-  proposeChangeThreshold,
-  validateOwnerChange,
   markOwnerChangeExecuted,
   markOwnerChangeFailed,
-  createMockOwnerChangeResult,
-  type SafeOwnerChange,
+  proposeAddOwner,
+  proposeChangeThreshold,
+  proposeRemoveOwner,
+  proposeSwapOwner,
+  resolvePreviousOwner,
+  validateOwnerChange,
 } from '../safe-owners';
 
 const ALICE = '0x1111111111111111111111111111111111111111' as Address;

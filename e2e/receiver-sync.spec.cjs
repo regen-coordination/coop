@@ -122,7 +122,9 @@ async function openPanelTab(page, name) {
 }
 
 async function getDashboard(page) {
-  const response = await page.evaluate(async () => chrome.runtime.sendMessage({ type: 'get-dashboard' }));
+  const response = await page.evaluate(async () =>
+    chrome.runtime.sendMessage({ type: 'get-dashboard' }),
+  );
   return response?.ok ? response.data : null;
 }
 
@@ -284,11 +286,11 @@ test.describe('receiver pairing and sync', () => {
       await creatorProfile.page.close();
 
       await appPage.goto(deepLinkUrl.toString());
-      await expect(appPage.getByRole('button', { name: /(accept pairing|join this coop)/i })).toBeVisible(
-        {
-          timeout: 15000,
-        },
-      );
+      await expect(
+        appPage.getByRole('button', { name: /(accept pairing|join this coop)/i }),
+      ).toBeVisible({
+        timeout: 15000,
+      });
       await expect(appPage).toHaveURL(/\/pair\?bridge=off$/);
       await appPage.getByRole('button', { name: /(accept pairing|join this coop)/i }).click();
       await expect(appPage.locator('input[type="file"]')).toHaveCount(2, {
@@ -422,7 +424,10 @@ test.describe('receiver pairing and sync', () => {
         .locator('.draft-card textarea[id^="next-step-"]')
         .first()
         .fill('Publish this note into both coops and use it in the next weekly ritual.');
-      await reviewPage.getByRole('button', { name: /add forest signals/i }).first().click();
+      await reviewPage
+        .getByRole('button', { name: /add forest signals/i })
+        .first()
+        .click();
       await reviewPage.getByRole('button', { name: /(mark ready|ready to share)/i }).click();
       await expect(
         reviewPage.getByText(
