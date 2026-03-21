@@ -389,6 +389,10 @@ async function main() {
 
   const cloudflaredInstalled = await commandExists('cloudflared');
   const shouldUseTunnel = tunnelMode !== 'off';
+  const namedTunnelName = process.env.COOP_TUNNEL_NAME;
+  const apiTunnelHostname = process.env.COOP_TUNNEL_API_HOSTNAME;
+  const appTunnelHostname = process.env.COOP_TUNNEL_APP_HOSTNAME;
+  const useNamedTunnel = !!(namedTunnelName && apiTunnelHostname);
 
   if (shouldUseTunnel && !cloudflaredInstalled) {
     const reason = 'cloudflared is not installed; continuing with local-only receiver URLs.';
@@ -403,7 +407,56 @@ async function main() {
     };
   }
 
-  if (shouldUseTunnel && cloudflaredInstalled) {
+  if (shouldUseTunnel && cloudflaredInstalled && useNamedTunnel) {
+    // Named tunnel mode: uses pre-configured `cloudflared tunnel` with custom domain
+    state.tunnel = {
+      enabled: true,
+      provider: 'cloudflare',
+      status: 'starting',
+    };
+    state.accessToken = generateAccessToken();
+    writeDevState(state);
+
+    try {
+      const tunnelProcess = spawnManagedProcess('tunnel', [
+        'cloudflared',
+        'tunnel',
+        'run',
+        namedTunnelName,
+      ]);
+      trackManagedProcess(tunnelProcess);
+
+      // Named tunnel is ready once the process spawns — URLs are known from config
+      state.api.publicUrl = `https://${apiTunnelHostname}`;
+      state.api.websocketUrl = `wss://${apiTunnelHostname}`;
+
+      if (appTunnelHostname) {
+        state.app.publicUrl = `https://${appTunnelHostname}`;
+        state.app.qrUrl = `https://${appTunnelHostname}/?coop-dev-token=${encodeURIComponent(
+          state.accessToken,
+        )}`;
+        state.extension.receiverAppUrl = state.app.publicUrl;
+      }
+
+      state.extension.signalingUrls = [state.api.websocketUrl];
+      state.tunnel.status = 'ready';
+      writeDevState(state);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      if (tunnelMode === 'required') {
+        throw error;
+      }
+      state.tunnel = {
+        enabled: false,
+        provider: 'cloudflare',
+        status: 'error',
+        reason,
+      };
+      state.accessToken = undefined;
+      writeDevState(state);
+    }
+  } else if (shouldUseTunnel && cloudflaredInstalled) {
+    // Quick tunnel mode: ad-hoc *.trycloudflare.com URLs
     state.tunnel = {
       enabled: true,
       provider: 'cloudflare',

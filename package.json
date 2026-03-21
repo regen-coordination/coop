@@ -32,6 +32,9 @@
     "test:unit:agent-loop": "vitest run packages/shared/src/modules/agent/__tests__/agent.test.ts packages/shared/src/modules/greengoods/__tests__/greengoods.test.ts packages/shared/src/modules/coop/__tests__/flows.test.ts packages/extension/src/runtime/__tests__/agent-registry.test.ts packages/extension/src/runtime/__tests__/agent-models.test.ts packages/extension/src/runtime/__tests__/agent-harness.test.ts packages/extension/src/runtime/__tests__/agent-eval.test.ts packages/extension/src/views/Sidepanel/__tests__/operator-console.test.tsx",
     "test:unit:agent-policy": "vitest run packages/shared/src/modules/policy/__tests__/policy.test.ts packages/shared/src/modules/policy/__tests__/action-bundle.test.ts packages/shared/src/modules/policy/__tests__/replay.test.ts packages/shared/src/modules/policy/__tests__/approval.test.ts packages/shared/src/modules/policy/__tests__/executor.test.ts",
     "test:unit:delegated-execution": "vitest run packages/shared/src/modules/grant/__tests__/grant.test.ts packages/extension/src/runtime/__tests__/policy-messages.test.ts packages/extension/src/runtime/__tests__/grant-runtime.test.ts packages/extension/src/views/Sidepanel/__tests__/operator-console.test.tsx",
+    "test:unit:store-readiness": "vitest run packages/shared/src/modules/storage/__tests__/db.test.ts packages/shared/src/modules/agent/__tests__/memory.test.ts packages/extension/src/runtime/__tests__/onnx-assets.test.ts packages/extension/src/background/__tests__/alarm-dispatch.test.ts packages/extension/src/__tests__/receiver-matches.test.ts",
+    "test:unit:extension-dist": "COOP_REQUIRE_EXTENSION_DIST=1 vitest run packages/extension/src/__tests__/sw-safety.test.ts",
+    "test:store-readiness": "bun run ./scripts/store-readiness.ts",
     "probe:onchain-live": "bun run ./scripts/probe-onchain-live.ts",
     "probe:session-key-live": "bun run ./scripts/probe-session-key-live.ts",
     "probe:archive-live": "bun run ./scripts/probe-archive-live.ts",
@@ -43,10 +46,14 @@
     "validate:smoke": "bun run ./scripts/validate.ts smoke",
     "validate:core-loop": "bun run ./scripts/validate.ts core-loop",
     "validate:flow-board": "bun run ./scripts/validate.ts flow-board",
+    "validate:store-readiness": "bun run ./scripts/validate.ts store-readiness",
     "validate:production-readiness": "bun run ./scripts/validate.ts production-readiness",
     "validate:receiver-slice": "bun run ./scripts/validate.ts receiver-slice",
     "validate:receiver-hardening": "bun run ./scripts/validate.ts receiver-hardening",
     "validate:full": "bun run ./scripts/validate.ts full",
+    "analyze": "ANALYZE=true bun run build",
+    "analyze:extension": "ANALYZE=true bun run --filter @coop/extension build",
+    "analyze:app": "ANALYZE=true bun run --filter @coop/app build",
     "lint": "biome check .",
     "format": "biome format --write .",
     "docs:dev": "mise exec -- bun run --filter @coop/docs start --host 127.0.0.1 --port 3003 --no-open",
@@ -70,9 +77,10 @@
     "jsdom": "^26.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "^5.8.2",
     "vite": "^6.2.0",
-    "vitest": "^3.2.4",
-    "ws": "^8.19.0"
-  }
+    "vitest": "^3.2.4"
+  },
+  "trustedDependencies": ["@biomejs/biome"]
 }

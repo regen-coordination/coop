@@ -205,10 +205,32 @@ const suites: Record<string, Suite> = {
       },
     ],
   },
+  'unit:store-readiness': {
+    description:
+      'Targeted Vitest coverage for encrypted local storage, packaged ONNX runtime assets, and scheduled capture alarm dispatch.',
+    steps: [
+      { label: 'unit:store-readiness', command: ['bun', 'run', 'test:unit:store-readiness'] },
+    ],
+  },
+  'unit:extension-dist': {
+    description:
+      'Built-output MV3 service-worker safety validation that requires a fresh extension dist.',
+    steps: [{ label: 'unit:extension-dist', command: ['bun', 'run', 'test:unit:extension-dist'] }],
+  },
+  'audit:store-readiness': {
+    description:
+      'Post-build Chrome Web Store audit for manifest drift, remote executable URLs, bundle budgets, and required release docs.',
+    steps: [{ label: 'audit:store-readiness', command: ['bun', 'run', 'test:store-readiness'] }],
+  },
   'delegated-execution': {
     description:
       'Delegated execution validation: lint, targeted grant unit tests, policy tests, build.',
     includes: ['lint', 'unit:delegated-execution', 'unit:agent-policy', 'build'],
+  },
+  'store-readiness': {
+    description:
+      'Chrome Web Store readiness validation: build, targeted storage/runtime tests, built-output safety checks, and dist/document audits.',
+    includes: ['build', 'unit:store-readiness', 'unit:extension-dist', 'audit:store-readiness'],
   },
   'agent-loop': {
     description:
@@ -232,6 +254,7 @@ const suites: Record<string, Suite> = {
       'unit:agent-loop',
       'unit:onchain-config',
       'unit:session-key',
+      'store-readiness',
       'e2e:extension',
       'e2e:receiver-sync',
       'e2e:agent-loop',

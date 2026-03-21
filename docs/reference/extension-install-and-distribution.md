@@ -95,15 +95,21 @@ Use this order:
 
 Release checklist:
 
-1. Build `packages/extension/dist`.
-2. Zip the extension with files at the archive root.
-3. Upload to the Chrome Web Store dashboard.
-4. Add reviewer notes for:
+1. Set `VITE_COOP_RECEIVER_APP_URL` to the exact production HTTPS receiver origin for the release candidate.
+2. Run `bun run validate:store-readiness`.
+3. Run `bun run validate:production-readiness`.
+4. Build `packages/extension/dist`.
+5. Record the first-run local-AI network trace for reviewer notes.
+6. Zip the extension with files at the archive root.
+7. Upload to the Chrome Web Store dashboard.
+8. Add reviewer notes for:
    - sidepanel entry
    - passkey setup
    - receiver pairing and private intake
    - mock vs live modes
    - Smart Session limits for Green Goods actions
+   - opt-in scheduled capture
+   - local-first data handling and encrypted local payloads
 
 ## Coop-Specific Review Notes
 
@@ -114,7 +120,7 @@ The extension requests broad capabilities and will likely receive extra review a
 - `scripting`
 - `sidePanel`
 - `offscreen`
-- broad `http`, `https`, `ws`, and `wss` host permissions
+- exact receiver-origin host permissions for the receiver bridge
 
 Keep the listing, reviewer notes, and privacy answers unusually clear.
 
@@ -122,3 +128,7 @@ Keep the listing, reviewer notes, and privacy answers unusually clear.
 
 - [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook)
 - [Testing & Validation](/reference/testing-and-validation)
+- [Chrome Web Store Checklist](/reference/chrome-web-store-checklist)
+- [Chrome Web Store Reviewer Notes](/reference/chrome-web-store-reviewer-notes)
+- [Coop Privacy Policy](/privacy-policy)
+- [Remote Knowledge Skill Re-Enable Checklist](/reference/remote-knowledge-skill-reenable-checklist)

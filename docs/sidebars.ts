@@ -30,6 +30,7 @@ const sidebars: SidebarsConfig = {
     communityDoc('community/sharing-knowledge'),
     communityDoc('community/ai-features'),
     communityDoc('community/privacy-security'),
+    communityDoc('community/privacy-policy'),
     communityDoc('community/pricing'),
     {
       type: 'link',

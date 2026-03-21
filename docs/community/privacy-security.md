@@ -9,6 +9,8 @@ Coop's privacy and security story starts from a product boundary that users can 
 device can collect and structure private context locally, but shared coop state begins only when you
 publish.
 
+For the formal Chrome Web Store-facing disclosure, see the [Coop Privacy Policy](/privacy-policy).
+
 ## Local-First By Default
 
 The current architecture keeps a lot of work on the device:

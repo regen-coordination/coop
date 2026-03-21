@@ -11,6 +11,7 @@ output/playwright/*
 docs/build
 docs/.docusaurus
 
+stats-*.html
 .env*
 packages/app/public/__coop_dev__/*
 !packages/app/public/__coop_dev__/.gitkeep
