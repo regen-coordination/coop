@@ -13,6 +13,8 @@ import type {
   CoopArchiveSecrets,
   CoopKnowledgeSkillOverride,
   CoopSharedState,
+  EncryptedLocalPayload,
+  EncryptedLocalPayloadKind,
   EncryptedSessionMaterial,
   ExecutionPermit,
   HapticPreferences,
@@ -41,11 +43,13 @@ import {
   actionBundleSchema,
   actionLogEntrySchema,
   actionPolicySchema,
+  agentMemorySchema,
   agentObservationSchema,
   agentPlanSchema,
   anchorCapabilitySchema,
   authSessionSchema,
   coopArchiveSecretsSchema,
+  encryptedLocalPayloadSchema,
   encryptedSessionMaterialSchema,
   executionPermitSchema,
   hapticPreferencesSchema,
@@ -53,16 +57,20 @@ import {
   normalizeLegacyOnchainState,
   permitLogEntrySchema,
   privilegedActionLogEntrySchema,
+  readablePageExtractSchema,
+  receiverCaptureSchema,
   receiverDeviceIdentitySchema,
+  reviewDraftSchema,
   sessionCapabilityLogEntrySchema,
   sessionCapabilitySchema,
   skillRunSchema,
   soundPreferencesSchema,
+  tabCandidateSchema,
   tabRoutingSchema,
   trustedNodeArchiveConfigSchema,
   uiPreferencesSchema,
 } from '../../contracts/schema';
-import { nowIso } from '../../utils';
+import { base64ToBytes, bytesToBase64, nowIso } from '../../utils';
 import { createCoopDoc, encodeCoopDoc, hydrateCoopDoc, readCoopState } from '../coop/sync';
 
 export interface CoopDocRecord {
@@ -124,6 +132,7 @@ export class CoopDexie extends Dexie {
   privacyIdentities!: EntityTable<PrivacyIdentityRecord, 'id'>;
   stealthKeyPairs!: EntityTable<StealthKeyPairRecord, 'id'>;
   agentMemories!: EntityTable<AgentMemory, 'id'>;
+  encryptedLocalPayloads!: EntityTable<EncryptedLocalPayload, 'id'>;
 
   constructor(name = 'coop-v1') {
     super(name);
@@ -425,7 +434,349 @@ export class CoopDexie extends Dexie {
       stealthKeyPairs: 'id, coopId, createdAt',
       agentMemories: 'id, coopId, type, domain, createdAt, expiresAt, contentHash',
     });
+    this.version(14)
+      .stores({
+        tabCandidates: 'id, canonicalUrl, domain, capturedAt',
+        pageExtracts: 'id, canonicalUrl, domain, createdAt',
+        reviewDrafts: 'id, category, createdAt, workflowStage',
+        coopDocs: 'id, updatedAt',
+        captureRuns: 'id, state, capturedAt',
+        settings: 'key',
+        identities: 'id, ownerAddress, displayName, createdAt, lastUsedAt',
+        localMemberSignerBindings:
+          'id, [coopId+memberId], coopId, memberId, accountAddress, passkeyCredentialId, createdAt, lastUsedAt',
+        receiverPairings: 'pairingId, coopId, memberId, roomId, issuedAt, acceptedAt, active',
+        receiverCaptures:
+          'id, kind, createdAt, syncState, pairingId, coopId, memberId, intakeStatus, linkedDraftId',
+        receiverBlobs: 'captureId',
+        actionBundles: 'id, status, coopId, actionClass, createdAt',
+        actionLogEntries: 'id, bundleId, eventType, createdAt',
+        replayIds: 'replayId, bundleId, executedAt',
+        executionPermits: 'id, coopId, status, createdAt, expiresAt',
+        permitLogEntries: 'id, permitId, eventType, createdAt',
+        sessionCapabilities: 'id, coopId, status, createdAt, updatedAt, sessionAddress',
+        sessionCapabilityLogEntries: 'id, capabilityId, eventType, createdAt',
+        encryptedSessionMaterials: 'capabilityId, sessionAddress, wrappedAt',
+        agentObservations: 'id, status, trigger, coopId, createdAt, fingerprint',
+        agentPlans: 'id, observationId, status, createdAt, updatedAt',
+        skillRuns: 'id, observationId, planId, skillId, status, startedAt',
+        tabRoutings:
+          'id, [extractId+coopId], sourceCandidateId, extractId, coopId, status, createdAt, updatedAt',
+        knowledgeSkills: 'id, &url, name, domain, enabled',
+        coopKnowledgeSkillOverrides: 'id, [coopId+knowledgeSkillId], coopId',
+        agentLogs: 'id, traceId, spanType, skillId, observationId, level, timestamp',
+        privacyIdentities: 'id, [coopId+memberId], coopId, memberId, commitment, createdAt',
+        stealthKeyPairs: 'id, coopId, createdAt',
+        agentMemories: 'id, coopId, type, domain, createdAt, expiresAt, contentHash',
+        encryptedLocalPayloads: 'id, [kind+entityId], kind, entityId, wrappedAt, expiresAt',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('knowledgeSkills').clear();
+        await tx.table('coopKnowledgeSkillOverrides').clear();
+      });
   }
+}
+
+const LOCAL_DATA_WRAPPING_SECRET_KEY = 'session-wrapping-secret';
+const LOCAL_DATA_PLACEHOLDER_PREFIX = 'encrypted://local';
+const LOCAL_DATA_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const LOCAL_DATA_REDACTED_SOURCE = {
+  label: 'Encrypted local source',
+  url: 'encrypted://local/source',
+  domain: 'local',
+} as const;
+
+function buildEncryptedLocalPayloadId(kind: EncryptedLocalPayloadKind, entityId: string) {
+  return `${kind}:${entityId}`;
+}
+
+function buildEncryptedPlaceholderUrl(kind: EncryptedLocalPayloadKind, entityId: string) {
+  return `${LOCAL_DATA_PLACEHOLDER_PREFIX}/${kind}/${entityId}`;
+}
+
+function buildRedactedTabCandidate(candidate: TabCandidate): TabCandidate {
+  return tabCandidateSchema.parse({
+    ...candidate,
+    url: buildEncryptedPlaceholderUrl('tab-candidate', candidate.id),
+    canonicalUrl: buildEncryptedPlaceholderUrl('tab-candidate', candidate.id),
+    title: 'Encrypted local tab',
+    favicon: undefined,
+    excerpt: undefined,
+    tabGroupHint: undefined,
+  });
+}
+
+function buildRedactedPageExtract(extract: ReadablePageExtract): ReadablePageExtract {
+  return readablePageExtractSchema.parse({
+    ...extract,
+    canonicalUrl: buildEncryptedPlaceholderUrl('page-extract', extract.id),
+    cleanedTitle: 'Encrypted page extract',
+    metaDescription: undefined,
+    topHeadings: [],
+    leadParagraphs: [],
+    salientTextBlocks: [],
+    previewImageUrl: undefined,
+  });
+}
+
+function buildRedactedReviewDraft(draft: ReviewDraft): ReviewDraft {
+  return reviewDraftSchema.parse({
+    ...draft,
+    title: 'Encrypted review draft',
+    summary: 'Encrypted local review content.',
+    sources: [LOCAL_DATA_REDACTED_SOURCE],
+    tags: [],
+    whyItMatters: 'Stored locally in encrypted form.',
+    suggestedNextStep: 'Open the draft to view its local content.',
+    rationale: 'Encrypted local draft content.',
+    previewImageUrl: undefined,
+  });
+}
+
+function buildRedactedReceiverCapture(capture: ReceiverCapture): ReceiverCapture {
+  return receiverCaptureSchema.parse({
+    ...capture,
+    title: 'Encrypted local capture',
+    note: '',
+    sourceUrl: undefined,
+    fileName: undefined,
+  });
+}
+
+function buildRedactedAgentMemory(memory: AgentMemory): AgentMemory {
+  return agentMemorySchema.parse({
+    ...memory,
+    content: 'Encrypted local memory',
+  });
+}
+
+function looksRedactedTabCandidate(candidate: TabCandidate) {
+  return candidate.url.startsWith(`${LOCAL_DATA_PLACEHOLDER_PREFIX}/tab-candidate/`);
+}
+
+function looksRedactedPageExtract(extract: ReadablePageExtract) {
+  return extract.canonicalUrl.startsWith(`${LOCAL_DATA_PLACEHOLDER_PREFIX}/page-extract/`);
+}
+
+function looksRedactedReviewDraft(draft: ReviewDraft) {
+  return (
+    draft.title === 'Encrypted review draft' && draft.summary === 'Encrypted local review content.'
+  );
+}
+
+function looksRedactedReceiverCapture(capture: ReceiverCapture) {
+  return capture.title === 'Encrypted local capture' && !capture.sourceUrl && capture.note === '';
+}
+
+function looksRedactedAgentMemory(memory: AgentMemory) {
+  return memory.content === 'Encrypted local memory';
+}
+
+async function ensureLocalDataWrappingSecret(db: CoopDexie) {
+  const existing = await db.settings.get(LOCAL_DATA_WRAPPING_SECRET_KEY);
+  if (typeof existing?.value === 'string' && existing.value.length > 0) {
+    return existing.value;
+  }
+
+  const secret = bytesToBase64(crypto.getRandomValues(new Uint8Array(32)));
+  await db.settings.put({
+    key: LOCAL_DATA_WRAPPING_SECRET_KEY,
+    value: secret,
+  });
+  return secret;
+}
+
+async function deriveLocalDataKey(secret: string, salt: Uint8Array) {
+  const encoder = new TextEncoder();
+  const saltBytes = Uint8Array.from(salt);
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey'],
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: 120_000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+async function buildEncryptedLocalPayloadRecord(input: {
+  db: CoopDexie;
+  kind: EncryptedLocalPayloadKind;
+  entityId: string;
+  bytes: Uint8Array;
+  wrappedAt?: string;
+  expiresAt?: string;
+}): Promise<EncryptedLocalPayload> {
+  const secret = await ensureLocalDataWrappingSecret(input.db);
+  const iv = Uint8Array.from(crypto.getRandomValues(new Uint8Array(12)));
+  const salt = Uint8Array.from(crypto.getRandomValues(new Uint8Array(16)));
+  const key = await deriveLocalDataKey(secret, salt);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    Uint8Array.from(input.bytes),
+  );
+
+  return encryptedLocalPayloadSchema.parse({
+    id: buildEncryptedLocalPayloadId(input.kind, input.entityId),
+    kind: input.kind,
+    entityId: input.entityId,
+    ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+    iv: bytesToBase64(iv),
+    salt: bytesToBase64(salt),
+    algorithm: 'aes-gcm',
+    wrappedAt: input.wrappedAt ?? nowIso(),
+    expiresAt: input.expiresAt,
+    version: 1,
+  });
+}
+
+async function getEncryptedLocalPayloadRecord(
+  db: CoopDexie,
+  kind: EncryptedLocalPayloadKind,
+  entityId: string,
+) {
+  return db.encryptedLocalPayloads.get(buildEncryptedLocalPayloadId(kind, entityId));
+}
+
+async function decryptEncryptedLocalPayloadRecord(db: CoopDexie, record: EncryptedLocalPayload) {
+  const secret = await ensureLocalDataWrappingSecret(db);
+  const key = await deriveLocalDataKey(secret, base64ToBytes(record.salt));
+  const decrypted = await crypto.subtle.decrypt(
+    {
+      name: 'AES-GCM',
+      iv: base64ToBytes(record.iv),
+    },
+    key,
+    base64ToBytes(record.ciphertext),
+  );
+
+  return new Uint8Array(decrypted);
+}
+
+function logEncryptedPayloadReadFailure(
+  kind: EncryptedLocalPayloadKind,
+  entityId: string,
+  error: unknown,
+) {
+  console.warn(
+    `[storage] Failed to load encrypted ${kind} payload for ${entityId}. Falling back to the redacted local record.`,
+    error,
+  );
+}
+
+async function loadEncryptedJsonPayload<T>(
+  db: CoopDexie,
+  kind: EncryptedLocalPayloadKind,
+  entityId: string,
+  parse: (value: unknown) => T,
+): Promise<T | null> {
+  const record = await getEncryptedLocalPayloadRecord(db, kind, entityId);
+  if (!record) {
+    return null;
+  }
+
+  try {
+    const bytes = await decryptEncryptedLocalPayloadRecord(db, record);
+    return parse(JSON.parse(new TextDecoder().decode(bytes)));
+  } catch (error) {
+    logEncryptedPayloadReadFailure(kind, entityId, error);
+    return null;
+  }
+}
+
+async function loadEncryptedBlobPayload(
+  db: CoopDexie,
+  entityId: string,
+  mimeType: string,
+): Promise<Blob | null> {
+  const record = await getEncryptedLocalPayloadRecord(db, 'receiver-blob', entityId);
+  if (!record) {
+    return null;
+  }
+
+  try {
+    const bytes = await decryptEncryptedLocalPayloadRecord(db, record);
+    return new Blob([bytes], { type: mimeType });
+  } catch (error) {
+    logEncryptedPayloadReadFailure('receiver-blob', entityId, error);
+    return null;
+  }
+}
+
+function resolveTabCandidatePayloadExpiry(candidate: TabCandidate) {
+  return new Date(new Date(candidate.capturedAt).getTime() + LOCAL_DATA_RETENTION_MS).toISOString();
+}
+
+function resolvePageExtractPayloadExpiry(extract: ReadablePageExtract) {
+  return new Date(new Date(extract.createdAt).getTime() + LOCAL_DATA_RETENTION_MS).toISOString();
+}
+
+async function hydrateTabCandidateRecord(db: CoopDexie, candidate?: TabCandidate) {
+  if (!candidate) {
+    return undefined;
+  }
+  return (
+    (await loadEncryptedJsonPayload(db, 'tab-candidate', candidate.id, (value) =>
+      tabCandidateSchema.parse(value),
+    )) ?? candidate
+  );
+}
+
+async function hydratePageExtractRecord(db: CoopDexie, extract?: ReadablePageExtract) {
+  if (!extract) {
+    return undefined;
+  }
+  return (
+    (await loadEncryptedJsonPayload(db, 'page-extract', extract.id, (value) =>
+      readablePageExtractSchema.parse(value),
+    )) ?? extract
+  );
+}
+
+async function hydrateReviewDraftRecord(db: CoopDexie, draft?: ReviewDraft) {
+  if (!draft) {
+    return undefined;
+  }
+  return (
+    (await loadEncryptedJsonPayload(db, 'review-draft', draft.id, (value) =>
+      reviewDraftSchema.parse(value),
+    )) ?? draft
+  );
+}
+
+async function hydrateReceiverCaptureRecord(db: CoopDexie, capture?: ReceiverCapture) {
+  if (!capture) {
+    return undefined;
+  }
+  return (
+    (await loadEncryptedJsonPayload(db, 'receiver-capture', capture.id, (value) =>
+      receiverCaptureSchema.parse(value),
+    )) ?? capture
+  );
+}
+
+async function hydrateAgentMemoryRecord(db: CoopDexie, memory?: AgentMemory) {
+  if (!memory) {
+    return undefined;
+  }
+  return (
+    (await loadEncryptedJsonPayload(db, 'agent-memory', memory.id, (value) =>
+      agentMemorySchema.parse(value),
+    )) ?? memory
+  );
 }
 
 export function createCoopDb(name?: string) {
@@ -441,12 +792,92 @@ export async function saveCoopState(db: CoopDexie, state: CoopSharedState) {
   });
 }
 
+export async function saveTabCandidate(db: CoopDexie, candidate: TabCandidate) {
+  const payload = await buildEncryptedLocalPayloadRecord({
+    db,
+    kind: 'tab-candidate',
+    entityId: candidate.id,
+    bytes: new TextEncoder().encode(JSON.stringify(tabCandidateSchema.parse(candidate))),
+    expiresAt: resolveTabCandidatePayloadExpiry(candidate),
+  });
+
+  await db.transaction('rw', db.tabCandidates, db.encryptedLocalPayloads, async () => {
+    await db.tabCandidates.put(buildRedactedTabCandidate(candidate));
+    await db.encryptedLocalPayloads.put(payload);
+  });
+}
+
+export async function getTabCandidate(db: CoopDexie, candidateId: string) {
+  return hydrateTabCandidateRecord(db, await db.tabCandidates.get(candidateId));
+}
+
+export async function listTabCandidates(db: CoopDexie, limit?: number) {
+  const candidates = await db.tabCandidates.orderBy('capturedAt').reverse().toArray();
+  const hydrated = await Promise.all(
+    candidates.map((candidate) => hydrateTabCandidateRecord(db, candidate)),
+  );
+  const filtered = hydrated.filter((candidate): candidate is TabCandidate => Boolean(candidate));
+  return typeof limit === 'number' ? filtered.slice(0, limit) : filtered;
+}
+
+export async function savePageExtract(db: CoopDexie, extract: ReadablePageExtract) {
+  const payload = await buildEncryptedLocalPayloadRecord({
+    db,
+    kind: 'page-extract',
+    entityId: extract.id,
+    bytes: new TextEncoder().encode(JSON.stringify(readablePageExtractSchema.parse(extract))),
+    expiresAt: resolvePageExtractPayloadExpiry(extract),
+  });
+
+  await db.transaction('rw', db.pageExtracts, db.encryptedLocalPayloads, async () => {
+    await db.pageExtracts.put(buildRedactedPageExtract(extract));
+    await db.encryptedLocalPayloads.put(payload);
+  });
+}
+
+export async function getPageExtract(db: CoopDexie, extractId: string) {
+  return hydratePageExtractRecord(db, await db.pageExtracts.get(extractId));
+}
+
+export async function listPageExtracts(db: CoopDexie) {
+  const extracts = await db.pageExtracts.orderBy('createdAt').reverse().toArray();
+  const hydrated = await Promise.all(
+    extracts.map((extract) => hydratePageExtractRecord(db, extract)),
+  );
+  return hydrated.filter((extract): extract is ReadablePageExtract => Boolean(extract));
+}
+
 export async function saveReviewDraft(db: CoopDexie, draft: ReviewDraft) {
-  await db.reviewDrafts.put(draft);
+  const payload = await buildEncryptedLocalPayloadRecord({
+    db,
+    kind: 'review-draft',
+    entityId: draft.id,
+    bytes: new TextEncoder().encode(JSON.stringify(reviewDraftSchema.parse(draft))),
+  });
+
+  await db.transaction('rw', db.reviewDrafts, db.encryptedLocalPayloads, async () => {
+    await db.reviewDrafts.put(buildRedactedReviewDraft(draft));
+    await db.encryptedLocalPayloads.put(payload);
+  });
 }
 
 export async function getReviewDraft(db: CoopDexie, draftId: string) {
-  return db.reviewDrafts.get(draftId);
+  return hydrateReviewDraftRecord(db, await db.reviewDrafts.get(draftId));
+}
+
+export async function listReviewDrafts(db: CoopDexie) {
+  const drafts = await db.reviewDrafts.orderBy('createdAt').reverse().toArray();
+  const hydrated = await Promise.all(drafts.map((draft) => hydrateReviewDraftRecord(db, draft)));
+  return hydrated.filter((draft): draft is ReviewDraft => Boolean(draft));
+}
+
+export async function listReviewDraftsByWorkflowStage(
+  db: CoopDexie,
+  workflowStage: ReviewDraft['workflowStage'],
+) {
+  const drafts = await db.reviewDrafts.where('workflowStage').equals(workflowStage).toArray();
+  const hydrated = await Promise.all(drafts.map((draft) => hydrateReviewDraftRecord(db, draft)));
+  return hydrated.filter((draft): draft is ReviewDraft => Boolean(draft));
 }
 
 export async function updateReviewDraft(
@@ -454,17 +885,24 @@ export async function updateReviewDraft(
   draftId: string,
   patch: Partial<ReviewDraft>,
 ) {
-  const current = await db.reviewDrafts.get(draftId);
+  const current = await getReviewDraft(db, draftId);
   if (!current) {
     return null;
   }
 
-  const next = {
+  const next = reviewDraftSchema.parse({
     ...current,
     ...patch,
-  } satisfies ReviewDraft;
-  await db.reviewDrafts.put(next);
+  });
+  await saveReviewDraft(db, next);
   return next;
+}
+
+export async function deleteReviewDraft(db: CoopDexie, draftId: string) {
+  await db.transaction('rw', db.reviewDrafts, db.encryptedLocalPayloads, async () => {
+    await db.reviewDrafts.delete(draftId);
+    await db.encryptedLocalPayloads.delete(buildEncryptedLocalPayloadId('review-draft', draftId));
+  });
 }
 
 export async function loadCoopState(db: CoopDexie, coopId: string) {
@@ -668,25 +1106,75 @@ export async function updateReceiverPairing(
   return next;
 }
 
-export async function saveReceiverCapture(db: CoopDexie, capture: ReceiverCapture, blob: Blob) {
-  await db.transaction('rw', db.receiverCaptures, db.receiverBlobs, async () => {
-    await db.receiverCaptures.put(capture);
-    await db.receiverBlobs.put({
-      captureId: capture.id,
-      blob,
-    });
+async function persistReceiverCapture(db: CoopDexie, capture: ReceiverCapture, blob?: Blob | null) {
+  const blobBytes =
+    blob && blob.size > 0
+      ? typeof blob.arrayBuffer === 'function'
+        ? new Uint8Array(await blob.arrayBuffer())
+        : new Uint8Array(await new Response(blob).arrayBuffer())
+      : null;
+  const capturePayload = await buildEncryptedLocalPayloadRecord({
+    db,
+    kind: 'receiver-capture',
+    entityId: capture.id,
+    bytes: new TextEncoder().encode(JSON.stringify(receiverCaptureSchema.parse(capture))),
   });
+  const blobPayload = blobBytes
+    ? await buildEncryptedLocalPayloadRecord({
+        db,
+        kind: 'receiver-blob',
+        entityId: capture.id,
+        bytes: blobBytes,
+      })
+    : null;
+
+  await db.transaction(
+    'rw',
+    db.receiverCaptures,
+    db.receiverBlobs,
+    db.encryptedLocalPayloads,
+    async () => {
+      await db.receiverCaptures.put(buildRedactedReceiverCapture(capture));
+      await db.encryptedLocalPayloads.put(capturePayload);
+      if (blobPayload) {
+        await db.encryptedLocalPayloads.put(blobPayload);
+      } else {
+        await db.encryptedLocalPayloads.delete(
+          buildEncryptedLocalPayloadId('receiver-blob', capture.id),
+        );
+      }
+      await db.receiverBlobs.delete(capture.id);
+    },
+  );
+}
+
+export async function saveReceiverCapture(db: CoopDexie, capture: ReceiverCapture, blob: Blob) {
+  await persistReceiverCapture(db, capture, blob);
 }
 
 export async function listReceiverCaptures(db: CoopDexie) {
-  return db.receiverCaptures.orderBy('createdAt').reverse().toArray();
+  const captures = await db.receiverCaptures.orderBy('createdAt').reverse().toArray();
+  const hydrated = await Promise.all(
+    captures.map((capture) => hydrateReceiverCaptureRecord(db, capture)),
+  );
+  return hydrated.filter((capture): capture is ReceiverCapture => Boolean(capture));
 }
 
 export async function getReceiverCapture(db: CoopDexie, captureId: string) {
-  return db.receiverCaptures.get(captureId);
+  return hydrateReceiverCaptureRecord(db, await db.receiverCaptures.get(captureId));
 }
 
 export async function getReceiverCaptureBlob(db: CoopDexie, captureId: string) {
+  const capture = await getReceiverCapture(db, captureId);
+  const encryptedBlob = await loadEncryptedBlobPayload(
+    db,
+    captureId,
+    capture?.mimeType ?? 'application/octet-stream',
+  );
+  if (encryptedBlob) {
+    return encryptedBlob;
+  }
+
   return (await db.receiverBlobs.get(captureId))?.blob ?? null;
 }
 
@@ -695,16 +1183,35 @@ export async function updateReceiverCapture(
   captureId: string,
   patch: Partial<ReceiverCapture>,
 ) {
-  const current = await db.receiverCaptures.get(captureId);
+  const current = await getReceiverCapture(db, captureId);
   if (!current) {
     return null;
   }
-  const next = {
+  const next = receiverCaptureSchema.parse({
     ...current,
     ...patch,
-  } satisfies ReceiverCapture;
-  await db.receiverCaptures.put(next);
+  });
+  await persistReceiverCapture(db, next, await getReceiverCaptureBlob(db, captureId));
   return next;
+}
+
+export async function deleteReceiverCapture(db: CoopDexie, captureId: string) {
+  await db.transaction(
+    'rw',
+    db.receiverCaptures,
+    db.receiverBlobs,
+    db.encryptedLocalPayloads,
+    async () => {
+      await db.receiverCaptures.delete(captureId);
+      await db.receiverBlobs.delete(captureId);
+      await db.encryptedLocalPayloads.delete(
+        buildEncryptedLocalPayloadId('receiver-capture', captureId),
+      );
+      await db.encryptedLocalPayloads.delete(
+        buildEncryptedLocalPayloadId('receiver-blob', captureId),
+      );
+    },
+  );
 }
 
 export async function setReceiverDeviceIdentity(db: CoopDexie, identity: ReceiverDeviceIdentity) {
@@ -1054,6 +1561,241 @@ export async function saveStealthKeyPair(db: CoopDexie, record: StealthKeyPairRe
 
 export async function getStealthKeyPair(db: CoopDexie, coopId: string) {
   return db.stealthKeyPairs.where({ coopId }).first();
+}
+
+// --- Sensitive local content maintenance ---
+
+export async function saveAgentMemory(db: CoopDexie, memory: AgentMemory) {
+  const payload = await buildEncryptedLocalPayloadRecord({
+    db,
+    kind: 'agent-memory',
+    entityId: memory.id,
+    bytes: new TextEncoder().encode(JSON.stringify(agentMemorySchema.parse(memory))),
+  });
+
+  await db.transaction('rw', db.agentMemories, db.encryptedLocalPayloads, async () => {
+    await db.agentMemories.put(buildRedactedAgentMemory(memory));
+    await db.encryptedLocalPayloads.put(payload);
+  });
+}
+
+export async function getAgentMemory(db: CoopDexie, memoryId: string) {
+  return hydrateAgentMemoryRecord(db, await db.agentMemories.get(memoryId));
+}
+
+export async function listAgentMemories(db: CoopDexie) {
+  const memories = await db.agentMemories.orderBy('createdAt').reverse().toArray();
+  const hydrated = await Promise.all(
+    memories.map((memory) => hydrateAgentMemoryRecord(db, memory)),
+  );
+  return hydrated.filter((memory): memory is AgentMemory => Boolean(memory));
+}
+
+export async function deleteAgentMemories(db: CoopDexie, ids: string[]) {
+  if (ids.length === 0) {
+    return;
+  }
+
+  await db.transaction('rw', db.agentMemories, db.encryptedLocalPayloads, async () => {
+    await db.agentMemories.bulkDelete(ids);
+    await db.encryptedLocalPayloads.bulkDelete(
+      ids.map((id) => buildEncryptedLocalPayloadId('agent-memory', id)),
+    );
+  });
+}
+
+export async function purgeQuarantinedKnowledgeSkills(db: CoopDexie) {
+  await db.transaction('rw', db.knowledgeSkills, db.coopKnowledgeSkillOverrides, async () => {
+    await db.knowledgeSkills.clear();
+    await db.coopKnowledgeSkillOverrides.clear();
+  });
+}
+
+export async function clearSensitiveLocalData(db: CoopDexie) {
+  await db.transaction(
+    'rw',
+    [
+      db.tabCandidates,
+      db.pageExtracts,
+      db.reviewDrafts,
+      db.receiverCaptures,
+      db.receiverBlobs,
+      db.tabRoutings,
+      db.captureRuns,
+      db.agentMemories,
+      db.encryptedLocalPayloads,
+    ] as unknown as Parameters<CoopDexie['transaction']>[1],
+    async () => {
+      await Promise.all([
+        db.tabCandidates.clear(),
+        db.pageExtracts.clear(),
+        db.reviewDrafts.clear(),
+        db.receiverCaptures.clear(),
+        db.receiverBlobs.clear(),
+        db.tabRoutings.clear(),
+        db.captureRuns.clear(),
+        db.agentMemories.clear(),
+        db.encryptedLocalPayloads.clear(),
+      ]);
+    },
+  );
+}
+
+export async function pruneSensitiveLocalData(db: CoopDexie) {
+  const cutoff = new Date(Date.now() - LOCAL_DATA_RETENTION_MS).toISOString();
+
+  const [candidateRows, extractRows, draftRows, captureRows, rawBlobs, payloads] =
+    await Promise.all([
+      db.tabCandidates.toArray(),
+      db.pageExtracts.toArray(),
+      db.reviewDrafts.toArray(),
+      db.receiverCaptures.toArray(),
+      db.receiverBlobs.toArray(),
+      db.encryptedLocalPayloads.toArray(),
+    ]);
+
+  const extractIdsReferencedByDrafts = new Set(draftRows.map((draft) => draft.extractId));
+  const candidateIdsReferencedByExtracts = new Set(
+    extractRows.map((extract) => extract.sourceCandidateId),
+  );
+  const captureIds = new Set(captureRows.map((capture) => capture.id));
+
+  const staleCandidateIds = candidateRows
+    .filter(
+      (candidate) =>
+        candidate.capturedAt < cutoff && !candidateIdsReferencedByExtracts.has(candidate.id),
+    )
+    .map((candidate) => candidate.id);
+  const staleExtractIds = extractRows
+    .filter(
+      (extract) => extract.createdAt < cutoff && !extractIdsReferencedByDrafts.has(extract.id),
+    )
+    .map((extract) => extract.id);
+  const orphanedBlobIds = rawBlobs
+    .filter((record) => !captureIds.has(record.captureId))
+    .map((record) => record.captureId);
+  const stalePayloadIds = payloads
+    .filter((payload) => {
+      if (payload.kind === 'receiver-blob') {
+        return !captureIds.has(payload.entityId);
+      }
+      if (payload.kind === 'tab-candidate') {
+        return staleCandidateIds.includes(payload.entityId);
+      }
+      if (payload.kind === 'page-extract') {
+        return staleExtractIds.includes(payload.entityId);
+      }
+      if (payload.expiresAt) {
+        return payload.expiresAt < cutoff;
+      }
+      return false;
+    })
+    .map((payload) => payload.id);
+
+  await db.transaction(
+    'rw',
+    db.tabCandidates,
+    db.pageExtracts,
+    db.receiverBlobs,
+    db.encryptedLocalPayloads,
+    async () => {
+      if (staleCandidateIds.length > 0) {
+        await db.tabCandidates.bulkDelete(staleCandidateIds);
+      }
+      if (staleExtractIds.length > 0) {
+        await db.pageExtracts.bulkDelete(staleExtractIds);
+      }
+      if (orphanedBlobIds.length > 0) {
+        await db.receiverBlobs.bulkDelete(orphanedBlobIds);
+      }
+      if (stalePayloadIds.length > 0) {
+        await db.encryptedLocalPayloads.bulkDelete(stalePayloadIds);
+      }
+    },
+  );
+
+  return {
+    staleCandidateCount: staleCandidateIds.length,
+    staleExtractCount: staleExtractIds.length,
+    orphanedBlobCount: orphanedBlobIds.length,
+    stalePayloadCount: stalePayloadIds.length,
+  };
+}
+
+export async function migrateLegacySensitiveRecords(db: CoopDexie) {
+  const [candidateRows, extractRows, draftRows, captureRows, memoryRows] = await Promise.all([
+    db.tabCandidates.toArray(),
+    db.pageExtracts.toArray(),
+    db.reviewDrafts.toArray(),
+    db.receiverCaptures.toArray(),
+    db.agentMemories.toArray(),
+  ]);
+
+  let migrated = 0;
+
+  for (const candidate of candidateRows) {
+    const payload = await getEncryptedLocalPayloadRecord(db, 'tab-candidate', candidate.id);
+    if (!payload && !looksRedactedTabCandidate(candidate)) {
+      await saveTabCandidate(db, candidate);
+      migrated += 1;
+    }
+  }
+
+  for (const extract of extractRows) {
+    const payload = await getEncryptedLocalPayloadRecord(db, 'page-extract', extract.id);
+    if (!payload && !looksRedactedPageExtract(extract)) {
+      await savePageExtract(db, extract);
+      migrated += 1;
+    }
+  }
+
+  for (const draft of draftRows) {
+    const payload = await getEncryptedLocalPayloadRecord(db, 'review-draft', draft.id);
+    if (!payload && !looksRedactedReviewDraft(draft)) {
+      await saveReviewDraft(db, draft);
+      migrated += 1;
+    }
+  }
+
+  for (const capture of captureRows) {
+    const capturePayload = await getEncryptedLocalPayloadRecord(db, 'receiver-capture', capture.id);
+    const blobPayload = await getEncryptedLocalPayloadRecord(db, 'receiver-blob', capture.id);
+    if (capturePayload && blobPayload) {
+      continue;
+    }
+
+    if (!capturePayload && !looksRedactedReceiverCapture(capture)) {
+      await persistReceiverCapture(
+        db,
+        capture,
+        (await db.receiverBlobs.get(capture.id))?.blob ?? null,
+      );
+      migrated += 1;
+      continue;
+    }
+
+    if (!blobPayload) {
+      const blob = (await db.receiverBlobs.get(capture.id))?.blob;
+      if (blob) {
+        await persistReceiverCapture(
+          db,
+          (await hydrateReceiverCaptureRecord(db, capture)) ?? capture,
+          blob,
+        );
+        migrated += 1;
+      }
+    }
+  }
+
+  for (const memory of memoryRows) {
+    const payload = await getEncryptedLocalPayloadRecord(db, 'agent-memory', memory.id);
+    if (!payload && !looksRedactedAgentMemory(memory)) {
+      await saveAgentMemory(db, memory);
+      migrated += 1;
+    }
+  }
+
+  return migrated;
 }
 
 // --- Legacy chain key migration ---

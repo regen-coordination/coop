@@ -1,6 +1,11 @@
 import { type AgentMemory, agentMemorySchema } from '../../contracts/schema';
 import { createId, hashJson, nowIso } from '../../utils';
-import type { CoopDexie } from '../storage/db';
+import {
+  type CoopDexie,
+  deleteAgentMemories,
+  listAgentMemories,
+  saveAgentMemory,
+} from '../storage/db';
 
 export async function createAgentMemory(
   db: CoopDexie,
@@ -24,7 +29,7 @@ export async function createAgentMemory(
     domain: input.domain ?? 'general',
   };
   const validated = agentMemorySchema.parse(memory);
-  await db.agentMemories.put(validated);
+  await saveAgentMemory(db, validated);
   return validated;
 }
 
@@ -59,7 +64,7 @@ export async function queryRecentMemories(
   options?: { limit?: number; domain?: string; type?: AgentMemory['type'] },
 ): Promise<AgentMemory[]> {
   const limit = options?.limit ?? 10;
-  let results = filterMemoriesByScope(await db.agentMemories.toArray(), scope);
+  let results = filterMemoriesByScope(await listAgentMemories(db), scope);
 
   if (options?.domain) {
     results = results.filter((m) => m.domain === options.domain);
@@ -75,11 +80,16 @@ export async function queryRecentMemories(
 
 export async function pruneExpiredMemories(db: CoopDexie): Promise<number> {
   const now = nowIso();
-  const expired = await db.agentMemories.where('expiresAt').below(now).toArray();
+  const expired = (await listAgentMemories(db)).filter(
+    (memory) => typeof memory.expiresAt === 'string' && memory.expiresAt < now,
+  );
 
   if (expired.length === 0) return 0;
 
-  await db.agentMemories.bulkDelete(expired.map((m) => m.id));
+  await deleteAgentMemories(
+    db,
+    expired.map((memory) => memory.id),
+  );
   return expired.length;
 }
 
@@ -105,7 +115,7 @@ export async function deduplicateMemories(db: CoopDexie, coopId: string): Promis
 
   if (toDelete.length === 0) return 0;
 
-  await db.agentMemories.bulkDelete(toDelete);
+  await deleteAgentMemories(db, toDelete);
   return toDelete.length;
 }
 
@@ -163,6 +173,6 @@ export async function enforceMemoryLimit(
   const excess = memories.length - maxEntries;
   const toDelete = memories.slice(0, excess).map((m) => m.id);
 
-  await db.agentMemories.bulkDelete(toDelete);
+  await deleteAgentMemories(db, toDelete);
   return toDelete.length;
 }

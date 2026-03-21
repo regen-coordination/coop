@@ -49,8 +49,8 @@ vi.mock('permissionless/clients/pimlico', () => ({
   })),
 }));
 
-vi.mock('viem', async () => {
-  const actual = await vi.importActual<typeof import('viem')>('viem');
+vi.mock('viem', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('viem')>();
   return {
     ...actual,
     http: vi.fn((url) => ({ url })),

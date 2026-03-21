@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import 'fake-indexeddb/auto';
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   ActionBundle,
   ActionLogEntry,
@@ -61,6 +64,7 @@ import {
   listReceiverCaptures,
   listReceiverPairings,
   listRecordedReplayIds,
+  listReviewDrafts,
   listSessionCapabilities,
   listSessionCapabilitiesByCoopId,
   listSessionCapabilityLogEntries,
@@ -100,6 +104,9 @@ import {
 } from '../db';
 
 const databases: CoopDexie[] = [];
+
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
 
 /** Create a uniquely-named Dexie instance and track it for cleanup. */
 function freshDb(): CoopDexie {
@@ -411,6 +418,33 @@ describe('review draft persistence', () => {
   it('returns undefined for a non-existent draft', async () => {
     const db = freshDb();
     expect(await getReviewDraft(db, 'no-such-draft')).toBeUndefined();
+  });
+
+  it('falls back to the redacted draft when an encrypted payload is corrupted', async () => {
+    const db = freshDb();
+    const draft = buildReviewDraft();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await saveReviewDraft(db, draft);
+    await db.encryptedLocalPayloads.update(`review-draft:${draft.id}`, {
+      ciphertext: 'AA==',
+    });
+
+    const loaded = await getReviewDraft(db, draft.id);
+    const listed = await listReviewDrafts(db);
+
+    expect(loaded).toMatchObject({
+      id: draft.id,
+      title: 'Encrypted review draft',
+      summary: 'Encrypted local review content.',
+    });
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({
+      id: draft.id,
+      title: 'Encrypted review draft',
+      summary: 'Encrypted local review content.',
+    });
+    expect(warn).toHaveBeenCalled();
   });
 
   it('updates an existing review draft with a patch', async () => {
@@ -885,6 +919,37 @@ describe('receiver capture persistence', () => {
   it('returns null from getReceiverCaptureBlob for a non-existent capture', async () => {
     const db = freshDb();
     expect(await getReceiverCaptureBlob(db, 'missing')).toBeNull();
+  });
+
+  it('returns null from getReceiverCaptureBlob when the encrypted blob payload is corrupted', async () => {
+    const db = freshDb();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const device = createReceiverDeviceIdentity('Phone');
+    const pairing = toReceiverPairingRecord(
+      createReceiverPairingPayload({
+        coopId: 'coop-1',
+        coopDisplayName: 'Test Coop',
+        memberId: 'member-1',
+        memberDisplayName: 'Tester',
+      }),
+      NOW,
+    );
+    const blob = new Blob(['audio data'], { type: 'audio/webm' });
+    const capture = createReceiverCapture({
+      deviceId: device.id,
+      kind: 'audio',
+      blob,
+      pairing,
+      title: 'Test capture',
+    });
+
+    await saveReceiverCapture(db, capture, blob);
+    await db.encryptedLocalPayloads.update(`receiver-blob:${capture.id}`, {
+      ciphertext: 'AA==',
+    });
+
+    await expect(getReceiverCaptureBlob(db, capture.id)).resolves.toBeNull();
+    expect(warn).toHaveBeenCalled();
   });
 
   it('updates an existing receiver capture with a patch', async () => {

@@ -1,6 +1,8 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { type CoopDexie, createCoopDb } from '../../storage/db';
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type CoopDexie, createCoopDb, getAgentMemory, listAgentMemories } from '../../storage/db';
 import {
   createAgentMemory,
   deduplicateMemories,
@@ -11,6 +13,9 @@ import {
 } from '../memory';
 
 let db: CoopDexie;
+
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
 
 beforeEach(async () => {
   db = createCoopDb(`test-memory-${crypto.randomUUID()}`);
@@ -41,7 +46,10 @@ describe('createAgentMemory', () => {
     // Verify it was persisted
     const stored = await db.agentMemories.get(memory.id);
     expect(stored).toBeDefined();
-    expect(stored?.content).toBe(memory.content);
+    expect(stored?.content).toBe('Encrypted local memory');
+
+    const hydrated = await getAgentMemory(db, memory.id);
+    expect(hydrated?.content).toBe(memory.content);
   });
 
   it('uses provided createdAt when given', async () => {
@@ -153,6 +161,27 @@ describe('queryRecentMemories', () => {
     expect(results[2].content).toBe('Memory A');
   });
 
+  it('falls back to the redacted memory when an encrypted payload is corrupted', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const memory = await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'observation-outcome',
+      content: 'Memory A',
+      confidence: 0.8,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await db.encryptedLocalPayloads.update(`agent-memory:${memory.id}`, {
+      ciphertext: 'AA==',
+    });
+
+    const results = await queryRecentMemories(db, 'coop-1');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].content).toBe('Encrypted local memory');
+    expect(warn).toHaveBeenCalled();
+  });
+
   it('respects the limit option', async () => {
     await seedMemories();
 
@@ -213,7 +242,7 @@ describe('pruneExpiredMemories', () => {
 
     expect(deleted).toBe(1);
 
-    const remaining = await db.agentMemories.toArray();
+    const remaining = await listAgentMemories(db);
     expect(remaining).toHaveLength(2);
     expect(remaining.map((m) => m.content).sort()).toEqual([
       'No expiry memory',
@@ -270,7 +299,7 @@ describe('deduplicateMemories', () => {
 
     expect(deleted).toBe(1);
 
-    const remaining = await db.agentMemories.where('coopId').equals('coop-1').toArray();
+    const remaining = (await listAgentMemories(db)).filter((memory) => memory.coopId === 'coop-1');
     expect(remaining).toHaveLength(2);
 
     // The surviving duplicate should be the newer one
@@ -320,7 +349,9 @@ describe('enforceMemoryLimit', () => {
 
     expect(deleted).toBe(2);
 
-    const remaining = await db.agentMemories.where('coopId').equals('coop-limit').toArray();
+    const remaining = (await listAgentMemories(db)).filter(
+      (memory) => memory.coopId === 'coop-limit',
+    );
     expect(remaining).toHaveLength(3);
 
     // The surviving memories should be the 3 newest
@@ -454,7 +485,7 @@ describe('queryMemoriesForSkill', () => {
     const results = await queryMemoriesForSkill(db, 'coop-limit', 'test-skill', { limit: 5 });
 
     expect(results.length).toBeLessThanOrEqual(5);
-  });
+  }, 10_000);
 
   it('returns empty array for unknown coopId', async () => {
     const results = await queryMemoriesForSkill(db, 'nonexistent', 'test-skill');

@@ -3,25 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/packages/shared/src/index.js",
+  "module": "./dist/packages/shared/src/index.js",
+  "types": "./dist/packages/shared/src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/packages/shared/src/index.d.ts",
+      "default": "./dist/packages/shared/src/index.js"
     },
     "./contracts": {
-      "types": "./dist/contracts/index.d.ts",
-      "default": "./dist/contracts/index.js"
+      "types": "./dist/packages/shared/src/contracts/index.d.ts",
+      "default": "./dist/packages/shared/src/contracts/index.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@coop/api": "workspace:*",
     "@bandada/api-sdk": "^2.8.0",
+    "@coop/api": "workspace:*",
     "@kohaku-eth/provider": "^0.0.1-alpha.2",
     "@noble/secp256k1": "^3.0.0",
     "@rhinestone/module-sdk": "^0.4.0",
@@ -35,6 +35,7 @@
     "viem": "^2.25.0",
     "y-indexeddb": "^9.0.12",
     "y-webrtc": "^10.3.0",
+    "y-websocket": "^3.0.0",
     "yjs": "^13.6.24",
     "zod": "^3.24.2"
   }

@@ -414,6 +414,28 @@ export const encryptedSessionMaterialSchema = z.object({
   version: z.literal(1),
 });
 
+export const encryptedLocalPayloadKindSchema = z.enum([
+  'tab-candidate',
+  'page-extract',
+  'review-draft',
+  'receiver-capture',
+  'receiver-blob',
+  'agent-memory',
+]);
+
+export const encryptedLocalPayloadSchema = z.object({
+  id: z.string().min(1),
+  kind: encryptedLocalPayloadKindSchema,
+  entityId: z.string().min(1),
+  ciphertext: z.string().min(1),
+  iv: z.string().min(1),
+  salt: z.string().min(1),
+  algorithm: z.literal('aes-gcm'),
+  wrappedAt: z.string().datetime(),
+  expiresAt: z.string().datetime().optional(),
+  version: z.literal(1),
+});
+
 export const agentObservationTriggerSchema = z.enum([
   'roundup-batch-ready',
   'high-confidence-draft',
@@ -1904,6 +1926,8 @@ export type SessionCapability = z.infer<typeof sessionCapabilitySchema>;
 export type SessionCapabilityLogEventType = z.infer<typeof sessionCapabilityLogEventTypeSchema>;
 export type SessionCapabilityLogEntry = z.infer<typeof sessionCapabilityLogEntrySchema>;
 export type EncryptedSessionMaterial = z.infer<typeof encryptedSessionMaterialSchema>;
+export type EncryptedLocalPayloadKind = z.infer<typeof encryptedLocalPayloadKindSchema>;
+export type EncryptedLocalPayload = z.infer<typeof encryptedLocalPayloadSchema>;
 export type AgentObservationTrigger = z.infer<typeof agentObservationTriggerSchema>;
 export type AgentObservationStatus = z.infer<typeof agentObservationStatusSchema>;
 export type AgentObservation = z.infer<typeof agentObservationSchema>;
