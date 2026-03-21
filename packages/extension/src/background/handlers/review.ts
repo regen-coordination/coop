@@ -1,6 +1,7 @@
 import {
   type CoopSharedState,
   type ReviewDraft,
+  deleteReviewDraft,
   getAuthSession,
   getReviewDraft,
   getTabRoutingByExtractAndCoop,
@@ -83,7 +84,7 @@ export async function publishDraftWithContext(input: {
   for (const state of nextStates) {
     await saveState(state);
   }
-  await db.reviewDrafts.delete(validation.draft.id);
+  await deleteReviewDraft(db, validation.draft.id);
   if (validation.draft.provenance.type === 'tab') {
     for (const coopId of validation.targetActors.map((target) => target.coopId)) {
       const routing = await getTabRoutingByExtractAndCoop(db, validation.draft.extractId, coopId);

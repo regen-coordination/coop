@@ -54,6 +54,8 @@ import {
   failSkillRun,
   findAgentObservationByFingerprint,
   getAuthSession,
+  getPageExtract,
+  getReceiverCapture,
   getReviewDraft,
   getSkillRun,
   getTabRoutingByExtractAndCoop,
@@ -66,6 +68,7 @@ import {
   isReviewDraftVisibleForMemberContext,
   listAgentObservationsByStatus,
   listAgentPlansByObservationId,
+  listReviewDrafts,
   listTabRoutings,
   nowIso,
   pruneExpiredMemories,
@@ -95,7 +98,6 @@ import {
   selectSkillIdsForObservation,
   shouldSkipSkill,
 } from './agent-harness';
-import { selectKnowledgeSkills } from './agent-knowledge';
 import {
   logActionDispatch,
   logCycleEnd,
@@ -510,13 +512,6 @@ async function buildSkillPrompt(input: {
     `Expected output schema ref: ${input.skill.manifest.outputSchemaRef}`,
   ].join('\n\n');
 
-  // Inject relevant knowledge skills into prompt context
-  const knowledgeSkills = await selectKnowledgeSkills(input.observation, input.coop?.profile.id);
-  const knowledgeContext =
-    knowledgeSkills.length > 0
-      ? `Domain knowledge:\n${knowledgeSkills.map((s) => `### ${s.name}\n${truncateWords(s.content, 80)}`).join('\n\n')}`
-      : '';
-
   const memberMemoryContext =
     input.memories.filter((memory) => memory.scope === 'member').length > 0
       ? `Member memories:\n${input.memories
@@ -548,7 +543,6 @@ async function buildSkillPrompt(input: {
     candidateContext,
     scoreContext,
     recentContext,
-    ...(knowledgeContext ? [knowledgeContext] : []),
     'Return JSON that matches the requested schema exactly.',
   ].join('\n\n');
 
@@ -980,7 +974,7 @@ function resolveObservationEligibleCoopIds(
 
 async function loadExtractsForObservation(observation: AgentObservation) {
   const extracts = await Promise.all(
-    resolveObservationExtractIds(observation).map((extractId) => db.pageExtracts.get(extractId)),
+    resolveObservationExtractIds(observation).map((extractId) => getPageExtract(db, extractId)),
   );
   return extracts.filter((extract): extract is ReadablePageExtract => Boolean(extract));
 }
@@ -1026,7 +1020,7 @@ async function emitObservationIfMissing(observation: AgentObservation) {
 }
 
 async function findExistingDraftForRouting(extractId: string, coopId: string) {
-  const drafts = (await db.reviewDrafts.toArray()).filter((draft) => draft.extractId === extractId);
+  const drafts = (await listReviewDrafts(db)).filter((draft) => draft.extractId === extractId);
   return drafts.find((draft) => draft.suggestedTargetCoopIds.includes(coopId));
 }
 
@@ -1159,7 +1153,7 @@ async function buildSkillContext(observation: AgentObservation): Promise<SkillEx
   const [coops, draft, capture, authSession, extracts] = await Promise.all([
     getCoops(),
     observation.draftId ? getReviewDraft(db, observation.draftId) : Promise.resolve(null),
-    observation.captureId ? db.receiverCaptures.get(observation.captureId) : Promise.resolve(null),
+    observation.captureId ? getReceiverCapture(db, observation.captureId) : Promise.resolve(null),
     getAuthSession(db),
     loadExtractsForObservation(observation),
   ]);
@@ -1179,7 +1173,7 @@ async function buildSkillContext(observation: AgentObservation): Promise<SkillEx
     coop
       ? queryMemoriesForSkill(db, { coopId: coop.profile.id, memberId }, observation.trigger)
       : Promise.resolve([]),
-    (await db.reviewDrafts.reverse().sortBy('createdAt'))
+    (await listReviewDrafts(db))
       .filter((candidate) => !coop || candidate.suggestedTargetCoopIds.includes(coop.profile.id))
       .slice(0, 12),
     coop

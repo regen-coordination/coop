@@ -121,7 +121,6 @@ vi.mock('../hooks/useDashboard', () => ({
       },
     },
     agentDashboard: {
-      knowledgeSkills: [],
       manifests: [],
       skillRuns: [],
       memories: [],

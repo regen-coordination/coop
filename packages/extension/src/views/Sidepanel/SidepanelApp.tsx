@@ -357,6 +357,20 @@ export function SidepanelApp() {
     await loadDashboard();
   }
 
+  async function clearSensitiveLocalDataAction() {
+    const response = await sendRuntimeMessage({
+      type: 'clear-sensitive-local-data',
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not clear local encrypted history.');
+      return;
+    }
+
+    setAgentDashboard(null);
+    setMessage('Local encrypted capture history cleared from this browser.');
+    await Promise.all([loadDashboard(), loadAgentDashboard()]);
+  }
+
   async function copyText(label: string, value: string) {
     if (!value.trim()) {
       setMessage(`No ${label.toLowerCase()} is available yet.`);
@@ -704,84 +718,6 @@ export function SidepanelApp() {
       return;
     }
     await loadAgentDashboard();
-  }
-
-  async function handleImportKnowledgeSkill(url: string) {
-    const response = await sendRuntimeMessage<AgentDashboardResponse>({
-      type: 'import-knowledge-skill',
-      payload: { url },
-    });
-    if (!response.ok || !response.data) {
-      setMessage(response.error ?? 'Could not import the knowledge skill.');
-      return false;
-    }
-    setAgentDashboard(response.data);
-    setMessage('Knowledge skill imported.');
-    return true;
-  }
-
-  async function handleRefreshKnowledgeSkill(skillId: string) {
-    const response = await sendRuntimeMessage<AgentDashboardResponse>({
-      type: 'refresh-knowledge-skill',
-      payload: { skillId },
-    });
-    if (!response.ok || !response.data) {
-      setMessage(response.error ?? 'Could not refresh the knowledge skill.');
-      return false;
-    }
-    setAgentDashboard(response.data);
-    setMessage('Knowledge skill refreshed.');
-    return true;
-  }
-
-  async function handleSetCoopKnowledgeSkillEnabled(skillId: string, enabled: boolean) {
-    if (!activeCoop) {
-      setMessage('Select a coop before updating knowledge skills.');
-      return;
-    }
-
-    const response = await sendRuntimeMessage<AgentDashboardResponse>({
-      type: 'set-coop-knowledge-skill-enabled',
-      payload: {
-        coopId: activeCoop.profile.id,
-        knowledgeSkillId: skillId,
-        enabled,
-      },
-    });
-    if (!response.ok || !response.data) {
-      setMessage(response.error ?? 'Could not update the coop knowledge-skill setting.');
-      return;
-    }
-    setAgentDashboard(response.data);
-    setMessage(
-      `Knowledge skill ${enabled ? 'enabled' : 'disabled'} for ${activeCoop.profile.name}.`,
-    );
-  }
-
-  async function handleSaveKnowledgeSkillTriggerPatterns(
-    skillId: string,
-    triggerPatterns: string[],
-  ) {
-    if (!activeCoop) {
-      setMessage('Select a coop before updating knowledge-skill trigger patterns.');
-      return false;
-    }
-
-    const response = await sendRuntimeMessage<AgentDashboardResponse>({
-      type: 'set-coop-knowledge-skill-trigger-patterns',
-      payload: {
-        coopId: activeCoop.profile.id,
-        knowledgeSkillId: skillId,
-        triggerPatterns,
-      },
-    });
-    if (!response.ok || !response.data) {
-      setMessage(response.error ?? 'Could not save trigger patterns.');
-      return false;
-    }
-    setAgentDashboard(response.data);
-    setMessage(`Knowledge skill trigger patterns saved for ${activeCoop.profile.name}.`);
-    return true;
   }
 
   async function handleQueueGreenGoodsWorkApproval(
@@ -1162,10 +1098,6 @@ export function SidepanelApp() {
               handleRejectAgentPlan={handleRejectAgentPlan}
               handleRetrySkillRun={handleRetrySkillRun}
               handleToggleSkillAutoRun={handleToggleSkillAutoRun}
-              handleImportKnowledgeSkill={handleImportKnowledgeSkill}
-              handleRefreshKnowledgeSkill={handleRefreshKnowledgeSkill}
-              handleSetCoopKnowledgeSkillEnabled={handleSetCoopKnowledgeSkillEnabled}
-              handleSaveKnowledgeSkillTriggerPatterns={handleSaveKnowledgeSkillTriggerPatterns}
               handleSetPolicy={handleSetPolicy}
               handleProposeAction={handleProposeAction}
               handleApproveAction={handleApproveAction}
@@ -1220,6 +1152,7 @@ export function SidepanelApp() {
               updateSound={updateSound}
               testSound={testSound}
               toggleLocalInferenceOptIn={toggleLocalInferenceOptIn}
+              clearSensitiveLocalData={clearSensitiveLocalDataAction}
               updateUiPreferences={updateUiPreferences}
               archiveLatestArtifact={archiveLatestArtifact}
               archiveSnapshot={archiveSnapshot}

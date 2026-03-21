@@ -7,6 +7,7 @@ import {
   buildReceiverPairingDeepLink,
   createReceiverDraftSeed,
   createReceiverPairingPayload,
+  deleteReviewDraft,
   encodeReceiverPairingPayload,
   generateInviteCode,
   getAuthSession,
@@ -376,7 +377,7 @@ export async function handleArchiveReceiverIntake(
   }
 
   if (capture.linkedDraftId) {
-    await db.reviewDrafts.delete(capture.linkedDraftId);
+    await deleteReviewDraft(db, capture.linkedDraftId);
   }
 
   await updateReceiverCapture(db, capture.id, {

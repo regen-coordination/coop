@@ -19,6 +19,7 @@ import type {
 import { validateSkillOutput } from '@coop/shared';
 import { AGENT_SKILL_TIMEOUT_MS } from './agent-config';
 import { AgentWebLlmBridge } from './agent-webllm-bridge';
+import { resolveOnnxRuntimeWasmPaths } from './onnx-assets';
 
 const TRANSFORMERS_MODEL_ID = 'onnx-community/Qwen2.5-0.5B-Instruct';
 
@@ -186,8 +187,7 @@ async function ensureTransformersPipeline() {
     const { pipeline, env } = await import('@huggingface/transformers');
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    // Load ONNX WASM from CDN instead of bundling the 22 MB binary
-    env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
+    env.backends.onnx.wasm.wasmPaths = resolveOnnxRuntimeWasmPaths();
 
     return (await pipeline('text-generation', TRANSFORMERS_MODEL_ID, {
       dtype: 'q4',

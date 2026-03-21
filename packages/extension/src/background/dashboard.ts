@@ -16,8 +16,10 @@ import {
   listPermitLogEntries,
   listReceiverCaptures,
   listReceiverPairings,
+  listReviewDrafts,
   listSessionCapabilities,
   listSessionCapabilityLogEntries,
+  listTabCandidates,
   listTabRoutings,
   pendingBundles,
   refreshPermitStatus,
@@ -155,7 +157,7 @@ export function summarizeSyncStatus(input: {
     ) {
       return {
         syncState: syncDetail,
-        syncLabel: 'Local only',
+        syncLabel: 'Local',
         syncDetail,
         syncTone: 'warning',
       };
@@ -186,6 +188,60 @@ export function summarizeSyncStatus(input: {
   };
 }
 
+export function extensionActionTitle(
+  summary: Pick<
+    RuntimeSummary,
+    'coopCount' | 'pendingAttentionCount' | 'syncDetail' | 'syncLabel' | 'syncTone'
+  >,
+) {
+  if (summary.coopCount === 0) {
+    return 'Coop';
+  }
+
+  const detail = summary.syncDetail?.trim();
+  const normalized = detail?.toLowerCase() ?? '';
+
+  if (
+    normalized.includes('no signaling server connection') ||
+    normalized.includes('limited to this browser profile') ||
+    summary.syncLabel === 'Local'
+  ) {
+    return detail ? `Coop: Local. ${detail}` : 'Coop: Local';
+  }
+
+  if (normalized.includes('offline') || summary.syncLabel === 'Offline') {
+    return detail ? `Coop: Offline. ${detail}` : 'Coop: Offline';
+  }
+
+  if (summary.syncTone === 'error') {
+    return detail ? `Coop: Error. ${detail}` : 'Coop: Error';
+  }
+
+  if (summary.syncTone === 'warning' && summary.syncLabel) {
+    return detail ? `Coop: ${summary.syncLabel}. ${detail}` : `Coop: ${summary.syncLabel}`;
+  }
+
+  if (summary.pendingAttentionCount > 0) {
+    return `Coop: ${summary.pendingAttentionCount} waiting for review`;
+  }
+
+  return 'Coop';
+}
+
+export function describeActionIndicator(
+  summary: Pick<
+    RuntimeSummary,
+    'iconState' | 'coopCount' | 'pendingAttentionCount' | 'syncDetail' | 'syncLabel' | 'syncTone'
+  >,
+) {
+  const badge = extensionIconBadge(summary.iconState);
+  return {
+    badgeColor: badge.color,
+    badgeText: '',
+    title: extensionActionTitle(summary),
+  };
+}
+
 // ---- Badge / Summary ----
 
 export async function buildSummary(): Promise<RuntimeSummary> {
@@ -200,7 +256,7 @@ export async function buildSummary(): Promise<RuntimeSummary> {
     tabRoutings,
     actionBundles,
   ] = await Promise.all([
-    db.reviewDrafts.toArray(),
+    listReviewDrafts(db),
     getCoops(),
     getLocalSetting<RuntimeSummary['captureMode']>(stateKeys.captureMode, 'manual'),
     getRuntimeHealth(),
@@ -273,12 +329,12 @@ export async function buildSummary(): Promise<RuntimeSummary> {
 
 export async function refreshBadge() {
   const summary = await buildSummary();
-  const badge = extensionIconBadge(summary.iconState);
+  const indicator = describeActionIndicator(summary);
   await chrome.action.setIcon({ path: extensionIconPaths(summary.iconState) });
-  await chrome.action.setBadgeText({ text: badge.text });
-  await chrome.action.setBadgeBackgroundColor({ color: badge.color });
+  await chrome.action.setBadgeText({ text: indicator.badgeText });
+  await chrome.action.setBadgeBackgroundColor({ color: indicator.badgeColor });
   await chrome.action.setTitle({
-    title: summary.iconState === 'idle' ? 'Coop' : `Coop: ${summary.iconLabel}`,
+    title: indicator.title,
   });
   void notifyDashboardUpdated();
 }
@@ -300,8 +356,8 @@ export async function getDashboard(): Promise<DashboardResponse> {
     receiverIntake,
   ] = await Promise.all([
     getCoops(),
-    db.reviewDrafts.reverse().sortBy('createdAt'),
-    db.tabCandidates.reverse().sortBy('capturedAt'),
+    listReviewDrafts(db),
+    listTabCandidates(db),
     listTabRoutings(db, { status: ['routed', 'drafted', 'published'], limit: 500 }),
     buildSummary(),
     getSoundPreferences(db),
@@ -312,7 +368,7 @@ export async function getDashboard(): Promise<DashboardResponse> {
     listReceiverCaptures(db),
   ]);
   const activeContext = await getActiveReviewContextForSession(coops, authSession);
-  const orderedDrafts = drafts.reverse();
+  const orderedDrafts = drafts;
   const visibleDrafts = filterVisibleReviewDrafts(
     orderedDrafts,
     activeContext.activeCoopId,
@@ -429,7 +485,7 @@ export async function getDashboard(): Promise<DashboardResponse> {
     activeCoopId: activeContext.activeCoopId ?? summary.activeCoopId,
     coopBadges,
     drafts: visibleDrafts,
-    candidates: candidates.reverse().slice(-12).reverse(),
+    candidates: candidates.slice(0, 12),
     tabRoutings: topTabRoutings,
     summary,
     soundPreferences: soundPreferences ?? defaultSoundPreferences,

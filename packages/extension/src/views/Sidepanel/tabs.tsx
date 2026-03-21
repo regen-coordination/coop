@@ -1358,13 +1358,6 @@ export interface CoopFeedTabProps {
   handleRejectAgentPlan: (planId: string) => Promise<void>;
   handleRetrySkillRun: (skillRunId: string) => Promise<void>;
   handleToggleSkillAutoRun: (skillId: string, enabled: boolean) => Promise<void>;
-  handleImportKnowledgeSkill: (url: string) => Promise<boolean>;
-  handleRefreshKnowledgeSkill: (skillId: string) => Promise<boolean>;
-  handleSetCoopKnowledgeSkillEnabled: (skillId: string, enabled: boolean) => Promise<void>;
-  handleSaveKnowledgeSkillTriggerPatterns: (
-    skillId: string,
-    triggerPatterns: string[],
-  ) => Promise<boolean>;
   handleSetPolicy: (
     actionClass: import('@coop/shared').PolicyActionClass,
     approvalRequired: boolean,
@@ -1434,10 +1427,6 @@ export function CoopFeedTab({
   handleRejectAgentPlan,
   handleRetrySkillRun,
   handleToggleSkillAutoRun,
-  handleImportKnowledgeSkill,
-  handleRefreshKnowledgeSkill,
-  handleSetCoopKnowledgeSkillEnabled,
-  handleSaveKnowledgeSkillTriggerPatterns,
   handleSetPolicy,
   handleProposeAction,
   handleApproveAction,
@@ -1544,10 +1533,6 @@ export function CoopFeedTab({
           onRunAgentCycle={handleRunAgentCycle}
           onToggleAnchor={toggleAnchorMode}
           onToggleSkillAutoRun={handleToggleSkillAutoRun}
-          onImportKnowledgeSkill={handleImportKnowledgeSkill}
-          onRefreshKnowledgeSkill={handleRefreshKnowledgeSkill}
-          onSetCoopKnowledgeSkillEnabled={handleSetCoopKnowledgeSkillEnabled}
-          onSaveKnowledgeSkillTriggerPatterns={handleSaveKnowledgeSkillTriggerPatterns}
           onchainMode={dashboard?.operator.onchainMode ?? runtimeConfig.onchainMode}
           refreshableReceiptCount={refreshableArchiveReceipts.length}
           policies={actionPolicies}
@@ -1591,7 +1576,6 @@ export function CoopFeedTab({
           onQueueGreenGoodsMemberSync={handleQueueGreenGoodsMemberSync}
           activeCoopId={activeCoop?.profile.id}
           activeCoopName={activeCoop?.profile.name}
-          knowledgeSkills={agentDashboard?.knowledgeSkills ?? []}
           skillManifests={agentDashboard?.manifests ?? []}
           skillRuns={agentDashboard?.skillRuns ?? []}
           memories={agentDashboard?.memories ?? []}
@@ -1909,6 +1893,7 @@ export interface NestToolsTabProps {
   updateSound: (next: SoundPreferences) => Promise<void>;
   testSound: () => Promise<void>;
   toggleLocalInferenceOptIn: () => Promise<void>;
+  clearSensitiveLocalData: () => Promise<void>;
   updateUiPreferences: (
     patch: Partial<import('@coop/shared').UiPreferences>,
   ) => Promise<import('@coop/shared').UiPreferences | null>;
@@ -1934,6 +1919,7 @@ export function NestToolsTab({
   updateSound,
   testSound,
   toggleLocalInferenceOptIn,
+  clearSensitiveLocalData,
   updateUiPreferences,
   archiveLatestArtifact,
   archiveSnapshot,
@@ -2147,6 +2133,15 @@ export function NestToolsTab({
         <p className="helper-text">
           Notifications cover extension moments only. File picker export falls back to a normal
           download whenever the browser does not support it.
+        </p>
+        <div className="action-row">
+          <button className="secondary-button" onClick={clearSensitiveLocalData} type="button">
+            Clear encrypted capture history
+          </button>
+        </div>
+        <p className="helper-text">
+          This clears local tab captures, page extracts, drafts, receiver intake, and agent memories
+          from this browser without touching shared coop memory.
         </p>
       </article>
 

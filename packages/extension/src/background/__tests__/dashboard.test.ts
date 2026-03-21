@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeSyncStatus } from '../dashboard';
+import { describeActionIndicator, summarizeSyncStatus } from '../dashboard';
 
 describe('summarizeSyncStatus', () => {
   it('returns a healthy sync summary when runtime health is clear', () => {
@@ -35,7 +35,7 @@ describe('summarizeSyncStatus', () => {
     ).toEqual({
       syncState:
         'No signaling server connection. Shared sync is currently limited to this browser profile.',
-      syncLabel: 'Local only',
+      syncLabel: 'Local',
       syncDetail:
         'No signaling server connection. Shared sync is currently limited to this browser profile.',
       syncTone: 'warning',
@@ -58,5 +58,50 @@ describe('summarizeSyncStatus', () => {
       syncDetail: 'Browser is offline. Shared sync will resume when the connection returns.',
       syncTone: 'warning',
     });
+  });
+
+  it('describes a local-only toolbar state without visible badge text', () => {
+    expect(
+      describeActionIndicator({
+        iconState: 'error-offline',
+        coopCount: 1,
+        pendingAttentionCount: 0,
+        syncLabel: 'Local',
+        syncDetail:
+          'No signaling server connection. Shared sync is currently limited to this browser profile.',
+        syncTone: 'warning',
+      }),
+    ).toEqual({
+      badgeColor: '#a63b20',
+      badgeText: '',
+      title:
+        'Coop: Local. No signaling server connection. Shared sync is currently limited to this browser profile.',
+    });
+  });
+
+  it('prefers offline and error titles for the toolbar hover state', () => {
+    expect(
+      describeActionIndicator({
+        iconState: 'error-offline',
+        coopCount: 1,
+        pendingAttentionCount: 2,
+        syncLabel: 'Offline',
+        syncDetail: 'Browser is offline. Shared sync will resume when the connection returns.',
+        syncTone: 'warning',
+      }).title,
+    ).toBe(
+      'Coop: Offline. Browser is offline. Shared sync will resume when the connection returns.',
+    );
+
+    expect(
+      describeActionIndicator({
+        iconState: 'error-offline',
+        coopCount: 1,
+        pendingAttentionCount: 2,
+        syncLabel: 'Permission',
+        syncDetail: 'Missing permission to reach the local sync runtime.',
+        syncTone: 'error',
+      }).title,
+    ).toBe('Coop: Error. Missing permission to reach the local sync runtime.');
   });
 });

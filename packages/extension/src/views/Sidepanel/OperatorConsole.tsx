@@ -22,12 +22,10 @@ import type {
   SkillManifest,
   SkillRun,
 } from '@coop/shared';
-import type { AgentDashboardKnowledgeSkill } from '../../runtime/messages';
 import {
   AgentMemorySection,
   AgentObservationsSection,
   GardenRequestsSection,
-  KnowledgeSkillsSection,
   PermitSection,
   PolicyAndQueueSection,
   SessionCapabilitySection,
@@ -90,7 +88,6 @@ type OperatorConsoleProps = {
   skillRuns: SkillRun[];
   skillManifests: SkillManifest[];
   autoRunSkillIds: string[];
-  knowledgeSkills: AgentDashboardKnowledgeSkill[];
   activeCoopId?: string;
   activeCoopName?: string;
   onRunAgentCycle(): void | Promise<void>;
@@ -98,13 +95,6 @@ type OperatorConsoleProps = {
   onRejectPlan(planId: string): void | Promise<void>;
   onRetrySkillRun(skillRunId: string): void | Promise<void>;
   onToggleSkillAutoRun(skillId: string, enabled: boolean): void | Promise<void>;
-  onImportKnowledgeSkill(url: string): boolean | Promise<boolean>;
-  onRefreshKnowledgeSkill(skillId: string): boolean | Promise<boolean>;
-  onSetCoopKnowledgeSkillEnabled(skillId: string, enabled: boolean): void | Promise<void>;
-  onSaveKnowledgeSkillTriggerPatterns(
-    skillId: string,
-    triggerPatterns: string[],
-  ): boolean | Promise<boolean>;
   greenGoodsContext?: {
     coopId: string;
     coopName: string;
@@ -133,16 +123,6 @@ export function OperatorConsole(props: OperatorConsoleProps) {
         autoRunSkillIds={props.autoRunSkillIds}
         onRunAgentCycle={props.onRunAgentCycle}
         onToggleSkillAutoRun={props.onToggleSkillAutoRun}
-      />
-
-      <KnowledgeSkillsSection
-        activeCoopId={props.activeCoopId}
-        activeCoopName={props.activeCoopName}
-        knowledgeSkills={props.knowledgeSkills}
-        onImportKnowledgeSkill={props.onImportKnowledgeSkill}
-        onRefreshKnowledgeSkill={props.onRefreshKnowledgeSkill}
-        onSaveKnowledgeSkillTriggerPatterns={props.onSaveKnowledgeSkillTriggerPatterns}
-        onSetCoopKnowledgeSkillEnabled={props.onSetCoopKnowledgeSkillEnabled}
       />
 
       <GardenRequestsSection

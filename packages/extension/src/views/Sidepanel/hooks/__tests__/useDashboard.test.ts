@@ -120,7 +120,6 @@ function makeAgentDashboardResponse() {
       manifests: [],
       autoRunSkillIds: [],
       memories: [],
-      knowledgeSkills: [],
     },
   };
 }

@@ -134,6 +134,7 @@ export const stateKeys = {
 };
 
 export const alarmNames = {
+  capture: 'coop-capture',
   agentCadence: 'agent-proactive-cycle',
   agentHeartbeat: 'agent-heartbeat',
   archiveStatusPoll: 'archive-status-poll',
@@ -581,11 +582,11 @@ export async function syncAgentCadenceAlarm(
 }
 
 export async function syncCaptureAlarm(captureMode: string) {
-  await chrome.alarms.clear('coop-capture');
+  await chrome.alarms.clear(alarmNames.capture);
   if (captureMode === 'manual') {
     return;
   }
-  await chrome.alarms.create('coop-capture', {
+  await chrome.alarms.create(alarmNames.capture, {
     periodInMinutes: captureMode === '30-min' ? 30 : 60,
   });
 }

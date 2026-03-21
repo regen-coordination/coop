@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@coop/shared', async () => {
-  const actual = await vi.importActual<typeof import('@coop/shared')>('@coop/shared');
+vi.mock('@coop/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@coop/shared')>();
   return {
     ...actual,
     listActionPolicies: vi.fn(async () => [

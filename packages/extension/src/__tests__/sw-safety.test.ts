@@ -29,6 +29,7 @@ import { describe, expect, it } from 'vitest';
 const distDir = path.resolve(__dirname, '../../dist');
 const bgPath = path.join(distDir, 'background.js');
 const distExists = fs.existsSync(bgPath);
+const requireDist = process.env.COOP_REQUIRE_EXTENSION_DIST === '1';
 
 /** Extract static `from "..."` import specifiers from a JS file. */
 function extractStaticImports(code: string): string[] {
@@ -227,8 +228,19 @@ function formatViolations(vs: Violation[]): string {
   return vs.map((v) => `  ${v.file}@${v.offset} — ${v.snippet}`).join('\n');
 }
 
-describe.skipIf(!distExists)('service-worker safety (built output)', () => {
-  const graph = distExists ? traceImportGraph(bgPath) : [];
+describe('service-worker safety (built output)', () => {
+  if (!distExists) {
+    const maybeIt = requireDist ? it : it.skip;
+    maybeIt('requires a fresh extension build', () => {
+      expect(
+        distExists,
+        'Expected packages/extension/dist/background.js to exist. Run the extension build first.',
+      ).toBe(true);
+    });
+    return;
+  }
+
+  const graph = traceImportGraph(bgPath);
 
   it('background import graph is non-empty', () => {
     expect(graph.length).toBeGreaterThan(1);

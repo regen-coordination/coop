@@ -6,8 +6,11 @@ import {
   createId,
   createReceiverCapture,
   getAuthSession,
+  listPageExtracts,
   nowIso,
+  savePageExtract,
   saveReceiverCapture,
+  saveTabCandidate,
 } from '@coop/shared';
 import { resolveReceiverPairingMember } from '../../runtime/receiver';
 import {
@@ -83,7 +86,7 @@ export async function runCaptureForTabs(
       }
       const { candidate, snapshot } = collected;
       candidates.push(candidate);
-      await db.tabCandidates.put(candidate);
+      await saveTabCandidate(db, candidate);
 
       const extract = buildReadablePageExtract({
         candidate,
@@ -92,7 +95,7 @@ export async function runCaptureForTabs(
         paragraphs: snapshot.paragraphs,
         previewImageUrl: snapshot.previewImageUrl,
       });
-      await db.pageExtracts.put(extract);
+      await savePageExtract(db, extract);
       newExtractIds.push(extract.id);
     } catch (error) {
       lastCaptureError =
@@ -130,7 +133,7 @@ export async function runCaptureForTabs(
 }
 
 export async function seedCoopFromStoredRoundup(coop: CoopSharedState) {
-  const extracts = await db.pageExtracts.toArray();
+  const extracts = await listPageExtracts(db);
   if (extracts.length === 0) {
     return 0;
   }

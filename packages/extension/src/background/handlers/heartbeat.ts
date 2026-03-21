@@ -4,7 +4,9 @@ import {
   deduplicateMemories,
   enforceMemoryLimit,
   findAgentObservationByFingerprint,
+  listReviewDraftsByWorkflowStage,
   pruneExpiredMemories,
+  pruneSensitiveLocalData,
   saveAgentObservation,
 } from '@coop/shared';
 import { db, getCoops, uiPreferences } from '../context';
@@ -13,13 +15,11 @@ import { db, getCoops, uiPreferences } from '../context';
 
 const STALE_DRAFT_THRESHOLD_MS = 48 * 60 * 60 * 1000;
 const UNREVIEWED_OBSERVATION_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-const STALE_SKILL_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
-
 // --- Heartbeat Handler ---
 
 /**
  * Periodic heartbeat handler that runs lightweight DB checks
- * for stale drafts, unreviewed observations, and knowledge skill freshness.
+ * for stale drafts, unreviewed observations, and local memory maintenance.
  * No inference or content scripts -- just housekeeping queries.
  */
 export async function handleAgentHeartbeat(): Promise<void> {
@@ -35,17 +35,14 @@ export async function handleAgentHeartbeat(): Promise<void> {
   // 2. Unreviewed observations: pending observations older than 24h
   await checkUnreviewedObservations(now);
 
-  // 3. Knowledge skill freshness: skills not fetched in 7 days
-  await checkStaleKnowledgeSkills(now);
-
-  // 4. Memory maintenance: prune expired, enforce limits
+  // 3. Memory maintenance: prune expired, enforce limits
   await maintainAgentMemories();
 }
 
 // --- Stale Drafts ---
 
 async function checkStaleDrafts(now: number): Promise<void> {
-  const drafts = await db.reviewDrafts.where('workflowStage').equals('ready').toArray();
+  const drafts = await listReviewDraftsByWorkflowStage(db, 'ready');
   const threshold = now - STALE_DRAFT_THRESHOLD_MS;
 
   for (const draft of drafts) {
@@ -100,34 +97,11 @@ async function checkUnreviewedObservations(now: number): Promise<void> {
 
 async function maintainAgentMemories(): Promise<void> {
   await pruneExpiredMemories(db);
+  await pruneSensitiveLocalData(db);
 
   const coops = await getCoops();
   for (const coop of coops) {
     await deduplicateMemories(db, coop.profile.id);
     await enforceMemoryLimit(db, coop.profile.id);
-  }
-}
-
-// --- Knowledge Skill Freshness ---
-
-async function checkStaleKnowledgeSkills(now: number): Promise<void> {
-  const skills = await db.knowledgeSkills.toArray();
-  const threshold = now - STALE_SKILL_THRESHOLD_MS;
-
-  for (const skill of skills) {
-    if (!skill.fetchedAt) {
-      continue;
-    }
-
-    const fetchedAtMs = new Date(skill.fetchedAt).getTime();
-    if (fetchedAtMs > threshold) {
-      continue;
-    }
-
-    console.warn('[heartbeat] stale knowledge skill not fetched in over 7 days', {
-      id: skill.id,
-      name: skill.name,
-      fetchedAt: skill.fetchedAt,
-    });
   }
 }

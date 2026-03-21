@@ -76,7 +76,7 @@ export function useSyncBindings(deps: {
         };
 
         const reportSyncHealth = async () => {
-          const health = summarizeSyncTransportHealth(providers.webrtc);
+          const health = summarizeSyncTransportHealth(providers.webrtc, providers.websocket);
           await sendRuntimeMessage({
             type: 'report-sync-health',
             payload: {
@@ -95,12 +95,12 @@ export function useSyncBindings(deps: {
           }, delay);
         };
 
-        let disposeSyncHealth: (() => void) | undefined;
+        const onProviderSignal = () => scheduleSyncHealthReport();
+        const onProviderDisconnect = () => scheduleSyncHealthReport(1200);
+        const disposers: (() => void)[] = [];
 
         if (providers.webrtc) {
           const provider = providers.webrtc;
-          const onProviderSignal = () => scheduleSyncHealthReport();
-          const onProviderDisconnect = () => scheduleSyncHealthReport(1200);
 
           provider.on('status', onProviderSignal);
           provider.on('synced', onProviderSignal);
@@ -116,8 +116,7 @@ export function useSyncBindings(deps: {
             connection.on('disconnect', onProviderDisconnect);
           }
 
-          scheduleSyncHealthReport(2500);
-          disposeSyncHealth = () => {
+          disposers.push(() => {
             provider.off('status', onProviderSignal);
             provider.off('synced', onProviderSignal);
             provider.off('peers', onProviderSignal);
@@ -125,8 +124,23 @@ export function useSyncBindings(deps: {
               connection.off('connect', onProviderSignal);
               connection.off('disconnect', onProviderDisconnect);
             }
-          };
-        } else {
+          });
+        }
+
+        if (providers.websocket) {
+          const wsProvider = providers.websocket;
+          wsProvider.on('status', onProviderSignal);
+          disposers.push(() => {
+            wsProvider.off('status', onProviderSignal);
+          });
+        }
+
+        scheduleSyncHealthReport(2500);
+        const disposeSyncHealth = () => {
+          for (const dispose of disposers) dispose();
+        };
+
+        if (!providers.webrtc && !providers.websocket) {
           void reportSyncHealth();
         }
 

@@ -4,6 +4,7 @@ import {
   authSessionToLocalIdentity,
   buildAgentLogExport,
   buildAgentManifest,
+  clearSensitiveLocalData,
   coopSharedStateSchema,
   getAuthSession,
   getPrivacyIdentitiesForCoop,
@@ -11,6 +12,9 @@ import {
   getSoundPreferences,
   getStealthKeyPair,
   listReceiverPairings,
+  migrateLegacySensitiveRecords,
+  pruneSensitiveLocalData,
+  purgeQuarantinedKnowledgeSkills,
   selectActiveReceiverPairingsForSync,
   setAuthSession,
   setSoundPreferences,
@@ -54,6 +58,7 @@ import {
 
 // ---- Operator ----
 import { getActiveReviewContextForSession } from './background/operator';
+import { handleAlarmEvent } from './background/alarm-dispatch';
 
 // ---- Dashboard ----
 import { getDashboard, refreshBadge } from './background/dashboard';
@@ -84,18 +89,14 @@ import {
   ensureOnboardingBurst,
   handleApproveAgentPlan,
   handleGetAgentDashboard,
-  handleImportKnowledgeSkill,
   handleListSkillManifests,
   handleQueueGreenGoodsAssessment,
   handleQueueGreenGoodsGapAdminSync,
   handleQueueGreenGoodsWorkApproval,
-  handleRefreshKnowledgeSkill,
   handleRejectAgentPlan,
   handleRetrySkillRun,
   handleRunAgentCycle,
   handleSetAgentSkillAutoRun,
-  handleSetCoopKnowledgeSkillEnabled,
-  handleSetCoopKnowledgeSkillTriggerPatterns,
   runProactiveAgentCycle,
   syncAgentObservations,
 } from './background/handlers/agent';
@@ -178,6 +179,12 @@ async function getReceiverSyncConfig() {
   };
 }
 
+async function runLocalDataMaintenance() {
+  await purgeQuarantinedKnowledgeSkills(db);
+  await migrateLegacySensitiveRecords(db);
+  await pruneSensitiveLocalData(db);
+}
+
 // ---- Chrome Event Listeners ----
 
 chrome.contextMenus.onClicked.addListener((info) => {
@@ -217,8 +224,10 @@ chrome.commands.onCommand.addListener((command) => {
 chrome.runtime.onInstalled.addListener(async () => {
   await ensureDbReady();
   await ensureDefaults();
+  await runLocalDataMaintenance();
   await registerContextMenus();
   await syncAgentCadenceAlarm((await hydrateUiPreferences()).agentCadenceMinutes);
+  await syncCaptureAlarm(await getLocalSetting(stateKeys.captureMode, 'manual'));
   await chrome.alarms.create(alarmNames.archiveStatusPoll, { periodInMinutes: 360 });
   await chrome.alarms.create(alarmNames.agentHeartbeat, { periodInMinutes: 5 });
   await ensureReceiverSyncOffscreenDocument();
@@ -230,8 +239,10 @@ chrome.runtime.onInstalled.addListener(async () => {
 chrome.runtime.onStartup.addListener(async () => {
   await ensureDbReady();
   await ensureDefaults();
+  await runLocalDataMaintenance();
   await registerContextMenus();
   await syncAgentCadenceAlarm((await hydrateUiPreferences()).agentCadenceMinutes);
+  await syncCaptureAlarm(await getLocalSetting(stateKeys.captureMode, 'manual'));
   await chrome.alarms.create(alarmNames.archiveStatusPoll, { periodInMinutes: 360 });
   await chrome.alarms.create(alarmNames.agentHeartbeat, { periodInMinutes: 5 });
   await ensureReceiverSyncOffscreenDocument();
@@ -240,29 +251,8 @@ chrome.runtime.onStartup.addListener(async () => {
   await refreshBadge();
 });
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  await ensureDbReady();
-  if (alarm.name === alarmNames.agentHeartbeat) {
-    await handleAgentHeartbeat();
-    return;
-  }
-  if (alarm.name === alarmNames.archiveStatusPoll) {
-    await pollUnsealedArchiveReceipts();
-    return;
-  }
-  if (alarm.name === alarmNames.agentCadence) {
-    await runProactiveAgentCycle({ reason: 'cadence-alarm' });
-    return;
-  }
-  if (alarm.name.startsWith(alarmNames.onboardingFollowUpPrefix)) {
-    const onboardingKey = alarm.name.slice(alarmNames.onboardingFollowUpPrefix.length);
-    await runProactiveAgentCycle({
-      reason: 'onboarding-followup',
-      onboardingKey,
-    });
-    await completeOnboardingBurst(onboardingKey);
-    return;
-  }
+chrome.alarms.onAlarm.addListener((alarm) => {
+  void handleAlarmEvent(alarm);
 });
 
 // ---- Message Dispatcher ----
@@ -372,6 +362,11 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
             error: error instanceof Error ? error.message : 'Screenshot capture failed.',
           } satisfies RuntimeActionResponse);
         }
+        return;
+      case 'clear-sensitive-local-data':
+        await clearSensitiveLocalData(db);
+        await refreshBadge();
+        sendResponse({ ok: true } satisfies RuntimeActionResponse);
         return;
       case 'create-coop':
         sendResponse(await handleCreateCoop(message));
@@ -558,18 +553,6 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
         return;
       case 'set-agent-skill-auto-run':
         sendResponse(await handleSetAgentSkillAutoRun(message));
-        return;
-      case 'import-knowledge-skill':
-        sendResponse(await handleImportKnowledgeSkill(message));
-        return;
-      case 'refresh-knowledge-skill':
-        sendResponse(await handleRefreshKnowledgeSkill(message));
-        return;
-      case 'set-coop-knowledge-skill-enabled':
-        sendResponse(await handleSetCoopKnowledgeSkillEnabled(message));
-        return;
-      case 'set-coop-knowledge-skill-trigger-patterns':
-        sendResponse(await handleSetCoopKnowledgeSkillTriggerPatterns(message));
         return;
       case 'get-action-policies':
         sendResponse(await handleGetActionPolicies());

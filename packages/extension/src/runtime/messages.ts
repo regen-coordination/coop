@@ -158,7 +158,6 @@ export interface AgentDashboardResponse {
   manifests: SkillManifest[];
   autoRunSkillIds: string[];
   memories: AgentMemory[];
-  knowledgeSkills: AgentDashboardKnowledgeSkill[];
 }
 
 export interface AgentDashboardKnowledgeSkill {
@@ -180,6 +179,7 @@ export type RuntimeRequest =
   | { type: 'manual-capture' }
   | { type: 'capture-active-tab' }
   | { type: 'capture-visible-screenshot' }
+  | { type: 'clear-sensitive-local-data' }
   | { type: 'get-ui-preferences' }
   | { type: 'set-ui-preferences'; payload: UiPreferences }
   | {
@@ -374,16 +374,6 @@ export type RuntimeRequest =
   | { type: 'retry-skill-run'; payload: { skillRunId: string } }
   | { type: 'list-skill-manifests' }
   | { type: 'set-agent-skill-auto-run'; payload: { skillId: string; enabled: boolean } }
-  | { type: 'import-knowledge-skill'; payload: { url: string } }
-  | { type: 'refresh-knowledge-skill'; payload: { skillId: string } }
-  | {
-      type: 'set-coop-knowledge-skill-enabled';
-      payload: { coopId: string; knowledgeSkillId: string; enabled: boolean };
-    }
-  | {
-      type: 'set-coop-knowledge-skill-trigger-patterns';
-      payload: { coopId: string; knowledgeSkillId: string; triggerPatterns: string[] };
-    }
   | { type: 'get-action-policies' }
   | {
       type: 'set-action-policy';
