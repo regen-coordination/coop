@@ -5,6 +5,7 @@ type TranscriptKey = 'capital' | 'impact' | 'governance' | 'knowledge';
 type TranscriptMap = Record<TranscriptKey, string>;
 type SetupFieldKey = keyof SetupInsightsInput;
 type LensStatus = 'empty' | 'drafting' | 'ready';
+type AudienceId = 'persona' | 'family' | 'friends' | 'community';
 
 type SpeechRecognitionAlternativeLike = {
   transcript?: string;
@@ -16,6 +17,7 @@ type SpeechRecognitionResultLike = {
 };
 
 type SpeechRecognitionEventLike = {
+  resultIndex?: number;
   results: ArrayLike<SpeechRecognitionResultLike>;
 };
 
@@ -70,6 +72,36 @@ type LensProgress = {
   filledCount: number;
 };
 
+type LandingDraft = {
+  version: number;
+  audience: AudienceId;
+  openCardId: TranscriptKey | null;
+  sharedNotes: string;
+  setupInput: SetupInsightsInput;
+  transcripts: TranscriptMap;
+};
+
+type LandingPacketOptions = {
+  audience?: AudienceId;
+  sharedNotes?: string;
+};
+
+type AudienceOption = {
+  id: AudienceId;
+  label: string;
+  descriptor: string;
+};
+
+type StoryCard = {
+  title: string;
+  detail: string;
+  emphasis?: 'wide';
+};
+
+const LANDING_DRAFT_STORAGE_KEY = 'coop-landing-ritual-v2';
+const defaultTranscriptStatus =
+  'Use live transcript if this browser supports it, or type directly into the card. Everything stays saved on this device.';
+
 const journeyChickens: JourneyChicken[] = [
   { id: 'tabs', label: 'Tabs' },
   { id: 'notes', label: 'Notes' },
@@ -77,71 +109,50 @@ const journeyChickens: JourneyChicken[] = [
   { id: 'signals', label: 'Signals' },
 ];
 
-const ritualCards: RitualCard[] = [
+const audienceOptions: AudienceOption[] = [
+  { id: 'persona', label: 'Persona', descriptor: 'you' },
+  { id: 'family', label: 'Family', descriptor: 'your family' },
+  { id: 'friends', label: 'Friends', descriptor: 'your friends' },
+  { id: 'community', label: 'Community', descriptor: 'your community' },
+];
+
+const howItWorksCards: StoryCard[] = [
   {
-    id: 'capital',
-    eyebrow: 'Lens 1',
-    title: 'Money & resources',
+    title: 'Local, Secure & Private',
     detail:
-      'Name how this group notices funding, opportunities, and practical support before they disappear.',
-    transcriptPrompt:
-      'Capture the part of the conversation about opportunities, resources, and what the group needs to notice faster.',
-    currentKey: 'capitalCurrent',
-    painKey: 'capitalPain',
-    improveKey: 'capitalImprove',
-    currentPlaceholder:
-      'Funding context lives across inboxes, tabs, and whoever happened to save the link.',
-    painPlaceholder: 'Good leads disappear before the flock can review them together.',
-    improvePlaceholder: 'Keep promising opportunities visible in one shared review loop.',
+      'Capture, transcript notes, and draft shaping stay on your device until your group decides what belongs in the coop.',
   },
   {
-    id: 'impact',
-    eyebrow: 'Lens 2',
-    title: 'Impact & progress',
+    title: 'Knowledge Gathering',
     detail:
-      'Gather how evidence, field signals, and proof of progress currently surface across the community.',
-    transcriptPrompt:
-      'Capture the discussion about evidence, proof, milestones, and what usually arrives too late.',
-    currentKey: 'impactCurrent',
-    painKey: 'impactPain',
-    improveKey: 'impactImprove',
-    currentPlaceholder: 'Progress updates show up in calls, chats, and stray notes after the fact.',
-    painPlaceholder: 'Useful proof gets buried before anyone can connect it to the right moment.',
-    improvePlaceholder:
-      'Keep evidence close to the work so progress is easier to revisit and share.',
+      'Loose tabs, notes, files, and call fragments land in one place before they disappear after the meeting.',
   },
   {
-    id: 'governance',
-    eyebrow: 'Lens 3',
-    title: 'Decisions & teamwork',
+    title: 'Community Coordination',
     detail:
-      'Make visible where decisions, commitments, and follow-through get lost once the meeting ends.',
-    transcriptPrompt:
-      'Capture the discussion about meetings, commitments, and where follow-through slips today.',
-    currentKey: 'governanceCurrent',
-    painKey: 'governancePain',
-    improveKey: 'governanceImprove',
-    currentPlaceholder: 'Decisions mostly live in meetings, memory, and whoever took notes.',
-    painPlaceholder:
-      'Follow-up slips when nobody can quickly see what was noticed, promised, or still open.',
-    improvePlaceholder:
-      'Give the flock one clear review loop for decisions, commitments, and next steps.',
+      'The group gets one shared review loop instead of hunting for context across chats, browsers, and memory.',
   },
   {
-    id: 'knowledge',
-    eyebrow: 'Lens 4',
-    title: 'Knowledge & tools',
+    title: 'Impact Reporting',
     detail:
-      'Describe where tabs, references, notes, and shared memory currently live across people and devices.',
-    transcriptPrompt:
-      'Capture the discussion about tabs, tools, files, and where useful references run loose today.',
-    currentKey: 'knowledgeCurrent',
-    painKey: 'knowledgePain',
-    improveKey: 'knowledgeImprove',
-    currentPlaceholder: 'Useful links and notes are spread across browsers, devices, and people.',
-    painPlaceholder: 'People repeat the same research because the best finds do not stay visible.',
-    improvePlaceholder: 'Catch loose knowledge early and keep the strongest finds easy to revisit.',
+      'Proof, outcomes, and progress stay close to the work so updates are easier to revisit, share, and trust.',
+    emphasis: 'wide',
   },
+  {
+    title: 'Ethereum Actions',
+    detail:
+      'When the timing is right, the setup packet becomes a cleaner path into shared actions, launch, and onchain coordination.',
+    emphasis: 'wide',
+  },
+];
+
+const teamMembers = ['Afolabi Aiyeloja', 'Luiz Fernando', 'Sofia Villareal'];
+const partnerMarks = [
+  'Regen Coordination',
+  'Greenpill',
+  'Greenpill Dev Guild',
+  'ReFi DAO',
+  'Green Goods',
 ];
 
 const storyFlightPaths: Record<
@@ -149,24 +160,24 @@ const storyFlightPaths: Record<
   Array<{ x: string; y: string; rotate: number; scale?: number }>
 > = {
   tabs: [
-    { x: '2vw', y: '-2vh', rotate: -12, scale: 1.03 },
-    { x: '15vw', y: '-16vh', rotate: 6, scale: 0.99 },
-    { x: '23vw', y: '-22vh', rotate: -4, scale: 0.94 },
+    { x: '8vw', y: '-2vh', rotate: -10, scale: 1.02 },
+    { x: '18vw', y: '-5vh', rotate: -4, scale: 0.98 },
+    { x: '28vw', y: '-7vh', rotate: 0, scale: 0.92 },
   ],
   notes: [
-    { x: '8vw', y: '6vh', rotate: 10, scale: 1.01 },
-    { x: '16vw', y: '18vh', rotate: 3, scale: 0.97 },
-    { x: '24vw', y: '16vh', rotate: -4, scale: 0.92 },
+    { x: '7vw', y: '2vh', rotate: 8, scale: 1.01 },
+    { x: '16vw', y: '-1vh', rotate: 4, scale: 0.97 },
+    { x: '23vw', y: '-3vh', rotate: 0, scale: 0.92 },
   ],
   ideas: [
-    { x: '-6vw', y: '8vh', rotate: -8, scale: 1.02 },
-    { x: '-14vw', y: '14vh', rotate: 8, scale: 0.98 },
-    { x: '-22vw', y: '13vh', rotate: 2, scale: 0.92 },
+    { x: '-7vw', y: '2vh', rotate: -8, scale: 1.01 },
+    { x: '-16vw', y: '-1vh', rotate: -4, scale: 0.97 },
+    { x: '-23vw', y: '-3vh', rotate: 0, scale: 0.92 },
   ],
   signals: [
-    { x: '-2vw', y: '-7vh', rotate: 9, scale: 1.01 },
-    { x: '-15vw', y: '-18vh', rotate: -5, scale: 0.97 },
-    { x: '-23vw', y: '-23vh', rotate: 3, scale: 0.92 },
+    { x: '-8vw', y: '-2vh', rotate: 10, scale: 1.02 },
+    { x: '-18vw', y: '-5vh', rotate: 4, scale: 0.98 },
+    { x: '-28vw', y: '-7vh', rotate: 0, scale: 0.92 },
   ],
 };
 
@@ -175,26 +186,88 @@ const arrivalFlightPaths: Record<
   Array<{ x: string; y: string; rotate: number; scale?: number; opacity?: number }>
 > = {
   tabs: [
-    { x: '10vw', y: '-10vh', rotate: -8, scale: 0.96, opacity: 1 },
-    { x: '23vw', y: '-18vh', rotate: -3, scale: 0.78, opacity: 0.8 },
-    { x: '29vw', y: '-22vh', rotate: 0, scale: 0.42, opacity: 0 },
+    { x: '8vw', y: '-3vh', rotate: -8, scale: 0.95, opacity: 1 },
+    { x: '16vw', y: '-8vh', rotate: -3, scale: 0.72, opacity: 0.82 },
+    { x: '20vw', y: '-11vh', rotate: 0, scale: 0.38, opacity: 0 },
   ],
   notes: [
-    { x: '12vw', y: '4vh', rotate: 8, scale: 0.94, opacity: 1 },
-    { x: '24vw', y: '-2vh', rotate: 2, scale: 0.74, opacity: 0.8 },
-    { x: '28vw', y: '-6vh', rotate: -2, scale: 0.4, opacity: 0 },
+    { x: '9vw', y: '-1vh', rotate: 7, scale: 0.94, opacity: 1 },
+    { x: '15vw', y: '-5vh', rotate: 2, scale: 0.72, opacity: 0.82 },
+    { x: '19vw', y: '-8vh', rotate: 0, scale: 0.38, opacity: 0 },
   ],
   ideas: [
-    { x: '-12vw', y: '4vh', rotate: -8, scale: 0.94, opacity: 1 },
-    { x: '-24vw', y: '-2vh', rotate: -2, scale: 0.74, opacity: 0.8 },
-    { x: '-28vw', y: '-6vh', rotate: 2, scale: 0.4, opacity: 0 },
+    { x: '-9vw', y: '-1vh', rotate: -7, scale: 0.94, opacity: 1 },
+    { x: '-15vw', y: '-5vh', rotate: -2, scale: 0.72, opacity: 0.82 },
+    { x: '-19vw', y: '-8vh', rotate: 0, scale: 0.38, opacity: 0 },
   ],
   signals: [
-    { x: '-10vw', y: '-10vh', rotate: 8, scale: 0.96, opacity: 1 },
-    { x: '-23vw', y: '-18vh', rotate: 3, scale: 0.78, opacity: 0.8 },
-    { x: '-29vw', y: '-22vh', rotate: 0, scale: 0.42, opacity: 0 },
+    { x: '-8vw', y: '-3vh', rotate: 8, scale: 0.95, opacity: 1 },
+    { x: '-16vw', y: '-8vh', rotate: 3, scale: 0.72, opacity: 0.82 },
+    { x: '-20vw', y: '-11vh', rotate: 0, scale: 0.38, opacity: 0 },
   ],
 };
+
+const ritualCards: RitualCard[] = [
+  {
+    id: 'knowledge',
+    eyebrow: 'Card 1',
+    title: 'Knowledge',
+    detail: 'Catch the links, notes, and research that usually run loose after the call.',
+    transcriptPrompt:
+      'Capture the parts of the conversation about tabs, references, notes, and what people keep needing to rediscover.',
+    currentKey: 'knowledgeCurrent',
+    painKey: 'knowledgePain',
+    improveKey: 'knowledgeImprove',
+    currentPlaceholder: 'Useful links and notes are spread across browsers, devices, and people.',
+    painPlaceholder: 'Good research gets lost before anyone can reuse it.',
+    improvePlaceholder: 'Keep the strongest context easy to revisit and act on.',
+  },
+  {
+    id: 'capital',
+    eyebrow: 'Card 2',
+    title: 'Capital',
+    detail: 'Name how funding, support, and practical opportunities show up before they disappear.',
+    transcriptPrompt:
+      'Capture the discussion about grants, leads, support, and what the group needs to notice faster.',
+    currentKey: 'capitalCurrent',
+    painKey: 'capitalPain',
+    improveKey: 'capitalImprove',
+    currentPlaceholder:
+      'Funding context lives across inboxes, tabs, and whoever happened to save the link.',
+    painPlaceholder: 'Promising leads disappear before the flock can review them together.',
+    improvePlaceholder: 'Keep opportunities visible in one shared review loop.',
+  },
+  {
+    id: 'governance',
+    eyebrow: 'Card 3',
+    title: 'Coordination',
+    detail:
+      'Make decisions, commitments, and follow-through visible while the meeting is still warm.',
+    transcriptPrompt:
+      'Capture the part of the call about decisions, handoffs, and where follow-through usually slips.',
+    currentKey: 'governanceCurrent',
+    painKey: 'governancePain',
+    improveKey: 'governanceImprove',
+    currentPlaceholder: 'Decisions mostly live in meetings, memory, and whoever took notes.',
+    painPlaceholder: 'Follow-up slips when nobody can see what was noticed or promised.',
+    improvePlaceholder: 'Give the group one clear loop for commitments and next steps.',
+  },
+  {
+    id: 'impact',
+    eyebrow: 'Card 4',
+    title: 'Impact',
+    detail:
+      'Keep proof, progress, and field signals close to the work instead of buried after the fact.',
+    transcriptPrompt:
+      'Capture the conversation about evidence, milestones, outcomes, and what usually arrives too late.',
+    currentKey: 'impactCurrent',
+    painKey: 'impactPain',
+    improveKey: 'impactImprove',
+    currentPlaceholder: 'Progress updates show up in calls, chats, and stray notes after the fact.',
+    painPlaceholder: 'Useful proof gets buried before anyone can connect it to the right moment.',
+    improvePlaceholder: 'Keep evidence close enough to guide the next move.',
+  },
+];
 
 export const emptyLandingTranscripts: TranscriptMap = {
   capital: '',
@@ -211,6 +284,98 @@ function compact<T>(values: Array<T | null | undefined>) {
   return values.filter((value): value is T => value != null);
 }
 
+function cloneSetupInput() {
+  return { ...emptySetupInsightsInput };
+}
+
+function cloneTranscripts() {
+  return { ...emptyLandingTranscripts };
+}
+
+function createEmptyLandingDraft(): LandingDraft {
+  return {
+    version: 2,
+    audience: 'community',
+    openCardId: null,
+    sharedNotes: '',
+    setupInput: cloneSetupInput(),
+    transcripts: cloneTranscripts(),
+  };
+}
+
+function isTranscriptKey(value: unknown): value is TranscriptKey {
+  return (
+    value === 'capital' || value === 'impact' || value === 'governance' || value === 'knowledge'
+  );
+}
+
+function isAudienceId(value: unknown): value is AudienceId {
+  return value === 'persona' || value === 'family' || value === 'friends' || value === 'community';
+}
+
+function mergeSetupInput(value: unknown): SetupInsightsInput {
+  const next = cloneSetupInput();
+
+  if (!value || typeof value !== 'object') {
+    return next;
+  }
+
+  for (const key of Object.keys(emptySetupInsightsInput) as SetupFieldKey[]) {
+    const candidate = (value as Record<string, unknown>)[key];
+
+    if (typeof candidate === 'string') {
+      next[key] = candidate;
+    }
+  }
+
+  return next;
+}
+
+function mergeTranscripts(value: unknown): TranscriptMap {
+  const next = cloneTranscripts();
+
+  if (!value || typeof value !== 'object') {
+    return next;
+  }
+
+  for (const key of Object.keys(emptyLandingTranscripts) as TranscriptKey[]) {
+    const candidate = (value as Record<string, unknown>)[key];
+
+    if (typeof candidate === 'string') {
+      next[key] = candidate;
+    }
+  }
+
+  return next;
+}
+
+function readLandingDraft(): LandingDraft {
+  if (typeof window === 'undefined') {
+    return createEmptyLandingDraft();
+  }
+
+  try {
+    const rawDraft = window.localStorage.getItem(LANDING_DRAFT_STORAGE_KEY);
+
+    if (!rawDraft) {
+      return createEmptyLandingDraft();
+    }
+
+    const parsed = JSON.parse(rawDraft) as Record<string, unknown>;
+
+    return {
+      version: 2,
+      audience: isAudienceId(parsed.audience) ? parsed.audience : 'community',
+      openCardId: isTranscriptKey(parsed.openCardId) ? parsed.openCardId : null,
+      sharedNotes: typeof parsed.sharedNotes === 'string' ? parsed.sharedNotes : '',
+      setupInput: mergeSetupInput(parsed.setupInput),
+      transcripts: mergeTranscripts(parsed.transcripts),
+    };
+  } catch {
+    return createEmptyLandingDraft();
+  }
+}
+
 function resolveSpeechRecognitionConstructor(target: Window & typeof globalThis) {
   const speechWindow = target as SpeechWindow;
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
@@ -220,9 +385,9 @@ function resolveSpeechError(error?: string) {
   switch (error) {
     case 'not-allowed':
     case 'service-not-allowed':
-      return 'Microphone or speech permissions were denied. Type notes manually for this lens.';
+      return 'Microphone or speech permissions were denied. Type notes manually for this card.';
     case 'audio-capture':
-      return 'No microphone is available here. You can still type notes into the ritual.';
+      return 'No microphone is available here. You can still type notes into the card.';
     case 'no-speech':
       return 'No speech was detected. Try again or type notes manually.';
     default:
@@ -262,21 +427,66 @@ function statusLabel(status: LensStatus) {
     case 'ready':
       return 'Ready';
     case 'drafting':
-      return 'Drafting';
+      return 'In progress';
     default:
       return 'Not started';
   }
 }
 
+function getAudienceOption(audience: AudienceId) {
+  return audienceOptions.find((option) => option.id === audience) ?? audienceOptions[3];
+}
+
+function buildCurrentQuestion(card: RitualCard, audience: AudienceId) {
+  const descriptor = getAudienceOption(audience).descriptor;
+  return descriptor === 'you'
+    ? `How do you handle ${card.title.toLowerCase()} today?`
+    : `How does ${descriptor} handle ${card.title.toLowerCase()} today?`;
+}
+
+function buildPainQuestion(card: RitualCard, audience: AudienceId) {
+  const descriptor = getAudienceOption(audience).descriptor;
+  return descriptor === 'you'
+    ? `Where does ${card.title.toLowerCase()} get stuck or scattered for you?`
+    : `Where does ${card.title.toLowerCase()} get stuck or scattered for ${descriptor}?`;
+}
+
+function buildImproveQuestion(audience: AudienceId) {
+  const descriptor = getAudienceOption(audience).descriptor;
+  return descriptor === 'you'
+    ? 'What opportunity should Coop unlock for you?'
+    : `What opportunity should Coop unlock for ${descriptor}?`;
+}
+
+function initialsForName(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((segment) => segment[0]?.toUpperCase() ?? '')
+    .slice(0, 2)
+    .join('');
+}
+
+function buildPacketFilename(coopName: string) {
+  const cleaned = cleanText(coopName)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${cleaned || 'coop'}-setup-packet.json`;
+}
+
 export function buildLandingSetupPacket(
   setupInput: SetupInsightsInput,
   transcripts: TranscriptMap,
+  options: LandingPacketOptions = {},
 ) {
   const setupInsights = toSetupInsights(setupInput);
 
   return {
     coopName: cleanText(setupInput.coopName) || 'This coop',
     purpose: cleanText(setupInput.purpose) || 'Keep useful context from getting loose.',
+    audience: options.audience ?? 'community',
+    sharedNotes: cleanText(options.sharedNotes ?? ''),
     summary: setupInsights.summary,
     setupInsights,
     transcripts: {
@@ -347,9 +557,21 @@ function CoopIllustration() {
 }
 
 export function App({ appHref = '/pair' }: { appHref?: string }) {
+  const initialDraftRef = useRef<LandingDraft | null>(null);
+
+  if (!initialDraftRef.current) {
+    initialDraftRef.current = readLandingDraft();
+  }
+
+  const initialDraft = initialDraftRef.current;
+
   const landingRootRef = useRef<HTMLDivElement | null>(null);
   const storyJourneyRef = useRef<HTMLElement | null>(null);
   const arrivalJourneyRef = useRef<HTMLElement | null>(null);
+  const ritualSectionRef = useRef<HTMLElement | null>(null);
+  const heroCopyRef = useRef<HTMLDivElement | null>(null);
+  const howItWorksRef = useRef<HTMLDivElement | null>(null);
+  const whyBuildRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const recognitionHadErrorRef = useRef(false);
 
@@ -376,30 +598,49 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
 
   const storyChickenRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const arrivalChickenRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const flashcardTriggerRefs = useRef<Record<TranscriptKey, HTMLButtonElement | null>>({
+    capital: null,
+    impact: null,
+    governance: null,
+    knowledge: null,
+  });
+  const flashcardCloseRefs = useRef<Record<TranscriptKey, HTMLButtonElement | null>>({
+    capital: null,
+    impact: null,
+    governance: null,
+    knowledge: null,
+  });
+  const flashcardNotesRefs = useRef<Record<TranscriptKey, HTMLTextAreaElement | null>>({
+    capital: null,
+    impact: null,
+    governance: null,
+    knowledge: null,
+  });
+  const focusOpenCardRef = useRef<TranscriptKey | null>(null);
+  const focusReturnCardRef = useRef<TranscriptKey | null>(null);
 
-  const [setupInput, setSetupInput] = useState<SetupInsightsInput>(emptySetupInsightsInput);
-  const [transcripts, setTranscripts] = useState<TranscriptMap>(emptyLandingTranscripts);
+  const [setupInput, setSetupInput] = useState<SetupInsightsInput>(() => initialDraft.setupInput);
+  const [transcripts, setTranscripts] = useState<TranscriptMap>(() => initialDraft.transcripts);
+  const [audience, setAudience] = useState<AudienceId>(() => initialDraft.audience);
+  const [openCardId, setOpenCardId] = useState<TranscriptKey | null>(() => initialDraft.openCardId);
+  const [sharedNotes, setSharedNotes] = useState(() => initialDraft.sharedNotes);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [activeLensIndex, setActiveLensIndex] = useState(0);
-  const [ritualView, setRitualView] = useState<'cards' | 'summary'>('cards');
   const [recordingLens, setRecordingLens] = useState<TranscriptKey | null>(null);
-  const [transcriptStatus, setTranscriptStatus] = useState(
-    'Run this on a shared call, use live transcript if available, or type directly into the ritual lens.',
-  );
+  const [transcriptStatus, setTranscriptStatus] = useState(defaultTranscriptStatus);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [showResetButton, setShowResetButton] = useState(false);
 
   const speechRecognition =
     typeof window === 'undefined' ? null : resolveSpeechRecognitionConstructor(window);
-  const activeLens = ritualCards[activeLensIndex];
-  const setupPacket = buildLandingSetupPacket(setupInput, transcripts);
+  const setupPacket = buildLandingSetupPacket(setupInput, transcripts, { audience, sharedNotes });
   const setupPacketText = JSON.stringify(setupPacket, null, 2);
 
   const lensProgress = useMemo(
     () => ritualCards.map((card) => getLensProgress(card, setupInput, transcripts)),
     [setupInput, transcripts],
   );
-  const activeLensProgress = lensProgress[activeLensIndex];
   const completedLensCount = lensProgress.filter((progress) => progress.status === 'ready').length;
+  const activeDraftCount = lensProgress.filter((progress) => progress.captureReady).length;
   const allLensesReady = completedLensCount === ritualCards.length;
 
   useEffect(() => {
@@ -419,10 +660,61 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(
+      LANDING_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        audience,
+        openCardId,
+        sharedNotes,
+        setupInput,
+        transcripts,
+      } satisfies LandingDraft),
+    );
+  }, [audience, openCardId, sharedNotes, setupInput, transcripts]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !ritualSectionRef.current) {
+      return undefined;
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      setShowResetButton(true);
+      return undefined;
+    }
+
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        const activeEntry = entries[0];
+        setShowResetButton(activeEntry?.isIntersecting ?? false);
+      },
+      {
+        rootMargin: '-96px 0px -28% 0px',
+        threshold: 0.01,
+      },
+    );
+
+    observer.observe(ritualSectionRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     const isTestEnvironment =
       typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent);
 
-    if (typeof window === 'undefined' || prefersReducedMotion || isTestEnvironment) {
+    if (
+      typeof window === 'undefined' ||
+      prefersReducedMotion ||
+      isTestEnvironment ||
+      window.innerWidth <= 1024
+    ) {
       return undefined;
     }
 
@@ -451,6 +743,11 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
           );
           const arrivalChickens = compact(
             journeyChickens.map((chicken) => arrivalChickenRefs.current[chicken.id]),
+          );
+          const howItWorksHeading =
+            howItWorksRef.current?.querySelector<HTMLDivElement>('.how-works-heading') ?? null;
+          const howItWorksCards = Array.from(
+            howItWorksRef.current?.querySelectorAll<HTMLElement>('.how-works-card') ?? [],
           );
 
           const storyCoopParts = {
@@ -483,6 +780,7 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
           });
           gsap.set(storyCoopParts.frames, { transformOrigin: '50% 50%' });
           gsap.set(arrivalCoopParts.frames, { transformOrigin: '50% 50%' });
+          gsap.set(howItWorksCards, { transformOrigin: '50% 50%' });
 
           const storyTimeline = gsap.timeline({
             defaults: { ease: 'none' },
@@ -556,7 +854,39 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
               { y: 18, autoAlpha: 0 },
               { y: 0, autoAlpha: 1, stagger: 0.04 },
               0.44,
-            );
+            )
+            .fromTo(heroCopyRef.current, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -32 }, 0.5)
+            .fromTo(howItWorksRef.current, { autoAlpha: 0.55 }, { autoAlpha: 1 }, 0.38)
+            .fromTo(howItWorksHeading, { autoAlpha: 0.6, y: 34 }, { autoAlpha: 1, y: 0 }, 0.40)
+            .fromTo(
+              howItWorksCards,
+              {
+                autoAlpha: 0.55,
+                y: 48,
+                scale: 0.96,
+              },
+              {
+                autoAlpha: 1,
+                y: 0,
+                scale: 1,
+                stagger: 0.08,
+              },
+              0.42,
+            )
+            .to(
+              howItWorksCards,
+              {
+                autoAlpha: 0.35,
+                y: -24,
+                scale: 0.98,
+                stagger: {
+                  each: 0.05,
+                  from: 'end',
+                },
+              },
+              0.92,
+            )
+            .to(howItWorksRef.current, { autoAlpha: 0.4, y: -36 }, 0.94);
 
           for (const chicken of journeyChickens) {
             const node = storyChickenRefs.current[chicken.id];
@@ -579,12 +909,6 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
               0,
             );
           }
-
-          storyTimeline.to(
-            '.journey-scene-story .scene-chicken-label',
-            { autoAlpha: 0.72, y: -4, stagger: 0.04 },
-            0.44,
-          );
 
           const arrivalTimeline = gsap.timeline({
             defaults: { ease: 'none' },
@@ -642,7 +966,8 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
               { autoAlpha: 0, scale: 0.85 },
               { autoAlpha: 1, scale: 1 },
               0.62,
-            );
+            )
+            .fromTo(whyBuildRef.current, { autoAlpha: 0.18, y: 72 }, { autoAlpha: 1, y: 0 }, 0.3);
 
           for (const chicken of journeyChickens) {
             const node = arrivalChickenRefs.current[chicken.id];
@@ -697,6 +1022,29 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
     };
   }, []);
 
+  useEffect(() => {
+    const openCardIdToFocus = focusOpenCardRef.current;
+
+    if (openCardIdToFocus && openCardId === openCardIdToFocus) {
+      focusOpenCardRef.current = null;
+      const preferredTarget =
+        flashcardNotesRefs.current[openCardIdToFocus] ??
+        flashcardCloseRefs.current[openCardIdToFocus];
+
+      preferredTarget?.focus();
+      return;
+    }
+
+    const closedCardId = focusReturnCardRef.current;
+
+    if (!closedCardId || openCardId !== null) {
+      return;
+    }
+
+    focusReturnCardRef.current = null;
+    flashcardTriggerRefs.current[closedCardId]?.focus();
+  }, [openCardId]);
+
   function setStoryChickenRef(id: string) {
     return (node: HTMLDivElement | null) => {
       storyChickenRefs.current[id] = node;
@@ -706,6 +1054,24 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
   function setArrivalChickenRef(id: string) {
     return (node: HTMLDivElement | null) => {
       arrivalChickenRefs.current[id] = node;
+    };
+  }
+
+  function setFlashcardTriggerRef(id: TranscriptKey) {
+    return (node: HTMLButtonElement | null) => {
+      flashcardTriggerRefs.current[id] = node;
+    };
+  }
+
+  function setFlashcardCloseRef(id: TranscriptKey) {
+    return (node: HTMLButtonElement | null) => {
+      flashcardCloseRefs.current[id] = node;
+    };
+  }
+
+  function setFlashcardNotesRef(id: TranscriptKey) {
+    return (node: HTMLTextAreaElement | null) => {
+      flashcardNotesRefs.current[id] = node;
     };
   }
 
@@ -723,37 +1089,48 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
     }));
   }
 
+  function stopRecognitionNow() {
+    const recognition = recognitionRef.current;
+
+    if (!recognition) {
+      return;
+    }
+
+    if (recognition.abort) {
+      recognition.abort();
+    } else {
+      recognition.stop();
+    }
+
+    recognitionRef.current = null;
+    setRecordingLens(null);
+  }
+
   function stopRecording() {
     if (!recognitionRef.current || !recordingLens) {
       return;
     }
 
-    setTranscriptStatus(`Saving the ${findCard(recordingLens).title.toLowerCase()} transcript...`);
+    setTranscriptStatus(`Saving the ${findCard(recordingLens).title.toLowerCase()} notes...`);
     recognitionRef.current.stop();
   }
 
   function startRecording(cardId: TranscriptKey) {
     if (!speechRecognition) {
       setTranscriptStatus(
-        'This browser does not expose live transcript here yet. Type notes directly into the ritual card.',
+        'This browser does not expose live transcript here yet. Type notes directly into the card.',
       );
       return;
     }
 
     if (recognitionRef.current) {
-      if (recognitionRef.current.abort) {
-        recognitionRef.current.abort();
-      } else {
-        recognitionRef.current.stop();
-      }
-      recognitionRef.current = null;
-      setRecordingLens(null);
+      stopRecognitionNow();
     }
 
     recognitionHadErrorRef.current = false;
 
     const recognition = new speechRecognition();
-    const baseTranscript = cleanText(transcripts[cardId]);
+    let committedTranscript = cleanText(transcripts[cardId]);
 
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -765,17 +1142,32 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
     };
 
     recognition.onresult = (event) => {
-      const nextSegments: string[] = [];
+      const nextFinalSegments: string[] = [];
+      let nextInterimSegment = '';
+      const startIndex = Math.max(0, event.resultIndex ?? 0);
 
-      for (const result of Array.from(event.results)) {
+      for (const result of Array.from(event.results).slice(startIndex)) {
         const transcript = result[0]?.transcript?.trim();
 
-        if (transcript) {
-          nextSegments.push(transcript);
+        if (!transcript) {
+          continue;
         }
+
+        if (result.isFinal) {
+          nextFinalSegments.push(transcript);
+          continue;
+        }
+
+        nextInterimSegment = transcript;
       }
 
-      updateTranscript(cardId, [baseTranscript, nextSegments.join(' ')].filter(Boolean).join(' '));
+      if (nextFinalSegments.length > 0) {
+        committedTranscript = [committedTranscript, nextFinalSegments.join(' ')]
+          .filter(Boolean)
+          .join(' ');
+      }
+
+      updateTranscript(cardId, [committedTranscript, nextInterimSegment].filter(Boolean).join(' '));
     };
 
     recognition.onerror = (event) => {
@@ -800,13 +1192,24 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
     recognition.start();
   }
 
-  function jumpToLens(nextIndex: number) {
-    if (recordingLens) {
+  function toggleCard(cardId: TranscriptKey) {
+    if (recordingLens && recordingLens !== cardId) {
       stopRecording();
     }
 
-    setRitualView('cards');
-    setActiveLensIndex(Math.max(0, Math.min(nextIndex, ritualCards.length - 1)));
+    if (recordingLens === cardId) {
+      stopRecording();
+    }
+
+    setOpenCardId((current) => {
+      if (current === cardId) {
+        focusReturnCardRef.current = cardId;
+        return null;
+      }
+
+      focusOpenCardRef.current = cardId;
+      return cardId;
+    });
   }
 
   async function copySetupNotes() {
@@ -825,22 +1228,52 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
     }
   }
 
+  function downloadSetupNotes() {
+    if (typeof document === 'undefined' || typeof URL === 'undefined') {
+      return;
+    }
+
+    const draftBlob = new Blob([setupPacketText], { type: 'application/json' });
+    const downloadUrl = URL.createObjectURL(draftBlob);
+    const link = document.createElement('a');
+
+    link.href = downloadUrl;
+    link.download = buildPacketFilename(setupPacket.coopName);
+    link.click();
+
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 200);
+  }
+
+  function resetRitual() {
+    stopRecognitionNow();
+    setSetupInput(cloneSetupInput());
+    setTranscripts(cloneTranscripts());
+    setAudience('community');
+    setOpenCardId(null);
+    setSharedNotes('');
+    setTranscriptStatus(defaultTranscriptStatus);
+    setCopyState('idle');
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(LANDING_DRAFT_STORAGE_KEY);
+    }
+  }
+
   return (
     <div className="page-shell landing-shell" ref={landingRootRef}>
       <div className="backdrop landing-backdrop" />
 
-      <header className="topbar landing-topbar">
-        <a aria-label="Coop landing page" href="#meadow">
-          <img className="wordmark" src="/branding/coop-wordmark-flat.png" alt="Coop" />
-        </a>
-        <nav aria-label="Landing navigation" className="topnav">
-          <a href="#meadow">The Meadow</a>
-          <a href="#migration">What Is Coop</a>
-          <a href="#ritual">The Ritual</a>
-          <a href="#coop">Why Coop</a>
-          <a href="#resources">Resources</a>
-        </nav>
-      </header>
+      <button
+        className={
+          showResetButton
+            ? 'button button-secondary ritual-reset is-visible'
+            : 'button button-secondary ritual-reset'
+        }
+        onClick={resetRitual}
+        type="button"
+      >
+        Reset ritual
+      </button>
 
       <main className="landing-main">
         <section className="journey-section story-journey" id="meadow" ref={storyJourneyRef}>
@@ -873,395 +1306,362 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
                   key={chicken.id}
                   ref={setStoryChickenRef(chicken.id)}
                 >
-                  <ChickenSprite label={chicken.label} />
+                  <ChickenSprite label={chicken.label} showLabel={false} />
                 </div>
               ))}
             </div>
           </div>
 
           <div className="journey-panels">
-            <article className="journey-panel">
-              <div className="story-card nest-card">
-                <p className="eyebrow">The Meadow</p>
-                <h1>Gather your flock before the good stuff runs loose.</h1>
-                <p className="lede">
-                  Start with the real problem: tabs, notes, ideas, and signals rarely arrive in one
-                  place, and communities miss important moments in the handoff between noticing and
-                  remembering.
-                </p>
-                <p className="quiet-note">
-                  The chickens stay scattered here on purpose. They stand in for the fragments that
-                  usually live across browsers, devices, chats, and people.
-                </p>
-                <div className="cta-row">
-                  <a className="button button-primary" href="#ritual">
-                    Start the ritual
+            <article className="journey-panel hero-panel">
+              <div className="hero-shell">
+                <div className="hero-copy" ref={heroCopyRef}>
+                  <a aria-label="Coop landing page" className="hero-logo" href="#meadow">
+                    <img className="wordmark" src="/branding/coop-wordmark-flat.png" alt="Coop" />
                   </a>
-                  <a className="button button-secondary" href="#migration">
-                    See why Coop matters
-                  </a>
+                  <p className="eyebrow">Turning knowledge into opportunity</p>
+                  <h1 className="hero-title">No more loose chickens.</h1>
+                  <p className="hero-subtitle">
+                    Coop turns scattered tabs, notes, and signals into shared momentum, helping
+                    communities turn knowledge into opportunity.
+                  </p>
+                  <p className="sr-only">
+                    Four chickens start apart in the meadow and converge as you scroll.
+                  </p>
+                  <div className="cta-row">
+                    <a className="button button-primary" href="#ritual">
+                      Curate your coop
+                    </a>
+                    <a className="button button-secondary" href="#how-it-works">
+                      How Coop works
+                    </a>
+                  </div>
+                </div>
+
+                <div aria-hidden="true" className="hero-stage">
+                  <div className="hero-stage-note">Scroll to gather the flock.</div>
                 </div>
               </div>
             </article>
 
-            <article className="journey-panel journey-panel-right" id="migration">
-              <div className="story-card nest-card">
-                <p className="eyebrow">The Migration</p>
-                <h2>Coop gives scattered context one path into shared memory.</h2>
-                <p className="lede">
-                  This is the product story: Coop notices signal early, helps the group review it
-                  together, and only keeps what deserves a shared home. The flock moves, the meadow
-                  shifts, and the coop starts assembling while that story lands.
-                </p>
-                <div className="story-points">
-                  <div className="story-point">
-                    <strong>Notice what is forming</strong>
-                    <p>
-                      Loose tabs, voice notes, photos, files, and links stop living as isolated
-                      finds.
-                    </p>
-                  </div>
-                  <div className="story-point">
-                    <strong>Review before publish</strong>
-                    <p>
-                      The Roost gives the group one place to decide what is signal and what can stay
-                      private.
-                    </p>
-                  </div>
-                  <div className="story-point">
-                    <strong>Keep only what matters</strong>
-                    <p>
-                      Shared memory grows from intention, not from cloud exhaust or background
-                      noise.
-                    </p>
-                  </div>
+            <article className="journey-panel works-panel" id="how-it-works">
+              <div className="how-works-shell" ref={howItWorksRef}>
+                <div className="section-heading how-works-heading">
+                  <p className="eyebrow">The Loop</p>
+                  <h2>How Coop works</h2>
+                  <p className="lede">
+                    Loose context gets gathered, reviewed locally, and shaped into something the
+                    group can actually use.
+                  </p>
+                </div>
+
+                <div className="how-works-grid">
+                  {howItWorksCards.map((card, index) => (
+                    <article
+                      className={
+                        card.emphasis === 'wide'
+                          ? 'how-works-card nest-card is-wide'
+                          : 'how-works-card nest-card'
+                      }
+                      key={card.title}
+                    >
+                      <span className="how-works-index">0{index + 1}</span>
+                      <div>
+                        <h3>{card.title}</h3>
+                        <p>{card.detail}</p>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               </div>
             </article>
           </div>
         </section>
 
-        <section className="section ritual-section" id="ritual">
-          <div className="section-heading">
-            <p className="eyebrow">The Ritual</p>
-            <h2>Pause the migration and define how this coop actually works.</h2>
+        <section className="section ritual-section" id="ritual" ref={ritualSectionRef}>
+          <div className="section-heading ritual-section-heading">
+            <p className="eyebrow">Setup Ritual</p>
+            <h2>Curate your coop</h2>
             <p className="lede ritual-section-copy">
-              This is where the page stops being a story and becomes a facilitator tool. The
-              chickens step out of the way, the interface gets quieter, and the group does the work
-              of shaping its coop together.
+              Pick who this coop is for, flip the cards, answer three simple questions on each lens,
+              and leave with one clean setup packet you can copy or download later.
             </p>
           </div>
 
-          <div className="ritual-shell">
-            <aside className="ritual-context nest-card">
-              <h3>Facilitator cockpit</h3>
-              <p>
-                One person screen-shares, the group talks, and each lens captures what is true now,
-                what keeps slipping away, and what the coop should improve. Live transcript stays
-                local to this browser session when it is available.
-              </p>
-
-              <div className="ritual-meter">
-                <div className="ritual-meter-header">
-                  <strong>{completedLensCount} of 4 lenses ready</strong>
-                  <span>{allLensesReady ? 'Ready to synthesize' : 'Still drafting'}</span>
-                </div>
-                <div aria-hidden="true" className="ritual-meter-bar">
-                  <span style={{ width: `${(completedLensCount / ritualCards.length) * 100}%` }} />
-                </div>
+          <div className="ritual-game-shell nest-card">
+            <div className="ritual-step-strip" aria-label="Game states">
+              <div className="ritual-step">
+                <strong>1.</strong>
+                <span>Choose your audience</span>
               </div>
-
-              <div className="ritual-intro-grid">
-                <label className="ritual-field">
-                  <span>Coop name</span>
-                  <input
-                    onChange={(event) => updateField('coopName', event.target.value)}
-                    placeholder="The Roost"
-                    type="text"
-                    value={setupInput.coopName}
-                  />
-                </label>
-
-                <label className="ritual-field">
-                  <span>Why this coop exists</span>
-                  <textarea
-                    onChange={(event) => updateField('purpose', event.target.value)}
-                    placeholder="Turn scattered knowledge into shared coordination for the group."
-                    value={setupInput.purpose}
-                  />
-                </label>
+              <div className="ritual-step">
+                <strong>2.</strong>
+                <span>Flip the cards</span>
               </div>
+              <div className="ritual-step">
+                <strong>3.</strong>
+                <span>Add notes or record</span>
+              </div>
+              <div className="ritual-step">
+                <strong>4.</strong>
+                <span>Copy or download</span>
+              </div>
+            </div>
 
-              <div aria-label="Ritual lens navigation" className="ritual-chip-grid">
-                {ritualCards.map((card, index) => (
+            <div className="ritual-setup-grid">
+              <label className="ritual-field">
+                <span>Coop name</span>
+                <input
+                  onChange={(event) => updateField('coopName', event.target.value)}
+                  placeholder="Pocket Coop"
+                  type="text"
+                  value={setupInput.coopName}
+                />
+              </label>
+
+              <label className="ritual-field">
+                <span>What opportunity are you organizing around?</span>
+                <textarea
+                  onChange={(event) => updateField('purpose', event.target.value)}
+                  placeholder="Turn scattered knowledge into clearer coordination for the group."
+                  value={setupInput.purpose}
+                />
+              </label>
+            </div>
+
+            <div className="audience-picker">
+              <span>Who is this coop for?</span>
+              <div className="audience-chip-group">
+                {audienceOptions.map((option) => (
                   <button
-                    className={index === activeLensIndex ? 'ritual-chip is-active' : 'ritual-chip'}
-                    key={card.id}
-                    onClick={() => jumpToLens(index)}
+                    aria-pressed={option.id === audience}
+                    className={option.id === audience ? 'audience-chip is-active' : 'audience-chip'}
+                    key={option.id}
+                    onClick={() => setAudience(option.id)}
                     type="button"
                   >
-                    <span>{card.eyebrow}</span>
-                    <strong>{card.title}</strong>
-                    <small className="ritual-chip-meta">
-                      {lensProgress[index]?.filledCount ?? 0} / 4 captured ·{' '}
-                      {statusLabel(lensProgress[index]?.status ?? 'empty')}
-                    </small>
+                    {option.label}
                   </button>
                 ))}
               </div>
+            </div>
 
-              <p className="quiet-note ritual-note">
-                {speechRecognition
-                  ? 'Live transcript is available here if the browser and microphone allow it.'
-                  : 'Manual notes are the reliable default here because this browser does not expose live transcript.'}
-              </p>
-            </aside>
+            <div className="ritual-status-row">
+              <span>{activeDraftCount} of 4 cards in motion</span>
+              <span>{allLensesReady ? 'Ready to launch the packet' : 'Saved on this device'}</span>
+            </div>
 
-            <div className="ritual-workbench">
-              {ritualView === 'cards' ? (
-                <article className="ritual-card nest-card">
-                  <div className="ritual-card-header">
-                    <div>
-                      <p className="eyebrow">{activeLens.eyebrow}</p>
-                      <h3>{activeLens.title}</h3>
-                    </div>
-                    <div className="ritual-card-progress">{activeLensIndex + 1} / 4</div>
-                  </div>
+            <div className="flashcard-grid">
+              {ritualCards.map((card, index) => {
+                const progress = lensProgress[index];
+                const isOpen = openCardId === card.id;
 
-                  <p className="lede ritual-card-copy">{activeLens.detail}</p>
+                return (
+                  <article
+                    className={isOpen ? 'flashcard nest-card is-open' : 'flashcard nest-card'}
+                    key={card.id}
+                  >
+                    {isOpen ? (
+                      <div aria-label={card.title} className="flashcard-back" id={`flashcard-panel-${card.id}`} role="region">
+                        <div className="flashcard-header">
+                          <div>
+                            <span className="flashcard-number">{card.eyebrow}</span>
+                            <h3>{card.title}</h3>
+                          </div>
+                          <button
+                            className="button button-secondary button-small"
+                            onClick={() => toggleCard(card.id)}
+                            ref={setFlashcardCloseRef(card.id)}
+                            type="button"
+                          >
+                            Close card
+                          </button>
+                        </div>
 
-                  <div className="ritual-loop-strip" aria-label="Ritual loop">
-                    <div
-                      className={
-                        activeLensProgress.captureReady
-                          ? 'ritual-loop-chip is-complete'
-                          : 'ritual-loop-chip'
-                      }
-                    >
-                      1. Capture
-                    </div>
-                    <div
-                      className={
-                        activeLensProgress.distillReady
-                          ? 'ritual-loop-chip is-complete'
-                          : 'ritual-loop-chip'
-                      }
-                    >
-                      2. Distill
-                    </div>
-                    <div
-                      className={
-                        activeLensProgress.status === 'ready'
-                          ? 'ritual-loop-chip is-complete'
-                          : 'ritual-loop-chip'
-                      }
-                    >
-                      3. Shape
-                    </div>
-                  </div>
+                        <p className="flashcard-detail">{card.detail}</p>
 
-                  <div className="ritual-transcript-shell">
-                    <div className="ritual-transcript-header">
-                      <div>
-                        <strong>Lens transcript</strong>
-                        <p>{activeLens.transcriptPrompt}</p>
+                        <div className="ritual-transcript-shell">
+                          <div className="ritual-transcript-header">
+                            <div>
+                              <strong>Call notes</strong>
+                              <p>{card.transcriptPrompt}</p>
+                            </div>
+                            <button
+                              className={
+                                recordingLens === card.id
+                                  ? 'button button-primary ritual-record-button is-recording'
+                                  : 'button button-secondary ritual-record-button'
+                              }
+                              onClick={() =>
+                                recordingLens === card.id
+                                  ? stopRecording()
+                                  : startRecording(card.id)
+                              }
+                              type="button"
+                            >
+                              {recordingLens === card.id
+                                ? `Stop ${card.title.toLowerCase()} notes`
+                                : `Record ${card.title.toLowerCase()} notes`}
+                            </button>
+                          </div>
+
+                          <output aria-live="polite" className="ritual-transcript-status">
+                            {transcriptStatus}
+                          </output>
+
+                          <label className="ritual-field">
+                            <span>Transcript notes for {card.title}</span>
+                            <textarea
+                              onChange={(event) => updateTranscript(card.id, event.target.value)}
+                              placeholder="Paste notes here or let live transcript drop into this card."
+                              ref={setFlashcardNotesRef(card.id)}
+                              value={transcripts[card.id]}
+                            />
+                          </label>
+                        </div>
+
+                        <div className="flashcard-question-grid">
+                          <label className="ritual-field">
+                            <span>{buildCurrentQuestion(card, audience)}</span>
+                            <textarea
+                              onChange={(event) => updateField(card.currentKey, event.target.value)}
+                              placeholder={card.currentPlaceholder}
+                              value={setupInput[card.currentKey]}
+                            />
+                          </label>
+
+                          <label className="ritual-field">
+                            <span>{buildPainQuestion(card, audience)}</span>
+                            <textarea
+                              onChange={(event) => updateField(card.painKey, event.target.value)}
+                              placeholder={card.painPlaceholder}
+                              value={setupInput[card.painKey]}
+                            />
+                          </label>
+
+                          <label className="ritual-field">
+                            <span>{buildImproveQuestion(audience)}</span>
+                            <textarea
+                              onChange={(event) => updateField(card.improveKey, event.target.value)}
+                              placeholder={card.improvePlaceholder}
+                              value={setupInput[card.improveKey]}
+                            />
+                          </label>
+                        </div>
                       </div>
+                    ) : (
                       <button
-                        className={
-                          recordingLens === activeLens.id
-                            ? 'button button-primary ritual-record-button is-recording'
-                            : 'button button-secondary ritual-record-button'
-                        }
-                        onClick={() =>
-                          recordingLens === activeLens.id
-                            ? stopRecording()
-                            : startRecording(activeLens.id)
-                        }
+                        aria-expanded={isOpen}
+                        className="flashcard-front"
+                        onClick={() => toggleCard(card.id)}
+                        ref={setFlashcardTriggerRef(card.id)}
                         type="button"
                       >
-                        {recordingLens === activeLens.id ? 'Stop transcript' : 'Record lens notes'}
+                        <span className="flashcard-number">{card.eyebrow}</span>
+                        <h3>{card.title}</h3>
+                        <p>{card.detail}</p>
+                        <div className="flashcard-meta">
+                          <span>{progress.filledCount} / 4 captured</span>
+                          <span>{statusLabel(progress.status)}</span>
+                        </div>
+                        <span className="flashcard-open">Open {card.title} flashcard</span>
                       </button>
-                    </div>
-                    <output aria-live="polite" className="ritual-transcript-status">
-                      {transcriptStatus}
-                    </output>
-                    <label className="ritual-field">
-                      <span>Transcript notes for this lens</span>
-                      <textarea
-                        onChange={(event) => updateTranscript(activeLens.id, event.target.value)}
-                        placeholder="Live transcript lands here, or type the lens notes directly."
-                        value={transcripts[activeLens.id]}
-                      />
-                    </label>
-                  </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
 
-                  <div className="ritual-prompt-grid">
-                    <label className="ritual-field">
-                      <span>How do you do this now?</span>
-                      <textarea
-                        onChange={(event) => updateField(activeLens.currentKey, event.target.value)}
-                        placeholder={activeLens.currentPlaceholder}
-                        value={setupInput[activeLens.currentKey]}
-                      />
-                    </label>
-                    <label className="ritual-field">
-                      <span>What is not working well?</span>
-                      <textarea
-                        onChange={(event) => updateField(activeLens.painKey, event.target.value)}
-                        placeholder={activeLens.painPlaceholder}
-                        value={setupInput[activeLens.painKey]}
-                      />
-                    </label>
-                    <label className="ritual-field">
-                      <span>What should improve?</span>
-                      <textarea
-                        onChange={(event) => updateField(activeLens.improveKey, event.target.value)}
-                        placeholder={activeLens.improvePlaceholder}
-                        value={setupInput[activeLens.improveKey]}
-                      />
-                    </label>
-                  </div>
+            <div className="ritual-output-grid">
+              <div className="ritual-output-copy">
+                <div>
+                  <h3>Shared notes</h3>
+                  <p className="lede">
+                    Paste meeting notes here if you want to keep a rough transcript nearby while you
+                    shape the packet.
+                  </p>
+                </div>
 
-                  <div className="ritual-card-actions">
-                    <button
-                      className="button button-secondary"
-                      disabled={activeLensIndex === 0}
-                      onClick={() => jumpToLens(activeLensIndex - 1)}
-                      type="button"
-                    >
-                      Previous lens
-                    </button>
-                    <button
-                      className="button button-secondary"
-                      onClick={() => setRitualView('summary')}
-                      type="button"
-                    >
-                      View setup notes
-                    </button>
-                    <button
-                      className="button button-primary"
-                      onClick={() =>
-                        activeLensIndex === ritualCards.length - 1
-                          ? setRitualView('summary')
-                          : jumpToLens(activeLensIndex + 1)
-                      }
-                      type="button"
-                    >
-                      {activeLensIndex === ritualCards.length - 1 ? 'Open synthesis' : 'Next lens'}
-                    </button>
-                  </div>
-                </article>
-              ) : (
-                <article className="ritual-summary nest-card">
-                  <div className="ritual-card-header">
+                <label className="ritual-field">
+                  <span>Meeting notes or transcript paste-in</span>
+                  <textarea
+                    onChange={(event) => setSharedNotes(event.target.value)}
+                    placeholder="Paste longer notes here. This will stay saved locally too."
+                    value={sharedNotes}
+                  />
+                </label>
+
+                <div className="ritual-output-summary">
+                  <article className="ritual-summary-card">
+                    <strong>What keeps slipping</strong>
+                    <ul className="ritual-bullet-list">
+                      {setupPacket.setupInsights.crossCuttingPainPoints.length > 0 ? (
+                        setupPacket.setupInsights.crossCuttingPainPoints.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))
+                      ) : (
+                        <li>Add a few card answers and the shared friction will appear here.</li>
+                      )}
+                    </ul>
+                  </article>
+
+                  <article className="ritual-summary-card">
+                    <strong>What Coop can unlock</strong>
+                    <ul className="ritual-bullet-list">
+                      {setupPacket.setupInsights.crossCuttingOpportunities.length > 0 ? (
+                        setupPacket.setupInsights.crossCuttingOpportunities.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))
+                      ) : (
+                        <li>Use the cards to name the opportunity the coop should protect.</li>
+                      )}
+                    </ul>
+                  </article>
+                </div>
+              </div>
+
+              <div className="prompt-shell ritual-packet-shell">
+                <div className="prompt-toolbar">
+                  <div>
+                    <strong>Setup packet</strong>
                     <div>
-                      <p className="eyebrow">Synthesis</p>
-                      <h3>Turn the ritual into setup notes.</h3>
-                    </div>
-                    <div className="ritual-card-progress">
-                      {completedLensCount} / {ritualCards.length} ready
+                      {allLensesReady
+                        ? 'All four cards are shaped and ready to hand off.'
+                        : 'A draft packet is already available even before every card is complete.'}
                     </div>
                   </div>
-
-                  <p className="lede ritual-card-copy">
-                    Review the summary, keep the transcript notes if they help, and hand these notes
-                    to the trusted member who will install the extension and create the coop.
-                  </p>
-
-                  <p className="quiet-note ritual-summary-note">
-                    {allLensesReady
-                      ? 'All four lenses have enough structure to become a strong setup packet.'
-                      : 'You can still copy a draft now, but the setup gets sharper when every lens has all three answers.'}
-                  </p>
-
-                  <label className="ritual-field">
-                    <span>Overall setup summary</span>
-                    <textarea
-                      onChange={(event) => updateField('summary', event.target.value)}
-                      placeholder="Summarize how this group wants Coop to turn loose context into shared work."
-                      value={setupInput.summary}
-                    />
-                  </label>
-
-                  <div className="ritual-summary-grid">
-                    <div className="ritual-summary-card">
-                      <strong>Cross-cutting pain points</strong>
-                      <ul className="ritual-bullet-list">
-                        {setupPacket.setupInsights.crossCuttingPainPoints.length > 0 ? (
-                          setupPacket.setupInsights.crossCuttingPainPoints.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))
-                        ) : (
-                          <li>
-                            Coop will infer defaults if the group leaves some tensions unstated.
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                    <div className="ritual-summary-card">
-                      <strong>Cross-cutting opportunities</strong>
-                      <ul className="ritual-bullet-list">
-                        {setupPacket.setupInsights.crossCuttingOpportunities.length > 0 ? (
-                          setupPacket.setupInsights.crossCuttingOpportunities.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))
-                        ) : (
-                          <li>
-                            Any missing opportunity fields will fall back to readable starter
-                            guidance.
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="prompt-shell ritual-packet-shell">
-                    <div className="prompt-toolbar">
-                      <div>
-                        <strong>Setup packet</strong>
-                        <div>Compatible with Coop&apos;s four-lens setup insights shape.</div>
-                      </div>
-                      <button
-                        className={
-                          copyState === 'copied'
-                            ? 'button button-primary button-small'
-                            : 'button button-secondary button-small'
-                        }
-                        onClick={() => void copySetupNotes()}
-                        type="button"
-                      >
-                        {copyState === 'copied'
-                          ? 'Copied setup notes'
-                          : copyState === 'failed'
-                            ? 'Clipboard unavailable'
-                            : 'Copy setup notes'}
-                      </button>
-                    </div>
-                    <pre>{setupPacketText}</pre>
-                  </div>
-
-                  <div className="ritual-card-actions">
+                  <div className="cta-row packet-actions">
                     <button
-                      className="button button-secondary"
-                      onClick={() => setRitualView('cards')}
+                      className={
+                        copyState === 'copied'
+                          ? 'button button-primary button-small'
+                          : 'button button-secondary button-small'
+                      }
+                      onClick={() => void copySetupNotes()}
                       type="button"
                     >
-                      Back to cards
+                      {copyState === 'copied'
+                        ? 'Copied setup packet'
+                        : copyState === 'failed'
+                          ? 'Clipboard unavailable'
+                          : 'Copy setup packet'}
                     </button>
-                    <a className="button button-secondary" href={appHref}>
-                      Open receiver app
-                    </a>
-                    <a className="button button-primary" href="#resources">
-                      Continue to install/create
-                    </a>
+                    <button
+                      className="button button-secondary button-small"
+                      onClick={downloadSetupNotes}
+                      type="button"
+                    >
+                      Download setup packet
+                    </button>
                   </div>
-                </article>
-              )}
+                </div>
+                <pre>{setupPacketText}</pre>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="journey-section arrival-journey" id="coop" ref={arrivalJourneyRef}>
+        <section className="journey-section arrival-journey" id="why-build" ref={arrivalJourneyRef}>
           <div
             aria-hidden="true"
             className={
@@ -1302,60 +1702,35 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
           </div>
 
           <div className="journey-panels">
-            <article className="journey-panel">
-              <div className="story-card nest-card">
-                <p className="eyebrow">The Coop</p>
-                <h2>The flock finally has somewhere to stay.</h2>
-                <p className="lede">
-                  Coop exists for groups that keep losing continuity between calls, research, shared
-                  links, and proof of progress. It gives that context a review ritual, a roost for
-                  drafts, and a shared memory only for what deserves to stick.
-                </p>
-                <div className="badge-row">
-                  <span className="badge">Browser-first</span>
-                  <span className="badge">Local-first</span>
-                  <span className="badge">Review in the Roost</span>
-                  <span className="badge">Share with intent</span>
-                </div>
-              </div>
-            </article>
+            <article className="journey-panel journey-panel-center why-build-panel">
+              <div className="why-build-shell">
+                <div aria-hidden="true" className="why-build-spacer" />
 
-            <article className="journey-panel journey-panel-right">
-              <div className="story-card nest-card">
-                <p className="eyebrow">What Happens Next</p>
-                <h2>Run the ritual, copy the notes, then launch the coop with a trusted member.</h2>
-                <div className="story-points">
-                  <div className="story-point">
-                    <strong>1. Keep the packet</strong>
-                    <p>
-                      The setup notes become the clean handoff from group conversation to coop
-                      creation.
-                    </p>
+                <div className="why-build-copy nest-card" ref={whyBuildRef}>
+                  <p className="eyebrow">Our Story</p>
+                  <h2>Why we build</h2>
+                  <p className="lede">
+                    Coop came from the coordination gaps we kept seeing across Greenpill and regen
+                    communities in the Ethereum ecosystem. The context was always shifting, but the
+                    knowledge never settled into something reusable quickly enough.
+                  </p>
+
+                  <div className="team-strip" aria-label="Team">
+                    {teamMembers.map((member) => (
+                      <article className="team-card" key={member}>
+                        <span className="team-avatar">{initialsForName(member)}</span>
+                        <strong>{member}</strong>
+                      </article>
+                    ))}
                   </div>
-                  <div className="story-point">
-                    <strong>2. Install the extension</strong>
-                    <p>
-                      Pin Coop, open the sidepanel, and use the ritual output to create the coop.
-                    </p>
+
+                  <div className="partner-strip" aria-label="Partners">
+                    {partnerMarks.map((partner) => (
+                      <span className="partner-pill" key={partner}>
+                        {partner}
+                      </span>
+                    ))}
                   </div>
-                  <div className="story-point">
-                    <strong>3. Start the real loop</strong>
-                    <p>
-                      Capture locally, review together, and only publish what the group wants to
-                      keep.
-                    </p>
-                  </div>
-                </div>
-                <div className="cta-row">
-                  <a className="button button-primary" href="#resources">
-                    See next steps
-                  </a>
-                  <a
-                    className="button button-secondary"
-                    href="https://github.com/regen-coordination/coop"
-                  >
-                    GitHub
-                  </a>
                 </div>
               </div>
             </article>
@@ -1364,51 +1739,23 @@ export function App({ appHref = '/pair' }: { appHref?: string }) {
       </main>
 
       <footer className="footer section landing-footer" id="resources">
-        <div className="footer-card landing-footer-card">
-          <div>
-            <p className="eyebrow">Resources</p>
-            <h2>Install the tools, keep the notes, and launch the coop when the group is ready.</h2>
-          </div>
-
-          <div className="resource-grid">
-            <article className="resource-card">
-              <h3>Privacy first</h3>
-              <p>
-                Passive capture, transcript notes, and draft shaping stay local until the group
-                explicitly decides what belongs in the coop.
-              </p>
-            </article>
-            <article className="resource-card">
-              <h3>Install extension</h3>
-              <p>
-                Load the extension, pin Coop, and use the ritual notes to create the coop with a
-                trusted member.
-              </p>
-              <a href="/spec/extension-install-and-distribution.md">Install guide</a>
-            </article>
-            <article className="resource-card">
-              <h3>Open receiver</h3>
-              <p>
-                Use the receiver app on a phone to capture voice notes, photos, files, and links.
-              </p>
-              <a href={appHref}>Receiver app</a>
-            </article>
-            <article className="resource-card">
-              <h3>Read the docs</h3>
-              <p>
-                Architecture, design direction, and product docs stay available once the landing
-                story ends.
-              </p>
-              <a href="/spec/coop-os-architecture-vnext.md">Architecture docs</a>
-            </article>
-          </div>
-
-          <div className="footer-links">
-            <a href="/spec/coop-design-direction.md">Design direction</a>
-            <a href="/spec/demo-and-deploy-runbook.md">Demo runbook</a>
+        <div className="landing-footer-simple">
+          <article className="footer-link-card">
+            <p className="eyebrow">Community</p>
+            <a href="#why-build">Why we build</a>
+          </article>
+          <article className="footer-link-card">
+            <p className="eyebrow">Start</p>
+            <a href="#ritual">Curate your coop</a>
+          </article>
+          <article className="footer-link-card">
+            <p className="eyebrow">Receiver</p>
+            <a href={appHref}>Open receiver</a>
+          </article>
+          <article className="footer-link-card">
+            <p className="eyebrow">Builders</p>
             <a href="https://github.com/regen-coordination/coop">GitHub</a>
-            <a href="#meadow">Back to top</a>
-          </div>
+          </article>
         </div>
       </footer>
     </div>

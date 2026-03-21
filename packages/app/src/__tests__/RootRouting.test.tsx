@@ -110,7 +110,7 @@ describe('root routing bootstrap', () => {
     });
     expect(
       await screen.findByRole('heading', {
-        name: /gather your flock before the good stuff runs loose/i,
+        name: /no more loose chickens/i,
       }),
     ).toBeVisible();
     expect(document.title).toBe('Coop | Turn knowledge into opportunity');

@@ -164,6 +164,7 @@ pre {
   width: min(1280px, calc(100% - 1.5rem));
   height: 100%;
   margin: 0 auto;
+  contain: layout style;
 }
 
 .journey-panels {
@@ -173,10 +174,10 @@ pre {
 
 .journey-panel {
   width: min(1120px, calc(100% - 2rem));
-  min-height: 108vh;
-  min-height: 108dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 8.5rem 0 6rem;
+  padding: 5.5rem 0 4.5rem;
   display: flex;
   align-items: center;
 }
@@ -201,6 +202,126 @@ pre {
   justify-items: center;
 }
 
+.hero-panel {
+  padding-top: 2.4rem;
+}
+
+.hero-shell {
+  width: 100%;
+  min-height: calc(100vh - 4rem);
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.hero-copy {
+  max-width: 34rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.hero-logo {
+  display: inline-flex;
+  width: fit-content;
+}
+
+.hero-title {
+  margin: 0;
+  font-family: "Gill Sans", "Trebuchet MS", sans-serif;
+  font-size: clamp(3.2rem, 6vw, 5.9rem);
+  line-height: 0.92;
+  color: var(--coop-brown);
+  text-wrap: balance;
+}
+
+.hero-subtitle {
+  margin: 0;
+  font-size: clamp(1.24rem, 2vw, 1.68rem);
+  line-height: 1.4;
+  color: var(--coop-brown);
+  text-wrap: balance;
+}
+
+.hero-note {
+  max-width: 24rem;
+}
+
+.hero-stage {
+  min-height: 30rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.hero-stage-note {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.55rem 0.95rem;
+  border-radius: var(--coop-radius-pill);
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--coop-line);
+  color: var(--coop-brown);
+  font-weight: 700;
+}
+
+.works-panel {
+  align-items: flex-end;
+  padding-bottom: 7rem;
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 250, 244, 0.88) 18%, rgba(255, 250, 244, 0.96) 100%);
+}
+
+.how-works-shell {
+  width: min(62rem, 100%);
+  display: grid;
+  gap: 1.5rem;
+}
+
+.how-works-heading {
+  max-width: 42rem;
+}
+
+.how-works-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.how-works-card {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.how-works-card.is-wide {
+  grid-column: span 3;
+}
+
+.how-works-card h3 {
+  margin: 0;
+  font-size: 1.32rem;
+  line-height: 1.08;
+  color: var(--coop-brown);
+}
+
+.how-works-card p {
+  margin: 0.35rem 0 0;
+}
+
+.how-works-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border-radius: 999px;
+  background: var(--coop-green-12);
+  color: var(--coop-green);
+  font-weight: 700;
+}
+
 .ritual-section {
   position: relative;
   z-index: 2;
@@ -217,13 +338,371 @@ pre {
   transform: translateX(-50%);
   background: radial-gradient(circle at 18% 12%, rgba(90, 125, 16, 0.12), transparent 24rem),
     radial-gradient(circle at 86% 14%, rgba(253, 138, 1, 0.12), transparent 22rem),
-    linear-gradient(180deg, rgba(255, 251, 246, 0.96), rgba(255, 251, 246, 0.99));
+    linear-gradient(180deg, #fffbf6, #fffbf6);
   z-index: -1;
 }
 
 .ritual-section-copy {
   margin: 0;
   max-width: 44rem;
+}
+
+.ritual-section-heading {
+  margin-bottom: 2rem;
+}
+
+.ritual-reset {
+  position: fixed;
+  top: 1.25rem;
+  right: 2rem;
+  z-index: 28;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-12px);
+  transition: opacity 180ms ease, transform 180ms ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.ritual-reset.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.ritual-game-shell {
+  display: grid;
+  gap: 1.25rem;
+  min-height: calc(100vh - 9rem);
+  background: radial-gradient(circle at top left, rgba(90, 125, 16, 0.1), transparent 22rem),
+    radial-gradient(circle at top right, rgba(253, 138, 1, 0.1), transparent 24rem),
+    rgba(255, 252, 249, 0.84);
+}
+
+.ritual-step-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.ritual-step {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--coop-radius-card);
+  border: 1px solid var(--coop-line);
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--coop-brown-soft);
+}
+
+.ritual-step strong {
+  color: var(--coop-brown);
+}
+
+.ritual-setup-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: 1rem;
+}
+
+.audience-picker {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.audience-picker > span {
+  font-weight: 700;
+  color: var(--coop-brown);
+}
+
+.audience-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.audience-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  border-radius: var(--coop-radius-pill);
+  border: 1px solid var(--coop-line);
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--coop-brown-soft);
+  cursor: pointer;
+  transition: border-color var(--coop-ease), transform var(--coop-ease), background-color
+    var(--coop-ease);
+}
+
+.audience-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--coop-brown-20);
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--coop-brown);
+}
+
+.audience-chip.is-active {
+  transform: translateY(-1px);
+  border-color: var(--coop-green);
+  background: var(--coop-green-12);
+  color: var(--coop-green);
+  font-weight: 700;
+}
+
+.ritual-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--coop-brown-soft);
+  font-size: 0.95rem;
+}
+
+.flashcard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.flashcard {
+  min-height: 18rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 249, 242, 0.92));
+}
+
+.flashcard.is-open {
+  grid-column: 1 / -1;
+}
+
+.flashcard-front {
+  width: 100%;
+  min-height: 100%;
+  display: grid;
+  gap: 0.95rem;
+  align-content: space-between;
+  padding: 1.25rem;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.flashcard-front h3,
+.flashcard-back h3,
+.ritual-output-copy h3,
+.footer-link-card a {
+  margin: 0;
+  color: var(--coop-brown);
+}
+
+.flashcard-front h3,
+.flashcard-back h3 {
+  font-size: clamp(1.35rem, 2vw, 1.95rem);
+  line-height: 1.04;
+}
+
+.flashcard-front p {
+  margin: 0;
+  color: var(--coop-brown-soft);
+  line-height: 1.55;
+}
+
+.flashcard-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--coop-brown-soft);
+  font-size: 0.9rem;
+}
+
+.flashcard-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: var(--coop-radius-pill);
+  background: var(--coop-brown-6);
+  color: var(--coop-brown);
+  font-weight: 700;
+}
+
+.flashcard-back {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.flashcard-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.flashcard-number {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--coop-radius-pill);
+  background: var(--coop-green-12);
+  color: var(--coop-green);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.flashcard-detail {
+  margin: 0;
+  color: var(--coop-brown-soft);
+  line-height: 1.6;
+}
+
+.flashcard-question-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.flashcard.is-open .flashcard-question-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ritual-output-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.ritual-output-copy {
+  display: grid;
+  gap: 1rem;
+}
+
+.ritual-output-copy .lede {
+  margin: 0.35rem 0 0;
+}
+
+.ritual-output-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.packet-actions {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+
+.why-build-panel {
+  align-items: flex-end;
+}
+
+.why-build-shell {
+  width: min(64rem, 100%);
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+}
+
+.why-build-spacer {
+  height: clamp(18rem, 40vh, 24rem);
+}
+
+.why-build-copy {
+  width: min(58rem, 100%);
+  display: grid;
+  gap: 1.25rem;
+  text-align: center;
+}
+
+.why-build-copy h2 {
+  margin: 0;
+}
+
+.team-strip,
+.partner-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.team-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-radius: var(--coop-radius-pill);
+  border: 1px solid var(--coop-line);
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--coop-brown);
+}
+
+.team-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(90, 125, 16, 0.18), rgba(253, 138, 1, 0.18));
+  color: var(--coop-brown);
+  font-weight: 700;
+}
+
+.partner-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--coop-radius-pill);
+  border: 1px solid var(--coop-line);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--coop-brown);
+  font-weight: 700;
+}
+
+.landing-footer {
+  padding-top: 2rem;
+}
+
+.landing-footer-simple {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.footer-link-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--coop-radius-card-xl);
+  border: 1px solid var(--coop-line);
+  background: rgba(255, 252, 249, 0.78);
+  box-shadow: var(--coop-shadow);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.footer-link-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--coop-brown-20);
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.footer-link-card a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18rem;
+  font-size: 1.05rem;
 }
 
 .scene-glow,
@@ -354,15 +833,16 @@ pre {
 }
 
 .story-scene-coop {
-  right: 12%;
-  bottom: 15%;
+  right: 11%;
+  bottom: 14%;
+  width: min(22rem, 34vw);
 }
 
 .arrival-scene-coop {
   left: 50%;
-  bottom: 14%;
+  bottom: 15%;
   transform: translateX(-50%);
-  width: min(29rem, 44vw);
+  width: min(27rem, 42vw);
 }
 
 .scene-coop-svg {
@@ -462,43 +942,43 @@ pre {
 }
 
 .journey-scene-story .scene-chicken-tabs {
-  left: 5%;
-  top: 71%;
+  left: 8%;
+  top: 74%;
 }
 
 .journey-scene-story .scene-chicken-notes {
-  left: 16%;
-  top: 23%;
+  left: 24%;
+  top: 64%;
 }
 
 .journey-scene-story .scene-chicken-ideas {
-  right: 12%;
-  top: 27%;
+  right: 24%;
+  top: 64%;
 }
 
 .journey-scene-story .scene-chicken-signals {
-  right: 5%;
+  right: 8%;
   top: 74%;
 }
 
 .journey-scene-arrival .scene-chicken-tabs {
-  left: 8%;
-  top: 78%;
+  left: 14%;
+  top: 74%;
 }
 
 .journey-scene-arrival .scene-chicken-notes {
-  left: 11%;
-  top: 47%;
+  left: 26%;
+  top: 68%;
 }
 
 .journey-scene-arrival .scene-chicken-ideas {
-  right: 11%;
-  top: 46%;
+  right: 26%;
+  top: 68%;
 }
 
 .journey-scene-arrival .scene-chicken-signals {
-  right: 8%;
-  top: 78%;
+  right: 14%;
+  top: 74%;
 }
 
 .scene-chicken-svg {
@@ -958,6 +1438,8 @@ pre {
   border-radius: var(--coop-radius-card);
   background: rgba(39, 20, 14, 0.95);
   color: rgba(255, 250, 244, 0.94);
+  max-height: 28rem;
+  overflow-y: auto;
 }
 
 .footer {
@@ -1041,7 +1523,7 @@ pre {
 @media (max-width: 1024px) {
   .journey-panel {
     min-height: auto;
-    padding: 7rem 0 4rem;
+    padding: 5rem 0 3rem;
   }
 
   .journey-scene {
@@ -1066,15 +1548,42 @@ pre {
     width: min(23rem, 70vw);
   }
 
-  .ritual-shell,
-  .ritual-summary-grid,
-  .resource-grid {
+  .hero-shell,
+  .ritual-setup-grid,
+  .ritual-output-grid,
+  .ritual-output-summary,
+  .landing-footer-simple {
     grid-template-columns: 1fr;
   }
 
-  .ritual-context {
-    position: relative;
-    top: auto;
+  .hero-shell {
+    min-height: auto;
+  }
+
+  .hero-stage {
+    min-height: 18rem;
+  }
+
+  .how-works-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .how-works-card,
+  .how-works-card.is-wide {
+    grid-column: auto;
+  }
+
+  .ritual-step-strip,
+  .flashcard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .flashcard.is-open {
+    grid-column: 1 / -1;
+  }
+
+  .why-build-spacer {
+    height: 16rem;
   }
 }
 
@@ -1101,7 +1610,7 @@ pre {
 
   .journey-panel {
     width: min(100%, calc(100% - 1rem));
-    padding-top: 6rem;
+    padding-top: 4.5rem;
   }
 
   .journey-scene-inner {
@@ -1113,22 +1622,59 @@ pre {
     height: 6rem;
   }
 
-  .ritual-card-header,
-  .ritual-transcript-header {
-    flex-direction: column;
+  .hero-title,
+  .section-heading h2 {
+    font-size: clamp(2.2rem, 10vw, 3.4rem);
   }
 
-  .ritual-meter-header,
-  .ritual-loop-strip {
+  .hero-stage {
+    min-height: 9rem;
+    justify-content: flex-start;
+  }
+
+  .how-works-grid {
     grid-template-columns: 1fr;
   }
 
-  .ritual-loop-strip {
+  .ritual-step-strip,
+  .audience-chip-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audience-chip-group {
     display: grid;
   }
 
-  .ritual-record-button {
+  .flashcard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .flashcard.is-open {
+    grid-column: 1 / -1;
+  }
+
+  .flashcard.is-open .flashcard-question-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flashcard-header,
+  .ritual-transcript-header,
+  .prompt-toolbar,
+  .ritual-status-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ritual-record-button,
+  .packet-actions .button,
+  .ritual-reset {
     width: 100%;
+  }
+
+  .ritual-reset {
+    right: 0.5rem;
+    left: 0.5rem;
+    top: 0.5rem;
   }
 }
 
@@ -1173,19 +1719,19 @@ pre {
   }
 
   .journey-scene-story.is-static .scene-chicken-tabs {
-    transform: translate(22vw, -20vh) rotate(-4deg) scale(0.92);
+    transform: translate(28vw, -7vh) rotate(-4deg) scale(0.92);
   }
 
   .journey-scene-story.is-static .scene-chicken-notes {
-    transform: translate(24vw, 14vh) rotate(2deg) scale(0.92);
+    transform: translate(22vw, -3vh) rotate(2deg) scale(0.92);
   }
 
   .journey-scene-story.is-static .scene-chicken-ideas {
-    transform: translate(-22vw, 12vh) rotate(3deg) scale(0.92);
+    transform: translate(-22vw, -3vh) rotate(3deg) scale(0.92);
   }
 
   .journey-scene-story.is-static .scene-chicken-signals {
-    transform: translate(-23vw, -20vh) rotate(0deg) scale(0.92);
+    transform: translate(-28vw, -7vh) rotate(0deg) scale(0.92);
   }
 
   .journey-scene-arrival.is-static .scene-chicken-arrival {

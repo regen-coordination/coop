@@ -27,6 +27,7 @@ function installMatchMediaMock(matches = false) {
 describe('landing page', () => {
   beforeEach(() => {
     installMatchMediaMock(false);
+    window.localStorage.clear();
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: {
@@ -46,31 +47,19 @@ describe('landing page', () => {
     speechWindow.webkitSpeechRecognition = undefined;
   });
 
-  it('renders the merged narrative sections and support footer', () => {
+  it('renders the simplified landing structure and footer links', () => {
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: /gather your flock/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        name: /coop gives scattered context one path into shared memory/i,
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        name: /pause the migration and define how this coop actually works/i,
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        name: /the flock finally has somewhere to stay/i,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /start the ritual/i })).toBeInTheDocument();
-    expect(screen.getByText(/privacy first/i)).toBeInTheDocument();
-    expect(screen.getByText(/install extension/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /no more loose chickens/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^how coop works$/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^curate your coop$/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^why we build$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /curate your coop/i })).toHaveLength(2);
+    expect(screen.getByText(/local, secure & private/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /github/i })).toBeInTheDocument();
   });
 
-  it('progresses through ritual cards and copies setup notes from the synthesis view', async () => {
+  it('fills flashcards and copies a setup packet', async () => {
     vi.useFakeTimers();
 
     render(<App />);
@@ -78,23 +67,34 @@ describe('landing page', () => {
     fireEvent.change(screen.getByLabelText(/coop name/i), {
       target: { value: 'Pocket Flock' },
     });
-    fireEvent.change(screen.getByLabelText(/why this coop exists/i), {
-      target: { value: 'Keep good ideas from getting loose.' },
-    });
-    fireEvent.change(screen.getByLabelText(/how do you do this now/i), {
-      target: { value: 'Funding context is scattered across chats and tabs.' },
+    fireEvent.change(screen.getByLabelText(/what opportunity are you organizing around/i), {
+      target: { value: 'Turn scattered notes into momentum.' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /next lens/i }));
-    expect(screen.getByRole('heading', { name: /impact & progress/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^family$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /open knowledge flashcard/i }));
 
-    fireEvent.click(screen.getByRole('button', { name: /view setup notes/i }));
-    expect(
-      screen.getByRole('heading', { name: /turn the ritual into setup notes/i }),
-    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/transcript notes for knowledge/i), {
+      target: { value: 'We keep links in chats.' },
+    });
+    fireEvent.change(screen.getByLabelText(/how does your family handle knowledge today/i), {
+      target: { value: 'Everyone keeps tabs in separate browsers.' },
+    });
+    fireEvent.change(
+      screen.getByLabelText(/where does knowledge get stuck or scattered for your family/i),
+      {
+        target: { value: 'Good context disappears after calls.' },
+      },
+    );
+    fireEvent.change(
+      screen.getByLabelText(/what opportunity should coop unlock for your family/i),
+      {
+        target: { value: 'One reusable place for the best notes.' },
+      },
+    );
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /copy setup notes/i }));
+      fireEvent.click(screen.getByRole('button', { name: /copy setup packet/i }));
       await Promise.resolve();
     });
 
@@ -103,7 +103,10 @@ describe('landing page', () => {
       expect.stringContaining('"coopName": "Pocket Flock"'),
     );
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      expect.stringContaining('"purpose": "Keep good ideas from getting loose."'),
+      expect.stringContaining('"purpose": "Turn scattered notes into momentum."'),
+    );
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining('"audience": "family"'),
     );
 
     act(() => {
@@ -113,7 +116,47 @@ describe('landing page', () => {
     vi.useRealTimers();
   });
 
-  it('fills the active transcript panel when browser speech recognition is available', () => {
+  it('restores ritual progress from localStorage after a remount', () => {
+    const firstRender = render(<App />);
+
+    fireEvent.change(screen.getByLabelText(/coop name/i), {
+      target: { value: 'Pocket Flock' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /open capital flashcard/i }));
+    fireEvent.change(screen.getByLabelText(/transcript notes for capital/i), {
+      target: { value: 'Grant leads from calls.' },
+    });
+    fireEvent.change(screen.getByLabelText(/meeting notes or transcript paste-in/i), {
+      target: { value: 'Shared follow-up notes.' },
+    });
+
+    firstRender.unmount();
+
+    render(<App />);
+
+    expect(screen.getByLabelText(/coop name/i)).toHaveValue('Pocket Flock');
+    expect(screen.getByLabelText(/transcript notes for capital/i)).toHaveValue(
+      'Grant leads from calls.',
+    );
+    expect(screen.getByLabelText(/meeting notes or transcript paste-in/i)).toHaveValue(
+      'Shared follow-up notes.',
+    );
+  });
+
+  it('moves focus into an opened flashcard and returns it when the card closes', () => {
+    render(<App />);
+
+    const trigger = screen.getByRole('button', { name: /open knowledge flashcard/i });
+    fireEvent.click(trigger);
+
+    const transcriptField = screen.getByLabelText(/transcript notes for knowledge/i);
+    expect(transcriptField).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button', { name: /close card/i }));
+    expect(screen.getByRole('button', { name: /open knowledge flashcard/i })).toHaveFocus();
+  });
+
+  it('fills the open flashcard transcript when browser speech recognition is available', () => {
     let activeRecognition: MockSpeechRecognition | null = null;
 
     class MockSpeechRecognition {
@@ -124,6 +167,7 @@ describe('landing page', () => {
       onerror: ((event: { error?: string }) => void) | null = null;
       onresult:
         | ((event: {
+            resultIndex?: number;
             results: ArrayLike<{ isFinal: boolean; 0: { transcript?: string } }>;
           }) => void)
         | null = null;
@@ -151,10 +195,12 @@ describe('landing page', () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: /record lens notes/i }));
+    fireEvent.click(screen.getByRole('button', { name: /open knowledge flashcard/i }));
+    fireEvent.click(screen.getByRole('button', { name: /record knowledge notes/i }));
 
     act(() => {
       activeRecognition?.onresult?.({
+        resultIndex: 0,
         results: [
           {
             0: { transcript: 'We keep grant links in chat.' },
@@ -165,11 +211,27 @@ describe('landing page', () => {
     });
 
     act(() => {
+      activeRecognition?.onresult?.({
+        resultIndex: 1,
+        results: [
+          {
+            0: { transcript: 'We keep grant links in chat.' },
+            isFinal: true,
+          },
+          {
+            0: { transcript: 'We also keep follow-ups in calls.' },
+            isFinal: true,
+          },
+        ],
+      });
+    });
+
+    act(() => {
       activeRecognition?.onend?.();
     });
 
-    expect(screen.getByLabelText(/transcript notes for this lens/i)).toHaveValue(
-      'We keep grant links in chat.',
+    expect(screen.getByLabelText(/transcript notes for knowledge/i)).toHaveValue(
+      'We keep grant links in chat. We also keep follow-ups in calls.',
     );
     expect(screen.getByText(/transcript is ready to edit/i)).toBeInTheDocument();
   });
@@ -181,7 +243,7 @@ describe('landing page', () => {
     expect(container.querySelector('.journey-scene-story.is-static')).not.toBeNull();
   });
 
-  it('builds a setup packet that keeps transcript buckets alongside shared setup insights', () => {
+  it('builds a setup packet with saved audience and shared notes', () => {
     const packet = buildLandingSetupPacket(
       {
         ...emptySetupInsightsInput,
@@ -192,10 +254,16 @@ describe('landing page', () => {
         ...emptyLandingTranscripts,
         capital: 'Grant notes',
       },
+      {
+        audience: 'friends',
+        sharedNotes: 'Shared notes go here.',
+      },
     );
 
     expect(packet.setupInsights.lenses).toHaveLength(4);
     expect(packet.summary).toContain('Pocket Flock uses Coop');
     expect(packet.transcripts.moneyAndResources).toBe('Grant notes');
+    expect(packet.audience).toBe('friends');
+    expect(packet.sharedNotes).toBe('Shared notes go here.');
   });
 });
