@@ -9,6 +9,31 @@ import {
 import { assertHexString, nowIso, toDeterministicAddress } from '../../utils';
 import { createDeviceBoundWarning, createMember } from '../coop/flows';
 
+let webAuthnCredentialGetFnOverride:
+  | ((options?: CredentialRequestOptions) => Promise<Credential | null>)
+  | null = null;
+
+export function setWebAuthnCredentialGetFnOverride(
+  getFn: ((options?: CredentialRequestOptions) => Promise<Credential | null>) | null,
+) {
+  webAuthnCredentialGetFnOverride = getFn;
+}
+
+export function createWebAuthnCredentialGetFn() {
+  if (webAuthnCredentialGetFnOverride) {
+    return webAuthnCredentialGetFnOverride;
+  }
+
+  return async (options?: CredentialRequestOptions) => {
+    const credentialContainer = globalThis.navigator?.credentials;
+    if (!credentialContainer || typeof credentialContainer.get !== 'function') {
+      throw new Error('WebAuthn credential retrieval is unavailable in this runtime.');
+    }
+
+    return credentialContainer.get.call(credentialContainer, options);
+  };
+}
+
 export function resolvePasskeyRpId(explicitRpId?: string) {
   if (explicitRpId) {
     return explicitRpId;
@@ -70,6 +95,7 @@ export function restorePasskeyAccount(session: AuthSession) {
       id: session.passkey.id,
       publicKey: assertHexString(session.passkey.publicKey, 'passkey publicKey'),
     },
+    getFn: createWebAuthnCredentialGetFn(),
     rpId: session.passkey.rpId,
   });
 }

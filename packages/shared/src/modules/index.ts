@@ -7,6 +7,7 @@ export * from './erc8004';
 export * from './fvm';
 export * from './permit';
 export * from './greengoods';
+export * from './member-account';
 export * from './onchain';
 export * from './operator';
 export * from './policy';

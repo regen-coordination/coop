@@ -28,6 +28,8 @@ import {
   truncateWords,
 } from '../../utils';
 import { createInitialGreenGoodsState } from '../greengoods/greengoods';
+import { syncGreenGoodsMemberBindings } from '../greengoods/greengoods';
+import { provisionMemberAccounts } from '../member-account/member-account';
 import { createUnavailableOnchainState } from '../onchain/onchain';
 import { buildMemoryProfileSeed } from './pipeline';
 import { formatCoopSpaceTypeLabel } from './presets';
@@ -97,6 +99,7 @@ export function createInviteBootstrapSnapshot(state: CoopSharedState): InviteCoo
     soul: state.soul,
     rituals: state.rituals,
     members: state.members,
+    memberAccounts: state.memberAccounts,
     artifacts: state.artifacts,
     reviewBoard: state.reviewBoard,
     archiveReceipts: state.archiveReceipts,
@@ -386,12 +389,26 @@ export function createCoop(input: CreateCoopInput) {
     seedContribution: input.seedContribution,
   });
   creator.seedContributionId = artifacts[3]?.id;
-  const greenGoods: GreenGoodsGardenState | undefined = input.greenGoods?.enabled
-    ? createInitialGreenGoodsState({
-        coopName: input.coopName,
-        purpose: input.purpose,
-        setupInsights,
+  const memberAccounts = input.greenGoods?.enabled
+    ? provisionMemberAccounts({
+        members: [creator],
+        existingAccounts: [],
+        coopId,
+        chainKey: onchainState.chainKey,
       })
+    : [];
+  const greenGoods: GreenGoodsGardenState | undefined = input.greenGoods?.enabled
+    ? {
+        ...createInitialGreenGoodsState({
+          coopName: input.coopName,
+          purpose: input.purpose,
+          setupInsights,
+        }),
+        memberBindings: syncGreenGoodsMemberBindings({
+          members: [creator],
+          memberAccounts,
+        }),
+      }
     : undefined;
 
   const state = coopSharedStateSchema.parse({
@@ -400,6 +417,7 @@ export function createCoop(input: CreateCoopInput) {
     soul,
     rituals,
     members: [creator],
+    memberAccounts,
     invites: [],
     artifacts,
     reviewBoard: buildReviewBoard(artifacts),
@@ -540,15 +558,38 @@ export function joinCoop(input: JoinCoopInput) {
   };
   member.seedContributionId = seedArtifact.id;
 
+  const memberAccounts = input.state.greenGoods?.enabled
+    ? [
+        ...(input.state.memberAccounts ?? []),
+        ...provisionMemberAccounts({
+          members: [member],
+          existingAccounts: input.state.memberAccounts ?? [],
+          coopId: input.state.profile.id,
+          chainKey: input.state.onchainState.chainKey,
+        }),
+      ]
+    : (input.state.memberAccounts ?? []);
+
   const nextState = coopSharedStateSchema.parse({
     ...input.state,
     members: [...input.state.members, member],
+    memberAccounts,
     invites: input.state.invites.map((invite) =>
       invite.id === input.invite.id
         ? { ...invite, usedByMemberIds: [...invite.usedByMemberIds, member.id] }
         : invite,
     ),
     artifacts: [...input.state.artifacts, seedArtifact],
+    greenGoods: input.state.greenGoods
+      ? {
+          ...input.state.greenGoods,
+          memberBindings: syncGreenGoodsMemberBindings({
+            current: input.state.greenGoods,
+            members: [...input.state.members, member],
+            memberAccounts,
+          }),
+        }
+      : input.state.greenGoods,
   });
 
   nextState.reviewBoard = buildReviewBoard(nextState.artifacts);

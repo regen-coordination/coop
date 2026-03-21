@@ -675,6 +675,272 @@ export function resolveScopedActionPayload(input: {
         targetIds: [gardenAddress.value, ...addAdmins.value, ...removeAdmins.value],
       };
     }
+    case 'safe-add-owner': {
+      const coopId = readRequiredString(input.payload, 'coopId');
+      if (!coopId.ok) return coopId;
+      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+      if (!scopeValidation.ok) return scopeValidation;
+      const ownerAddress = readRequiredAddress(input.payload, 'ownerAddress');
+      if (!ownerAddress.ok) return ownerAddress;
+      const newThreshold = readRequiredNonNegativeInteger(input.payload, 'newThreshold');
+      if (!newThreshold.ok) return newThreshold;
+      return {
+        ok: true,
+        coopId: coopId.value,
+        normalizedPayload: {
+          coopId: coopId.value,
+          ownerAddress: ownerAddress.value,
+          newThreshold: newThreshold.value,
+        },
+        targetIds: [ownerAddress.value],
+      };
+    }
+    case 'safe-remove-owner': {
+      const coopId = readRequiredString(input.payload, 'coopId');
+      if (!coopId.ok) return coopId;
+      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+      if (!scopeValidation.ok) return scopeValidation;
+      const ownerAddress = readRequiredAddress(input.payload, 'ownerAddress');
+      if (!ownerAddress.ok) return ownerAddress;
+      const newThreshold = readRequiredNonNegativeInteger(input.payload, 'newThreshold');
+      if (!newThreshold.ok) return newThreshold;
+      return {
+        ok: true,
+        coopId: coopId.value,
+        normalizedPayload: {
+          coopId: coopId.value,
+          ownerAddress: ownerAddress.value,
+          newThreshold: newThreshold.value,
+        },
+        targetIds: [ownerAddress.value],
+      };
+    }
+    case 'safe-swap-owner': {
+      const coopId = readRequiredString(input.payload, 'coopId');
+      if (!coopId.ok) return coopId;
+      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+      if (!scopeValidation.ok) return scopeValidation;
+      const oldOwnerAddress = readRequiredAddress(input.payload, 'oldOwnerAddress');
+      if (!oldOwnerAddress.ok) return oldOwnerAddress;
+      const newOwnerAddress = readRequiredAddress(input.payload, 'newOwnerAddress');
+      if (!newOwnerAddress.ok) return newOwnerAddress;
+      return {
+        ok: true,
+        coopId: coopId.value,
+        normalizedPayload: {
+          coopId: coopId.value,
+          oldOwnerAddress: oldOwnerAddress.value,
+          newOwnerAddress: newOwnerAddress.value,
+        },
+        targetIds: [oldOwnerAddress.value, newOwnerAddress.value],
+      };
+    }
+    case 'safe-change-threshold': {
+      const coopId = readRequiredString(input.payload, 'coopId');
+      if (!coopId.ok) return coopId;
+      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+      if (!scopeValidation.ok) return scopeValidation;
+      const newThreshold = readRequiredNonNegativeInteger(input.payload, 'newThreshold');
+      if (!newThreshold.ok) return newThreshold;
+      return {
+        ok: true,
+        coopId: coopId.value,
+        normalizedPayload: {
+          coopId: coopId.value,
+          newThreshold: newThreshold.value,
+        },
+        targetIds: [],
+      };
+    }
+    case 'green-goods-add-gardener': {
+      const coopId = readRequiredString(input.payload, 'coopId');
+      if (!coopId.ok) {
+        return coopId;
+      }
+      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+      if (!scopeValidation.ok) {
+        return scopeValidation;
+      }
+      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
+      if (!gardenAddress.ok) {
+        return gardenAddress;
+      }
+      const memberId = readRequiredString(input.payload, 'memberId');
+      if (!memberId.ok) {
+        return memberId;
+      }
+      const gardenerAddress = readRequiredAddress(input.payload, 'gardenerAddress');
+      if (!gardenerAddress.ok) {
+        return gardenerAddress;
+      }
+      return {
+        ok: true,
+        coopId: coopId.value,
+        normalizedPayload: {
+          coopId: coopId.value,
+          gardenAddress: gardenAddress.value,
+          memberId: memberId.value,
+          gardenerAddress: gardenerAddress.value,
+        },
+        targetIds: [memberId.value, gardenAddress.value, gardenerAddress.value],
+      };
+    }
+    case 'green-goods-remove-gardener': {
+      const coopId = readRequiredString(input.payload, 'coopId');
+      if (!coopId.ok) {
+        return coopId;
+      }
+      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+      if (!scopeValidation.ok) {
+        return scopeValidation;
+      }
+      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
+      if (!gardenAddress.ok) {
+        return gardenAddress;
+      }
+      const memberId = readRequiredString(input.payload, 'memberId');
+      if (!memberId.ok) {
+        return memberId;
+      }
+      const gardenerAddress = readRequiredAddress(input.payload, 'gardenerAddress');
+      if (!gardenerAddress.ok) {
+        return gardenerAddress;
+      }
+      return {
+        ok: true,
+        coopId: coopId.value,
+        normalizedPayload: {
+          coopId: coopId.value,
+          gardenAddress: gardenAddress.value,
+          memberId: memberId.value,
+          gardenerAddress: gardenerAddress.value,
+        },
+        targetIds: [memberId.value, gardenAddress.value, gardenerAddress.value],
+      };
+    }
+    case 'green-goods-submit-work-submission': {
+      const coopId = readRequiredString(input.payload, 'coopId');
+      if (!coopId.ok) {
+        return coopId;
+      }
+      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+      if (!scopeValidation.ok) {
+        return scopeValidation;
+      }
+      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
+      if (!gardenAddress.ok) {
+        return gardenAddress;
+      }
+      const actionUid = readRequiredNonNegativeInteger(input.payload, 'actionUid');
+      if (!actionUid.ok) {
+        return actionUid;
+      }
+      const title = readRequiredString(input.payload, 'title');
+      if (!title.ok) {
+        return title;
+      }
+      const feedback = readOptionalString(input.payload, 'feedback');
+      if (!feedback.ok) {
+        return feedback;
+      }
+      const metadataCid = readRequiredString(input.payload, 'metadataCid');
+      if (!metadataCid.ok) {
+        return metadataCid;
+      }
+      const mediaCids = readOptionalStringArray(input.payload, 'mediaCids');
+      if (!mediaCids.ok) {
+        return mediaCids;
+      }
+      return {
+        ok: true,
+        coopId: coopId.value,
+        normalizedPayload: {
+          coopId: coopId.value,
+          gardenAddress: gardenAddress.value,
+          actionUid: actionUid.value,
+          title: title.value,
+          feedback: feedback.value ?? '',
+          metadataCid: metadataCid.value,
+          mediaCids: mediaCids.value ?? [],
+        },
+        targetIds: [gardenAddress.value, `${actionUid.value}`],
+      };
+    }
+    case 'green-goods-submit-impact-report': {
+      const coopId = readRequiredString(input.payload, 'coopId');
+      if (!coopId.ok) {
+        return coopId;
+      }
+      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+      if (!scopeValidation.ok) {
+        return scopeValidation;
+      }
+      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
+      if (!gardenAddress.ok) {
+        return gardenAddress;
+      }
+      const title = readRequiredString(input.payload, 'title');
+      if (!title.ok) {
+        return title;
+      }
+      const description = readRequiredString(input.payload, 'description');
+      if (!description.ok) {
+        return description;
+      }
+      const domain = readRequiredString(input.payload, 'domain');
+      if (!domain.ok) {
+        return domain;
+      }
+      if (!['solar', 'agro', 'edu', 'waste'].includes(domain.value)) {
+        return { ok: false, reason: 'Action payload has an invalid "domain".' };
+      }
+      const reportCid = readRequiredString(input.payload, 'reportCid');
+      if (!reportCid.ok) {
+        return reportCid;
+      }
+      const metricsSummary = readRequiredString(input.payload, 'metricsSummary');
+      if (!metricsSummary.ok) {
+        return metricsSummary;
+      }
+      const reportingPeriodStart = readRequiredNonNegativeInteger(
+        input.payload,
+        'reportingPeriodStart',
+      );
+      if (!reportingPeriodStart.ok) {
+        return reportingPeriodStart;
+      }
+      const reportingPeriodEnd = readRequiredNonNegativeInteger(
+        input.payload,
+        'reportingPeriodEnd',
+      );
+      if (!reportingPeriodEnd.ok) {
+        return reportingPeriodEnd;
+      }
+      if (reportingPeriodEnd.value < reportingPeriodStart.value) {
+        return { ok: false, reason: 'Action payload has an invalid "reportingPeriodEnd".' };
+      }
+      const submittedBy = readRequiredAddress(input.payload, 'submittedBy');
+      if (!submittedBy.ok) {
+        return submittedBy;
+      }
+      return {
+        ok: true,
+        coopId: coopId.value,
+        normalizedPayload: {
+          coopId: coopId.value,
+          gardenAddress: gardenAddress.value,
+          title: title.value,
+          description: description.value,
+          domain: domain.value,
+          reportCid: reportCid.value,
+          metricsSummary: metricsSummary.value,
+          reportingPeriodStart: reportingPeriodStart.value,
+          reportingPeriodEnd: reportingPeriodEnd.value,
+          submittedBy: submittedBy.value,
+        },
+        targetIds: [gardenAddress.value, title.value, reportCid.value],
+      };
+    }
     case 'erc8004-register-agent': {
       const coopId = readRequiredString(input.payload, 'coopId');
       if (!coopId.ok) return coopId;
@@ -987,8 +1253,8 @@ export function buildGreenGoodsCreateGardenPayload(input: {
     maxGardeners: input.maxGardeners ?? 0,
     weightScheme: input.weightScheme,
     domains: input.domains,
-    operatorAddresses: input.operatorAddresses ?? [],
-    gardenerAddresses: input.gardenerAddresses ?? [],
+    ...(input.operatorAddresses?.length ? { operatorAddresses: input.operatorAddresses } : {}),
+    ...(input.gardenerAddresses?.length ? { gardenerAddresses: input.gardenerAddresses } : {}),
   };
 }
 
@@ -1097,5 +1363,127 @@ export function buildGreenGoodsSyncGapAdminsPayload(input: {
     gardenAddress: input.gardenAddress,
     addAdmins: input.addAdmins ?? [],
     removeAdmins: input.removeAdmins ?? [],
+  };
+}
+
+export function buildGreenGoodsAddGardenerPayload(input: {
+  coopId: string;
+  memberId: string;
+  gardenAddress: string;
+  gardenerAddress: string;
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    memberId: input.memberId,
+    gardenAddress: input.gardenAddress,
+    gardenerAddress: input.gardenerAddress,
+  };
+}
+
+export function buildGreenGoodsRemoveGardenerPayload(input: {
+  coopId: string;
+  memberId: string;
+  gardenAddress: string;
+  gardenerAddress: string;
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    memberId: input.memberId,
+    gardenAddress: input.gardenAddress,
+    gardenerAddress: input.gardenerAddress,
+  };
+}
+
+export function buildGreenGoodsSubmitWorkSubmissionPayload(input: {
+  coopId: string;
+  gardenAddress: string;
+  actionUid: number;
+  title: string;
+  feedback?: string;
+  metadataCid: string;
+  mediaCids?: string[];
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    gardenAddress: input.gardenAddress,
+    actionUid: input.actionUid,
+    title: input.title,
+    feedback: input.feedback ?? '',
+    metadataCid: input.metadataCid,
+    mediaCids: input.mediaCids ?? [],
+  };
+}
+
+// ─── Safe Owner Management Payloads ──────────────────────────────────
+
+export function buildSafeAddOwnerPayload(input: {
+  coopId: string;
+  ownerAddress: string;
+  newThreshold: number;
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    ownerAddress: input.ownerAddress,
+    newThreshold: input.newThreshold,
+  };
+}
+
+export function buildSafeRemoveOwnerPayload(input: {
+  coopId: string;
+  ownerAddress: string;
+  newThreshold: number;
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    ownerAddress: input.ownerAddress,
+    newThreshold: input.newThreshold,
+  };
+}
+
+export function buildSafeSwapOwnerPayload(input: {
+  coopId: string;
+  oldOwnerAddress: string;
+  newOwnerAddress: string;
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    oldOwnerAddress: input.oldOwnerAddress,
+    newOwnerAddress: input.newOwnerAddress,
+  };
+}
+
+export function buildSafeChangeThresholdPayload(input: {
+  coopId: string;
+  newThreshold: number;
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    newThreshold: input.newThreshold,
+  };
+}
+
+export function buildGreenGoodsSubmitImpactReportPayload(input: {
+  coopId: string;
+  gardenAddress: string;
+  title: string;
+  description: string;
+  domain: string;
+  reportCid: string;
+  metricsSummary: string;
+  reportingPeriodStart: number;
+  reportingPeriodEnd: number;
+  submittedBy: string;
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    gardenAddress: input.gardenAddress,
+    title: input.title,
+    description: input.description,
+    domain: input.domain,
+    reportCid: input.reportCid,
+    metricsSummary: input.metricsSummary,
+    reportingPeriodStart: input.reportingPeriodStart,
+    reportingPeriodEnd: input.reportingPeriodEnd,
+    submittedBy: input.submittedBy,
   };
 }

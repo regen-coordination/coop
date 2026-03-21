@@ -19,8 +19,14 @@ import type {
   GreenGoodsGardenBootstrapOutput,
   GreenGoodsGardenState,
   GreenGoodsGardenSyncOutput,
+  GreenGoodsImpactReportOutput,
+  GreenGoodsMemberBinding,
+  GreenGoodsMemberRole,
   GreenGoodsWeightScheme,
   GreenGoodsWorkApprovalOutput,
+  GreenGoodsWorkSubmissionOutput,
+  Member,
+  MemberOnchainAccount,
   OnchainState,
   SetupInsights,
 } from '../../contracts/schema';
@@ -40,6 +46,9 @@ import { type CoopOnchainMode, buildPimlicoRpcUrl, getCoopChainConfig } from '..
 const greenGoodsGardenTokenAbi = parseAbi([
   'function mintGarden((string name,string slug,string description,string location,string bannerImage,string metadata,bool openJoining,uint8 weightScheme,uint8 domainMask,address[] gardeners,address[] operators) config) payable returns (address)',
   'event GardenMinted(uint256 indexed tokenId, address indexed account, string name, string description, string location, string bannerImage, bool openJoining)',
+  'function owner() view returns (address)',
+  'function deploymentRegistry() view returns (address)',
+  'function openMinting() view returns (bool)',
 ]);
 
 const greenGoodsGardenAccountAbi = parseAbi([
@@ -60,6 +69,10 @@ const greenGoodsGardensModuleAbi = parseAbi([
   'function createGardenPools(address garden) returns (address[] pools)',
 ]);
 
+const greenGoodsDeploymentRegistryAbi = parseAbi([
+  'function isInAllowlist(address account) view returns (bool)',
+]);
+
 const greenGoodsEasAbi = parseAbi([
   'function attest((bytes32 schema,(address recipient,uint64 expirationTime,bool revocable,bytes32 refUID,bytes data,uint256 value) data) request) payable returns (bytes32)',
 ]);
@@ -69,6 +82,15 @@ const greenGoodsKarmaGapModuleAbi = parseAbi([
   'function removeProjectAdmin(address garden, address admin)',
   'function getProjectUID(address garden) view returns (bytes32)',
 ]);
+
+const greenGoodsGardenerManagementAbi = parseAbi([
+  'function addGardener(address gardener)',
+  'function removeGardener(address gardener)',
+]);
+
+// TODO: Register this Coop-specific schema before enabling live member impact reporting.
+const IMPACT_REPORT_SCHEMA_UID =
+  '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 
 const greenGoodsDeployments = {
   arbitrum: {
@@ -80,6 +102,7 @@ const greenGoodsDeployments = {
     workApprovalResolver: '0x166732eD81Ab200A099215cF33F6A712309B69F7',
     eas: '0xbD75f629A22Dc1ceD33dDA0b68c546A1c035c458',
     assessmentSchemaUid: '0x97b3a7378bc97e8e455dbf9bd7958e4c149bef5e1f388540852b6d53eb6dbf93',
+    workSchemaUid: '0x43ebd37da5479df9d495a4c6514e7cb7f370e9f4166a0a58e14a3baf466078c4',
     workApprovalSchemaUid: '0x6f44cac380791858e86c67c75de1f10b186fb6534c00f85b596709a3cd51f381',
   },
   sepolia: {
@@ -91,6 +114,7 @@ const greenGoodsDeployments = {
     workApprovalResolver: '0x166732eD81Ab200A099215cF33F6A712309B69F7',
     eas: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e',
     assessmentSchemaUid: '0x97b3a7378bc97e8e455dbf9bd7958e4c149bef5e1f388540852b6d53eb6dbf93',
+    workSchemaUid: '0x43ebd37da5479df9d495a4c6514e7cb7f370e9f4166a0a58e14a3baf466078c4',
     workApprovalSchemaUid: '0x6f44cac380791858e86c67c75de1f10b186fb6534c00f85b596709a3cd51f381',
   },
 } as const satisfies Record<
@@ -104,6 +128,7 @@ const greenGoodsDeployments = {
     workApprovalResolver: Address;
     eas: Address;
     assessmentSchemaUid: `0x${string}`;
+    workSchemaUid: `0x${string}`;
     workApprovalSchemaUid: `0x${string}`;
   }
 >;
@@ -134,6 +159,29 @@ export type GreenGoodsCreateGardenResult = GreenGoodsTransactionResult & {
   gapProjectUid?: `0x${string}`;
 };
 
+type GreenGoodsReadClient = {
+  readContract: (input: {
+    address: Address;
+    abi: readonly unknown[];
+    functionName: string;
+    args?: readonly unknown[];
+  }) => Promise<unknown>;
+};
+
+export type GreenGoodsGardenMintAuthorization =
+  | {
+      authorized: true;
+      reason: 'owner' | 'allowlist' | 'open-minting';
+      owner: Address;
+      deploymentRegistry: Address;
+    }
+  | {
+      authorized: false;
+      owner: Address;
+      deploymentRegistry: Address;
+      detail: string;
+    };
+
 const ZERO_BYTES32 = `0x${'0'.repeat(64)}` as const;
 
 export type GreenGoodsLiveExecutor = (input: {
@@ -155,11 +203,28 @@ function describeGreenGoodsMode(mode: CoopOnchainMode, chainKey: CoopChainKey) {
   return `${mode} Green Goods on ${chainLabel}`;
 }
 
+function describeGreenGoodsChain(chainKey: CoopChainKey) {
+  return chainKey === 'arbitrum' ? 'Arbitrum' : 'Sepolia';
+}
+
 function normalizeBytes32(value: string | undefined) {
   if (!value || !/^0x[a-fA-F0-9]{64}$/.test(value) || value === ZERO_BYTES32) {
     return undefined;
   }
   return assertHexString(value, 'bytes32');
+}
+
+function requireLiveSchemaUid(
+  schemaUid: `0x${string}` | undefined,
+  label: 'work submission' | 'impact report',
+) {
+  const normalized = normalizeBytes32(schemaUid);
+  if (!normalized) {
+    throw new Error(
+      `A configured Green Goods ${label} schema UID is required before live member attestations can execute.`,
+    );
+  }
+  return normalized;
 }
 
 function ensureLiveExecutionReady(input: {
@@ -307,8 +372,97 @@ function deriveGreenGoodsDomainsFromText(input: {
   return unique(domains.size > 0 ? [...domains] : ['agro']);
 }
 
+function normalizeOptionalGardenText(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export function getGreenGoodsDeployment(chainKey: CoopChainKey): GreenGoodsDeployment {
   return greenGoodsDeployments[chainKey];
+}
+
+export async function inspectGreenGoodsGardenMintAuthorization(input: {
+  onchainState: OnchainState;
+  safeAddress?: Address;
+  client?: GreenGoodsReadClient;
+}): Promise<GreenGoodsGardenMintAuthorization> {
+  const chainConfig = getCoopChainConfig(input.onchainState.chainKey);
+  const client =
+    input.client ??
+    createPublicClient({
+      chain: chainConfig.chain,
+      transport: http(chainConfig.chain.rpcUrls.default.http[0]),
+    });
+  const deployment = getGreenGoodsDeployment(input.onchainState.chainKey);
+  const safeAddress =
+    input.safeAddress ?? assertHexString(input.onchainState.safeAddress, 'safeAddress');
+  const owner = assertHexString(
+    (await client.readContract({
+      address: deployment.gardenToken,
+      abi: greenGoodsGardenTokenAbi,
+      functionName: 'owner',
+    })) as string,
+    'greenGoodsGardenToken.owner',
+  );
+  const deploymentRegistry = assertHexString(
+    (await client.readContract({
+      address: deployment.gardenToken,
+      abi: greenGoodsGardenTokenAbi,
+      functionName: 'deploymentRegistry',
+    })) as string,
+    'greenGoodsGardenToken.deploymentRegistry',
+  );
+
+  try {
+    const openMinting = (await client.readContract({
+      address: deployment.gardenToken,
+      abi: greenGoodsGardenTokenAbi,
+      functionName: 'openMinting',
+    })) as boolean;
+    if (openMinting) {
+      return {
+        authorized: true,
+        reason: 'open-minting',
+        owner,
+        deploymentRegistry,
+      };
+    }
+  } catch {
+    // Older deployments may not expose openMinting; fall through to owner/allowlist checks.
+  }
+
+  if (owner.toLowerCase() === safeAddress.toLowerCase()) {
+    return {
+      authorized: true,
+      reason: 'owner',
+      owner,
+      deploymentRegistry,
+    };
+  }
+
+  const allowlisted = (await client.readContract({
+    address: deploymentRegistry,
+    abi: greenGoodsDeploymentRegistryAbi,
+    functionName: 'isInAllowlist',
+    args: [safeAddress],
+  })) as boolean;
+  if (allowlisted) {
+    return {
+      authorized: true,
+      reason: 'allowlist',
+      owner,
+      deploymentRegistry,
+    };
+  }
+
+  return {
+    authorized: false,
+    owner,
+    deploymentRegistry,
+    detail: `Green Goods garden minting is currently restricted on ${describeGreenGoodsChain(
+      input.onchainState.chainKey,
+    )}. Coop Safe ${safeAddress} is not the GardenToken owner ${owner} and is not allowlisted in deployment registry ${deploymentRegistry}. Ask Green Goods governance to allowlist this Safe or enable open minting before retrying.`,
+  };
 }
 
 export function toGreenGoodsDomainMask(domains: GreenGoodsDomain[]) {
@@ -345,6 +499,218 @@ export function resolveGreenGoodsGapAdminChanges(input: {
     addAdmins: input.desiredAdmins.filter((address) => !current.includes(address.toLowerCase())),
     removeAdmins: input.currentAdmins.filter((address) => !desired.includes(address.toLowerCase())),
   };
+}
+
+export function resolveGreenGoodsMemberRoles(member: Pick<Member, 'role'>): GreenGoodsMemberRole[] {
+  return member.role === 'creator' || member.role === 'trusted'
+    ? ['gardener', 'operator']
+    : ['gardener'];
+}
+
+function areRoleSetsEqual(left: GreenGoodsMemberRole[], right: GreenGoodsMemberRole[]) {
+  return (
+    left.length === right.length &&
+    left.every((role) => right.includes(role)) &&
+    right.every((role) => left.includes(role))
+  );
+}
+
+export function syncGreenGoodsMemberBindings(input: {
+  current?: GreenGoodsGardenState;
+  members: Member[];
+  memberAccounts: MemberOnchainAccount[];
+}): GreenGoodsMemberBinding[] {
+  const existingByMemberId = new Map(
+    (input.current?.memberBindings ?? []).map((binding) => [binding.memberId, binding]),
+  );
+  const accountByMemberId = new Map(
+    input.memberAccounts.map((account) => [account.memberId, account]),
+  );
+
+  return input.members.map((member) => {
+    const existing = existingByMemberId.get(member.id);
+    const account = accountByMemberId.get(member.id);
+    const desiredRoles = resolveGreenGoodsMemberRoles(member);
+    const actorAddress = account?.accountAddress;
+    const rolesUnchanged = existing ? areRoleSetsEqual(existing.desiredRoles, desiredRoles) : false;
+    const addressUnchanged = existing?.actorAddress?.toLowerCase() === actorAddress?.toLowerCase();
+    const preservedSynced =
+      existing?.status === 'synced' && rolesUnchanged && Boolean(actorAddress) && addressUnchanged;
+
+    return {
+      memberId: member.id,
+      actorAddress,
+      syncedActorAddress: preservedSynced
+        ? (existing?.syncedActorAddress ?? actorAddress)
+        : existing?.syncedActorAddress,
+      desiredRoles,
+      currentRoles: existing?.currentRoles ?? [],
+      status: actorAddress ? (preservedSynced ? 'synced' : 'pending-sync') : 'pending-account',
+      lastSyncedAt: preservedSynced ? existing?.lastSyncedAt : undefined,
+      lastError: preservedSynced ? existing?.lastError : undefined,
+    };
+  });
+}
+
+export type GreenGoodsGardenerBindingAction = {
+  memberId: string;
+  actionClass: 'green-goods-add-gardener' | 'green-goods-remove-gardener';
+  gardenerAddress: Address;
+  reason: string;
+};
+
+function bindingWantsGardener(binding: Pick<GreenGoodsMemberBinding, 'desiredRoles'>) {
+  return binding.desiredRoles.includes('gardener');
+}
+
+function bindingHasGardener(binding: Pick<GreenGoodsMemberBinding, 'currentRoles'>) {
+  return binding.currentRoles.includes('gardener');
+}
+
+function computeGreenGoodsBindingStatus(binding: GreenGoodsMemberBinding) {
+  if (bindingWantsGardener(binding) && !binding.actorAddress) {
+    return 'pending-account' as const;
+  }
+
+  const gardenerSynced =
+    bindingWantsGardener(binding) &&
+    bindingHasGardener(binding) &&
+    binding.actorAddress?.toLowerCase() === binding.syncedActorAddress?.toLowerCase();
+  const gardenerRemoved = !bindingWantsGardener(binding) && !bindingHasGardener(binding);
+
+  return gardenerSynced || gardenerRemoved ? 'synced' : 'pending-sync';
+}
+
+export function resolveGreenGoodsGardenerBindingActions(input: {
+  garden?: GreenGoodsGardenState;
+}) {
+  const actions: GreenGoodsGardenerBindingAction[] = [];
+  const skippedMemberIds: string[] = [];
+
+  for (const binding of input.garden?.memberBindings ?? []) {
+    const wantsGardener = bindingWantsGardener(binding);
+    const hasGardener = bindingHasGardener(binding);
+    const actorAddress = binding.actorAddress as Address | undefined;
+    const syncedActorAddress = binding.syncedActorAddress as Address | undefined;
+
+    if (wantsGardener && !actorAddress) {
+      skippedMemberIds.push(binding.memberId);
+      continue;
+    }
+
+    if (
+      wantsGardener &&
+      hasGardener &&
+      actorAddress &&
+      syncedActorAddress &&
+      actorAddress.toLowerCase() !== syncedActorAddress.toLowerCase()
+    ) {
+      actions.push({
+        memberId: binding.memberId,
+        actionClass: 'green-goods-remove-gardener',
+        gardenerAddress: syncedActorAddress,
+        reason: 'Remove the previous gardener address before syncing the new member account.',
+      });
+      actions.push({
+        memberId: binding.memberId,
+        actionClass: 'green-goods-add-gardener',
+        gardenerAddress: actorAddress,
+        reason: 'Add the latest member smart account as a gardener.',
+      });
+      continue;
+    }
+
+    if (wantsGardener && !hasGardener && actorAddress) {
+      actions.push({
+        memberId: binding.memberId,
+        actionClass: 'green-goods-add-gardener',
+        gardenerAddress: actorAddress,
+        reason: 'Add the member smart account as a gardener.',
+      });
+      continue;
+    }
+
+    if (!wantsGardener && hasGardener && (syncedActorAddress ?? actorAddress)) {
+      actions.push({
+        memberId: binding.memberId,
+        actionClass: 'green-goods-remove-gardener',
+        gardenerAddress: (syncedActorAddress ?? actorAddress) as Address,
+        reason: 'Remove the member smart account from the garden.',
+      });
+    }
+  }
+
+  return {
+    actions,
+    skippedMemberIds,
+  };
+}
+
+export function applyGreenGoodsGardenerActionSuccess(input: {
+  garden: GreenGoodsGardenState;
+  memberId: string;
+  actionClass: GreenGoodsGardenerBindingAction['actionClass'];
+  gardenerAddress: Address;
+  syncedAt?: string;
+  txHash?: `0x${string}`;
+  detail?: string;
+}) {
+  const syncedAt = input.syncedAt ?? nowIso();
+
+  return updateGreenGoodsState(input.garden, {
+    memberBindings: input.garden.memberBindings.map((binding) => {
+      if (binding.memberId !== input.memberId) {
+        return binding;
+      }
+
+      const currentRoles = new Set(binding.currentRoles);
+      if (input.actionClass === 'green-goods-add-gardener') {
+        currentRoles.add('gardener');
+      } else {
+        currentRoles.delete('gardener');
+      }
+
+      const nextBinding: GreenGoodsMemberBinding = {
+        ...binding,
+        currentRoles: [...currentRoles],
+        syncedActorAddress:
+          input.actionClass === 'green-goods-add-gardener'
+            ? input.gardenerAddress
+            : binding.syncedActorAddress?.toLowerCase() === input.gardenerAddress.toLowerCase()
+              ? undefined
+              : binding.syncedActorAddress,
+        lastSyncedAt: syncedAt,
+        lastError: undefined,
+      };
+
+      return {
+        ...nextBinding,
+        status: computeGreenGoodsBindingStatus(nextBinding),
+      };
+    }),
+    lastMemberSyncAt: syncedAt,
+    lastTxHash: input.txHash,
+    statusNote: input.detail ?? input.garden.statusNote,
+    lastError: undefined,
+  });
+}
+
+export function applyGreenGoodsMemberBindingError(input: {
+  garden: GreenGoodsGardenState;
+  memberId: string;
+  error: string;
+}) {
+  return updateGreenGoodsState(input.garden, {
+    memberBindings: input.garden.memberBindings.map((binding) =>
+      binding.memberId === input.memberId
+        ? {
+            ...binding,
+            status: 'error',
+            lastError: input.error,
+          }
+        : binding,
+    ),
+  });
 }
 
 export function createInitialGreenGoodsState(input: {
@@ -401,9 +767,9 @@ export function buildGreenGoodsGardenBootstrap(input: {
     name: input.garden.name,
     slug: input.garden.slug ?? '',
     description: input.garden.description,
-    location: input.garden.location,
-    bannerImage: input.garden.bannerImage,
-    metadata: input.garden.metadata,
+    location: normalizeOptionalGardenText(input.garden.location),
+    bannerImage: normalizeOptionalGardenText(input.garden.bannerImage),
+    metadata: normalizeOptionalGardenText(input.garden.metadata),
     openJoining: input.garden.openJoining,
     maxGardeners: input.garden.maxGardeners,
     weightScheme: input.garden.weightScheme,
@@ -423,9 +789,9 @@ export function createGreenGoodsBootstrapOutput(input: {
     name: input.garden.name || truncateWords(input.coopName, 12),
     slug: input.garden.slug,
     description: input.garden.description || truncateWords(input.purpose, 48),
-    location: input.garden.location,
-    bannerImage: input.garden.bannerImage,
-    metadata: input.garden.metadata,
+    location: normalizeOptionalGardenText(input.garden.location),
+    bannerImage: normalizeOptionalGardenText(input.garden.bannerImage),
+    metadata: normalizeOptionalGardenText(input.garden.metadata),
     openJoining: input.garden.openJoining,
     maxGardeners: input.garden.maxGardeners,
     weightScheme: input.garden.weightScheme,
@@ -442,9 +808,9 @@ export function createGreenGoodsSyncOutput(input: {
   return {
     name: input.garden.name || truncateWords(input.coopName, 12),
     description: input.garden.description || truncateWords(input.purpose, 48),
-    location: input.garden.location,
-    bannerImage: input.garden.bannerImage,
-    metadata: input.garden.metadata,
+    location: normalizeOptionalGardenText(input.garden.location),
+    bannerImage: normalizeOptionalGardenText(input.garden.bannerImage),
+    metadata: normalizeOptionalGardenText(input.garden.metadata),
     openJoining: input.garden.openJoining,
     maxGardeners: input.garden.maxGardeners,
     domains: input.garden.domains,
@@ -526,28 +892,34 @@ export async function createGreenGoodsGarden(input: {
     };
   }
 
+  const mintAuthorization = await inspectGreenGoodsGardenMintAuthorization({
+    onchainState: input.onchainState,
+  });
+  if (!mintAuthorization.authorized) {
+    throw new Error(mintAuthorization.detail);
+  }
+
   const deployment = getGreenGoodsDeployment(input.onchainState.chainKey);
+  const mintConfig = {
+    name: input.garden.name,
+    slug: input.garden.slug ?? '',
+    description: input.garden.description,
+    location: input.garden.location ?? '',
+    bannerImage: input.garden.bannerImage ?? '',
+    metadata: input.garden.metadata ?? '',
+    openJoining: input.garden.openJoining,
+    weightScheme: greenGoodsWeightSchemeValue[input.garden.weightScheme],
+    domainMask: toGreenGoodsDomainMask(input.garden.domains),
+    gardeners: unique(input.gardenerAddresses),
+    operators: unique(input.operatorAddresses),
+  };
   const result = input.liveExecutor
     ? await input.liveExecutor({
         to: deployment.gardenToken,
         data: encodeFunctionData({
           abi: greenGoodsGardenTokenAbi,
           functionName: 'mintGarden',
-          args: [
-            {
-              name: input.garden.name,
-              slug: input.garden.slug ?? '',
-              description: input.garden.description,
-              location: input.garden.location,
-              bannerImage: input.garden.bannerImage,
-              metadata: input.garden.metadata,
-              openJoining: input.garden.openJoining,
-              weightScheme: greenGoodsWeightSchemeValue[input.garden.weightScheme],
-              domainMask: toGreenGoodsDomainMask(input.garden.domains),
-              gardeners: unique(input.gardenerAddresses),
-              operators: unique(input.operatorAddresses),
-            },
-          ],
+          args: [mintConfig],
         }),
       })
     : await (async () => {
@@ -560,21 +932,7 @@ export async function createGreenGoodsGarden(input: {
           data: encodeFunctionData({
             abi: greenGoodsGardenTokenAbi,
             functionName: 'mintGarden',
-            args: [
-              {
-                name: input.garden.name,
-                slug: input.garden.slug ?? '',
-                description: input.garden.description,
-                location: input.garden.location,
-                bannerImage: input.garden.bannerImage,
-                metadata: input.garden.metadata,
-                openJoining: input.garden.openJoining,
-                weightScheme: greenGoodsWeightSchemeValue[input.garden.weightScheme],
-                domainMask: toGreenGoodsDomainMask(input.garden.domains),
-                gardeners: unique(input.gardenerAddresses),
-                operators: unique(input.operatorAddresses),
-              },
-            ],
+            args: [mintConfig],
           }),
         });
       })();
@@ -1067,5 +1425,287 @@ export async function syncGreenGoodsGapAdmins(input: {
   return {
     txHash: lastTxHash,
     detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} synced Green Goods GAP admins.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Gardener lifecycle
+// ---------------------------------------------------------------------------
+
+export function buildAddGardenerCalldata(input: {
+  gardenAddress: Address;
+  gardenerAddress: Address;
+}): `0x${string}` {
+  return encodeFunctionData({
+    abi: greenGoodsGardenerManagementAbi,
+    functionName: 'addGardener',
+    args: [input.gardenerAddress],
+  });
+}
+
+export function buildRemoveGardenerCalldata(input: {
+  gardenAddress: Address;
+  gardenerAddress: Address;
+}): `0x${string}` {
+  return encodeFunctionData({
+    abi: greenGoodsGardenerManagementAbi,
+    functionName: 'removeGardener',
+    args: [input.gardenerAddress],
+  });
+}
+
+export async function addGreenGoodsGardener(input: {
+  mode: CoopOnchainMode;
+  authSession?: AuthSession | null;
+  pimlicoApiKey?: string;
+  onchainState: OnchainState;
+  gardenAddress: Address;
+  gardenerAddress: Address;
+}): Promise<GreenGoodsTransactionResult> {
+  ensureLiveExecutionReady(input);
+
+  if (input.mode !== 'live') {
+    return {
+      txHash: hashJson({
+        kind: 'green-goods-add-gardener',
+        safeAddress: input.onchainState.safeAddress,
+        gardenAddress: input.gardenAddress,
+        gardenerAddress: input.gardenerAddress,
+      }),
+      detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} added a mock gardener.`,
+    };
+  }
+
+  const calldata = buildAddGardenerCalldata({
+    gardenAddress: input.gardenAddress,
+    gardenerAddress: input.gardenerAddress,
+  });
+  const credentials = requireLiveExecutionCredentials(input);
+
+  const result = await sendViaCoopSafe({
+    authSession: credentials.authSession,
+    pimlicoApiKey: credentials.pimlicoApiKey,
+    onchainState: input.onchainState,
+    to: input.gardenAddress,
+    data: calldata,
+  });
+
+  return {
+    txHash: result.txHash,
+    detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} added a gardener to the garden.`,
+  };
+}
+
+export async function removeGreenGoodsGardener(input: {
+  mode: CoopOnchainMode;
+  authSession?: AuthSession | null;
+  pimlicoApiKey?: string;
+  onchainState: OnchainState;
+  gardenAddress: Address;
+  gardenerAddress: Address;
+}): Promise<GreenGoodsTransactionResult> {
+  ensureLiveExecutionReady(input);
+
+  if (input.mode !== 'live') {
+    return {
+      txHash: hashJson({
+        kind: 'green-goods-remove-gardener',
+        safeAddress: input.onchainState.safeAddress,
+        gardenAddress: input.gardenAddress,
+        gardenerAddress: input.gardenerAddress,
+      }),
+      detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} removed a mock gardener.`,
+    };
+  }
+
+  const calldata = buildRemoveGardenerCalldata({
+    gardenAddress: input.gardenAddress,
+    gardenerAddress: input.gardenerAddress,
+  });
+  const credentials = requireLiveExecutionCredentials(input);
+
+  const result = await sendViaCoopSafe({
+    authSession: credentials.authSession,
+    pimlicoApiKey: credentials.pimlicoApiKey,
+    onchainState: input.onchainState,
+    to: input.gardenAddress,
+    data: calldata,
+  });
+
+  return {
+    txHash: result.txHash,
+    detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} removed a gardener from the garden.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Work submission (EAS attestation)
+// ---------------------------------------------------------------------------
+
+export function createGreenGoodsWorkSubmissionOutput(request: {
+  gardenAddress: Address;
+  actionUid: number;
+  title: string;
+  feedback?: string;
+  metadataCid: string;
+  mediaCids?: string[];
+}): GreenGoodsWorkSubmissionOutput {
+  return {
+    feedback: '',
+    mediaCids: [],
+    ...request,
+  };
+}
+
+export async function submitGreenGoodsWorkSubmission(input: {
+  mode: CoopOnchainMode;
+  authSession?: AuthSession | null;
+  pimlicoApiKey?: string;
+  onchainState: OnchainState;
+  gardenAddress: Address;
+  output: GreenGoodsWorkSubmissionOutput;
+  schemaUid?: `0x${string}`;
+  liveExecutor?: GreenGoodsLiveExecutor;
+}): Promise<GreenGoodsTransactionResult> {
+  ensureLiveExecutionReady(input);
+
+  if (input.mode !== 'live') {
+    return {
+      txHash: hashJson({
+        kind: 'green-goods-submit-work-submission',
+        safeAddress: input.onchainState.safeAddress,
+        gardenAddress: input.gardenAddress,
+        output: input.output,
+      }),
+      detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} submitted a mock Green Goods work submission attestation.`,
+    };
+  }
+
+  const deployment = getGreenGoodsDeployment(input.onchainState.chainKey);
+  const encodedData = encodeAbiParameters(
+    parseAbiParameters(
+      'uint256 actionUID, string title, string feedback, string metadata, string[] media',
+    ),
+    [
+      BigInt(input.output.actionUid),
+      input.output.title,
+      input.output.feedback ?? '',
+      input.output.metadataCid,
+      input.output.mediaCids ?? [],
+    ],
+  );
+
+  const tx = buildGreenGoodsEasAttestCalldata({
+    easAddress: deployment.eas,
+    schemaUid: requireLiveSchemaUid(input.schemaUid ?? deployment.workSchemaUid, 'work submission'),
+    recipient: input.gardenAddress,
+    encodedData,
+  });
+  const result = input.liveExecutor
+    ? await input.liveExecutor({
+        to: tx.to,
+        data: tx.data,
+      })
+    : await (async () => {
+        const credentials = requireLiveExecutionCredentials(input);
+        return sendViaCoopSafe({
+          authSession: credentials.authSession,
+          pimlicoApiKey: credentials.pimlicoApiKey,
+          onchainState: input.onchainState,
+          to: tx.to,
+          data: tx.data,
+        });
+      })();
+
+  return {
+    txHash: result.txHash,
+    detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} submitted a Green Goods work submission attestation.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Impact report (EAS attestation)
+// ---------------------------------------------------------------------------
+
+export function createGreenGoodsImpactReportOutput(request: {
+  gardenAddress: Address;
+  title: string;
+  description: string;
+  domain: GreenGoodsDomain;
+  reportCid: string;
+  metricsSummary: string;
+  reportingPeriodStart: number;
+  reportingPeriodEnd: number;
+  submittedBy: Address;
+}): GreenGoodsImpactReportOutput {
+  return { ...request };
+}
+
+export async function submitGreenGoodsImpactReport(input: {
+  mode: CoopOnchainMode;
+  authSession?: AuthSession | null;
+  pimlicoApiKey?: string;
+  onchainState: OnchainState;
+  gardenAddress: Address;
+  output: GreenGoodsImpactReportOutput;
+  schemaUid?: `0x${string}`;
+  liveExecutor?: GreenGoodsLiveExecutor;
+}): Promise<GreenGoodsTransactionResult> {
+  ensureLiveExecutionReady(input);
+
+  if (input.mode !== 'live') {
+    return {
+      txHash: hashJson({
+        kind: 'green-goods-submit-impact-report',
+        safeAddress: input.onchainState.safeAddress,
+        gardenAddress: input.gardenAddress,
+        output: input.output,
+      }),
+      detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} submitted a mock Green Goods impact report attestation.`,
+    };
+  }
+
+  const deployment = getGreenGoodsDeployment(input.onchainState.chainKey);
+  const encodedData = encodeAbiParameters(
+    parseAbiParameters(
+      'string title, string description, uint8 domain, string reportCID, string metricsSummary, uint256 reportingPeriodStart, uint256 reportingPeriodEnd, address submittedBy',
+    ),
+    [
+      input.output.title,
+      input.output.description,
+      toGreenGoodsDomainValue(input.output.domain),
+      input.output.reportCid,
+      input.output.metricsSummary,
+      BigInt(input.output.reportingPeriodStart),
+      BigInt(input.output.reportingPeriodEnd),
+      assertHexString(input.output.submittedBy, 'submittedBy') as Address,
+    ],
+  );
+
+  const tx = buildGreenGoodsEasAttestCalldata({
+    easAddress: deployment.eas,
+    schemaUid: requireLiveSchemaUid(input.schemaUid ?? IMPACT_REPORT_SCHEMA_UID, 'impact report'),
+    recipient: input.gardenAddress,
+    encodedData,
+  });
+  const result = input.liveExecutor
+    ? await input.liveExecutor({
+        to: tx.to,
+        data: tx.data,
+      })
+    : await (async () => {
+        const credentials = requireLiveExecutionCredentials(input);
+        return sendViaCoopSafe({
+          authSession: credentials.authSession,
+          pimlicoApiKey: credentials.pimlicoApiKey,
+          onchainState: input.onchainState,
+          to: tx.to,
+          data: tx.data,
+        });
+      })();
+
+  return {
+    txHash: result.txHash,
+    detail: `${describeGreenGoodsMode(input.mode, input.onchainState.chainKey)} submitted a Green Goods impact report attestation.`,
   };
 }

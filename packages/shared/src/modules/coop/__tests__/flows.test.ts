@@ -115,6 +115,49 @@ describe('create, join, and publish flows', () => {
     expect(created.state.greenGoods?.enabled).toBe(true);
     expect(created.state.greenGoods?.status).toBe('requested');
     expect(created.state.greenGoods?.domains.length).toBeGreaterThan(0);
+    expect(created.state.memberAccounts).toHaveLength(1);
+    expect(created.state.memberAccounts[0]?.status).toBe('pending');
+    expect(created.state.greenGoods?.memberBindings).toHaveLength(1);
+    expect(created.state.greenGoods?.memberBindings[0]?.desiredRoles).toEqual([
+      'gardener',
+      'operator',
+    ]);
+    expect(created.state.greenGoods?.memberBindings[0]?.status).toBe('pending-account');
+  });
+
+  it('initializes pending member account state when a second member joins a Green Goods coop', () => {
+    const created = createCoop({
+      coopName: 'Watershed Coop',
+      purpose: 'Coordinate bioregional stewardship and ecological funding opportunities.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'I want our regional work and funding paths to stay visible.',
+      setupInsights: buildSetupInsights(),
+      greenGoods: {
+        enabled: true,
+      },
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+
+    const joined = joinCoop({
+      state: {
+        ...created.state,
+        invites: [invite],
+      },
+      invite,
+      displayName: 'Mina',
+      seedContribution: 'I bring review energy and member context.',
+    });
+
+    expect(joined.state.memberAccounts).toHaveLength(2);
+    expect(joined.state.memberAccounts.every((account) => account.status === 'pending')).toBe(true);
+    expect(joined.state.greenGoods?.memberBindings).toHaveLength(2);
+    expect(joined.state.greenGoods?.memberBindings[1]?.desiredRoles).toEqual(['gardener']);
+    expect(joined.state.greenGoods?.memberBindings[1]?.status).toBe('pending-account');
   });
 
   it('supports trusted and member invite flows and adds a joining member', () => {

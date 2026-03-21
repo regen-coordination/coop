@@ -86,6 +86,34 @@ export const greenGoodsGardenStatusSchema = z.enum([
 ]);
 export const greenGoodsDomainSchema = z.enum(['solar', 'agro', 'edu', 'waste']);
 export const greenGoodsWeightSchemeSchema = z.enum(['linear', 'exponential', 'power']);
+export const greenGoodsMemberRoleSchema = z.enum([
+  'gardener',
+  'operator',
+  'assessor',
+  'impact-reporter',
+]);
+export const greenGoodsMemberBindingStatusSchema = z.enum([
+  'pending-account',
+  'pending-sync',
+  'synced',
+  'error',
+]);
+export const greenGoodsMemberBindingSchema = z.object({
+  memberId: z.string().min(1),
+  actorAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .optional(),
+  syncedActorAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .optional(),
+  desiredRoles: z.array(greenGoodsMemberRoleSchema).default([]),
+  currentRoles: z.array(greenGoodsMemberRoleSchema).default([]),
+  status: greenGoodsMemberBindingStatusSchema.default('pending-account'),
+  lastSyncedAt: z.string().datetime().optional(),
+  lastError: z.string().optional(),
+});
 export const privilegedActionTypeSchema = z.enum([
   'anchor-mode-toggle',
   'archive-upload',
@@ -104,6 +132,10 @@ export const policyActionClassSchema = z.enum([
   'refresh-archive-status',
   'publish-ready-draft',
   'safe-deployment',
+  'safe-add-owner',
+  'safe-remove-owner',
+  'safe-swap-owner',
+  'safe-change-threshold',
   'green-goods-create-garden',
   'green-goods-sync-garden-profile',
   'green-goods-set-garden-domains',
@@ -111,6 +143,10 @@ export const policyActionClassSchema = z.enum([
   'green-goods-submit-work-approval',
   'green-goods-create-assessment',
   'green-goods-sync-gap-admins',
+  'green-goods-add-gardener',
+  'green-goods-remove-gardener',
+  'green-goods-submit-work-submission',
+  'green-goods-submit-impact-report',
   'erc8004-register-agent',
   'erc8004-give-feedback',
 ]);
@@ -742,6 +778,37 @@ export const greenGoodsGapAdminSyncOutputSchema = z.object({
   removeAdmins: z.array(z.string().regex(/^0x[a-fA-F0-9]{40}$/)).default([]),
   rationale: z.string().min(1),
 });
+
+export const greenGoodsWorkSubmissionOutputSchema = z.object({
+  gardenAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  actionUid: z.number().int().nonnegative(),
+  title: z.string().min(1),
+  feedback: z.string().default(''),
+  metadataCid: z.string().min(1),
+  mediaCids: z.array(z.string().min(1)).default([]),
+});
+
+export const greenGoodsImpactReportOutputSchema = z
+  .object({
+    gardenAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    title: z.string().min(1),
+    description: z.string().min(1),
+    domain: greenGoodsDomainSchema,
+    reportCid: z.string().min(1),
+    metricsSummary: z.string().min(1),
+    reportingPeriodStart: z.number().int().nonnegative(),
+    reportingPeriodEnd: z.number().int().nonnegative(),
+    submittedBy: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  })
+  .superRefine((value, ctx) => {
+    if (value.reportingPeriodEnd < value.reportingPeriodStart) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reportingPeriodEnd'],
+        message: 'reportingPeriodEnd must be greater than or equal to reportingPeriodStart.',
+      });
+    }
+  });
 
 export const skillManifestSchema = z.object({
   id: z.string().min(1),
@@ -1510,12 +1577,15 @@ export const greenGoodsGardenStateSchema = z.object({
   requestedAt: z.string().datetime().optional(),
   provisioningAt: z.string().datetime().optional(),
   linkedAt: z.string().datetime().optional(),
+  lastMemberSyncAt: z.string().datetime().optional(),
   lastProfileSyncAt: z.string().datetime().optional(),
   lastDomainSyncAt: z.string().datetime().optional(),
   lastPoolSyncAt: z.string().datetime().optional(),
   lastGapAdminSyncAt: z.string().datetime().optional(),
+  lastWorkSubmissionAt: z.string().datetime().optional(),
   lastWorkApprovalAt: z.string().datetime().optional(),
   lastAssessmentAt: z.string().datetime().optional(),
+  lastImpactReportAt: z.string().datetime().optional(),
   gardenAddress: z
     .string()
     .regex(/^0x[a-fA-F0-9]{40}$/)
@@ -1535,6 +1605,7 @@ export const greenGoodsGardenStateSchema = z.object({
   maxGardeners: z.number().int().nonnegative().default(0),
   weightScheme: greenGoodsWeightSchemeSchema.default('linear'),
   domains: z.array(greenGoodsDomainSchema).default([]),
+  memberBindings: z.array(greenGoodsMemberBindingSchema).default([]),
   gapAdminAddresses: z.array(z.string().regex(/^0x[a-fA-F0-9]{40}$/)).default([]),
   domainMask: z.number().int().min(0).max(15).default(0),
   statusNote: z.string().default(''),
@@ -1590,6 +1661,7 @@ const baseBootstrapFieldsPre = {
   soul: coopSoulSchema,
   rituals: z.array(ritualDefinitionSchema).min(1),
   members: z.array(memberSchema).min(1),
+  memberAccounts: z.array(z.lazy(() => memberOnchainAccountSchema)).default([]),
   artifacts: z.array(artifactSchema).default([]),
   reviewBoard: z.array(reviewBoardGroupSchema).default([]),
   archiveReceipts: z.array(archiveReceiptSchema).default([]),
@@ -1743,6 +1815,9 @@ export type FvmChainKey = z.infer<typeof fvmChainKeySchema>;
 export type FvmRegistryState = z.infer<typeof fvmRegistryStateSchema>;
 export type GreenGoodsDomain = z.infer<typeof greenGoodsDomainSchema>;
 export type GreenGoodsGardenBootstrapOutput = z.infer<typeof greenGoodsGardenBootstrapOutputSchema>;
+export type GreenGoodsMemberBinding = z.infer<typeof greenGoodsMemberBindingSchema>;
+export type GreenGoodsMemberBindingStatus = z.infer<typeof greenGoodsMemberBindingStatusSchema>;
+export type GreenGoodsMemberRole = z.infer<typeof greenGoodsMemberRoleSchema>;
 export type GreenGoodsGardenState = z.infer<typeof greenGoodsGardenStateSchema>;
 export type GreenGoodsGardenStatus = z.infer<typeof greenGoodsGardenStatusSchema>;
 export type GreenGoodsGardenSyncOutput = z.infer<typeof greenGoodsGardenSyncOutputSchema>;
@@ -1751,6 +1826,8 @@ export type GreenGoodsAssessmentRequest = z.infer<typeof greenGoodsAssessmentReq
 export type GreenGoodsWorkApprovalOutput = z.infer<typeof greenGoodsWorkApprovalOutputSchema>;
 export type GreenGoodsAssessmentOutput = z.infer<typeof greenGoodsAssessmentOutputSchema>;
 export type GreenGoodsGapAdminSyncOutput = z.infer<typeof greenGoodsGapAdminSyncOutputSchema>;
+export type GreenGoodsWorkSubmissionOutput = z.infer<typeof greenGoodsWorkSubmissionOutputSchema>;
+export type GreenGoodsImpactReportOutput = z.infer<typeof greenGoodsImpactReportOutputSchema>;
 export type GreenGoodsWeightScheme = z.infer<typeof greenGoodsWeightSchemeSchema>;
 export type Erc8004AgentState = z.infer<typeof erc8004AgentStateSchema>;
 export type Erc8004RegistrationOutput = z.infer<typeof erc8004RegistrationOutputSchema>;
@@ -1866,6 +1943,87 @@ export type AgentLog = z.infer<typeof agentLogSchema>;
 export type AgentMemoryType = z.infer<typeof agentMemoryTypeSchema>;
 export type AgentMemoryScope = z.infer<typeof agentMemoryScopeSchema>;
 export type AgentMemory = z.infer<typeof agentMemorySchema>;
+
+// ---------------------------------------------------------------------------
+// Member On-chain Account — per-user smart account for individual actions
+// ---------------------------------------------------------------------------
+
+export const memberAccountTypeSchema = z.enum(['safe', 'kernel', 'smart-account']);
+export type MemberAccountType = z.infer<typeof memberAccountTypeSchema>;
+
+export const memberAccountStatusSchema = z.enum([
+  'pending', // Account record created, waiting for local provisioning
+  'predicted', // Counterfactual address predicted, not yet deployed
+  'deploying', // Deployment transaction submitted
+  'active', // Account deployed and ready
+  'suspended', // Temporarily disabled
+  'recovery', // Recovery flow in progress
+  'error', // Provisioning or deployment failed
+]);
+export type MemberAccountStatus = z.infer<typeof memberAccountStatusSchema>;
+
+export const memberOnchainAccountSchema = z.object({
+  id: z.string(),
+  memberId: z.string(),
+  coopId: z.string(),
+  accountAddress: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .optional(),
+  accountType: memberAccountTypeSchema,
+  ownerPasskeyCredentialId: z.string(),
+  chainKey: z.enum(['arbitrum', 'sepolia']),
+  status: memberAccountStatusSchema,
+  statusNote: z.string().default(''),
+  deploymentTxHash: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{64}$/)
+    .optional(),
+  userOperationHash: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{64}$/)
+    .optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  predictedAt: z.string().datetime().optional(),
+  deployedAt: z.string().datetime().optional(),
+  suspendedAt: z.string().datetime().optional(),
+});
+export type MemberOnchainAccount = z.infer<typeof memberOnchainAccountSchema>;
+
+export const localMemberSignerBindingSchema = z.object({
+  id: z.string().min(1),
+  coopId: z.string().min(1),
+  memberId: z.string().min(1),
+  accountAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  accountType: memberAccountTypeSchema,
+  passkeyCredentialId: z.string().min(1),
+  createdAt: z.string().datetime(),
+  lastUsedAt: z.string().datetime(),
+  lastError: z.string().optional(),
+});
+export type LocalMemberSignerBinding = z.infer<typeof localMemberSignerBindingSchema>;
+
+// ---------------------------------------------------------------------------
+// Authority Classification
+// ---------------------------------------------------------------------------
+
+// Authority classification — distinguishes signer roles in the Coop architecture
+export const authorityClassSchema = z.enum([
+  'safe-owner', // Treasury/governance controller on the Coop Safe
+  'session-executor', // Bounded automation via session keys
+  'member-account', // Per-user smart account for individual actions
+  'semaphore-identity', // Privacy layer for anonymous proofs/signaling
+]);
+export type AuthorityClass = z.infer<typeof authorityClassSchema>;
+
+// Authority action mapping — which actions each authority class can perform
+export const authorityActionMappingSchema = z.object({
+  authorityClass: authorityClassSchema,
+  actionClasses: z.array(z.string()),
+  description: z.string(),
+});
+export type AuthorityActionMapping = z.infer<typeof authorityActionMappingSchema>;
 
 // ---------------------------------------------------------------------------
 // Privacy / Semaphore v4 + Bandada

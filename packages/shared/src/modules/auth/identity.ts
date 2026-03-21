@@ -6,6 +6,7 @@ import {
 import { type LocalPasskeyIdentity, localPasskeyIdentitySchema } from '../../contracts/schema';
 import { assertHexString, createId, hashText, nowIso, toDeterministicAddress } from '../../utils';
 import { createDeviceBoundWarning } from '../coop/flows';
+import { createWebAuthnCredentialGetFn } from './auth';
 
 export function derivePasskeyRpId(explicitRpId?: string) {
   if (explicitRpId) {
@@ -33,6 +34,7 @@ export function rehydratePasskeyOwner(
       id: identity.passkey.id,
       publicKey: assertHexString(identity.passkey.publicKey, 'passkey publicKey'),
     },
+    getFn: createWebAuthnCredentialGetFn(),
     rpId,
   });
 }
@@ -58,6 +60,7 @@ export async function createLivePasskeyIdentity(input: {
       id: credential.id,
       publicKey: assertHexString(credential.publicKey, 'passkey publicKey'),
     },
+    getFn: createWebAuthnCredentialGetFn(),
     rpId,
   });
   const ownerAddress = toDeterministicAddress(`passkey:${credential.id}:${credential.publicKey}`);

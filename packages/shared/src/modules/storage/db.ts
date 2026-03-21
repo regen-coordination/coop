@@ -17,6 +17,7 @@ import type {
   ExecutionPermit,
   HapticPreferences,
   KnowledgeSkill,
+  LocalMemberSignerBinding,
   LocalPasskeyIdentity,
   PermitLogEntry,
   PrivacyIdentityRecord,
@@ -48,6 +49,7 @@ import {
   encryptedSessionMaterialSchema,
   executionPermitSchema,
   hapticPreferencesSchema,
+  localMemberSignerBindingSchema,
   normalizeLegacyOnchainState,
   permitLogEntrySchema,
   privilegedActionLogEntrySchema,
@@ -100,6 +102,7 @@ export class CoopDexie extends Dexie {
   captureRuns!: EntityTable<CaptureRunRecord, 'id'>;
   settings!: EntityTable<LocalSetting, 'key'>;
   identities!: EntityTable<LocalPasskeyIdentity, 'id'>;
+  localMemberSignerBindings!: EntityTable<LocalMemberSignerBinding, 'id'>;
   receiverPairings!: EntityTable<ReceiverPairingRecord, 'pairingId'>;
   receiverCaptures!: EntityTable<ReceiverCapture, 'id'>;
   receiverBlobs!: EntityTable<ReceiverBlobRecord, 'captureId'>;
@@ -364,6 +367,40 @@ export class CoopDexie extends Dexie {
       captureRuns: 'id, state, capturedAt',
       settings: 'key',
       identities: 'id, ownerAddress, displayName, createdAt, lastUsedAt',
+      receiverPairings: 'pairingId, coopId, memberId, roomId, issuedAt, acceptedAt, active',
+      receiverCaptures:
+        'id, kind, createdAt, syncState, pairingId, coopId, memberId, intakeStatus, linkedDraftId',
+      receiverBlobs: 'captureId',
+      actionBundles: 'id, status, coopId, actionClass, createdAt',
+      actionLogEntries: 'id, bundleId, eventType, createdAt',
+      replayIds: 'replayId, bundleId, executedAt',
+      executionPermits: 'id, coopId, status, createdAt, expiresAt',
+      permitLogEntries: 'id, permitId, eventType, createdAt',
+      sessionCapabilities: 'id, coopId, status, createdAt, updatedAt, sessionAddress',
+      sessionCapabilityLogEntries: 'id, capabilityId, eventType, createdAt',
+      encryptedSessionMaterials: 'capabilityId, sessionAddress, wrappedAt',
+      agentObservations: 'id, status, trigger, coopId, createdAt, fingerprint',
+      agentPlans: 'id, observationId, status, createdAt, updatedAt',
+      skillRuns: 'id, observationId, planId, skillId, status, startedAt',
+      tabRoutings:
+        'id, [extractId+coopId], sourceCandidateId, extractId, coopId, status, createdAt, updatedAt',
+      knowledgeSkills: 'id, &url, name, domain, enabled',
+      coopKnowledgeSkillOverrides: 'id, [coopId+knowledgeSkillId], coopId',
+      agentLogs: 'id, traceId, spanType, skillId, observationId, level, timestamp',
+      privacyIdentities: 'id, [coopId+memberId], coopId, memberId, commitment, createdAt',
+      stealthKeyPairs: 'id, coopId, createdAt',
+      agentMemories: 'id, coopId, type, domain, createdAt, expiresAt, contentHash',
+    });
+    this.version(13).stores({
+      tabCandidates: 'id, canonicalUrl, domain, capturedAt',
+      pageExtracts: 'id, canonicalUrl, domain, createdAt',
+      reviewDrafts: 'id, category, createdAt, workflowStage',
+      coopDocs: 'id, updatedAt',
+      captureRuns: 'id, state, capturedAt',
+      settings: 'key',
+      identities: 'id, ownerAddress, displayName, createdAt, lastUsedAt',
+      localMemberSignerBindings:
+        'id, [coopId+memberId], coopId, memberId, accountAddress, passkeyCredentialId, createdAt, lastUsedAt',
       receiverPairings: 'pairingId, coopId, memberId, roomId, issuedAt, acceptedAt, active',
       receiverCaptures:
         'id, kind, createdAt, syncState, pairingId, coopId, memberId, intakeStatus, linkedDraftId',
@@ -820,6 +857,23 @@ export async function getEncryptedSessionMaterial(db: CoopDexie, capabilityId: s
 
 export async function deleteEncryptedSessionMaterial(db: CoopDexie, capabilityId: string) {
   await db.encryptedSessionMaterials.delete(capabilityId);
+}
+
+// --- Local member signer binding persistence ---
+
+export async function saveLocalMemberSignerBinding(
+  db: CoopDexie,
+  binding: LocalMemberSignerBinding,
+) {
+  await db.localMemberSignerBindings.put(localMemberSignerBindingSchema.parse(binding));
+}
+
+export async function getLocalMemberSignerBinding(db: CoopDexie, coopId: string, memberId: string) {
+  return db.localMemberSignerBindings.where('[coopId+memberId]').equals([coopId, memberId]).first();
+}
+
+export async function listLocalMemberSignerBindingsByCoopId(db: CoopDexie, coopId: string) {
+  return db.localMemberSignerBindings.where('coopId').equals(coopId).toArray();
 }
 
 // --- Agent persistence ---

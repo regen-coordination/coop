@@ -79,6 +79,22 @@ export function formatActionClassLabel(actionClass: ActionBundle['actionClass'])
       return 'Green Goods create assessment';
     case 'green-goods-sync-gap-admins':
       return 'Green Goods sync GAP admins';
+    case 'green-goods-add-gardener':
+      return 'Green Goods add gardener';
+    case 'green-goods-remove-gardener':
+      return 'Green Goods remove gardener';
+    case 'green-goods-submit-work-submission':
+      return 'Green Goods submit work submission';
+    case 'green-goods-submit-impact-report':
+      return 'Green Goods submit impact report';
+    case 'safe-add-owner':
+      return 'Safe add owner';
+    case 'safe-remove-owner':
+      return 'Safe remove owner';
+    case 'safe-swap-owner':
+      return 'Safe swap owner';
+    case 'safe-change-threshold':
+      return 'Safe change threshold';
     case 'erc8004-register-agent':
       return 'ERC-8004 register agent';
     case 'erc8004-give-feedback':

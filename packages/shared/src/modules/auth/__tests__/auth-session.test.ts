@@ -5,6 +5,7 @@ const authMocks = vi.hoisted(() => ({
   toWebAuthnAccount: vi.fn((input) => ({
     type: 'webAuthnAccount',
     credential: input.credential,
+    getFn: input.getFn,
     rpId: input.rpId,
   })),
 }));
@@ -58,6 +59,7 @@ describe('auth session helpers', () => {
         id: 'credential-1',
         publicKey: '0x1234abcd',
       },
+      getFn: expect.any(Function),
       rpId: 'coop.local',
     });
     expect(account).toMatchObject({ rpId: 'coop.local' });

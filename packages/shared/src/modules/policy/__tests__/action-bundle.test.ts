@@ -459,8 +459,6 @@ describe('action-bundle', () => {
         maxGardeners: 0,
         weightScheme: 'linear',
         domains: ['agro'],
-        operatorAddresses: [],
-        gardenerAddresses: [],
       });
     });
 

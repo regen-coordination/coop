@@ -21,6 +21,7 @@ vi.mock('viem/account-abstraction', () => ({
   toWebAuthnAccount: vi.fn((input) => ({
     address: `0x${'12'.repeat(20)}`,
     credential: input.credential,
+    getFn: input.getFn,
     rpId: input.rpId,
   })),
 }));
@@ -104,9 +105,11 @@ describe('auth and onchain helpers', () => {
 
     expect(session.primaryAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
     expect(session.passkey?.id).toBe('credential-1');
-    expect(restorePasskeyAccount(session)).toMatchObject({
+    const account = restorePasskeyAccount(session);
+    expect(account).toMatchObject({
       rpId: 'coop.local',
     });
+    expect((account as { getFn?: unknown }).getFn).toEqual(expect.any(Function));
 
     const identity = authSessionToLocalIdentity(session);
     expect(identity?.ownerAddress).toBe(session.primaryAddress);
