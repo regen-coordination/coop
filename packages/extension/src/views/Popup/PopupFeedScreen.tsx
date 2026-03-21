@@ -48,7 +48,9 @@ export function PopupFeedScreen(props: {
                       <span className="popup-mini-pill popup-mini-pill--muted">
                         {artifact.coopLabel}
                       </span>
-                      <span className="popup-mini-pill">{formatCategoryLabel(artifact.category)}</span>
+                      <span className="popup-mini-pill">
+                        {formatCategoryLabel(artifact.category)}
+                      </span>
                     </span>
                   </div>
                 </button>

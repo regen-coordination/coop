@@ -164,7 +164,9 @@ async function main() {
     }
   }
 
-  const validatedReceiverAppUrl = validateStoreReceiverAppUrl(process.env.VITE_COOP_RECEIVER_APP_URL);
+  const validatedReceiverAppUrl = validateStoreReceiverAppUrl(
+    process.env.VITE_COOP_RECEIVER_APP_URL,
+  );
   if (!validatedReceiverAppUrl.ok) {
     fail(errors, validatedReceiverAppUrl.message);
   }

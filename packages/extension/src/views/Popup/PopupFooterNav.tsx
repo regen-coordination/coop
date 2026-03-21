@@ -36,7 +36,12 @@ function ChickensIcon() {
         strokeLinejoin="round"
         strokeWidth="1.4"
       />
-      <path d="M8.5 10h3M8.5 12.5h2" stroke="currentColor" strokeLinecap="round" strokeWidth="1.3" />
+      <path
+        d="M8.5 10h3M8.5 12.5h2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.3"
+      />
     </svg>
   );
 }

@@ -435,8 +435,8 @@ button:focus-visible,
   font-size: 0.78rem;
   font-weight: 700;
   white-space: nowrap;
-  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease,
-    transform 180ms ease;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, transform
+    180ms ease;
 }
 
 .popup-choice-group__button.is-active {

@@ -98,10 +98,18 @@ export function PopupProfilePanel(props: {
             <p className="popup-empty-state">No coops yet. Create one or join with an invite.</p>
           )}
           <div className="popup-inline-actions">
-            <button className="popup-secondary-action popup-primary-action--small" onClick={onCreate} type="button">
+            <button
+              className="popup-secondary-action popup-primary-action--small"
+              onClick={onCreate}
+              type="button"
+            >
               Create coop
             </button>
-            <button className="popup-secondary-action popup-primary-action--small" onClick={onJoin} type="button">
+            <button
+              className="popup-secondary-action popup-primary-action--small"
+              onClick={onJoin}
+              type="button"
+            >
               Join coop
             </button>
           </div>

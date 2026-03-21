@@ -18,8 +18,15 @@ export function PopupDraftListScreen(props: {
   onMarkReady: (draft: ReviewDraft) => void | Promise<void>;
   onShare: (draft: ReviewDraft) => void | Promise<void>;
 }) {
-  const { drafts, filterOptions, activeFilterId, onChangeFilter, onOpenDraft, onMarkReady, onShare } =
-    props;
+  const {
+    drafts,
+    filterOptions,
+    activeFilterId,
+    onChangeFilter,
+    onOpenDraft,
+    onMarkReady,
+    onShare,
+  } = props;
 
   return (
     <section className="popup-screen popup-screen--fill">
@@ -45,7 +52,9 @@ export function PopupDraftListScreen(props: {
                   <span>{draft.summary}</span>
                   <span className="popup-review-queue__pills">
                     <span className="popup-mini-pill">{formatCategoryLabel(draft.category)}</span>
-                    <span className="popup-mini-pill popup-mini-pill--muted">{draft.coopLabel}</span>
+                    <span className="popup-mini-pill popup-mini-pill--muted">
+                      {draft.coopLabel}
+                    </span>
                   </span>
                 </div>
                 <div className="popup-row-actions">
@@ -79,7 +88,8 @@ export function PopupDraftListScreen(props: {
           </ul>
         ) : (
           <p className="popup-empty-state">
-            No chickens match this filter right now. Round up a tab or open the receiver to hatch a new one.
+            No chickens match this filter right now. Round up a tab or open the receiver to hatch a
+            new one.
           </p>
         )}
       </div>

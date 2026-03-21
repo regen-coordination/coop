@@ -122,7 +122,11 @@ export function PopupHomeScreen(props: {
               <button className="popup-text-button" onClick={onPasteNote} type="button">
                 Paste
               </button>
-              <button className="popup-primary-action popup-primary-action--small" onClick={onSaveNote} type="button">
+              <button
+                className="popup-primary-action popup-primary-action--small"
+                onClick={onSaveNote}
+                type="button"
+              >
                 Save note
               </button>
             </div>

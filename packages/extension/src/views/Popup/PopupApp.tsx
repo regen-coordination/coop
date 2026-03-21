@@ -211,7 +211,10 @@ function popupSyncStatus(input: {
 }
 
 function buildFilterOptions(coops: Array<{ id: string; name: string }>) {
-  return [{ id: 'all', label: 'All coops' }, ...coops.map((coop) => ({ id: coop.id, label: coop.name }))];
+  return [
+    { id: 'all', label: 'All coops' },
+    ...coops.map((coop) => ({ id: coop.id, label: coop.name })),
+  ];
 }
 
 function matchesCoopFilter(coopIds: string[], filterId: string) {
@@ -382,7 +385,10 @@ export function PopupApp() {
       return feedFilterId;
     }
 
-    if ((currentScreen === 'drafts' || currentScreen === 'draft-detail') && draftFilterId !== 'all') {
+    if (
+      (currentScreen === 'drafts' || currentScreen === 'draft-detail') &&
+      draftFilterId !== 'all'
+    ) {
       return draftFilterId;
     }
 
@@ -822,7 +828,10 @@ export function PopupApp() {
       },
     ];
 
-    if ((dashboard?.receiverPairings.length ?? 0) > 0 || (dashboard?.receiverIntake.length ?? 0) > 0) {
+    if (
+      (dashboard?.receiverPairings.length ?? 0) > 0 ||
+      (dashboard?.receiverIntake.length ?? 0) > 0
+    ) {
       items.push({
         id: 'receiver',
         label: 'Receiver',
@@ -945,8 +954,7 @@ export function PopupApp() {
     );
   }
 
-  const showProfileAction =
-    hasCoops && ['home', 'drafts', 'feed'].includes(currentScreen);
+  const showProfileAction = hasCoops && ['home', 'drafts', 'feed'].includes(currentScreen);
   const showWorkspaceAction =
     hasCoops && ['home', 'drafts', 'feed', 'draft-detail'].includes(currentScreen);
 
@@ -955,7 +963,9 @@ export function PopupApp() {
       brandActionLabel="Play coop sound"
       brandTooltip="Play coop sound"
       onBack={['create', 'join', 'draft-detail'].includes(currentScreen) ? navigateBack : undefined}
-      onBrandAction={() => void playRandomChickenSound(dashboard?.soundPreferences ?? defaultSoundPreferences)}
+      onBrandAction={() =>
+        void playRandomChickenSound(dashboard?.soundPreferences ?? defaultSoundPreferences)
+      }
       onOpenProfile={showProfileAction ? () => setProfileOpen((current) => !current) : undefined}
       onSetTheme={theme.setThemePreference}
       onToggleWorkspace={
@@ -986,7 +996,9 @@ export function PopupApp() {
         onJoin={openJoinFlow}
         onSetAgentCadence={(minutes) => void updateUiPreferences({ agentCadenceMinutes: minutes })}
         onSetTheme={theme.setThemePreference}
-        onToggleNotifications={(enabled) => void updateUiPreferences({ notificationsEnabled: enabled })}
+        onToggleNotifications={(enabled) =>
+          void updateUiPreferences({ notificationsEnabled: enabled })
+        }
         onToggleSound={updateSound}
         soundPreferences={dashboard.soundPreferences}
         themePreference={theme.themePreference}

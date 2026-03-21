@@ -27,9 +27,7 @@ export function usePopupOverlayFocusTrap(input: {
         return [] as HTMLElement[];
       }
 
-      return Array.from(
-        containerRef.current.querySelectorAll<HTMLElement>(focusableSelector),
-      );
+      return Array.from(containerRef.current.querySelectorAll<HTMLElement>(focusableSelector));
     }
 
     const initialTarget =

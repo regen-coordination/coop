@@ -3,11 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PopupApp } from '../PopupApp';
 
-const { mockSendRuntimeMessage, mockPlayCoopSound, mockPlayRandomChickenSound } = vi.hoisted(() => ({
-  mockSendRuntimeMessage: vi.fn(),
-  mockPlayCoopSound: vi.fn(),
-  mockPlayRandomChickenSound: vi.fn(),
-}));
+const { mockSendRuntimeMessage, mockPlayCoopSound, mockPlayRandomChickenSound } = vi.hoisted(
+  () => ({
+    mockSendRuntimeMessage: vi.fn(),
+    mockPlayCoopSound: vi.fn(),
+    mockPlayRandomChickenSound: vi.fn(),
+  }),
+);
 
 vi.mock('../../../runtime/messages', () => ({
   sendRuntimeMessage: mockSendRuntimeMessage,
@@ -247,51 +249,53 @@ describe('PopupApp', () => {
   function installDefaultRuntimeHandlers(dashboard = makeDashboard()) {
     let currentDashboard = dashboard;
 
-    mockSendRuntimeMessage.mockImplementation(async (message: { type: string; payload?: unknown }) => {
-      if (message.type === 'get-dashboard') {
-        return { ok: true, data: currentDashboard };
-      }
-      if (message.type === 'get-sidepanel-state') {
-        return { ok: true, data: { open: false, canClose: true } };
-      }
-      if (message.type === 'manual-capture') {
-        return { ok: true, data: 2 };
-      }
-      if (message.type === 'capture-active-tab') {
-        return { ok: true, data: 1 };
-      }
-      if (message.type === 'toggle-sidepanel') {
-        return { ok: true, data: { open: true, canClose: true } };
-      }
-      if (message.type === 'set-active-coop') {
-        currentDashboard = {
-          ...currentDashboard,
-          activeCoopId: (message.payload as { coopId: string }).coopId,
-        };
+    mockSendRuntimeMessage.mockImplementation(
+      async (message: { type: string; payload?: unknown }) => {
+        if (message.type === 'get-dashboard') {
+          return { ok: true, data: currentDashboard };
+        }
+        if (message.type === 'get-sidepanel-state') {
+          return { ok: true, data: { open: false, canClose: true } };
+        }
+        if (message.type === 'manual-capture') {
+          return { ok: true, data: 2 };
+        }
+        if (message.type === 'capture-active-tab') {
+          return { ok: true, data: 1 };
+        }
+        if (message.type === 'toggle-sidepanel') {
+          return { ok: true, data: { open: true, canClose: true } };
+        }
+        if (message.type === 'set-active-coop') {
+          currentDashboard = {
+            ...currentDashboard,
+            activeCoopId: (message.payload as { coopId: string }).coopId,
+          };
+          return { ok: true };
+        }
+        if (message.type === 'set-ui-preferences') {
+          currentDashboard = {
+            ...currentDashboard,
+            uiPreferences: {
+              ...currentDashboard.uiPreferences,
+              ...(message.payload as object),
+            },
+          };
+          return { ok: true, data: currentDashboard.uiPreferences };
+        }
+        if (message.type === 'set-sound-preferences') {
+          currentDashboard = {
+            ...currentDashboard,
+            soundPreferences: {
+              ...currentDashboard.soundPreferences,
+              ...(message.payload as object),
+            },
+          };
+          return { ok: true, data: undefined };
+        }
         return { ok: true };
-      }
-      if (message.type === 'set-ui-preferences') {
-        currentDashboard = {
-          ...currentDashboard,
-          uiPreferences: {
-            ...currentDashboard.uiPreferences,
-            ...(message.payload as object),
-          },
-        };
-        return { ok: true, data: currentDashboard.uiPreferences };
-      }
-      if (message.type === 'set-sound-preferences') {
-        currentDashboard = {
-          ...currentDashboard,
-          soundPreferences: {
-            ...currentDashboard.soundPreferences,
-            ...(message.payload as object),
-          },
-        };
-        return { ok: true, data: undefined };
-      }
-      return { ok: true };
-    });
+      },
+    );
   }
 
   it('shows the no-coop setup state and routes into create flow', async () => {
