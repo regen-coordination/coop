@@ -492,4 +492,75 @@ describe('queryMemoriesForSkill', () => {
 
     expect(results).toEqual([]);
   });
+
+  it('includes decision-context memories in results', async () => {
+    await createAgentMemory(db, {
+      coopId: 'coop-dc',
+      type: 'decision-context',
+      content: 'Decision: Routed extract to coop-dc\nRationale: High relevance',
+      confidence: 0.85,
+      domain: 'routing',
+      createdAt: '2026-01-05T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      coopId: 'coop-dc',
+      type: 'skill-pattern',
+      content: 'Existing pattern',
+      confidence: 0.7,
+      createdAt: '2026-01-04T00:00:00.000Z',
+    });
+
+    const results = await queryMemoriesForSkill(db, 'coop-dc', 'test-skill');
+
+    const types = results.map((m) => m.type);
+    expect(types).toContain('decision-context');
+    expect(types).toContain('skill-pattern');
+    expect(results.map((m) => m.content)).toContain(
+      'Decision: Routed extract to coop-dc\nRationale: High relevance',
+    );
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * decision-context memory type
+ * --------------------------------------------------------------------------- */
+
+describe('decision-context memory type', () => {
+  it('creates and retrieves a decision-context memory', async () => {
+    const memory = await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'decision-context',
+      content: 'Decision: Scored 3 grant candidates\nRationale: Strong alignment',
+      confidence: 0.9,
+      domain: 'funding',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    });
+
+    expect(memory.id).toMatch(/^agent-memory-/);
+    expect(memory.type).toBe('decision-context');
+    expect(memory.domain).toBe('funding');
+    expect(memory.confidence).toBe(0.9);
+  });
+
+  it('can be queried by type filter', async () => {
+    await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'decision-context',
+      content: 'Decision: Draft ready for publish',
+      confidence: 0.85,
+      domain: 'publishing',
+    });
+    await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'observation-outcome',
+      content: 'Observed something',
+      confidence: 0.7,
+    });
+
+    const results = await queryRecentMemories(db, 'coop-1', { type: 'decision-context' });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe('decision-context');
+    expect(results[0].content).toBe('Decision: Draft ready for publish');
+  });
 });

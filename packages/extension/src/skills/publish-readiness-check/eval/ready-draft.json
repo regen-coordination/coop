@@ -15,6 +15,8 @@
   "assertions": [
     { "type": "field-present", "path": "draftId" },
     { "type": "field-equals", "path": "ready", "expected": true },
-    { "type": "array-min-length", "path": "suggestions", "threshold": 1 }
+    { "type": "array-min-length", "path": "suggestions", "threshold": 1 },
+    { "type": "semantic-word-count", "path": "suggestions.0", "threshold": 5 },
+    { "type": "string-min-length", "path": "draftId", "threshold": 3 }
   ]
 }

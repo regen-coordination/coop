@@ -1,0 +1,29 @@
+{
+  "id": "basic-routing",
+  "description": "Tab routing should emit at least one well-formed routing with relevance score and rationale.",
+  "output": {
+    "routings": [
+      {
+        "sourceCandidateId": "candidate-watershed-1",
+        "extractId": "extract-river-report",
+        "coopId": "coop-river",
+        "relevanceScore": 0.87,
+        "matchedRitualLenses": ["capital-formation"],
+        "category": "opportunity",
+        "tags": ["watershed", "restoration"],
+        "rationale": "The extract discusses river restoration funding that aligns with the coop's watershed stewardship purpose and active ritual lenses.",
+        "suggestedNextStep": "Review for draft creation and assign to the funding check-in ritual.",
+        "archiveWorthinessHint": true
+      }
+    ]
+  },
+  "assertions": [
+    { "type": "array-min-length", "path": "routings", "threshold": 1 },
+    { "type": "field-present", "path": "routings.0.extractId" },
+    { "type": "field-present", "path": "routings.0.rationale" },
+    { "type": "field-present", "path": "routings.0.suggestedNextStep" },
+    { "type": "number-range", "path": "routings.0.relevanceScore", "min": 0, "max": 1 },
+    { "type": "semantic-word-count", "path": "routings.0.rationale", "threshold": 8 },
+    { "type": "string-min-length", "path": "routings.0.suggestedNextStep", "threshold": 15 }
+  ]
+}

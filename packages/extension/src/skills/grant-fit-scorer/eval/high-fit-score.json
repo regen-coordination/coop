@@ -19,6 +19,8 @@
   "assertions": [
     { "type": "array-min-length", "path": "scores", "threshold": 1 },
     { "type": "field-present", "path": "scores.0.candidateId" },
-    { "type": "field-present", "path": "scores.0.reasons.0" }
+    { "type": "field-present", "path": "scores.0.reasons.0" },
+    { "type": "number-range", "path": "scores.0.score", "min": 0, "max": 1 },
+    { "type": "semantic-word-count", "path": "scores.0.reasons.0", "threshold": 3 }
   ]
 }

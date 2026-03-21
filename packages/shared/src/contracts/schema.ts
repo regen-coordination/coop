@@ -918,6 +918,7 @@ export const agentMemoryTypeSchema = z.enum([
   'user-feedback',
   'domain-pattern',
   'coop-context',
+  'decision-context',
 ]);
 
 export const agentMemoryScopeSchema = z.enum(['member', 'coop']);

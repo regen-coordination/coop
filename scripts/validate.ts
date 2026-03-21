@@ -182,6 +182,11 @@ const suites: Record<string, Suite> = {
       'Targeted Vitest coverage for agent contracts, skill registry loading, provider fallback, and operator-console agent controls.',
     steps: [{ label: 'unit:agent-loop', command: ['bun', 'run', 'test:unit:agent-loop'] }],
   },
+  'unit:agent-eval': {
+    description:
+      'Skill eval fixture coverage and structural/semantic assertion pass across all registered skills.',
+    steps: [{ label: 'unit:agent-eval', command: ['bun', 'run', 'test:unit:agent-eval'] }],
+  },
   'local-inference': {
     description: 'Local inference validation: lint, targeted inference unit tests, build.',
     includes: ['lint', 'unit:local-inference', 'build'],
@@ -238,6 +243,7 @@ const suites: Record<string, Suite> = {
     includes: [
       'lint',
       'unit:agent-loop',
+      'unit:agent-eval',
       'unit:local-inference',
       'unit:agent-policy',
       'unit:delegated-execution',

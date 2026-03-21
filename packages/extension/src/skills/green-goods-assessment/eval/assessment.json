@@ -1,0 +1,22 @@
+{
+  "id": "assessment",
+  "description": "Assessment output should produce a valid assessment with dates, domain, and rationale.",
+  "output": {
+    "title": "Q1 Watershed Restoration Assessment",
+    "description": "Evaluate riparian planting and soil health improvements along the Willamette River during Q1.",
+    "assessmentConfigCid": "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi",
+    "domain": "agro",
+    "startDate": 1709251200,
+    "endDate": 1717113600,
+    "location": "Willamette River Basin",
+    "rationale": "The garden's primary domain is agro and this assessment covers the active restoration season."
+  },
+  "assertions": [
+    { "type": "field-present", "path": "title" },
+    { "type": "field-present", "path": "assessmentConfigCid" },
+    { "type": "field-present", "path": "domain" },
+    { "type": "field-present", "path": "rationale" },
+    { "type": "semantic-word-count", "path": "rationale", "threshold": 6 },
+    { "type": "string-min-length", "path": "assessmentConfigCid", "threshold": 10 }
+  ]
+}

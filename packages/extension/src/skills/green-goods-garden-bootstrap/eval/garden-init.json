@@ -1,0 +1,25 @@
+{
+  "id": "garden-init",
+  "description": "Garden bootstrap should produce a valid garden profile with name, description, and at least one domain.",
+  "output": {
+    "name": "Willamette Watershed Garden",
+    "slug": "willamette-watershed",
+    "description": "A regenerative garden tracking watershed restoration activities along the Willamette River.",
+    "location": "Pacific Northwest",
+    "bannerImage": "",
+    "metadata": "",
+    "openJoining": false,
+    "maxGardeners": 0,
+    "weightScheme": "linear",
+    "domains": ["agro"],
+    "rationale": "The coop's purpose centers on watershed restoration, and the agro domain aligns with riparian planting and soil health work."
+  },
+  "assertions": [
+    { "type": "field-present", "path": "name" },
+    { "type": "field-present", "path": "description" },
+    { "type": "field-present", "path": "rationale" },
+    { "type": "array-min-length", "path": "domains", "threshold": 1 },
+    { "type": "semantic-word-count", "path": "rationale", "threshold": 8 },
+    { "type": "string-min-length", "path": "description", "threshold": 20 }
+  ]
+}

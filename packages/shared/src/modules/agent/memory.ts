@@ -129,26 +129,34 @@ export async function queryMemoriesForSkill(
   const coopId = typeof scope === 'string' ? scope : scope.coopId;
   const memberId = typeof scope === 'string' ? undefined : scope.memberId;
 
-  const [memberMemories, coopSkillPatterns, coopOutcomes, coopGeneral] = await Promise.all([
-    memberId
-      ? queryRecentMemories(
-          db,
-          {
-            scope: 'member',
-            memberId,
-          },
-          { limit },
-        )
-      : Promise.resolve([]),
-    queryRecentMemories(db, { scope: 'coop', coopId }, { type: 'skill-pattern', limit }),
-    queryRecentMemories(db, { scope: 'coop', coopId }, { type: 'observation-outcome', limit }),
-    queryRecentMemories(db, { scope: 'coop', coopId }, { limit }),
-  ]);
+  const [memberMemories, coopSkillPatterns, coopOutcomes, coopDecisionContext, coopGeneral] =
+    await Promise.all([
+      memberId
+        ? queryRecentMemories(
+            db,
+            {
+              scope: 'member',
+              memberId,
+            },
+            { limit },
+          )
+        : Promise.resolve([]),
+      queryRecentMemories(db, { scope: 'coop', coopId }, { type: 'skill-pattern', limit }),
+      queryRecentMemories(db, { scope: 'coop', coopId }, { type: 'observation-outcome', limit }),
+      queryRecentMemories(db, { scope: 'coop', coopId }, { type: 'decision-context', limit }),
+      queryRecentMemories(db, { scope: 'coop', coopId }, { limit }),
+    ]);
 
   const seen = new Set<string>();
   const merged: AgentMemory[] = [];
 
-  for (const memory of [...memberMemories, ...coopSkillPatterns, ...coopOutcomes, ...coopGeneral]) {
+  for (const memory of [
+    ...memberMemories,
+    ...coopSkillPatterns,
+    ...coopOutcomes,
+    ...coopDecisionContext,
+    ...coopGeneral,
+  ]) {
     if (seen.has(memory.id)) continue;
     seen.add(memory.id);
     merged.push(memory);

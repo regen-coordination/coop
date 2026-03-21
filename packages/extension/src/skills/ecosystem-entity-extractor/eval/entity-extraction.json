@@ -1,0 +1,25 @@
+{
+  "id": "entity-extraction",
+  "description": "Entity extraction should identify at least one ecosystem entity with kind and relevance.",
+  "output": {
+    "entities": [
+      {
+        "name": "Pacific Rivers Council",
+        "kind": "organization",
+        "relevance": 0.82
+      },
+      {
+        "name": "Willamette River Basin",
+        "kind": "watershed",
+        "relevance": 0.74
+      }
+    ]
+  },
+  "assertions": [
+    { "type": "array-min-length", "path": "entities", "threshold": 1 },
+    { "type": "field-present", "path": "entities.0.name" },
+    { "type": "field-present", "path": "entities.0.kind" },
+    { "type": "number-range", "path": "entities.0.relevance", "min": 0, "max": 1 },
+    { "type": "string-min-length", "path": "entities.0.name", "threshold": 3 }
+  ]
+}

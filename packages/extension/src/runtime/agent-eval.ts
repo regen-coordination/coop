@@ -2,6 +2,38 @@ import type { SkillOutputSchemaRef } from '@coop/shared';
 import { validateSkillOutput } from '@coop/shared';
 import { getRegisteredSkill } from './agent-registry';
 
+const STOPWORDS = new Set([
+  'a',
+  'an',
+  'the',
+  'and',
+  'or',
+  'but',
+  'in',
+  'on',
+  'at',
+  'to',
+  'for',
+  'of',
+  'with',
+  'by',
+  'is',
+  'it',
+  'be',
+  'as',
+  'do',
+  'no',
+  'so',
+  'if',
+  'up',
+  'my',
+  'we',
+  'he',
+  'me',
+]);
+
+const STRUCTURAL_ASSERTION_TYPES = new Set(['field-present', 'field-equals', 'array-min-length']);
+
 type EvalAssertion =
   | {
       type: 'field-present';
@@ -14,6 +46,27 @@ type EvalAssertion =
     }
   | {
       type: 'array-min-length';
+      path: string;
+      threshold: number;
+    }
+  | {
+      type: 'string-min-length';
+      path: string;
+      threshold: number;
+    }
+  | {
+      type: 'number-range';
+      path: string;
+      min: number;
+      max: number;
+    }
+  | {
+      type: 'regex-match';
+      path: string;
+      pattern: string;
+    }
+  | {
+      type: 'semantic-word-count';
       path: string;
       threshold: number;
     };
@@ -31,6 +84,12 @@ export type SkillEvalCase = SkillEvalFixture & {
   outputSchemaRef: SkillOutputSchemaRef;
 };
 
+export type QualityBreakdown = {
+  structuralScore: number;
+  semanticScore: number;
+  schemaCompliance: number;
+};
+
 export type SkillEvalResult = {
   skillId: string;
   caseId: string;
@@ -40,6 +99,8 @@ export type SkillEvalResult = {
   threshold: number;
   schemaValid: boolean;
   failures: string[];
+  qualityScore: number;
+  qualityBreakdown: QualityBreakdown;
 };
 
 const evalModules = import.meta.glob('../skills/*/eval/*.json', {
@@ -64,6 +125,11 @@ function readPath(value: unknown, path: string) {
 
     return undefined;
   }, value);
+}
+
+function countMeaningfulWords(text: string): number {
+  return text.split(/\s+/).filter((word) => word.length > 0 && !STOPWORDS.has(word.toLowerCase()))
+    .length;
 }
 
 function parseSkillIdFromPath(path: string) {
@@ -107,19 +173,29 @@ export function runSkillEvalCase(testCase: SkillEvalCase): SkillEvalResult {
     failures.push(error instanceof Error ? error.message : String(error));
   }
 
-  let passedChecks = schemaValid ? 1 : 0;
-  const totalChecks = 1 + testCase.assertions.length;
+  let structuralPassed = 0;
+  let structuralTotal = 0;
+  let semanticPassed = 0;
+  let semanticTotal = 0;
 
   if (schemaValid) {
     for (const assertion of testCase.assertions) {
       const value = readPath(testCase.output, assertion.path);
+      const isStructural = STRUCTURAL_ASSERTION_TYPES.has(assertion.type);
+
+      if (isStructural) {
+        structuralTotal += 1;
+      } else {
+        semanticTotal += 1;
+      }
+
       switch (assertion.type) {
         case 'field-present':
           if (value === undefined || value === null || value === '') {
             failures.push(`Expected "${assertion.path}" to be present.`);
             continue;
           }
-          passedChecks += 1;
+          structuralPassed += 1;
           continue;
         case 'field-equals':
           if (value !== assertion.expected) {
@@ -128,7 +204,7 @@ export function runSkillEvalCase(testCase: SkillEvalCase): SkillEvalResult {
             );
             continue;
           }
-          passedChecks += 1;
+          structuralPassed += 1;
           continue;
         case 'array-min-length':
           if (!Array.isArray(value) || value.length < assertion.threshold) {
@@ -137,14 +213,65 @@ export function runSkillEvalCase(testCase: SkillEvalCase): SkillEvalResult {
             );
             continue;
           }
-          passedChecks += 1;
+          structuralPassed += 1;
           continue;
+        case 'string-min-length':
+          if (typeof value !== 'string' || value.length < assertion.threshold) {
+            failures.push(
+              `Expected "${assertion.path}" to be a string of at least ${assertion.threshold} characters.`,
+            );
+            continue;
+          }
+          semanticPassed += 1;
+          continue;
+        case 'number-range':
+          if (typeof value !== 'number' || value < assertion.min || value > assertion.max) {
+            failures.push(
+              `Expected "${assertion.path}" to be a number in [${assertion.min}, ${assertion.max}].`,
+            );
+            continue;
+          }
+          semanticPassed += 1;
+          continue;
+        case 'regex-match':
+          try {
+            if (typeof value !== 'string' || !new RegExp(assertion.pattern).test(value)) {
+              failures.push(
+                `Expected "${assertion.path}" to match pattern /${assertion.pattern}/.`,
+              );
+              continue;
+            }
+          } catch {
+            failures.push(
+              `Invalid regex pattern "/${assertion.pattern}/" for "${assertion.path}".`,
+            );
+            continue;
+          }
+          semanticPassed += 1;
+          continue;
+        case 'semantic-word-count': {
+          if (typeof value !== 'string' || countMeaningfulWords(value) < assertion.threshold) {
+            failures.push(
+              `Expected "${assertion.path}" to contain at least ${assertion.threshold} meaningful words.`,
+            );
+            continue;
+          }
+          semanticPassed += 1;
+          continue;
+        }
       }
     }
   }
 
+  const totalChecks = 1 + testCase.assertions.length;
+  const passedChecks = (schemaValid ? 1 : 0) + structuralPassed + semanticPassed;
   const score = totalChecks === 0 ? 1 : passedChecks / totalChecks;
   const threshold = testCase.threshold ?? 1;
+
+  const schemaCompliance = schemaValid ? 1 : 0;
+  const structuralScore = structuralTotal === 0 ? 1 : structuralPassed / structuralTotal;
+  const semanticScore = semanticTotal === 0 ? 1 : semanticPassed / semanticTotal;
+  const qualityScore = 0.2 * schemaCompliance + 0.3 * structuralScore + 0.5 * semanticScore;
 
   return {
     skillId: testCase.skillId,
@@ -155,6 +282,12 @@ export function runSkillEvalCase(testCase: SkillEvalCase): SkillEvalResult {
     threshold,
     schemaValid,
     failures,
+    qualityScore,
+    qualityBreakdown: {
+      structuralScore,
+      semanticScore,
+      schemaCompliance,
+    },
   };
 }
 

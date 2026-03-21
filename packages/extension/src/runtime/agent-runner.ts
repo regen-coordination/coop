@@ -88,9 +88,13 @@ import {
 import {
   AGENT_HIGH_CONFIDENCE_THRESHOLD,
   AGENT_MAX_CONSECUTIVE_FAILURES,
+  AGENT_QUALITY_STALL_THRESHOLD,
   AGENT_SETTING_KEYS,
   type AgentCycleRequest,
   type AgentCycleState,
+  computeQualityTrend,
+  pushQualityScore,
+  recentQualityAverage,
 } from './agent-config';
 import {
   getMissingRequiredCapabilities,
@@ -115,6 +119,7 @@ import {
   resolveGreenGoodsGapAdminAddresses,
   resolveGreenGoodsOperatorAddresses,
 } from './agent-output-handlers';
+import { computeOutputConfidence } from './agent-quality';
 import { type RegisteredSkill, getRegisteredSkill, listRegisteredSkills } from './agent-registry';
 import { type RuntimeActionResponse, notifyDashboardUpdated } from './messages';
 
@@ -1211,6 +1216,7 @@ async function buildSkillContext(observation: AgentObservation): Promise<SkillEx
 function extractMemoriesFromOutput(
   schemaRef: SkillOutputSchemaRef,
   output: unknown,
+  outputConfidence?: number,
 ): Array<{
   type: AgentMemory['type'];
   content: string;
@@ -1232,7 +1238,14 @@ function extractMemoriesFromOutput(
         {
           type: 'observation-outcome',
           content: `Extracted ${typed.candidates.length} opportunity candidates: ${topTitles}`,
-          confidence: 0.7,
+          confidence: outputConfidence ?? 0.7,
+          domain: 'opportunities',
+          expiresAt: thirtyDaysFromNow,
+        },
+        {
+          type: 'decision-context' as const,
+          content: `Decision: Surfaced ${typed.candidates.length} opportunity candidates\nRationale: Priority ordering based on ${typed.candidates[0]?.fundingSignals.length ? 'funding signals' : 'ecological relevance'}\nTop candidate: ${typed.candidates[0]?.title} (priority: ${typed.candidates[0]?.priority.toFixed(2)})`,
+          confidence: typed.candidates[0]?.priority ?? 0.5,
           domain: 'opportunities',
           expiresAt: thirtyDaysFromNow,
         },
@@ -1246,7 +1259,7 @@ function extractMemoriesFromOutput(
         {
           type: 'domain-pattern',
           content: `Emerging themes: ${labels}`,
-          confidence: 0.65,
+          confidence: outputConfidence ?? 0.65,
           domain: 'themes',
         },
       ];
@@ -1258,7 +1271,7 @@ function extractMemoriesFromOutput(
         {
           type: 'coop-context',
           content: `Review digest: ${truncateWords(typed.summary, 60)}`,
-          confidence: 0.8,
+          confidence: outputConfidence ?? 0.8,
           domain: 'reviews',
         },
       ];
@@ -1269,7 +1282,14 @@ function extractMemoriesFromOutput(
         {
           type: 'observation-outcome',
           content: `Capital formation brief: ${typed.title} — ${truncateWords(typed.whyItMatters, 40)}`,
-          confidence: 0.75,
+          confidence: outputConfidence ?? 0.75,
+          domain: 'funding',
+          expiresAt: thirtyDaysFromNow,
+        },
+        {
+          type: 'decision-context' as const,
+          content: `Decision: Created capital formation brief "${typed.title}"\nRationale: ${truncateWords(typed.whyItMatters, 30)}`,
+          confidence: outputConfidence ?? 0.75,
           domain: 'funding',
           expiresAt: thirtyDaysFromNow,
         },
@@ -1293,14 +1313,60 @@ function extractMemoriesFromOutput(
         {
           type: 'skill-pattern',
           content: `Publish readiness: ${typed.ready ? 'ready' : 'not ready'}. Suggestions: ${suggestions}`,
-          confidence: 0.7,
+          confidence: outputConfidence ?? 0.7,
+          domain: 'publishing',
+          expiresAt: thirtyDaysFromNow,
+        },
+        {
+          type: 'decision-context' as const,
+          content: `Decision: Draft ${typed.draftId} ${typed.ready ? 'ready' : 'not ready'} for publish\nRationale: ${typed.suggestions?.slice(0, 2).join('; ') ?? 'No suggestions'}`,
+          confidence: typed.ready ? 0.85 : 0.6,
           domain: 'publishing',
           expiresAt: thirtyDaysFromNow,
         },
       ];
     }
+    case 'tab-router-output': {
+      const typed = output as TabRouterOutput;
+      if (!typed.routings?.length) return [];
+      const topRouting = typed.routings.reduce(
+        (best, r) => (r.relevanceScore > best.relevanceScore ? r : best),
+        typed.routings[0],
+      );
+      const alternatives = typed.routings
+        .filter((r) => r.coopId !== topRouting.coopId)
+        .slice(0, 3)
+        .map((r) => `${r.coopId} (${r.relevanceScore.toFixed(2)})`)
+        .join(', ');
+      return [
+        {
+          type: 'decision-context' as const,
+          content: `Decision: Routed extract ${topRouting.extractId} to ${topRouting.coopId}\nRationale: ${truncateWords(topRouting.rationale, 30)} (relevance: ${topRouting.relevanceScore.toFixed(2)})${alternatives ? `\nAlternatives: ${alternatives}` : ''}`,
+          confidence: topRouting.relevanceScore,
+          domain: 'routing',
+          expiresAt: thirtyDaysFromNow,
+        },
+      ];
+    }
+    case 'grant-fit-scorer-output': {
+      const typed = output as GrantFitScorerOutput;
+      if (!typed.scores?.length) return [];
+      const topScore = typed.scores.reduce(
+        (best, s) => (s.score > best.score ? s : best),
+        typed.scores[0],
+      );
+      return [
+        {
+          type: 'decision-context' as const,
+          content: `Decision: Scored ${typed.scores.length} grant candidates\nRationale: ${topScore.reasons.slice(0, 2).join('; ')}\nTop fit: ${topScore.candidateTitle} (score: ${topScore.score.toFixed(2)})`,
+          confidence: topScore.score,
+          domain: 'funding',
+          expiresAt: thirtyDaysFromNow,
+        },
+      ];
+    }
     default:
-      // Green Goods, ERC-8004, grant-fit-scorer, ecosystem-entity-extractor,
+      // Green Goods, ERC-8004, ecosystem-entity-extractor,
       // and other transactional/scoring skills — no memories
       return [];
   }
@@ -1311,9 +1377,10 @@ async function writeSkillMemories(
   output: unknown,
   observation: AgentObservation,
   skillRunId: string,
+  outputConfidence?: number,
 ): Promise<void> {
   try {
-    const entries = extractMemoriesFromOutput(schemaRef, output);
+    const entries = extractMemoriesFromOutput(schemaRef, output, outputConfidence);
     if (entries.length === 0) return;
     const coopId = observation.coopId;
     if (!coopId) return;
@@ -1592,8 +1659,28 @@ async function runObservationPlan(observation: AgentObservation): Promise<AgentC
 
       run = completeSkillRun(run, output);
       await saveSkillRun(db, run);
-      void writeSkillMemories(registered.manifest.outputSchemaRef, output, observation, run.id);
       result.completedSkillRunIds.push(run.id);
+
+      const confidenceBefore = workingPlan.confidence;
+      const recalculatedConfidence = computeOutputConfidence(
+        registered.manifest.outputSchemaRef,
+        output,
+        completed.provider,
+      );
+      if (recalculatedConfidence < workingPlan.confidence) {
+        workingPlan = updateAgentPlan(workingPlan, {
+          confidence: recalculatedConfidence,
+        });
+      }
+
+      void writeSkillMemories(
+        registered.manifest.outputSchemaRef,
+        output,
+        observation,
+        run.id,
+        recalculatedConfidence,
+      );
+
       result.skillRunMetrics.push({
         skillId,
         provider: completed.provider,
@@ -1607,6 +1694,9 @@ async function runObservationPlan(observation: AgentObservation): Promise<AgentC
         provider: completed.provider,
         model: completed.model,
         durationMs: completed.durationMs,
+        confidenceBefore,
+        confidenceAfter: recalculatedConfidence,
+        confidenceDelta: recalculatedConfidence - confidenceBefore,
       });
 
       currentStep = updateAgentPlanStep(currentStep, {
@@ -1748,6 +1838,16 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
       ),
     );
 
+    // Quality-based cycle-level stall: skip the entire batch when quality is degrading
+    const qualityStalledReason = (() => {
+      if (cycleState.qualityTrend !== 'degrading') return null;
+      const scores = cycleState.recentQualityScores ?? [];
+      if (scores.length < 3) return null;
+      const avg = recentQualityAverage(scores);
+      if (avg >= AGENT_QUALITY_STALL_THRESHOLD) return null;
+      return `Quality degradation: average confidence ${avg.toFixed(2)} below threshold ${AGENT_QUALITY_STALL_THRESHOLD}. Trend: degrading.`;
+    })();
+
     for (const observation of runnableObservations.slice(0, 8)) {
       // Stall detection: skip observations that have failed too many times
       const priorPlans = await listAgentPlansByObservationId(db, observation.id);
@@ -1761,6 +1861,17 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
           updateAgentObservation(observation, {
             status: 'stalled',
             blockedReason: `Stalled after ${failedPlanCount} consecutive failures.`,
+          }),
+        );
+        continue;
+      }
+
+      if (qualityStalledReason) {
+        await saveAgentObservation(
+          db,
+          updateAgentObservation(observation, {
+            status: 'stalled',
+            blockedReason: qualityStalledReason,
           }),
         );
         continue;
@@ -1782,12 +1893,27 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
       console.warn('[agent-memory] Failed to prune expired memories:', err);
     });
     result.totalDurationMs = Date.now() - cycleStart;
+    // Track quality scores from completed plans only (exclude failed plans
+    // whose confidence was never recalculated and could mask degradation)
+    let updatedQualityScores = cycleState.recentQualityScores ?? [];
+    if (result.createdPlanIds.length > 0) {
+      for (const planId of result.createdPlanIds) {
+        const plan = await db.agentPlans.get(planId);
+        if (plan && plan.status === 'completed') {
+          updatedQualityScores = pushQualityScore(updatedQualityScores, plan.confidence);
+        }
+      }
+    }
+    const updatedQualityTrend = computeQualityTrend(updatedQualityScores);
+
     await setCycleState({
       running: false,
       lastCompletedAt: nowIso(),
       lastError: result.errors[0],
       consecutiveFailureCount:
         result.errors.length > 0 ? (cycleState.consecutiveFailureCount ?? 0) + 1 : 0,
+      recentQualityScores: updatedQualityScores,
+      qualityTrend: updatedQualityTrend,
     });
     if (request) {
       await setSetting(AGENT_SETTING_KEYS.cycleRequest, null);

@@ -13,6 +13,9 @@
   "assertions": [
     { "type": "field-present", "path": "title" },
     { "type": "field-present", "path": "whyItMatters" },
-    { "type": "array-min-length", "path": "tags", "threshold": 2 }
+    { "type": "array-min-length", "path": "tags", "threshold": 2 },
+    { "type": "semantic-word-count", "path": "whyItMatters", "threshold": 6 },
+    { "type": "string-min-length", "path": "summary", "threshold": 20 },
+    { "type": "semantic-word-count", "path": "suggestedNextStep", "threshold": 5 }
   ]
 }

@@ -1,0 +1,16 @@
+{
+  "id": "admin-sync",
+  "description": "GAP admin sync should produce valid admin address lists with rationale.",
+  "output": {
+    "addAdmins": ["0x1234567890abcdef1234567890abcdef12345678"],
+    "removeAdmins": [],
+    "rationale": "Adding the coop's operator address as a GAP admin to enable garden action processing."
+  },
+  "assertions": [
+    { "type": "array-min-length", "path": "addAdmins", "threshold": 1 },
+    { "type": "field-present", "path": "addAdmins.0" },
+    { "type": "field-present", "path": "rationale" },
+    { "type": "regex-match", "path": "addAdmins.0", "pattern": "^0x[a-fA-F0-9]{40}$" },
+    { "type": "semantic-word-count", "path": "rationale", "threshold": 5 }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "registration",
+  "description": "ERC-8004 registration should produce a valid agent URI with metadata and rationale.",
+  "output": {
+    "agentURI": "agent://coop-river/v1",
+    "metadata": [
+      { "key": "coopId", "value": "coop-river" },
+      { "key": "coopName", "value": "River Restoration Coop" }
+    ],
+    "rationale": "Register the coop as an ERC-8004 agent so it can publish a deterministic onchain identity and receive reputation feedback."
+  },
+  "assertions": [
+    { "type": "field-present", "path": "agentURI" },
+    { "type": "array-min-length", "path": "metadata", "threshold": 1 },
+    { "type": "field-present", "path": "metadata.0.key" },
+    { "type": "field-present", "path": "rationale" },
+    { "type": "string-min-length", "path": "agentURI", "threshold": 5 },
+    { "type": "semantic-word-count", "path": "rationale", "threshold": 8 }
+  ]
+}
