@@ -1373,6 +1373,29 @@ body::-webkit-scrollbar,
   gap: 8px;
 }
 
+/* ---- Popup notification banner ---- */
+
+.popup-notification-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(253, 138, 1, 0.25);
+  background: rgba(253, 138, 1, 0.08);
+  font-size: 0.78rem;
+  color: var(--popup-text);
+}
+
+.popup-notification-banner__dismiss {
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  color: var(--popup-text-soft);
+  font-size: 0.9rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

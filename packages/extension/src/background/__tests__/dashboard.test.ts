@@ -104,4 +104,52 @@ describe('summarizeSyncStatus', () => {
       }).title,
     ).toBe('Coop: Error. Missing permission to reach the local sync runtime.');
   });
+
+  it('shows pending attention count as badge text when count > 0', () => {
+    const result = describeActionIndicator({
+      iconState: 'review-needed',
+      coopCount: 1,
+      pendingAttentionCount: 5,
+      syncLabel: 'Healthy',
+      syncDetail: 'Peer-ready local-first sync.',
+      syncTone: 'ok',
+    });
+    expect(result.badgeText).toBe('5');
+  });
+
+  it('shows empty badge text when pending attention count is 0', () => {
+    const result = describeActionIndicator({
+      iconState: 'watching',
+      coopCount: 1,
+      pendingAttentionCount: 0,
+      syncLabel: 'Healthy',
+      syncDetail: 'Peer-ready local-first sync.',
+      syncTone: 'ok',
+    });
+    expect(result.badgeText).toBe('');
+  });
+
+  it('caps badge text at 99+ for large counts', () => {
+    const result = describeActionIndicator({
+      iconState: 'review-needed',
+      coopCount: 1,
+      pendingAttentionCount: 150,
+      syncLabel: 'Healthy',
+      syncDetail: 'Peer-ready local-first sync.',
+      syncTone: 'ok',
+    });
+    expect(result.badgeText).toBe('99+');
+  });
+
+  it('shows exact count at boundary value of 99', () => {
+    const result = describeActionIndicator({
+      iconState: 'review-needed',
+      coopCount: 1,
+      pendingAttentionCount: 99,
+      syncLabel: 'Healthy',
+      syncDetail: 'Peer-ready local-first sync.',
+      syncTone: 'ok',
+    });
+    expect(result.badgeText).toBe('99');
+  });
 });

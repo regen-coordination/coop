@@ -13,6 +13,7 @@ import { playCoopSound } from '../../runtime/audio';
 import { InferenceBridge, type InferenceBridgeState } from '../../runtime/inference-bridge';
 import { type AgentDashboardResponse, sendRuntimeMessage } from '../../runtime/messages';
 import { ErrorBoundary } from '../ErrorBoundary';
+import { NotificationBanner } from '../shared/NotificationBanner';
 import { CoopFilterPill } from './CoopSwitcher';
 import { SidepanelFooterNav } from './TabStrip';
 import { describeLocalHelperState, formatAgentCadence } from './helpers';
@@ -919,6 +920,15 @@ export function SidepanelApp() {
       <main className="sidepanel-content">
         {message ? <div className="panel-card helper-text">{message}</div> : null}
 
+        {(dashboard?.summary.pendingDrafts ?? 0) > 0 && (
+          <NotificationBanner
+            id={`roundup-${dashboard?.summary.lastCaptureAt ?? 'none'}`}
+            message={`${dashboard?.summary.pendingDrafts} chicken${dashboard?.summary.pendingDrafts === 1 ? '' : 's'} waiting for review.`}
+            actionLabel="Review"
+            onAction={() => setPanelTab('chickens')}
+          />
+        )}
+
         {panelTab === 'chickens' && (
           <ErrorBoundary>
             <ChickensTab
@@ -1048,8 +1058,14 @@ export function SidepanelApp() {
         onNavigate={setPanelTab}
         showManageTab={hasTrustedNodeAccess}
         badges={{
-          chickens: (dashboard?.summary.pendingDrafts ?? 0) + (dashboard?.candidates?.length ?? 0),
+          chickens: dashboard?.summary.pendingDrafts ?? 0,
           feed: activeCoop?.artifacts.length ?? 0,
+          contribute: 0,
+          manage:
+            (dashboard?.operator.policyActionQueue?.filter(
+              (b) => b.status === 'proposed' || b.status === 'approved',
+            ).length ?? 0) +
+            (agentDashboard?.plans?.filter((p) => p.status === 'proposed').length ?? 0),
         }}
       />
     </div>

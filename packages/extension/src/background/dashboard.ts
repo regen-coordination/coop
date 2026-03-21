@@ -235,9 +235,10 @@ export function describeActionIndicator(
   >,
 ) {
   const badge = extensionIconBadge(summary.iconState);
+  const count = summary.pendingAttentionCount;
   return {
     badgeColor: badge.color,
-    badgeText: '',
+    badgeText: count > 0 ? (count > 99 ? '99+' : String(count)) : '',
     title: extensionActionTitle(summary),
   };
 }

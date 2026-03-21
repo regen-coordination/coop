@@ -858,3 +858,49 @@ button:disabled {
   background: rgba(253, 138, 1, 0.15);
   color: var(--coop-orange);
 }
+
+/* ---- Notification banners ---- */
+
+.notification-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(253, 138, 1, 0.25);
+  background: rgba(253, 138, 1, 0.08);
+  font-size: 0.85rem;
+  color: var(--coop-brown);
+  animation: coop-rise 320ms ease both;
+}
+
+.notification-banner__message {
+  flex: 1;
+}
+
+.notification-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.notification-banner__action {
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--coop-line);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--coop-green);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.notification-banner__dismiss {
+  padding: 0.15rem 0.4rem;
+  border: none;
+  background: transparent;
+  color: var(--coop-brown-soft);
+  font-size: 1rem;
+  line-height: 1;
+}

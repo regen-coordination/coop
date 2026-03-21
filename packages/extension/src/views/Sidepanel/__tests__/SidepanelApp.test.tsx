@@ -38,6 +38,10 @@ vi.mock('../../../runtime/inference-bridge', () => ({
   },
 }));
 
+vi.mock('../../shared/NotificationBanner', () => ({
+  NotificationBanner: () => null,
+}));
+
 vi.mock('../ErrorBoundary', () => ({
   ErrorBoundary: ({ children }: { children: ReactNode }) => children,
 }));
