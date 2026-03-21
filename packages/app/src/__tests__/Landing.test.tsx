@@ -25,14 +25,14 @@ function installMatchMediaMock(matches = false) {
 }
 
 function openCard(title: string) {
-  fireEvent.click(screen.getByRole('button', { name: new RegExp(`card \\d+ ${title}`, 'i') }));
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(title, 'i') }));
 }
 
 function completeCard(title: string, notes?: string) {
   openCard(title);
 
   if (notes) {
-    fireEvent.change(screen.getByRole('textbox', { name: /^notes$/i }), {
+    fireEvent.change(screen.getByRole('textbox', { name: new RegExp(`${title} notes`, 'i') }), {
       target: { value: notes },
     });
   }
@@ -70,8 +70,7 @@ describe('landing page', () => {
     expect(screen.getByRole('heading', { name: /^how coop works$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^curate your coop$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^why we build$/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /curate your coop/i })).toHaveLength(1);
-    expect(screen.getByText(/local, secure & private/i)).toBeInTheDocument();
+    expect(screen.getByText(/your data stays yours/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /github/i })).toBeInTheDocument();
   });
 
@@ -164,7 +163,7 @@ describe('landing page', () => {
     const firstRender = render(<App />);
 
     openCard('Capital');
-    fireEvent.change(screen.getByRole('textbox', { name: /^notes$/i }), {
+    fireEvent.change(screen.getByRole('textbox', { name: /capital notes/i }), {
       target: { value: 'Grant leads from calls.' },
     });
 
@@ -172,7 +171,7 @@ describe('landing page', () => {
 
     render(<App />);
 
-    expect(screen.getByRole('textbox', { name: /^notes$/i })).toHaveValue(
+    expect(screen.getByRole('textbox', { name: /capital notes/i })).toHaveValue(
       'Grant leads from calls.',
     );
   });
@@ -180,14 +179,14 @@ describe('landing page', () => {
   it('moves focus into an opened flashcard and returns it when the card closes', () => {
     render(<App />);
 
-    const trigger = screen.getByRole('button', { name: /card \d+ knowledge/i });
+    const trigger = screen.getByRole('button', { name: /knowledge/i });
     fireEvent.click(trigger);
 
-    const transcriptField = screen.getByRole('textbox', { name: /^notes$/i });
+    const transcriptField = screen.getByRole('textbox', { name: /knowledge notes/i });
     expect(transcriptField).toHaveFocus();
 
     fireEvent.click(screen.getByRole('button', { name: /flip back/i }));
-    expect(screen.getByRole('button', { name: /card \d+ knowledge/i })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /knowledge/i })).toHaveFocus();
   });
 
   it('fills the open flashcard transcript when browser speech recognition is available', () => {
@@ -264,7 +263,7 @@ describe('landing page', () => {
       activeRecognition?.onend?.();
     });
 
-    expect(screen.getByRole('textbox', { name: /^notes$/i })).toHaveValue(
+    expect(screen.getByRole('textbox', { name: /knowledge notes/i })).toHaveValue(
       'We keep grant links in chat. We also keep follow-ups in calls.',
     );
     expect(screen.getByText(/transcript is ready to edit/i)).toBeInTheDocument();

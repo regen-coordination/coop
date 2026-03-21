@@ -100,7 +100,6 @@ type AudienceOption = {
 type StoryCard = {
   title: string;
   detail: string;
-  emphasis?: 'wide';
 };
 
 const LANDING_DRAFT_STORAGE_KEY = 'coop-landing-ritual-v2';
@@ -119,7 +118,7 @@ const journeyChickens: JourneyChicken[] = [
 ];
 
 const audienceOptions: AudienceOption[] = [
-  { id: 'persona', label: 'Persona', descriptor: 'you' },
+  { id: 'persona', label: 'Personal', descriptor: 'you' },
   { id: 'family', label: 'Family', descriptor: 'your family' },
   { id: 'friends', label: 'Friends', descriptor: 'your friends' },
   { id: 'community', label: 'Community', descriptor: 'your community' },
@@ -127,31 +126,21 @@ const audienceOptions: AudienceOption[] = [
 
 const howItWorksCards: StoryCard[] = [
   {
-    title: 'Local, Secure & Private',
-    detail:
-      'Capture, transcript notes, and draft shaping stay on your device until your group decides what belongs in the coop.',
+    title: 'Your data stays yours',
+    detail: 'Everything you capture stays on your device until your group decides what to share.',
   },
   {
-    title: 'Knowledge Gathering',
-    detail:
-      'Loose tabs, notes, files, and call fragments land in one place before they disappear after the meeting.',
+    title: 'One place for everything',
+    detail: 'Tabs, notes, files, and call fragments land together before they scatter.',
   },
   {
-    title: 'Community Coordination',
-    detail:
-      'The group gets one shared review loop instead of hunting for context across chats, browsers, and memory.',
+    title: 'Shared review loop',
+    detail: 'One clear queue for the group instead of hunting across chats, browsers, and memory.',
   },
   {
-    title: 'Impact Reporting',
+    title: 'Proof that lasts',
     detail:
-      'Proof, outcomes, and progress stay close to the work so updates are easier to revisit, share, and trust.',
-    emphasis: 'wide',
-  },
-  {
-    title: 'Ethereum Actions',
-    detail:
-      'When the timing is right, the setup packet becomes a cleaner path into shared actions, launch, and onchain coordination.',
-    emphasis: 'wide',
+      'Progress and outcomes stay close to the work so updates are easier to revisit and trust.',
   },
 ];
 
@@ -170,43 +159,43 @@ const storyFlightPaths: Record<
 > = {
   tabs: [
     { x: '8vw', y: '-2vh', rotate: -10, scale: 1.02 },
-    { x: '18vw', y: '-5vh', rotate: -4, scale: 0.98 },
-    { x: '28vw', y: '-7vh', rotate: 0, scale: 0.92 },
+    { x: '14vw', y: '-5vh', rotate: -4, scale: 0.96 },
+    { x: '10vw', y: '-8vh', rotate: 0, scale: 0.88 },
   ],
   notes: [
     { x: '7vw', y: '2vh', rotate: 8, scale: 1.01 },
-    { x: '16vw', y: '-1vh', rotate: 4, scale: 0.97 },
-    { x: '23vw', y: '-3vh', rotate: 0, scale: 0.92 },
+    { x: '12vw', y: '-1vh', rotate: 4, scale: 0.95 },
+    { x: '8vw', y: '-6vh', rotate: 0, scale: 0.88 },
   ],
   ideas: [
     { x: '-7vw', y: '2vh', rotate: -8, scale: 1.01 },
-    { x: '-16vw', y: '-1vh', rotate: -4, scale: 0.97 },
-    { x: '-23vw', y: '-3vh', rotate: 0, scale: 0.92 },
+    { x: '-4vw', y: '-1vh', rotate: -2, scale: 0.95 },
+    { x: '6vw', y: '-6vh', rotate: 0, scale: 0.88 },
   ],
   signals: [
     { x: '-8vw', y: '-2vh', rotate: 10, scale: 1.02 },
-    { x: '-18vw', y: '-5vh', rotate: 4, scale: 0.98 },
-    { x: '-28vw', y: '-7vh', rotate: 0, scale: 0.92 },
+    { x: '-4vw', y: '-5vh', rotate: 4, scale: 0.96 },
+    { x: '8vw', y: '-8vh', rotate: 0, scale: 0.88 },
   ],
   links: [
     { x: '5vw', y: '-1vh', rotate: -6, scale: 1.0 },
-    { x: '14vw', y: '-4vh', rotate: -2, scale: 0.95 },
-    { x: '22vw', y: '-6vh', rotate: 0, scale: 0.88 },
+    { x: '10vw', y: '-4vh', rotate: -2, scale: 0.93 },
+    { x: '7vw', y: '-7vh', rotate: 0, scale: 0.85 },
   ],
   drafts: [
     { x: '4vw', y: '1vh', rotate: 5, scale: 1.0 },
-    { x: '10vw', y: '-2vh', rotate: 2, scale: 0.94 },
-    { x: '16vw', y: '-5vh', rotate: 0, scale: 0.86 },
+    { x: '8vw', y: '-2vh', rotate: 2, scale: 0.92 },
+    { x: '9vw', y: '-5vh', rotate: 0, scale: 0.84 },
   ],
   threads: [
     { x: '-5vw', y: '-1vh', rotate: 6, scale: 1.0 },
-    { x: '-14vw', y: '-4vh', rotate: 2, scale: 0.95 },
-    { x: '-22vw', y: '-6vh', rotate: 0, scale: 0.88 },
+    { x: '-2vw', y: '-4vh', rotate: 2, scale: 0.93 },
+    { x: '7vw', y: '-7vh', rotate: 0, scale: 0.85 },
   ],
   clips: [
     { x: '-4vw', y: '1vh', rotate: -5, scale: 1.0 },
-    { x: '-10vw', y: '-2vh', rotate: -2, scale: 0.94 },
-    { x: '-16vw', y: '-5vh', rotate: 0, scale: 0.86 },
+    { x: '-1vw', y: '-2vh', rotate: -1, scale: 0.92 },
+    { x: '9vw', y: '-5vh', rotate: 0, scale: 0.84 },
   ],
 };
 
@@ -215,44 +204,44 @@ const arrivalFlightPaths: Record<
   Array<{ x: string; y: string; rotate: number; scale?: number; opacity?: number }>
 > = {
   tabs: [
-    { x: '8vw', y: '-3vh', rotate: -8, scale: 0.95, opacity: 1 },
-    { x: '16vw', y: '-8vh', rotate: -3, scale: 0.72, opacity: 0.82 },
-    { x: '20vw', y: '-11vh', rotate: 0, scale: 0.38, opacity: 0 },
+    { x: '6vw', y: '-3vh', rotate: -8, scale: 0.95, opacity: 1 },
+    { x: '4vw', y: '-7vh', rotate: -3, scale: 0.65, opacity: 0.7 },
+    { x: '2vw', y: '-10vh', rotate: 0, scale: 0.35, opacity: 0 },
   ],
   notes: [
-    { x: '9vw', y: '-1vh', rotate: 7, scale: 0.94, opacity: 1 },
-    { x: '15vw', y: '-5vh', rotate: 2, scale: 0.72, opacity: 0.82 },
-    { x: '19vw', y: '-8vh', rotate: 0, scale: 0.38, opacity: 0 },
+    { x: '5vw', y: '-1vh', rotate: 7, scale: 0.94, opacity: 1 },
+    { x: '3vw', y: '-5vh', rotate: 2, scale: 0.65, opacity: 0.7 },
+    { x: '1vw', y: '-8vh', rotate: 0, scale: 0.35, opacity: 0 },
   ],
   ideas: [
-    { x: '-9vw', y: '-1vh', rotate: -7, scale: 0.94, opacity: 1 },
-    { x: '-15vw', y: '-5vh', rotate: -2, scale: 0.72, opacity: 0.82 },
-    { x: '-19vw', y: '-8vh', rotate: 0, scale: 0.38, opacity: 0 },
+    { x: '-5vw', y: '-1vh', rotate: -7, scale: 0.94, opacity: 1 },
+    { x: '-1vw', y: '-5vh', rotate: -2, scale: 0.65, opacity: 0.7 },
+    { x: '1vw', y: '-8vh', rotate: 0, scale: 0.35, opacity: 0 },
   ],
   signals: [
-    { x: '-8vw', y: '-3vh', rotate: 8, scale: 0.95, opacity: 1 },
-    { x: '-16vw', y: '-8vh', rotate: 3, scale: 0.72, opacity: 0.82 },
-    { x: '-20vw', y: '-11vh', rotate: 0, scale: 0.38, opacity: 0 },
+    { x: '-6vw', y: '-3vh', rotate: 8, scale: 0.95, opacity: 1 },
+    { x: '-2vw', y: '-7vh', rotate: 3, scale: 0.65, opacity: 0.7 },
+    { x: '0vw', y: '-10vh', rotate: 0, scale: 0.35, opacity: 0 },
   ],
   links: [
-    { x: '6vw', y: '-2vh', rotate: -5, scale: 0.92, opacity: 1 },
-    { x: '13vw', y: '-6vh', rotate: -2, scale: 0.68, opacity: 0.78 },
-    { x: '17vw', y: '-9vh', rotate: 0, scale: 0.34, opacity: 0 },
+    { x: '4vw', y: '-2vh', rotate: -5, scale: 0.92, opacity: 1 },
+    { x: '3vw', y: '-6vh', rotate: -2, scale: 0.6, opacity: 0.65 },
+    { x: '1vw', y: '-9vh', rotate: 0, scale: 0.32, opacity: 0 },
   ],
   drafts: [
-    { x: '5vw', y: '-1vh', rotate: 4, scale: 0.9, opacity: 1 },
-    { x: '11vw', y: '-4vh', rotate: 1, scale: 0.65, opacity: 0.76 },
-    { x: '14vw', y: '-7vh', rotate: 0, scale: 0.32, opacity: 0 },
+    { x: '3vw', y: '-1vh', rotate: 4, scale: 0.9, opacity: 1 },
+    { x: '2vw', y: '-4vh', rotate: 1, scale: 0.58, opacity: 0.65 },
+    { x: '1vw', y: '-7vh', rotate: 0, scale: 0.3, opacity: 0 },
   ],
   threads: [
-    { x: '-6vw', y: '-2vh', rotate: 5, scale: 0.92, opacity: 1 },
-    { x: '-13vw', y: '-6vh', rotate: 2, scale: 0.68, opacity: 0.78 },
-    { x: '-17vw', y: '-9vh', rotate: 0, scale: 0.34, opacity: 0 },
+    { x: '-4vw', y: '-2vh', rotate: 5, scale: 0.92, opacity: 1 },
+    { x: '-1vw', y: '-6vh', rotate: 2, scale: 0.6, opacity: 0.65 },
+    { x: '1vw', y: '-9vh', rotate: 0, scale: 0.32, opacity: 0 },
   ],
   clips: [
-    { x: '-5vw', y: '-1vh', rotate: -4, scale: 0.9, opacity: 1 },
-    { x: '-11vw', y: '-4vh', rotate: -1, scale: 0.65, opacity: 0.76 },
-    { x: '-14vw', y: '-7vh', rotate: 0, scale: 0.32, opacity: 0 },
+    { x: '-3vw', y: '-1vh', rotate: -4, scale: 0.9, opacity: 1 },
+    { x: '-1vw', y: '-4vh', rotate: -1, scale: 0.58, opacity: 0.65 },
+    { x: '1vw', y: '-7vh', rotate: 0, scale: 0.3, opacity: 0 },
   ],
 };
 
@@ -262,8 +251,7 @@ const ritualCards: RitualCard[] = [
     eyebrow: 'Card 1',
     title: 'Knowledge',
     detail: 'Catch the links, notes, and research that usually run loose after the call.',
-    transcriptPrompt:
-      'Capture the parts of the conversation about tabs, references, notes, and what people keep needing to rediscover.',
+    transcriptPrompt: 'What knowledge is your group gathering right now?',
     currentKey: 'knowledgeCurrent',
     painKey: 'knowledgePain',
     improveKey: 'knowledgeImprove',
@@ -276,8 +264,7 @@ const ritualCards: RitualCard[] = [
     eyebrow: 'Card 2',
     title: 'Capital',
     detail: 'Name how funding, support, and practical opportunities show up before they disappear.',
-    transcriptPrompt:
-      'Capture the discussion about grants, leads, support, and what the group needs to notice faster.',
+    transcriptPrompt: 'Where is funding or support showing up for your group?',
     currentKey: 'capitalCurrent',
     painKey: 'capitalPain',
     improveKey: 'capitalImprove',
@@ -292,8 +279,7 @@ const ritualCards: RitualCard[] = [
     title: 'Coordination',
     detail:
       'Make decisions, commitments, and follow-through visible while the meeting is still warm.',
-    transcriptPrompt:
-      'Capture the part of the call about decisions, handoffs, and where follow-through usually slips.',
+    transcriptPrompt: 'What decisions or commitments need follow-through?',
     currentKey: 'governanceCurrent',
     painKey: 'governancePain',
     improveKey: 'governanceImprove',
@@ -307,8 +293,7 @@ const ritualCards: RitualCard[] = [
     title: 'Impact',
     detail:
       'Keep proof, progress, and field signals close to the work instead of buried after the fact.',
-    transcriptPrompt:
-      'Capture the conversation about evidence, milestones, outcomes, and what usually arrives too late.',
+    transcriptPrompt: 'What progress or outcomes should be captured?',
     currentKey: 'impactCurrent',
     painKey: 'impactPain',
     improveKey: 'impactImprove',
@@ -690,6 +675,7 @@ export function App({
   const [transcriptStatus, setTranscriptStatus] = useState(defaultTranscriptStatus);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [showResetButton, setShowResetButton] = useState(false);
+  const [scrolledPastHero, setScrolledPastHero] = useState(false);
 
   const speechRecognition =
     typeof window === 'undefined' ? null : resolveSpeechRecognitionConstructor(window);
@@ -737,6 +723,29 @@ export function App({
       } satisfies LandingDraft),
     );
   }, [audience, openCardId, sharedNotes, setupInput, transcripts]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !heroCopyRef.current) {
+      return undefined;
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      return undefined;
+    }
+
+    const heroObserver = new window.IntersectionObserver(
+      (entries) => {
+        setScrolledPastHero(!(entries[0]?.isIntersecting ?? true));
+      },
+      { threshold: 0.1 },
+    );
+
+    heroObserver.observe(heroCopyRef.current);
+
+    return () => {
+      heroObserver.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !ritualSectionRef.current) {
@@ -1336,6 +1345,14 @@ export function App({
         Reset ritual
       </button>
 
+      <header className="landing-topbar">
+        <div className="topbar">
+          <a aria-label="Coop landing page" className="hero-logo" href="#meadow">
+            <img className="wordmark" src="/branding/coop-wordmark-flat.png" alt="Coop" />
+          </a>
+        </div>
+      </header>
+
       <main className="landing-main">
         <section className="journey-section story-journey" id="meadow" ref={storyJourneyRef}>
           <div
@@ -1381,43 +1398,42 @@ export function App({
             <article className="journey-panel hero-panel">
               <div className="hero-shell">
                 <div className="hero-copy" ref={heroCopyRef}>
-                  <a aria-label="Coop landing page" className="hero-logo" href="#meadow">
-                    <img className="wordmark" src="/branding/coop-wordmark-flat.png" alt="Coop" />
-                  </a>
-                  <p className="eyebrow">Turning knowledge into opportunity</p>
                   <h1 className="hero-title">
                     No more
                     <br />
                     chickens loose.
                   </h1>
                   <p className="hero-subtitle">
-                    Coop turns scattered tabs, notes, and signals into shared momentum, helping
-                    communities turn knowledge into opportunity.
+                    Your group's knowledge, gathered and ready to act on.
                   </p>
                   <p className="sr-only">
                     Eight chickens start apart in the meadow and converge as you scroll.
                   </p>
-                  <div className="hero-scroll-hint" aria-hidden="true">
-                    <svg
-                      className="hero-scroll-arrow"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      role="img"
-                      aria-label="Scroll down"
-                    >
-                      <path
-                        d="M12 5v14M5 12l7 7 7-7"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
                 </div>
 
                 <div aria-hidden="true" className="hero-stage" />
+
+                <div
+                  className={`hero-scroll-hint${scrolledPastHero ? ' is-hidden' : ''}`}
+                  aria-hidden="true"
+                >
+                  <svg
+                    className="hero-scroll-arrow"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    role="img"
+                    aria-label="Scroll down"
+                  >
+                    <path
+                      d="M12 5v14M5 12l7 7 7-7"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
                 <DevTunnelBadge environment={devEnvironment} />
               </div>
             </article>
@@ -1425,25 +1441,16 @@ export function App({
             <article className="journey-panel works-panel" id="how-it-works">
               <div className="how-works-shell" ref={howItWorksRef}>
                 <div className="section-heading how-works-heading">
-                  <p className="eyebrow">The Loop</p>
                   <h2>How Coop works</h2>
                   <p className="lede">
-                    Loose context gets gathered, reviewed locally, and shaped into something the
-                    group can actually use.
+                    Coop takes your scattered tabs, meeting notes, and field signals — refines them
+                    locally into clear opportunities.
                   </p>
                 </div>
 
                 <div className="how-works-grid">
                   {howItWorksCards.map((card, index) => (
-                    <article
-                      className={
-                        card.emphasis === 'wide'
-                          ? 'how-works-card nest-card is-wide'
-                          : 'how-works-card nest-card'
-                      }
-                      key={card.title}
-                    >
-                      <span className="how-works-index">0{index + 1}</span>
+                    <article className="how-works-card nest-card" key={card.title}>
                       <div>
                         <h3>{card.title}</h3>
                         <p>{card.detail}</p>
@@ -1458,17 +1465,15 @@ export function App({
 
         <section className="section ritual-section" id="ritual" ref={ritualSectionRef}>
           <div className="section-heading ritual-section-heading">
-            <p className="eyebrow">Setup Ritual</p>
+            <p className="eyebrow">Get started</p>
             <h2>Curate your coop</h2>
             <p className="lede ritual-section-copy">
-              Pick who this coop is for, flip each card, capture what matters, and walk away with a
-              clean setup packet.
+              Flip each card, capture what matters, and walk away with a clean setup packet.
             </p>
           </div>
 
-          <div className="ritual-game-shell nest-card">
+          <div className="ritual-game-shell nest-card" data-audience={audience}>
             <div className="audience-picker">
-              <span>Who is this coop for?</span>
               <div className="audience-chip-group">
                 {audienceOptions.map((option) => (
                   <button
@@ -1513,12 +1518,11 @@ export function App({
                         tabIndex={isFlipped ? -1 : 0}
                       >
                         <div className="flashcard-front-top">
-                          <span className="flashcard-number">{card.eyebrow}</span>
                           <h3>{card.title}</h3>
                           <p>{card.detail}</p>
                         </div>
                         <div className="flashcard-front-bottom">
-                          <span className="flashcard-flip-hint">Tap to flip</span>
+                          <span className="flashcard-flip-hint">Flip</span>
                           {isDone ? (
                             <span className="flashcard-check" aria-label="Complete">
                               &#10003;
@@ -1534,27 +1538,24 @@ export function App({
                         id={`flashcard-panel-${card.id}`}
                         inert={!isFlipped ? true : undefined}
                       >
-                        <div className="flashcard-back-header">
-                          <span className="flashcard-number">{card.eyebrow}</span>
-                          <button
-                            className="button button-secondary button-small"
-                            onClick={() => toggleCard(card.id)}
-                            ref={setFlashcardCloseRef(card.id)}
-                            type="button"
-                          >
-                            Flip back
-                          </button>
-                        </div>
+                        <button
+                          className="flashcard-close-btn"
+                          onClick={() => toggleCard(card.id)}
+                          ref={setFlashcardCloseRef(card.id)}
+                          type="button"
+                          aria-label="Flip back"
+                        >
+                          {'\u00D7'}
+                        </button>
 
-                        <h3>{card.title}</h3>
-                        <p className="flashcard-detail">{card.transcriptPrompt}</p>
+                        <h3 className="flashcard-question">{card.transcriptPrompt}</h3>
 
                         <div className="ritual-transcript-header">
                           <button
                             className={
                               recordingLens === card.id
-                                ? 'button button-primary ritual-record-button is-recording'
-                                : 'button button-secondary ritual-record-button'
+                                ? 'button button-primary button-small ritual-record-button is-recording'
+                                : 'button button-secondary button-small ritual-record-button'
                             }
                             onClick={() =>
                               recordingLens === card.id ? stopRecording() : startRecording(card.id)
@@ -1572,7 +1573,7 @@ export function App({
                         ) : null}
 
                         <label className="ritual-field">
-                          <span>Notes</span>
+                          <span>{card.title} notes</span>
                           <textarea
                             onChange={(event) => updateTranscript(card.id, event.target.value)}
                             placeholder="Paste notes or let live transcript fill this in."
@@ -1774,24 +1775,24 @@ export function App({
         </section>
       </main>
 
-      <footer className="footer section landing-footer" id="resources">
-        <div className="landing-footer-simple">
-          <article className="footer-link-card">
-            <p className="eyebrow">Community</p>
-            <a href="#why-build">Why we build</a>
-          </article>
-          <article className="footer-link-card">
-            <p className="eyebrow">Start</p>
-            <a href="#ritual">Curate your coop</a>
-          </article>
-          <article className="footer-link-card">
-            <p className="eyebrow">Receiver</p>
-            <a href={appHref}>Open receiver</a>
-          </article>
-          <article className="footer-link-card">
-            <p className="eyebrow">Builders</p>
-            <a href="https://github.com/regen-coordination/coop">GitHub</a>
-          </article>
+      <footer className="landing-footer" id="resources">
+        <div className="landing-footer-inner">
+          <span className="footer-copy">&copy; {new Date().getFullYear()} Regen Coordination</span>
+          <nav className="footer-links-row">
+            <a
+              href="https://github.com/regen-coordination/coop"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              GitHub
+            </a>
+            <a href="https://docs.coop.town" target="_blank" rel="noopener noreferrer">
+              Docs
+            </a>
+            <a href="https://bsky.app/profile/coop.town" target="_blank" rel="noopener noreferrer">
+              Bluesky
+            </a>
+          </nav>
         </div>
       </footer>
     </div>
