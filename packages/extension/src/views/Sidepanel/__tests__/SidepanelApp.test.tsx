@@ -56,22 +56,20 @@ vi.mock('../CoopSwitcher', () => ({
 
 vi.mock('../TabStrip', () => ({
   SidepanelFooterNav: ({
-    showManageTab,
+    showNestTab,
   }: {
-    showManageTab: boolean;
+    showNestTab: boolean;
     activeTab: string;
     onNavigate: (tab: string) => void;
     badges?: Record<string, number>;
-  }) => (
-    <div data-testid="sidepanel-footer-nav" data-show-manage={showManageTab ? 'true' : 'false'} />
-  ),
+  }) => <div data-testid="sidepanel-footer-nav" data-show-nest={showNestTab ? 'true' : 'false'} />,
 }));
 
-vi.mock('../tabs', () => ({
+vi.mock('../tabs/index', () => ({
+  RoostTab: () => <div>Roost</div>,
   ChickensTab: () => <div>Chickens</div>,
-  FeedTab: () => <div>Feed</div>,
-  ContributeTab: () => <div>Contribute</div>,
-  ManageTab: () => <div>Manage</div>,
+  CoopsTab: () => <div>Coops</div>,
+  NestTab: () => <div>Nest</div>,
 }));
 
 vi.mock('../hooks/useCoopForm', () => ({
@@ -120,7 +118,7 @@ vi.mock('../hooks/useDashboard', () => ({
         iconLabel: 'Coop',
         pendingDrafts: 0,
         syncState: 'idle',
-        agentCadenceMinutes: 60,
+        agentCadenceMinutes: 64,
         localEnhancement: 'ready',
         localInferenceOptIn: false,
       },
@@ -239,11 +237,11 @@ describe('SidepanelApp', () => {
     });
   });
 
-  it('does not show manage tab when hasTrustedNodeAccess is false', () => {
+  it('does not show nest tab when hasTrustedNodeAccess is false', () => {
     render(<SidepanelApp />);
 
     const footerNav = screen.getByTestId('sidepanel-footer-nav');
-    expect(footerNav).toHaveAttribute('data-show-manage', 'false');
+    expect(footerNav).toHaveAttribute('data-show-nest', 'false');
   });
 
   it('renders the compact header with brand and filter pill', () => {
@@ -253,9 +251,9 @@ describe('SidepanelApp', () => {
     expect(screen.getByRole('button', { name: 'Switch to Coop Two' })).toBeInTheDocument();
   });
 
-  it('defaults to the chickens tab', () => {
+  it('defaults to the roost tab', () => {
     render(<SidepanelApp />);
 
-    expect(screen.getByText('Chickens')).toBeInTheDocument();
+    expect(screen.getByText('Roost')).toBeInTheDocument();
   });
 });

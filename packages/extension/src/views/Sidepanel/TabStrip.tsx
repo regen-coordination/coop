@@ -1,9 +1,9 @@
-type SidepanelTab = 'chickens' | 'feed' | 'contribute' | 'manage';
+type SidepanelTab = 'roost' | 'chickens' | 'coops' | 'nest';
 
 interface SidepanelFooterNavProps {
   activeTab: SidepanelTab;
   onNavigate: (tab: SidepanelTab) => void;
-  showManageTab: boolean;
+  showNestTab: boolean;
   badges?: Partial<Record<SidepanelTab, number>>;
 }
 
@@ -26,24 +26,11 @@ function ChickensIcon() {
   );
 }
 
-function FeedIcon() {
+function RoostIcon() {
   return (
     <svg aria-hidden="true" className="sidepanel-footer-nav__icon" fill="none" viewBox="0 0 20 20">
       <path
-        d="M4 5.5h12M4 10h12M4 14.5h12"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.4"
-      />
-    </svg>
-  );
-}
-
-function ContributeIcon() {
-  return (
-    <svg aria-hidden="true" className="sidepanel-footer-nav__icon" fill="none" viewBox="0 0 20 20">
-      <path
-        d="M10 17s-6-4.35-6-8.18A3.36 3.36 0 0 1 7.25 5.5 3.49 3.49 0 0 1 10 7a3.49 3.49 0 0 1 2.75-1.5A3.36 3.36 0 0 1 16 8.82C16 12.65 10 17 10 17z"
+        d="M10 3L3 9h2v7h4v-4h2v4h4V9h2L10 3z"
         stroke="currentColor"
         strokeLinejoin="round"
         strokeWidth="1.4"
@@ -52,7 +39,17 @@ function ContributeIcon() {
   );
 }
 
-function ManageIcon() {
+function CoopsIcon() {
+  return (
+    <svg aria-hidden="true" className="sidepanel-footer-nav__icon" fill="none" viewBox="0 0 20 20">
+      <rect x="3" y="8" width="6" height="8" rx="1" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="11" y="8" width="6" height="8" rx="1" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M6 8V5h8v3" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+function NestIcon() {
   return (
     <svg aria-hidden="true" className="sidepanel-footer-nav__icon" fill="none" viewBox="0 0 20 20">
       <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.4" />
@@ -71,19 +68,19 @@ const navItems: Array<{
   id: SidepanelTab;
   label: string;
 }> = [
+  { id: 'roost', label: 'Roost', icon: <RoostIcon /> },
   { id: 'chickens', label: 'Chickens', icon: <ChickensIcon /> },
-  { id: 'feed', label: 'Feed', icon: <FeedIcon /> },
-  { id: 'contribute', label: 'Contribute', icon: <ContributeIcon /> },
-  { id: 'manage', label: 'Manage', icon: <ManageIcon /> },
+  { id: 'coops', label: 'Coops', icon: <CoopsIcon /> },
+  { id: 'nest', label: 'Nest', icon: <NestIcon /> },
 ];
 
 export function SidepanelFooterNav({
   activeTab,
   onNavigate,
-  showManageTab,
+  showNestTab,
   badges,
 }: SidepanelFooterNavProps) {
-  const visibleItems = showManageTab ? navItems : navItems.filter((item) => item.id !== 'manage');
+  const visibleItems = showNestTab ? navItems : navItems.filter((item) => item.id !== 'nest');
 
   return (
     <nav

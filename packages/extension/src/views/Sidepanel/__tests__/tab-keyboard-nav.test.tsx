@@ -13,7 +13,7 @@ describe('SidepanelFooterNav', () => {
       <SidepanelFooterNav
         activeTab="chickens"
         onNavigate={() => {}}
-        showManageTab={false}
+        showNestTab={false}
         badges={{}}
       />,
     );
@@ -21,12 +21,12 @@ describe('SidepanelFooterNav', () => {
     expect(nav).toBeInTheDocument();
   });
 
-  it('renders 3 buttons when showManageTab is false', () => {
+  it('renders 3 buttons when showNestTab is false', () => {
     render(
       <SidepanelFooterNav
         activeTab="chickens"
         onNavigate={() => {}}
-        showManageTab={false}
+        showNestTab={false}
         badges={{}}
       />,
     );
@@ -34,12 +34,12 @@ describe('SidepanelFooterNav', () => {
     expect(buttons).toHaveLength(3);
   });
 
-  it('renders 4 buttons when showManageTab is true', () => {
+  it('renders 4 buttons when showNestTab is true', () => {
     render(
       <SidepanelFooterNav
         activeTab="chickens"
         onNavigate={() => {}}
-        showManageTab={true}
+        showNestTab={true}
         badges={{}}
       />,
     );
@@ -49,15 +49,10 @@ describe('SidepanelFooterNav', () => {
 
   it('marks the active tab button with aria-current="page"', () => {
     render(
-      <SidepanelFooterNav
-        activeTab="feed"
-        onNavigate={() => {}}
-        showManageTab={true}
-        badges={{}}
-      />,
+      <SidepanelFooterNav activeTab="coops" onNavigate={() => {}} showNestTab={true} badges={{}} />,
     );
-    const feedButton = screen.getByRole('button', { name: /feed/i });
-    expect(feedButton).toHaveAttribute('aria-current', 'page');
+    const coopsButton = screen.getByRole('button', { name: /coops/i });
+    expect(coopsButton).toHaveAttribute('aria-current', 'page');
 
     const chickensButton = screen.getByRole('button', { name: /chickens/i });
     expect(chickensButton).not.toHaveAttribute('aria-current');
@@ -68,15 +63,15 @@ describe('SidepanelFooterNav', () => {
     const user = userEvent.setup();
     render(
       <SidepanelFooterNav
-        activeTab="chickens"
+        activeTab="roost"
         onNavigate={onNavigate}
-        showManageTab={true}
+        showNestTab={true}
         badges={{}}
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /feed/i }));
-    expect(onNavigate).toHaveBeenCalledWith('feed');
+    await user.click(screen.getByRole('button', { name: /coops/i }));
+    expect(onNavigate).toHaveBeenCalledWith('coops');
   });
 
   it('shows badge count when provided', () => {
@@ -84,7 +79,7 @@ describe('SidepanelFooterNav', () => {
       <SidepanelFooterNav
         activeTab="chickens"
         onNavigate={() => {}}
-        showManageTab={false}
+        showNestTab={false}
         badges={{ chickens: 5 }}
       />,
     );
@@ -96,7 +91,7 @@ describe('SidepanelFooterNav', () => {
       <SidepanelFooterNav
         activeTab="chickens"
         onNavigate={() => {}}
-        showManageTab={false}
+        showNestTab={false}
         badges={{ chickens: 0 }}
       />,
     );
@@ -108,7 +103,7 @@ describe('SidepanelFooterNav', () => {
       <SidepanelFooterNav
         activeTab="chickens"
         onNavigate={() => {}}
-        showManageTab={false}
+        showNestTab={false}
         badges={{ chickens: 150 }}
       />,
     );

@@ -23,9 +23,9 @@ import { useDashboard } from './hooks/useDashboard';
 import { useDraftEditor } from './hooks/useDraftEditor';
 import { useSyncBindings } from './hooks/useSyncBindings';
 import { useTabCapture } from './hooks/useTabCapture';
-import { ChickensTab, ContributeTab, FeedTab, ManageTab } from './tabs';
+import { ChickensTab, CoopsTab, NestTab, RoostTab } from './tabs/index';
 
-const sidepanelTabs = ['chickens', 'feed', 'contribute', 'manage'] as const;
+const sidepanelTabs = ['roost', 'chickens', 'coops', 'nest'] as const;
 type SidepanelTab = (typeof sidepanelTabs)[number];
 
 type SaveFilePickerHandle = {
@@ -71,7 +71,7 @@ function PairDeviceIcon() {
 
 export function SidepanelApp() {
   useCoopTheme();
-  const [panelTab, setPanelTab] = useState<SidepanelTab>('chickens');
+  const [panelTab, setPanelTab] = useState<SidepanelTab>('roost');
 
   // --- Core hooks ---
   const {
@@ -962,6 +962,19 @@ export function SidepanelApp() {
           />
         )}
 
+        {panelTab === 'roost' && (
+          <ErrorBoundary>
+            <RoostTab
+              activeCoop={activeCoop}
+              activeMember={activeMember}
+              greenGoodsActionQueue={dashboard?.operator.policyActionQueue ?? []}
+              onProvisionMemberOnchainAccount={handleProvisionMemberOnchainAccount}
+              onSubmitGreenGoodsWorkSubmission={handleSubmitGreenGoodsWorkSubmission}
+              onSubmitGreenGoodsImpactReport={handleSubmitGreenGoodsImpactReport}
+            />
+          </ErrorBoundary>
+        )}
+
         {panelTab === 'chickens' && (
           <ErrorBoundary>
             <ChickensTab
@@ -975,11 +988,13 @@ export function SidepanelApp() {
           </ErrorBoundary>
         )}
 
-        {panelTab === 'feed' && (
+        {panelTab === 'coops' && (
           <ErrorBoundary>
-            <FeedTab
+            <CoopsTab
               dashboard={dashboard}
               activeCoop={activeCoop}
+              allCoops={dashboard?.coops ?? []}
+              currentMemberId={activeMember?.id}
               archiveStory={archiveStory}
               archiveReceipts={archiveReceipts}
               refreshableArchiveReceipts={refreshableArchiveReceipts}
@@ -992,23 +1007,14 @@ export function SidepanelApp() {
               toggleArtifactArchiveWorthiness={toggleArtifactArchiveWorthiness}
               onAnchorOnChain={handleAnchorOnChain}
               onFvmRegister={handleFvmRegister}
+              selectActiveCoop={selectActiveCoop}
             />
           </ErrorBoundary>
         )}
 
-        {panelTab === 'contribute' && (
+        {panelTab === 'nest' && (
           <ErrorBoundary>
-            <ContributeTab
-              activeCoop={activeCoop}
-              activeMember={activeMember}
-              copyText={copyText}
-            />
-          </ErrorBoundary>
-        )}
-
-        {panelTab === 'manage' && (
-          <ErrorBoundary>
-            <ManageTab
+            <NestTab
               dashboard={dashboard}
               activeCoop={activeCoop}
               activeMember={activeMember}
@@ -1033,9 +1039,6 @@ export function SidepanelApp() {
               draftEditor={draftEditor}
               tabCapture={tabCapture}
               greenGoodsActionQueue={dashboard?.operator.policyActionQueue ?? []}
-              onProvisionMemberOnchainAccount={handleProvisionMemberOnchainAccount}
-              onSubmitGreenGoodsWorkSubmission={handleSubmitGreenGoodsWorkSubmission}
-              onSubmitGreenGoodsImpactReport={handleSubmitGreenGoodsImpactReport}
               agentDashboard={agentDashboard}
               actionPolicies={actionPolicies}
               archiveStory={archiveStory}
@@ -1088,12 +1091,18 @@ export function SidepanelApp() {
       <SidepanelFooterNav
         activeTab={panelTab}
         onNavigate={setPanelTab}
-        showManageTab={hasTrustedNodeAccess}
+        showNestTab={hasTrustedNodeAccess}
         badges={{
+          roost:
+            dashboard?.operator.policyActionQueue?.filter(
+              (b) =>
+                (b.status === 'proposed' || b.status === 'approved') &&
+                (b.actionClass === 'green-goods-add-gardener' ||
+                  b.actionClass === 'green-goods-remove-gardener'),
+            ).length ?? 0,
           chickens: dashboard?.summary.pendingDrafts ?? 0,
-          feed: activeCoop?.artifacts.length ?? 0,
-          contribute: 0,
-          manage:
+          coops: (dashboard?.coops ?? []).length,
+          nest:
             (dashboard?.operator.policyActionQueue?.filter(
               (b) => b.status === 'proposed' || b.status === 'approved',
             ).length ?? 0) +
