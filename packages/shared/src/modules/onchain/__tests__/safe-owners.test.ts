@@ -2,6 +2,7 @@ import type { Address } from 'viem';
 import { describe, expect, it } from 'vitest';
 import {
   type SafeOwnerChange,
+  computeThresholdForOwnerCount,
   createMockOwnerChangeResult,
   encodeAddOwnerCalldata,
   encodeChangeThresholdCalldata,
@@ -391,5 +392,27 @@ describe('createMockOwnerChangeResult', () => {
     expect(result.status).toBe('executed');
     expect(result.txHash).toMatch(/^0x[a-fA-F0-9]+$/);
     expect(result.executedAt).toBeDefined();
+  });
+});
+
+describe('computeThresholdForOwnerCount', () => {
+  it('returns 1 for 0 or negative owners', () => {
+    expect(computeThresholdForOwnerCount(0)).toBe(1);
+    expect(computeThresholdForOwnerCount(-1)).toBe(1);
+  });
+
+  it('follows the documented progression', () => {
+    expect(computeThresholdForOwnerCount(1)).toBe(1);
+    expect(computeThresholdForOwnerCount(2)).toBe(1);
+    expect(computeThresholdForOwnerCount(3)).toBe(2);
+    expect(computeThresholdForOwnerCount(4)).toBe(2);
+    expect(computeThresholdForOwnerCount(5)).toBe(2);
+    expect(computeThresholdForOwnerCount(6)).toBe(3);
+    expect(computeThresholdForOwnerCount(7)).toBe(3);
+  });
+
+  it('continues scaling for larger groups', () => {
+    expect(computeThresholdForOwnerCount(8)).toBe(4);
+    expect(computeThresholdForOwnerCount(10)).toBe(4);
   });
 });

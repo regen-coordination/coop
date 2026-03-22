@@ -362,6 +362,7 @@ export function createAgentGeneratedDraft(input: {
     previewImageUrl: undefined,
     status: 'draft',
     workflowStage: input.workflowStage ?? 'candidate',
+    attachments: [],
     provenance: {
       type: 'agent',
       observationId: input.observationId,

@@ -72,7 +72,7 @@ describe('createMemberAccountRecord', () => {
     expect(record.memberId).toBe('member-1');
     expect(record.coopId).toBe('coop-1');
     expect(record.accountAddress).toBeUndefined();
-    expect(record.accountType).toBe('safe');
+    expect(record.accountType).toBe('kernel');
     expect(record.ownerPasskeyCredentialId).toBe('cred-abc');
     expect(record.chainKey).toBe('sepolia');
     expect(record.status).toBe('pending');
@@ -402,16 +402,13 @@ describe('provisionMemberAccounts', () => {
       chainKey: 'sepolia',
     });
 
-    expect(newAccounts).toHaveLength(2);
+    // Carol (member-3) has no passkeyCredentialId so she is skipped
+    expect(newAccounts).toHaveLength(1);
     expect(newAccounts[0].memberId).toBe('member-2');
     expect(newAccounts[0].coopId).toBe('coop-1');
     expect(newAccounts[0].ownerPasskeyCredentialId).toBe('cred-def');
     expect(newAccounts[0].chainKey).toBe('sepolia');
     expect(newAccounts[0].status).toBe('pending');
-
-    expect(newAccounts[1].memberId).toBe('member-3');
-    // Carol has no passkeyCredentialId, so it should be empty string
-    expect(newAccounts[1].ownerPasskeyCredentialId).toBe('');
   });
 
   it('respects custom account type', () => {

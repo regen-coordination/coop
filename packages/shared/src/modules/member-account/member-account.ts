@@ -1,7 +1,8 @@
-import { toSafeSmartAccount } from 'permissionless/accounts';
+import { toKernelSmartAccount, toSafeSmartAccount } from 'permissionless/accounts';
 import { createSmartAccountClient } from 'permissionless/clients';
 import { createPimlicoClient } from 'permissionless/clients/pimlico';
 import { http, type Address } from 'viem';
+import { entryPoint07Address } from 'viem/account-abstraction';
 import type {
   AuthSession,
   CoopChainKey,
@@ -12,7 +13,7 @@ import type {
   MemberOnchainAccount,
 } from '../../contracts/schema';
 import { localMemberSignerBindingSchema } from '../../contracts/schema';
-import { createId, nowIso, toDeterministicAddress } from '../../utils';
+import { createId, nowIso } from '../../utils';
 import { restorePasskeyAccount } from '../auth/auth';
 import { buildPimlicoRpcUrl, createCoopSaltNonce, getCoopChainConfig } from '../onchain/onchain';
 import { createCoopPublicClient } from '../onchain/provider';
@@ -35,7 +36,7 @@ export function createMemberAccountRecord(input: {
     memberId: input.memberId,
     coopId: input.coopId,
     accountAddress: input.accountAddress,
-    accountType: input.accountType ?? 'safe',
+    accountType: input.accountType ?? 'kernel',
     ownerPasskeyCredentialId: input.ownerPasskeyCredentialId,
     chainKey: input.chainKey,
     status: 'pending',
@@ -177,15 +178,17 @@ export function provisionMemberAccounts(input: {
 }): MemberOnchainAccount[] {
   const needAccounts = resolveMembersNeedingAccounts(input.members, input.existingAccounts);
 
-  return needAccounts.map((member) =>
-    createMemberAccountRecord({
-      memberId: member.id,
-      coopId: input.coopId,
-      ownerPasskeyCredentialId: member.passkeyCredentialId ?? '',
-      chainKey: input.chainKey,
-      accountType: input.accountType,
-    }),
-  );
+  return needAccounts
+    .filter((member) => !!member.passkeyCredentialId)
+    .map((member) =>
+      createMemberAccountRecord({
+        memberId: member.id,
+        coopId: input.coopId,
+        ownerPasskeyCredentialId: member.passkeyCredentialId!,
+        chainKey: input.chainKey,
+        accountType: input.accountType,
+      }),
+    );
 }
 
 /** Find member account by member ID */
@@ -253,7 +256,7 @@ export function createLocalMemberSignerBinding(input: {
     coopId: input.coopId,
     memberId: input.memberId,
     accountAddress: input.accountAddress,
-    accountType: input.accountType ?? 'safe',
+    accountType: input.accountType ?? 'kernel',
     passkeyCredentialId: input.passkeyCredentialId,
     createdAt: timestamp,
     lastUsedAt: timestamp,
@@ -268,22 +271,30 @@ export async function predictMemberAccountAddress(input: {
   chainKey: CoopChainKey;
   accountType?: MemberAccountType;
 }): Promise<`0x${string}`> {
-  const accountType = input.accountType ?? 'safe';
-  if (accountType !== 'safe') {
-    return toDeterministicAddress(
-      `member-account:${input.coopId}:${input.memberId}:${accountType}`,
-    ) as `0x${string}`;
-  }
-
+  const accountType = input.accountType ?? 'kernel';
   const owner = restorePasskeyAccount(input.authSession);
   const publicClient = await createCoopPublicClient(input.chainKey);
-  const account = await toSafeSmartAccount({
-    client: publicClient,
-    owners: [owner],
-    version: '1.4.1',
-    saltNonce: createCoopSaltNonce(`member-account:${input.coopId}:${input.memberId}`),
-  });
 
+  if (accountType === 'safe') {
+    const account = await toSafeSmartAccount({
+      client: publicClient,
+      owners: [owner],
+      version: '1.4.1',
+      saltNonce: createCoopSaltNonce(`member-account:${input.coopId}:${input.memberId}`),
+    });
+    return account.address;
+  }
+
+  // Kernel v0.3.1 with EntryPoint 0.7 (default for member accounts)
+  const account = await toKernelSmartAccount({
+    client: publicClient,
+    version: '0.3.1',
+    owners: [owner],
+    entryPoint: {
+      address: entryPoint07Address,
+      version: '0.7',
+    },
+  });
   return account.address;
 }
 
@@ -292,18 +303,34 @@ export async function sendTransactionViaMemberAccount(input: {
   pimlicoApiKey: string;
   chainKey: CoopChainKey;
   accountAddress: Address;
+  accountType?: MemberAccountType;
   to: Address;
   data: `0x${string}`;
   value?: bigint;
 }) {
+  const accountType = input.accountType ?? 'kernel';
   const owner = restorePasskeyAccount(input.authSession);
   const publicClient = await createCoopPublicClient(input.chainKey);
-  const account = await toSafeSmartAccount({
-    client: publicClient,
-    owners: [owner],
-    address: input.accountAddress,
-    version: '1.4.1',
-  });
+
+  const account =
+    accountType === 'safe'
+      ? await toSafeSmartAccount({
+          client: publicClient,
+          owners: [owner],
+          address: input.accountAddress,
+          version: '1.4.1',
+        })
+      : await toKernelSmartAccount({
+          client: publicClient,
+          version: '0.3.1',
+          owners: [owner],
+          address: input.accountAddress,
+          entryPoint: {
+            address: entryPoint07Address,
+            version: '0.7',
+          },
+        });
+
   const chainConfig = getCoopChainConfig(input.chainKey);
   const bundlerUrl = buildPimlicoRpcUrl(input.chainKey, input.pimlicoApiKey);
   const pimlicoClient = createPimlicoClient({

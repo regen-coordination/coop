@@ -61,4 +61,30 @@ describe('shared setup insights shaping', () => {
     expect(insights.crossCuttingPainPoints).toEqual([]);
     expect(insights.crossCuttingOpportunities).toEqual([]);
   });
+
+  it('injects coop name into community currentState defaults via {coop} token', () => {
+    const insights = toSetupInsights({
+      ...emptySetupInsightsInput,
+      coopName: 'Forest Coop',
+    });
+
+    const capitalLens = insights.lenses.find((l) => l.lens === 'capital-formation');
+    expect(capitalLens?.currentState).toContain('Forest Coop');
+
+    const knowledgeLens = insights.lenses.find((l) => l.lens === 'knowledge-garden-resources');
+    expect(knowledgeLens?.currentState).toContain('Forest Coop');
+  });
+
+  it('uses space-type-specific defaults when spaceType is provided', () => {
+    const personal = toSetupInsights(
+      { ...emptySetupInsightsInput, coopName: 'My Nest' },
+      'personal',
+    );
+    const personalKnowledge = personal.lenses.find((l) => l.lens === 'knowledge-garden-resources');
+    expect(personalKnowledge?.currentState).toContain('scattered across devices');
+
+    const family = toSetupInsights({ ...emptySetupInsightsInput, coopName: 'Home' }, 'family');
+    const familyKnowledge = family.lenses.find((l) => l.lens === 'knowledge-garden-resources');
+    expect(familyKnowledge?.currentState).toContain('Household');
+  });
 });

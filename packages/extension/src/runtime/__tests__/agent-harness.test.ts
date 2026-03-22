@@ -76,6 +76,7 @@ function makeDraft(overrides: Partial<ReviewDraft> = {}): ReviewDraft {
     previewImageUrl: overrides.previewImageUrl,
     status: overrides.status ?? 'draft',
     workflowStage: overrides.workflowStage ?? 'ready',
+    attachments: overrides.attachments ?? [],
     archiveWorthiness: overrides.archiveWorthiness,
     provenance:
       overrides.provenance ??

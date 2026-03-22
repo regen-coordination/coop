@@ -361,3 +361,22 @@ export function validateOwnerChange(
   }
   return { ok: true };
 }
+
+// ─── Threshold Progression ─────────────────────────────────────────
+
+/**
+ * Compute the recommended Safe threshold for a given owner count.
+ *
+ * Progression:
+ *   1 owner  → threshold 1
+ *   2 owners → threshold 1
+ *   3 owners → threshold 2
+ *   4 owners → threshold 2
+ *   5 owners → threshold 2
+ *   6 owners → threshold 3
+ *   7 owners → threshold 3
+ */
+export function computeThresholdForOwnerCount(ownerCount: number): number {
+  if (ownerCount <= 0) return 1;
+  return Math.max(1, Math.ceil((ownerCount * 2) / 5));
+}

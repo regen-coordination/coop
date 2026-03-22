@@ -12,61 +12,71 @@ describe('shared app helpers', () => {
   it('derives icon states, labels, and badges for all runtime cases', () => {
     expect(
       deriveExtensionIconState({
-        pendingDrafts: 0,
-        watching: false,
-        offline: false,
-        missingPermission: false,
-        syncError: false,
+        hasCoop: false,
+        agentActive: false,
+        pendingAttention: 0,
+        blocked: false,
       }),
-    ).toBe('idle');
-    expect(extensionIconStateLabel('idle')).toBe('Idle');
-    expect(extensionIconBadge('idle')).toEqual({
-      text: 'IDLE',
-      color: '#4f2e1f',
-    });
-
-    expect(
-      deriveExtensionIconState({
-        pendingDrafts: 0,
-        watching: true,
-        offline: false,
-        missingPermission: false,
-        syncError: false,
-      }),
-    ).toBe('watching');
-    expect(extensionIconStateLabel('watching')).toBe('Watching');
-    expect(extensionIconBadge('watching')).toEqual({
-      text: 'SCAN',
+    ).toBe('setup');
+    expect(extensionIconStateLabel('setup')).toBe('Setup');
+    expect(extensionIconBadge('setup')).toEqual({
+      text: '',
       color: '#5a7d10',
     });
 
     expect(
       deriveExtensionIconState({
-        pendingDrafts: 2,
-        watching: true,
-        offline: false,
-        missingPermission: false,
-        syncError: false,
+        hasCoop: true,
+        agentActive: false,
+        pendingAttention: 0,
+        blocked: false,
       }),
-    ).toBe('review-needed');
-    expect(extensionIconStateLabel('review-needed')).toBe('Review Needed');
-    expect(extensionIconBadge('review-needed')).toEqual({
-      text: 'ROST',
+    ).toBe('ready');
+    expect(extensionIconStateLabel('ready')).toBe('Ready');
+    expect(extensionIconBadge('ready')).toEqual({
+      text: '',
+      color: '#5a7d10',
+    });
+
+    expect(
+      deriveExtensionIconState({
+        hasCoop: true,
+        agentActive: true,
+        pendingAttention: 0,
+        blocked: false,
+      }),
+    ).toBe('working');
+    expect(extensionIconStateLabel('working')).toBe('Working');
+    expect(extensionIconBadge('working')).toEqual({
+      text: '',
+      color: '#3b82f6',
+    });
+
+    expect(
+      deriveExtensionIconState({
+        hasCoop: true,
+        agentActive: false,
+        pendingAttention: 2,
+        blocked: false,
+      }),
+    ).toBe('attention');
+    expect(extensionIconStateLabel('attention')).toBe('Attention');
+    expect(extensionIconBadge('attention')).toEqual({
+      text: '',
       color: '#fd8a01',
     });
 
     expect(
       deriveExtensionIconState({
-        pendingDrafts: 0,
-        watching: false,
-        offline: true,
-        missingPermission: false,
-        syncError: true,
+        hasCoop: true,
+        agentActive: false,
+        pendingAttention: 0,
+        blocked: true,
       }),
-    ).toBe('error-offline');
-    expect(extensionIconStateLabel('error-offline')).toBe('Error / Offline');
-    expect(extensionIconBadge('error-offline')).toEqual({
-      text: 'ERR',
+    ).toBe('blocked');
+    expect(extensionIconStateLabel('blocked')).toBe('Blocked');
+    expect(extensionIconBadge('blocked')).toEqual({
+      text: '',
       color: '#a63b20',
     });
   });

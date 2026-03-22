@@ -72,11 +72,25 @@
 
   /* ── Transitions ── */
   --coop-ease: 180ms ease;
+
+  /* ── Surfaces (semantic UI tokens) ── */
+  --coop-surface: rgba(255, 252, 249, 0.88);
+  --coop-surface-card: rgba(255, 252, 249, 0.82);
+  --coop-surface-elevated: rgba(255, 255, 255, 0.76);
+  --coop-surface-input: rgba(255, 255, 255, 0.86);
+  --coop-surface-strong: rgba(255, 255, 255, 0.82);
+  --coop-overlay: rgba(79, 46, 31, 0.32);
+  --coop-page-gradient: radial-gradient(
+      circle at top right,
+      rgba(90, 125, 16, 0.12),
+      transparent 18rem
+    ), radial-gradient(circle at top left, rgba(253, 138, 1, 0.12), transparent 18rem),
+    var(--coop-cream);
 }
 
-/* ── Dark mode ── */
+/* ── Dark mode (system fallback) ── */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
 
     --coop-cream: #1a1410;
@@ -93,7 +107,53 @@
     --coop-shadow-sm: 0 8px 20px rgba(0, 0, 0, 0.2);
     --coop-shadow-md: 0 16px 40px rgba(0, 0, 0, 0.24);
     --coop-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.24);
+
+    --coop-surface: rgba(30, 22, 18, 0.92);
+    --coop-surface-card: rgba(38, 29, 24, 0.88);
+    --coop-surface-elevated: rgba(42, 32, 27, 0.82);
+    --coop-surface-input: rgba(46, 35, 29, 0.9);
+    --coop-surface-strong: rgba(46, 35, 29, 0.88);
+    --coop-overlay: rgba(0, 0, 0, 0.5);
+    --coop-page-gradient: radial-gradient(
+        circle at top right,
+        rgba(131, 162, 54, 0.16),
+        transparent 18rem
+      ), radial-gradient(circle at top left, rgba(203, 113, 17, 0.16), transparent 18rem),
+      var(--coop-cream);
   }
+}
+
+/* ── Explicit theme overrides (take precedence over @media) ── */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --coop-cream: #1a1410;
+  --coop-brown: #e8d5c4;
+  --coop-brown-soft: #b8a090;
+  --coop-green: #8ab840;
+  --coop-orange: #ffaa44;
+  --coop-mist: #3a3632;
+  --coop-ink: #f0e8e0;
+  --coop-error: #ff6b4a;
+
+  --coop-line: rgba(232, 213, 196, 0.16);
+
+  --coop-shadow-sm: 0 8px 20px rgba(0, 0, 0, 0.2);
+  --coop-shadow-md: 0 16px 40px rgba(0, 0, 0, 0.24);
+  --coop-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.24);
+
+  --coop-surface: rgba(30, 22, 18, 0.92);
+  --coop-surface-card: rgba(38, 29, 24, 0.88);
+  --coop-surface-elevated: rgba(42, 32, 27, 0.82);
+  --coop-surface-input: rgba(46, 35, 29, 0.9);
+  --coop-surface-strong: rgba(46, 35, 29, 0.88);
+  --coop-overlay: rgba(0, 0, 0, 0.5);
+  --coop-page-gradient: radial-gradient(
+      circle at top right,
+      rgba(131, 162, 54, 0.16),
+      transparent 18rem
+    ), radial-gradient(circle at top left, rgba(203, 113, 17, 0.16), transparent 18rem),
+    var(--coop-cream);
 }
 
 /* ── Font metric overrides (CLS reduction for missing system fonts) ── */
