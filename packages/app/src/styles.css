@@ -173,11 +173,11 @@ pre {
 }
 
 .journey-scene-arrival {
-  background: linear-gradient(180deg, #2a1b4a 0%, #1e1640 40%, #141230 70%, #0d0c1e 100%);
+  background: linear-gradient(180deg, #c4753a 0%, #8b4520 30%, #5a2e14 60%, #3a1c0e 100%);
 }
 
 .journey-scene-arrival::before {
-  background: linear-gradient(180deg, rgba(20, 18, 40, 0.08), rgba(10, 8, 22, 0.25));
+  background: linear-gradient(180deg, rgba(200, 120, 50, 0.08), rgba(60, 30, 14, 0.25));
 }
 
 .journey-scene-inner {
@@ -245,6 +245,12 @@ pre {
   gap: 1rem;
   position: relative;
   z-index: 4;
+  background: linear-gradient(135deg, rgba(255, 252, 246, 0.92), rgba(255, 248, 238, 0.85));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 2rem 2.2rem;
+  border-radius: var(--coop-radius-card-xl);
+  border: 1px solid rgba(79, 46, 31, 0.08);
 }
 
 .hero-logo {
@@ -421,31 +427,33 @@ pre {
 .works-panel {
   align-items: flex-end;
   padding-bottom: 7rem;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255, 235, 205, 0.95) 18%,
-    rgba(255, 225, 185, 0.98) 100%
-  );
+  background: transparent;
 }
 
 .how-works-shell {
-  width: min(62rem, 100%);
+  width: min(28rem, 44%);
   display: grid;
   gap: 1rem;
-  margin: 0 auto;
+  margin: 0;
+  background: linear-gradient(135deg, rgba(255, 252, 246, 0.9), rgba(255, 248, 238, 0.82));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 1.8rem 2rem;
+  border-radius: var(--coop-radius-card-xl);
+  border: 1px solid rgba(79, 46, 31, 0.08);
+  box-shadow: 0 20px 48px rgba(79, 46, 31, 0.1);
 }
 
 .how-works-heading {
   max-width: 42rem;
-  text-align: center;
-  margin: 0 auto;
+  text-align: left;
+  margin: 0;
 }
 
 .how-works-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
 }
 
 .how-works-card {
@@ -489,14 +497,27 @@ pre {
   content: "";
   position: absolute;
   left: 50%;
-  top: 0;
+  top: -6rem;
   width: 100vw;
-  height: 100%;
+  height: calc(100% + 6rem);
   transform: translateX(-50%);
   background: radial-gradient(circle at 18% 12%, rgba(255, 160, 60, 0.14), transparent 24rem),
     radial-gradient(circle at 86% 14%, rgba(200, 80, 40, 0.1), transparent 22rem),
-    linear-gradient(180deg, #fff5eb, #ffecd2);
+    linear-gradient(180deg, transparent 0%, #fff5eb 5%, #ffecd2 100%);
   z-index: -1;
+}
+
+.ritual-section::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8rem;
+  width: 100vw;
+  height: 10rem;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #ffecd2, #c4753a);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .ritual-section-copy {
@@ -1014,8 +1035,8 @@ pre {
   position: relative;
   z-index: 3;
   padding: 1.5rem 2rem;
-  background: linear-gradient(180deg, #0d0c1e 0%, #080816 100%);
-  color: rgba(255, 255, 255, 0.7);
+  background: linear-gradient(180deg, #27140e 0%, #1a0e08 100%);
+  color: rgba(255, 240, 220, 0.7);
 }
 
 .landing-footer-inner {
@@ -1166,18 +1187,18 @@ pre {
   background: linear-gradient(180deg, rgba(101, 137, 42, 0.98), rgba(80, 113, 26, 1));
 }
 
-/* ── Night hill silhouettes (arrival scene) ── */
+/* ── Dusk hill silhouettes (arrival scene) ── */
 
 .journey-scene-arrival .scene-hill-back {
-  background: linear-gradient(180deg, rgba(35, 28, 58, 0.88), rgba(22, 18, 45, 0.94));
+  background: linear-gradient(180deg, rgba(62, 68, 28, 0.88), rgba(42, 48, 18, 0.94));
 }
 
 .journey-scene-arrival .scene-hill-mid {
-  background: linear-gradient(180deg, rgba(25, 20, 48, 0.94), rgba(16, 13, 35, 0.97));
+  background: linear-gradient(180deg, rgba(45, 52, 20, 0.94), rgba(32, 38, 14, 0.97));
 }
 
 .journey-scene-arrival .scene-hill-front {
-  background: linear-gradient(180deg, rgba(18, 15, 35, 0.97), rgba(10, 8, 24, 1));
+  background: linear-gradient(180deg, rgba(32, 38, 14, 0.97), rgba(22, 26, 10, 1));
 }
 
 /* ── Sky transition overlays ── */
@@ -1216,8 +1237,8 @@ pre {
 .scene-star {
   position: absolute;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 6px rgba(220, 220, 255, 0.4);
+  background: rgba(255, 230, 180, 0.65);
+  box-shadow: 0 0 6px rgba(255, 200, 120, 0.3);
 }
 
 @keyframes star-twinkle {
@@ -1242,20 +1263,10 @@ pre {
   animation: star-twinkle 3.6s ease-in-out infinite 1.2s;
 }
 
-/* ── Night moon ── */
+/* Moon removed — golden hour has no moon */
 
 .scene-moon {
-  position: absolute;
-  right: 14%;
-  top: 11%;
-  width: 4.2rem;
-  height: 4.2rem;
-  border-radius: 999px;
-  background: transparent;
-  box-shadow: inset -12px -3px 0 0 rgba(225, 220, 250, 0.88);
-  opacity: 0;
-  will-change: opacity;
-  filter: drop-shadow(0 0 24px rgba(200, 200, 255, 0.25));
+  display: none;
 }
 
 /* ── Coop window glow (night) ── */
@@ -1305,43 +1316,51 @@ pre {
   box-shadow: 0 0 20px rgba(255, 200, 80, 0.25);
 }
 
-/* ── Arrival scene night overrides ── */
+/* ── Arrival scene dusk overrides ── */
 
 .journey-scene-arrival .scene-glow-left {
-  background: radial-gradient(circle, rgba(60, 40, 120, 0.22), rgba(40, 25, 80, 0));
+  background: radial-gradient(circle, rgba(90, 125, 16, 0.18), rgba(60, 80, 10, 0));
 }
 
 .journey-scene-arrival .scene-glow-right {
-  background: radial-gradient(circle, rgba(80, 50, 140, 0.18), rgba(50, 30, 100, 0));
+  background: radial-gradient(circle, rgba(200, 100, 20, 0.22), rgba(160, 70, 10, 0));
 }
 
 .journey-scene-arrival .scene-path-arrival {
-  background: radial-gradient(circle at center, rgba(50, 40, 70, 0.3), rgba(30, 25, 50, 0));
+  background: radial-gradient(circle at center, rgba(180, 140, 80, 0.3), rgba(120, 80, 40, 0));
+}
+
+.journey-scene-arrival .scene-cloud {
+  background: rgba(255, 200, 140, 0.35);
 }
 
 .journey-scene-arrival .coop-roof {
-  fill: #2e1c12;
+  fill: #5a3520;
 }
 
 .journey-scene-arrival .coop-body {
-  fill: #1e1610;
-  stroke: rgba(50, 35, 25, 0.5);
+  fill: #3a2818;
+  stroke: rgba(80, 55, 35, 0.5);
 }
 
 .journey-scene-arrival .coop-window,
 .journey-scene-arrival .coop-door {
-  fill: rgba(255, 200, 80, 0.12);
-  stroke: rgba(50, 35, 25, 0.3);
+  fill: rgba(255, 210, 100, 0.35);
+  stroke: rgba(80, 55, 35, 0.3);
 }
 
 .journey-scene-arrival .coop-slat,
 .journey-scene-arrival .coop-trim {
-  stroke: rgba(50, 35, 25, 0.25);
+  stroke: rgba(80, 55, 35, 0.25);
 }
 
 .journey-scene-arrival .inside-bird {
   background: linear-gradient(180deg, rgba(255, 235, 195, 0.92), rgba(240, 205, 155, 0.92));
-  box-shadow: 0 0 10px rgba(255, 200, 80, 0.25), 0 8px 16px rgba(15, 10, 25, 0.35);
+  box-shadow: 0 0 10px rgba(255, 200, 80, 0.25), 0 8px 16px rgba(60, 30, 14, 0.35);
+}
+
+.journey-scene-arrival .why-build-copy.nest-card {
+  background: rgba(255, 252, 246, 0.92);
 }
 
 .scene-path {

@@ -272,7 +272,7 @@ const arrivalFlightPaths: Record<
   ],
 };
 
-const STAR_COUNT = 35;
+const STAR_COUNT = 10;
 
 function starStyle(index: number): React.CSSProperties {
   const golden = 0.618033988749895;
@@ -923,7 +923,7 @@ export function App({
             .to(howItWorksRef.current, { autoAlpha: 0.4, y: -36 }, 0.94);
 
           storyTimeline
-            .fromTo(storySkyOverlayRef.current, { opacity: 0 }, { opacity: 0.75 }, 0.15)
+            .fromTo(storySkyOverlayRef.current, { opacity: 0 }, { opacity: 0.88 }, 0.15)
             .fromTo(
               storySunWarmRef.current,
               { opacity: 0, scale: 0.8 },
@@ -1016,10 +1016,9 @@ export function App({
             .fromTo(whyBuildRef.current, { autoAlpha: 0.18, y: 72 }, { autoAlpha: 1, y: 0 }, 0.3);
 
           arrivalTimeline
-            .fromTo(arrivalStarsRef.current, { opacity: 0 }, { opacity: 1 }, 0.04)
-            .fromTo(arrivalMoonRef.current, { opacity: 0, y: 18 }, { opacity: 0.85, y: 0 }, 0.06)
+            .fromTo(arrivalStarsRef.current, { opacity: 0 }, { opacity: 0.35 }, 0.3)
             .fromTo(arrivalCoopGlowRef.current, { opacity: 0 }, { opacity: 1 }, 0.35)
-            .to(arrivalCloudRef.current, { opacity: 0.08 }, 0.15);
+            .to(arrivalCloudRef.current, { opacity: 0.25 }, 0.15);
 
           for (const chicken of journeyChickens) {
             const node = arrivalChickenRefs.current[chicken.id];
