@@ -173,13 +173,11 @@ pre {
 }
 
 .journey-scene-arrival {
-  background: linear-gradient(
-    180deg,
-    #fef6ee 0%,
-    #faecd8 28%,
-    rgba(200, 210, 160, 0.4) 60%,
-    rgba(120, 155, 60, 0.18) 100%
-  );
+  background: linear-gradient(180deg, #2a1b4a 0%, #1e1640 40%, #141230 70%, #0d0c1e 100%);
+}
+
+.journey-scene-arrival::before {
+  background: linear-gradient(180deg, rgba(20, 18, 40, 0.08), rgba(10, 8, 22, 0.25));
 }
 
 .journey-scene-inner {
@@ -426,8 +424,8 @@ pre {
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(255, 250, 244, 1) 18%,
-    rgba(255, 250, 244, 1) 100%
+    rgba(255, 235, 205, 0.95) 18%,
+    rgba(255, 225, 185, 0.98) 100%
   );
 }
 
@@ -483,8 +481,8 @@ pre {
   position: relative;
   z-index: 2;
   isolation: isolate;
-  padding-top: 2.5rem;
-  padding-bottom: 2.5rem;
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
 }
 
 .ritual-section::before {
@@ -495,9 +493,9 @@ pre {
   width: 100vw;
   height: 100%;
   transform: translateX(-50%);
-  background: radial-gradient(circle at 18% 12%, rgba(90, 125, 16, 0.12), transparent 24rem),
-    radial-gradient(circle at 86% 14%, rgba(253, 138, 1, 0.12), transparent 22rem),
-    linear-gradient(180deg, #fffbf6, #fffbf6);
+  background: radial-gradient(circle at 18% 12%, rgba(255, 160, 60, 0.14), transparent 24rem),
+    radial-gradient(circle at 86% 14%, rgba(200, 80, 40, 0.1), transparent 22rem),
+    linear-gradient(180deg, #fff5eb, #ffecd2);
   z-index: -1;
 }
 
@@ -507,7 +505,7 @@ pre {
 }
 
 .ritual-section-heading {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .ritual-reset {
@@ -629,7 +627,7 @@ pre {
 
 .flashcard {
   position: relative;
-  min-height: 16rem;
+  min-height: 13rem;
   cursor: pointer;
   border-radius: var(--coop-radius-card-lg);
   background: transparent;
@@ -641,7 +639,7 @@ pre {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 16rem;
+  min-height: 13rem;
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
 }
@@ -1016,7 +1014,7 @@ pre {
   position: relative;
   z-index: 3;
   padding: 1.5rem 2rem;
-  background: linear-gradient(180deg, #4a6a18 0%, #3d5814 100%);
+  background: linear-gradient(180deg, #0d0c1e 0%, #080816 100%);
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -1092,6 +1090,17 @@ pre {
   box-shadow: 0 0 120px rgba(255, 214, 122, 0.45);
 }
 
+.scene-sun-warm {
+  position: absolute;
+  inset: -30%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 110, 30, 0.88), rgba(200, 45, 15, 0.45));
+  box-shadow: 0 0 160px rgba(255, 90, 20, 0.45), 0 0 280px rgba(200, 50, 15, 0.2);
+  opacity: 0;
+  will-change: opacity, transform;
+  pointer-events: none;
+}
+
 .scene-cloud {
   height: 4rem;
   border-radius: 999px;
@@ -1155,6 +1164,184 @@ pre {
   height: 23%;
   bottom: -4%;
   background: linear-gradient(180deg, rgba(101, 137, 42, 0.98), rgba(80, 113, 26, 1));
+}
+
+/* ── Night hill silhouettes (arrival scene) ── */
+
+.journey-scene-arrival .scene-hill-back {
+  background: linear-gradient(180deg, rgba(35, 28, 58, 0.88), rgba(22, 18, 45, 0.94));
+}
+
+.journey-scene-arrival .scene-hill-mid {
+  background: linear-gradient(180deg, rgba(25, 20, 48, 0.94), rgba(16, 13, 35, 0.97));
+}
+
+.journey-scene-arrival .scene-hill-front {
+  background: linear-gradient(180deg, rgba(18, 15, 35, 0.97), rgba(10, 8, 24, 1));
+}
+
+/* ── Sky transition overlays ── */
+
+.scene-sky-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+}
+
+.scene-sky-sunset {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 170, 80, 0.12) 0%,
+    rgba(255, 130, 50, 0.28) 25%,
+    rgba(220, 90, 40, 0.38) 55%,
+    rgba(140, 50, 60, 0.3) 80%,
+    rgba(60, 30, 50, 0.25) 100%
+  );
+}
+
+/* ── Night stars ── */
+
+.scene-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+}
+
+.scene-star {
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 6px rgba(220, 220, 255, 0.4);
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.scene-star:nth-child(3n) {
+  animation: star-twinkle 3.2s ease-in-out infinite;
+}
+
+.scene-star:nth-child(3n + 1) {
+  animation: star-twinkle 4.1s ease-in-out infinite 0.6s;
+}
+
+.scene-star:nth-child(3n + 2) {
+  animation: star-twinkle 3.6s ease-in-out infinite 1.2s;
+}
+
+/* ── Night moon ── */
+
+.scene-moon {
+  position: absolute;
+  right: 14%;
+  top: 11%;
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: inset -12px -3px 0 0 rgba(225, 220, 250, 0.88);
+  opacity: 0;
+  will-change: opacity;
+  filter: drop-shadow(0 0 24px rgba(200, 200, 255, 0.25));
+}
+
+/* ── Coop window glow (night) ── */
+
+.scene-coop-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+  z-index: 1;
+}
+
+.scene-coop-glow-window {
+  position: absolute;
+  border-radius: 14px;
+  background: radial-gradient(circle, rgba(255, 210, 100, 0.82), rgba(255, 180, 60, 0.35));
+  box-shadow: 0 0 28px rgba(255, 200, 80, 0.45), 0 0 56px rgba(255, 180, 60, 0.2);
+}
+
+.scene-coop-glow-window:nth-child(1) {
+  left: 27.5%;
+  top: 44.6%;
+  width: 16.9%;
+  height: 19.4%;
+}
+
+.scene-coop-glow-window:nth-child(2) {
+  left: 55.6%;
+  top: 44.6%;
+  width: 16.9%;
+  height: 19.4%;
+}
+
+.scene-coop-glow-door {
+  position: absolute;
+  left: 41.9%;
+  top: 61.2%;
+  width: 16.3%;
+  height: 28.1%;
+  border-radius: 16px;
+  background: radial-gradient(
+    circle at center bottom,
+    rgba(255, 210, 100, 0.6),
+    rgba(255, 180, 60, 0.15)
+  );
+  box-shadow: 0 0 20px rgba(255, 200, 80, 0.25);
+}
+
+/* ── Arrival scene night overrides ── */
+
+.journey-scene-arrival .scene-glow-left {
+  background: radial-gradient(circle, rgba(60, 40, 120, 0.22), rgba(40, 25, 80, 0));
+}
+
+.journey-scene-arrival .scene-glow-right {
+  background: radial-gradient(circle, rgba(80, 50, 140, 0.18), rgba(50, 30, 100, 0));
+}
+
+.journey-scene-arrival .scene-path-arrival {
+  background: radial-gradient(circle at center, rgba(50, 40, 70, 0.3), rgba(30, 25, 50, 0));
+}
+
+.journey-scene-arrival .coop-roof {
+  fill: #2e1c12;
+}
+
+.journey-scene-arrival .coop-body {
+  fill: #1e1610;
+  stroke: rgba(50, 35, 25, 0.5);
+}
+
+.journey-scene-arrival .coop-window,
+.journey-scene-arrival .coop-door {
+  fill: rgba(255, 200, 80, 0.12);
+  stroke: rgba(50, 35, 25, 0.3);
+}
+
+.journey-scene-arrival .coop-slat,
+.journey-scene-arrival .coop-trim {
+  stroke: rgba(50, 35, 25, 0.25);
+}
+
+.journey-scene-arrival .inside-bird {
+  background: linear-gradient(180deg, rgba(255, 235, 195, 0.92), rgba(240, 205, 155, 0.92));
+  box-shadow: 0 0 10px rgba(255, 200, 80, 0.25), 0 8px 16px rgba(15, 10, 25, 0.35);
 }
 
 .scene-path {

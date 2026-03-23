@@ -272,6 +272,21 @@ const arrivalFlightPaths: Record<
   ],
 };
 
+const STAR_COUNT = 35;
+
+function starStyle(index: number): React.CSSProperties {
+  const golden = 0.618033988749895;
+  const x = (index * golden * 137.508) % 100;
+  const y = (index * golden * 83.7) % 60;
+  const size = 1.5 + (index % 4) * 0.7;
+  return {
+    left: `${x}%`,
+    top: `${y}%`,
+    width: `${size}px`,
+    height: `${size}px`,
+  };
+}
+
 export const emptyLandingTranscripts: TranscriptMap = {
   capital: '',
   impact: '',
@@ -583,6 +598,12 @@ export function App({
   const arrivalCoopRef = useRef<HTMLDivElement | null>(null);
   const arrivalInsideFlockRef = useRef<HTMLDivElement | null>(null);
 
+  const storySkyOverlayRef = useRef<HTMLDivElement | null>(null);
+  const storySunWarmRef = useRef<HTMLDivElement | null>(null);
+  const arrivalStarsRef = useRef<HTMLDivElement | null>(null);
+  const arrivalMoonRef = useRef<HTMLDivElement | null>(null);
+  const arrivalCoopGlowRef = useRef<HTMLDivElement | null>(null);
+
   const storyChickenRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const arrivalChickenRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const flashcardTriggerRefs = useRef<Record<TranscriptKey, HTMLButtonElement | null>>({
@@ -820,8 +841,8 @@ export function App({
             )
             .fromTo(
               storySunRef.current,
-              { x: '-2vw', y: '0vh', scale: 1 },
-              { x: '12vw', y: '5vh', scale: 1.08 },
+              { x: '2vw', y: '-4vh', scale: 0.95 },
+              { x: '-22vw', y: '62vh', scale: 1.45 },
               0,
             )
             .fromTo(storyCloudARef.current, { x: '-4vw', y: 0 }, { x: '10vw', y: '6vh' }, 0)
@@ -900,6 +921,18 @@ export function App({
               0.92,
             )
             .to(howItWorksRef.current, { autoAlpha: 0.4, y: -36 }, 0.94);
+
+          storyTimeline
+            .fromTo(storySkyOverlayRef.current, { opacity: 0 }, { opacity: 0.75 }, 0.15)
+            .fromTo(
+              storySunWarmRef.current,
+              { opacity: 0, scale: 0.8 },
+              { opacity: 1, scale: 1.2 },
+              0.28,
+            )
+            .to(storyHillBackRef.current, { filter: 'brightness(0.5)' }, 0.35)
+            .to(storyHillMidRef.current, { filter: 'brightness(0.4)' }, 0.4)
+            .to(storyHillFrontRef.current, { filter: 'brightness(0.3)' }, 0.45);
 
           for (const chicken of journeyChickens) {
             const node = storyChickenRefs.current[chicken.id];
@@ -981,6 +1014,12 @@ export function App({
               0.62,
             )
             .fromTo(whyBuildRef.current, { autoAlpha: 0.18, y: 72 }, { autoAlpha: 1, y: 0 }, 0.3);
+
+          arrivalTimeline
+            .fromTo(arrivalStarsRef.current, { opacity: 0 }, { opacity: 1 }, 0.04)
+            .fromTo(arrivalMoonRef.current, { opacity: 0, y: 18 }, { opacity: 0.85, y: 0 }, 0.06)
+            .fromTo(arrivalCoopGlowRef.current, { opacity: 0 }, { opacity: 1 }, 0.35)
+            .to(arrivalCloudRef.current, { opacity: 0.08 }, 0.15);
 
           for (const chicken of journeyChickens) {
             const node = arrivalChickenRefs.current[chicken.id];
@@ -1310,9 +1349,12 @@ export function App({
             }
           >
             <div className="journey-scene-inner">
+              <div className="scene-sky-overlay scene-sky-sunset" ref={storySkyOverlayRef} />
               <div className="scene-glow scene-glow-left" ref={storyGlowLeftRef} />
               <div className="scene-glow scene-glow-right" ref={storyGlowRightRef} />
-              <div className="scene-sun" ref={storySunRef} />
+              <div className="scene-sun" ref={storySunRef}>
+                <div className="scene-sun-warm" ref={storySunWarmRef} />
+              </div>
               <div className="scene-cloud scene-cloud-a" ref={storyCloudARef} />
               <div className="scene-cloud scene-cloud-b" ref={storyCloudBRef} />
               <div className="scene-hill scene-hill-back" ref={storyHillBackRef} />
@@ -1654,6 +1696,12 @@ export function App({
             }
           >
             <div className="journey-scene-inner">
+              <div className="scene-stars" ref={arrivalStarsRef}>
+                {Array.from({ length: STAR_COUNT }, (_, i) => (
+                  <span className="scene-star" key={i} style={starStyle(i)} />
+                ))}
+              </div>
+              <div className="scene-moon" ref={arrivalMoonRef} />
               <div className="scene-glow scene-glow-left" ref={arrivalGlowLeftRef} />
               <div className="scene-glow scene-glow-right" ref={arrivalGlowRightRef} />
               <div className="scene-cloud scene-cloud-center" ref={arrivalCloudRef} />
@@ -1664,6 +1712,11 @@ export function App({
 
               <div className="scene-coop arrival-scene-coop" ref={arrivalCoopRef}>
                 <CoopIllustration />
+                <div className="scene-coop-glow" ref={arrivalCoopGlowRef}>
+                  <div className="scene-coop-glow-window" />
+                  <div className="scene-coop-glow-window" />
+                  <div className="scene-coop-glow-door" />
+                </div>
                 <div className="scene-inside-flock" ref={arrivalInsideFlockRef}>
                   <span className="inside-bird inside-bird-a" />
                   <span className="inside-bird inside-bird-b" />
