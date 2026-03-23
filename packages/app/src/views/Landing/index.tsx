@@ -1697,7 +1697,7 @@ export function App({
             <div className="journey-scene-inner">
               <div className="scene-stars" ref={arrivalStarsRef}>
                 {Array.from({ length: STAR_COUNT }, (_, i) => (
-                  <span className="scene-star" key={i} style={starStyle(i)} />
+                  <span className="scene-star" key={`star-${i}`} style={starStyle(i)} />
                 ))}
               </div>
               <div className="scene-moon" ref={arrivalMoonRef} />
