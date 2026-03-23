@@ -4,7 +4,18 @@ export const defaultSignalingUrls: string[] = ['wss://api.coop.town'];
 /** Default Yjs document sync URL (y-websocket endpoint). */
 export const defaultWebsocketSyncUrl = 'wss://api.coop.town/yws';
 
-/** Default ICE servers for WebRTC peer connections (STUN only). */
+/**
+ * Default ICE servers for WebRTC peer connections.
+ *
+ * STUN-only is sufficient for open NATs but will fail for symmetric NAT or
+ * restrictive firewalls. Production deployments MUST configure TURN via:
+ *   VITE_COOP_TURN_URLS      — comma-separated turn: or turns: URIs
+ *   VITE_COOP_TURN_USERNAME   — TURN credential username
+ *   VITE_COOP_TURN_CREDENTIAL — TURN credential password
+ *
+ * Without TURN, blob sync (audio, photos, files) falls back to the yws
+ * WebSocket relay, but direct peer connections will not be established.
+ */
 export const defaultIceServers: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },

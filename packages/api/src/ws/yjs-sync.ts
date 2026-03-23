@@ -7,6 +7,10 @@ import * as Y from 'yjs';
 
 const messageSync = 0;
 const messageAwareness = 1;
+const messageBlobRelay = 2;
+
+/** Max concurrent blob relay requests per connection. */
+const MAX_RELAY_REQUESTS_PER_CONN = 10;
 
 /** Grace period (ms) before destroying a room after the last client disconnects. */
 const ROOM_CLEANUP_DELAY = 30_000;
@@ -18,6 +22,8 @@ export interface YjsRoom {
   conns: Map<unknown, WSContext>;
   /** ws stable key -> set of awareness client IDs controlled by that connection. */
   awarenessClientIDs: Map<unknown, Set<number>>;
+  /** ws stable key -> count of active blob relay requests originated by that connection. */
+  blobRelayRequestCounts: Map<unknown, number>;
   /** Pending cleanup timer handle, if the room is scheduled for destruction. */
   cleanupTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -48,6 +54,14 @@ function send(ws: WSContext, message: Uint8Array): void {
   } catch {
     // Connection may have closed between the readyState check and send.
   }
+}
+
+/** Find a connection key by its string ID. */
+function findConnKeyById(room: YjsRoom, connId: string): unknown | undefined {
+  for (const connKey of room.conns.keys()) {
+    if (String(connKey) === connId) return connKey;
+  }
+  return undefined;
 }
 
 /**
@@ -103,6 +117,7 @@ function createRoom(): YjsRoom {
     awareness,
     conns: new Map(),
     awarenessClientIDs: new Map(),
+    blobRelayRequestCounts: new Map(),
     cleanupTimer: null,
   };
 
@@ -119,14 +134,54 @@ function destroyRoom(room: YjsRoom): void {
   }
 }
 
-export function createYjsSyncHandlers() {
+// --- File-based Y.Doc persistence (Bun-compatible, no native deps) ---
+
+async function loadRoomState(persistDir: string, roomName: string, doc: Y.Doc): Promise<void> {
+  try {
+    const filePath = `${persistDir}/${encodeURIComponent(roomName)}.ystate`;
+    const file = Bun.file(filePath);
+    if (await file.exists()) {
+      const buffer = await file.arrayBuffer();
+      Y.applyUpdate(doc, new Uint8Array(buffer));
+    }
+  } catch {
+    // Persistence is best-effort; missing or corrupt files are non-fatal.
+  }
+}
+
+async function saveRoomState(persistDir: string, roomName: string, doc: Y.Doc): Promise<void> {
+  try {
+    const filePath = `${persistDir}/${encodeURIComponent(roomName)}.ystate`;
+    const state = Y.encodeStateAsUpdate(doc);
+    await Bun.write(filePath, state);
+  } catch {
+    // Persistence is best-effort; write failures are non-fatal.
+  }
+}
+
+export interface YjsSyncHandlerOptions {
+  /**
+   * Directory for persisting room state across server restarts.
+   * If provided, Y.Doc state is saved on room cleanup and loaded on room creation.
+   * Use a Fly volume path (e.g., '/data/yjs-rooms') for durable persistence.
+   */
+  persistDir?: string;
+}
+
+export function createYjsSyncHandlers(options?: YjsSyncHandlerOptions) {
   const rooms = new Map<string, YjsRoom>();
+  const persistDir = options?.persistDir;
 
   function getOrCreateRoom(roomName: string): YjsRoom {
     let room = rooms.get(roomName);
     if (!room) {
       room = createRoom();
       rooms.set(roomName, room);
+
+      // Load persisted state if available (async, non-blocking)
+      if (persistDir) {
+        void loadRoomState(persistDir, roomName, room.doc);
+      }
     }
     // Cancel pending cleanup if a new client joins
     if (room.cleanupTimer) {
@@ -143,6 +198,10 @@ export function createYjsSyncHandlers() {
     room.cleanupTimer = setTimeout(() => {
       // Only destroy if still empty
       if (room.conns.size === 0) {
+        // Persist state before destroying
+        if (persistDir) {
+          void saveRoomState(persistDir, roomName, room.doc);
+        }
         destroyRoom(room);
         rooms.delete(roomName);
       }
@@ -164,6 +223,7 @@ export function createYjsSyncHandlers() {
 
     room.conns.delete(key);
     room.awarenessClientIDs.delete(key);
+    room.blobRelayRequestCounts.delete(key);
 
     // Schedule room destruction if no clients remain
     if (room.conns.size === 0) {
@@ -182,6 +242,7 @@ export function createYjsSyncHandlers() {
       const key = rawKey(ws);
       room.conns.set(key, ws);
       room.awarenessClientIDs.set(key, new Set());
+      room.blobRelayRequestCounts.set(key, 0);
 
       // Send sync step 1 so the client knows the server's state
       const encoder = encoding.createEncoder();
@@ -247,6 +308,79 @@ export function createYjsSyncHandlers() {
                 }
               } catch {
                 // Awareness tracking is best-effort; decode failures are non-fatal.
+              }
+            }
+            break;
+          }
+
+          case messageBlobRelay: {
+            // Blob relay: JSON string payload after the message type varuint.
+            const jsonPayload = decoding.readVarString(decoder);
+            let parsed: { type?: string; targetConnectionId?: string; originConnectionId?: string };
+            try {
+              parsed = JSON.parse(jsonPayload);
+            } catch {
+              break;
+            }
+
+            if (!parsed || typeof parsed.type !== 'string') break;
+
+            const connId = String(key);
+
+            if (parsed.type === 'blob-relay-request' || parsed.type === 'blob-relay-manifest') {
+              // Rate limit: max concurrent requests per connection
+              if (parsed.type === 'blob-relay-request') {
+                const count = room.blobRelayRequestCounts.get(key) ?? 0;
+                if (count >= MAX_RELAY_REQUESTS_PER_CONN) break;
+                room.blobRelayRequestCounts.set(key, count + 1);
+              }
+
+              // Stamp the origin connection ID so responders know who to target
+              parsed.originConnectionId = connId;
+              const stamped = JSON.stringify(parsed);
+
+              // Wrap in binary frame: varuint(messageBlobRelay) + varstring(json)
+              const relayEncoder = encoding.createEncoder();
+              encoding.writeVarUint(relayEncoder, messageBlobRelay);
+              encoding.writeVarString(relayEncoder, stamped);
+              const relayMessage = encoding.toUint8Array(relayEncoder);
+
+              broadcast(room, relayMessage, key);
+            } else if (
+              parsed.type === 'blob-relay-chunk' ||
+              parsed.type === 'blob-relay-not-found'
+            ) {
+              // Route to the specific target connection
+              const targetId = parsed.targetConnectionId;
+              if (!targetId) break;
+
+              // Decrement relay request count for the target when a request completes:
+              // - blob-relay-not-found: blob doesn't exist, request is done
+              // - blob-relay-chunk with last chunk: transfer complete
+              const isCompletion =
+                parsed.type === 'blob-relay-not-found' ||
+                (parsed.type === 'blob-relay-chunk' &&
+                  typeof (parsed as Record<string, unknown>).chunkIndex === 'number' &&
+                  typeof (parsed as Record<string, unknown>).totalChunks === 'number' &&
+                  ((parsed as Record<string, unknown>).chunkIndex as number) ===
+                    ((parsed as Record<string, unknown>).totalChunks as number) - 1);
+              if (isCompletion) {
+                const targetKey = findConnKeyById(room, targetId);
+                if (targetKey !== undefined) {
+                  const count = room.blobRelayRequestCounts.get(targetKey) ?? 0;
+                  if (count > 0) room.blobRelayRequestCounts.set(targetKey, count - 1);
+                }
+              }
+
+              // Find the target connection and forward
+              for (const [connKey, conn] of room.conns) {
+                if (String(connKey) === targetId) {
+                  const relayEncoder = encoding.createEncoder();
+                  encoding.writeVarUint(relayEncoder, messageBlobRelay);
+                  encoding.writeVarString(relayEncoder, jsonPayload);
+                  send(conn, encoding.toUint8Array(relayEncoder));
+                  break;
+                }
               }
             }
             break;

@@ -9,6 +9,7 @@ import { createYjsSyncHandlers } from '../yjs-sync';
 
 const messageSync = 0;
 const messageAwareness = 1;
+const messageBlobRelay = 2;
 
 /** Create a mock WSContext that records sent messages. */
 function createMockWS(rawKey?: object) {
@@ -315,5 +316,255 @@ describe('createYjsSyncHandlers', () => {
     handlers.onMessage('nonexistent-room', ws, step1);
 
     expect(ws.sent).toHaveLength(0);
+  });
+
+  // --- Blob relay tests ---
+
+  describe('blob relay', () => {
+    function buildBlobRelayMessage(payload: Record<string, unknown>): Uint8Array {
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, messageBlobRelay);
+      encoding.writeVarString(encoder, JSON.stringify(payload));
+      return encoding.toUint8Array(encoder);
+    }
+
+    function extractBlobRelayPayload(data: Uint8Array): Record<string, unknown> | null {
+      try {
+        const decoder = decoding.createDecoder(data);
+        const msgType = decoding.readVarUint(decoder);
+        if (msgType !== messageBlobRelay) return null;
+        const json = decoding.readVarString(decoder);
+        return JSON.parse(json);
+      } catch {
+        return null;
+      }
+    }
+
+    it('broadcasts blob-relay-request to all other connections with stamped originConnectionId', () => {
+      const handlers = createYjsSyncHandlers();
+      const ws1 = createMockWS();
+      const ws2 = createMockWS();
+      const ws3 = createMockWS();
+
+      handlers.onOpen('room', ws1);
+      handlers.onOpen('room', ws2);
+      handlers.onOpen('room', ws3);
+      ws1.sent.length = 0;
+      ws2.sent.length = 0;
+      ws3.sent.length = 0;
+
+      const request = buildBlobRelayMessage({
+        type: 'blob-relay-request',
+        blobId: 'b1',
+        requestId: 'r1',
+      });
+      handlers.onMessage('room', ws1, request);
+
+      // ws2 and ws3 should receive the relay, ws1 should not
+      expect(ws1.sent).toHaveLength(0);
+      expect(ws2.sent).toHaveLength(1);
+      expect(ws3.sent).toHaveLength(1);
+
+      // Verify the payload has originConnectionId stamped
+      const payload = extractBlobRelayPayload(ws2.sent[0]);
+      expect(payload?.type).toBe('blob-relay-request');
+      expect(payload?.originConnectionId).toBeDefined();
+      expect(typeof payload?.originConnectionId).toBe('string');
+    });
+
+    it('routes blob-relay-chunk to the specific target connection', () => {
+      const handlers = createYjsSyncHandlers();
+      const rawA = { id: 'conn-a' };
+      const rawB = { id: 'conn-b' };
+      const ws1 = createMockWS(rawA);
+      const ws2 = createMockWS(rawB);
+
+      handlers.onOpen('room', ws1);
+      handlers.onOpen('room', ws2);
+      ws1.sent.length = 0;
+      ws2.sent.length = 0;
+
+      // ws2 sends a chunk targeting ws1's connection ID
+      const targetId = String(rawA);
+      const chunk = buildBlobRelayMessage({
+        type: 'blob-relay-chunk',
+        requestId: 'r1',
+        blobId: 'b1',
+        chunkIndex: 0,
+        totalChunks: 1,
+        data: 'base64data',
+        targetConnectionId: targetId,
+      });
+      handlers.onMessage('room', ws2, chunk);
+
+      // Only ws1 should receive it
+      expect(ws1.sent).toHaveLength(1);
+      expect(ws2.sent).toHaveLength(0);
+
+      const payload = extractBlobRelayPayload(ws1.sent[0]);
+      expect(payload?.type).toBe('blob-relay-chunk');
+    });
+
+    it('routes blob-relay-not-found to the target connection', () => {
+      const handlers = createYjsSyncHandlers();
+      const rawA = { id: 'conn-a' };
+      const rawB = { id: 'conn-b' };
+      const ws1 = createMockWS(rawA);
+      const ws2 = createMockWS(rawB);
+
+      handlers.onOpen('room', ws1);
+      handlers.onOpen('room', ws2);
+      ws1.sent.length = 0;
+      ws2.sent.length = 0;
+
+      const notFound = buildBlobRelayMessage({
+        type: 'blob-relay-not-found',
+        requestId: 'r1',
+        blobId: 'b1',
+        targetConnectionId: String(rawA),
+      });
+      handlers.onMessage('room', ws2, notFound);
+
+      expect(ws1.sent).toHaveLength(1);
+      expect(ws2.sent).toHaveLength(0);
+
+      const payload = extractBlobRelayPayload(ws1.sent[0]);
+      expect(payload?.type).toBe('blob-relay-not-found');
+    });
+
+    it('broadcasts blob-relay-manifest to other connections', () => {
+      const handlers = createYjsSyncHandlers();
+      const ws1 = createMockWS();
+      const ws2 = createMockWS();
+
+      handlers.onOpen('room', ws1);
+      handlers.onOpen('room', ws2);
+      ws1.sent.length = 0;
+      ws2.sent.length = 0;
+
+      const manifest = buildBlobRelayMessage({
+        type: 'blob-relay-manifest',
+        blobIds: ['b1', 'b2'],
+      });
+      handlers.onMessage('room', ws1, manifest);
+
+      expect(ws1.sent).toHaveLength(0);
+      expect(ws2.sent).toHaveLength(1);
+
+      const payload = extractBlobRelayPayload(ws2.sent[0]);
+      expect(payload?.type).toBe('blob-relay-manifest');
+      expect(payload?.originConnectionId).toBeDefined();
+    });
+
+    it('rate limits blob-relay-request to MAX_RELAY_REQUESTS_PER_CONN', () => {
+      const handlers = createYjsSyncHandlers();
+      const ws1 = createMockWS();
+      const ws2 = createMockWS();
+
+      handlers.onOpen('room', ws1);
+      handlers.onOpen('room', ws2);
+      ws2.sent.length = 0;
+
+      // Send 10 requests (at the limit)
+      for (let i = 0; i < 10; i++) {
+        const request = buildBlobRelayMessage({
+          type: 'blob-relay-request',
+          blobId: `b${i}`,
+          requestId: `r${i}`,
+        });
+        handlers.onMessage('room', ws1, request);
+      }
+      expect(ws2.sent).toHaveLength(10);
+
+      // 11th should be dropped
+      ws2.sent.length = 0;
+      const request = buildBlobRelayMessage({
+        type: 'blob-relay-request',
+        blobId: 'b-overflow',
+        requestId: 'r-overflow',
+      });
+      handlers.onMessage('room', ws1, request);
+      expect(ws2.sent).toHaveLength(0);
+    });
+
+    it('decrements rate limit after last chunk is forwarded', () => {
+      const handlers = createYjsSyncHandlers();
+      const rawA = { id: 'conn-a' };
+      const rawB = { id: 'conn-b' };
+      const ws1 = createMockWS(rawA);
+      const ws2 = createMockWS(rawB);
+
+      handlers.onOpen('room', ws1);
+      handlers.onOpen('room', ws2);
+      ws2.sent.length = 0;
+
+      // Fill up the rate limit for ws1 (10 requests)
+      for (let i = 0; i < 10; i++) {
+        const request = buildBlobRelayMessage({
+          type: 'blob-relay-request',
+          blobId: `b${i}`,
+          requestId: `r${i}`,
+        });
+        handlers.onMessage('room', ws1, request);
+      }
+      expect(ws2.sent).toHaveLength(10);
+
+      // 11th should be dropped (at limit)
+      ws2.sent.length = 0;
+      handlers.onMessage(
+        'room',
+        ws1,
+        buildBlobRelayMessage({
+          type: 'blob-relay-request',
+          blobId: 'b-blocked',
+          requestId: 'r-blocked',
+        }),
+      );
+      expect(ws2.sent).toHaveLength(0);
+
+      // ws2 sends a final chunk back to ws1 (completing one request)
+      const lastChunk = buildBlobRelayMessage({
+        type: 'blob-relay-chunk',
+        requestId: 'r0',
+        blobId: 'b0',
+        chunkIndex: 0,
+        totalChunks: 1,
+        data: 'base64data',
+        targetConnectionId: String(rawA),
+      });
+      handlers.onMessage('room', ws2, lastChunk);
+
+      // Now ws1 should be able to make one more request (slot freed)
+      ws2.sent.length = 0;
+      handlers.onMessage(
+        'room',
+        ws1,
+        buildBlobRelayMessage({
+          type: 'blob-relay-request',
+          blobId: 'b-after-free',
+          requestId: 'r-after-free',
+        }),
+      );
+      expect(ws2.sent).toHaveLength(1);
+    });
+
+    it('ignores blob relay messages with invalid JSON payload', () => {
+      const handlers = createYjsSyncHandlers();
+      const ws1 = createMockWS();
+      const ws2 = createMockWS();
+
+      handlers.onOpen('room', ws1);
+      handlers.onOpen('room', ws2);
+      ws2.sent.length = 0;
+
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, messageBlobRelay);
+      encoding.writeVarString(encoder, 'not valid json{{{');
+      const badMsg = encoding.toUint8Array(encoder);
+
+      // Should not throw
+      handlers.onMessage('room', ws1, badMsg);
+      expect(ws2.sent).toHaveLength(0);
+    });
   });
 });

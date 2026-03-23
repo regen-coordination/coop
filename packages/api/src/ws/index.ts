@@ -24,7 +24,10 @@ export function mountWebSocket(app: Hono): void {
   );
 
   // Yjs document sync WebSocket at /yws/:room
-  const yjsHandlers = createYjsSyncHandlers();
+  // Persist room state to YJS_PERSIST_DIR if set (e.g., a Fly volume path).
+  const yjsHandlers = createYjsSyncHandlers({
+    persistDir: process.env.YJS_PERSIST_DIR || undefined,
+  });
 
   app.get(
     '/yws/:room',
