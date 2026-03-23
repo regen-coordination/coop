@@ -1,4 +1,4 @@
-export { createBlobSyncChannel } from './channel';
+export { type BlobRelayTransport, createBlobSyncChannel } from './channel';
 export { compressImage, generateThumbnailDataUrl } from './compress';
 export { fetchBlobFromGateway, resolveBlob } from './resolve';
 export {
@@ -25,3 +25,18 @@ export {
   isEagerSyncKind,
   reassembleChunks,
 } from './sync';
+export {
+  type BlobRelayChunk,
+  type BlobRelayManifest,
+  type BlobRelayMessage,
+  type BlobRelayNotFound,
+  type BlobRelayRequest,
+  MESSAGE_BLOB_RELAY,
+  blobRelayChunkSchema,
+  blobRelayManifestSchema,
+  blobRelayMessageSchema,
+  blobRelayNotFoundSchema,
+  blobRelayRequestSchema,
+  decodeBlobRelayMessage,
+  encodeBlobRelayMessage,
+} from './relay';

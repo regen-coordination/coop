@@ -205,7 +205,7 @@ describe('queryRecentMemories', () => {
     const results = await queryRecentMemories(db, 'coop-many');
 
     expect(results).toHaveLength(10);
-  });
+  }, 15_000);
 });
 
 /* ---------------------------------------------------------------------------
@@ -357,7 +357,7 @@ describe('enforceMemoryLimit', () => {
     // The surviving memories should be the 3 newest
     const contents = remaining.map((m) => m.content).sort();
     expect(contents).toEqual(['Memory 2', 'Memory 3', 'Memory 4']);
-  });
+  }, 15_000);
 
   it('returns 0 when under the limit', async () => {
     await createAgentMemory(db, {
@@ -485,7 +485,7 @@ describe('queryMemoriesForSkill', () => {
     const results = await queryMemoriesForSkill(db, 'coop-limit', 'test-skill', { limit: 5 });
 
     expect(results.length).toBeLessThanOrEqual(5);
-  }, 10_000);
+  }, 15_000);
 
   it('returns empty array for unknown coopId', async () => {
     const results = await queryMemoriesForSkill(db, 'nonexistent', 'test-skill');

@@ -387,4 +387,129 @@ describe('session capability helpers', () => {
     // We'll test by creating material without salt manually.
     expect(legacyMaterial.salt).toBeUndefined();
   });
+
+  it('tracks usage toward the boundary when two bundles drain a maxUses: 2 capability', () => {
+    const capability = makeCapability({ maxUses: 2 });
+    const bundle = makeCreateGardenBundle();
+
+    const first = validateSessionCapabilityForBundle({
+      capability,
+      bundle,
+      chainKey: 'sepolia',
+      safeAddress: SAFE_ADDRESS,
+      pimlicoApiKey: 'test-pimlico-key',
+      hasEncryptedMaterial: true,
+      now: FIXED_NOW,
+    });
+    expect(first.ok).toBe(true);
+
+    const second = validateSessionCapabilityForBundle({
+      capability,
+      bundle,
+      chainKey: 'sepolia',
+      safeAddress: SAFE_ADDRESS,
+      pimlicoApiKey: 'test-pimlico-key',
+      hasEncryptedMaterial: true,
+      now: FIXED_NOW,
+    });
+    expect(second.ok).toBe(true);
+
+    // After recording one use, the capability should still be active (1 of 2 used)
+    const afterFirstUse = incrementSessionCapabilityUsage(capability, FIXED_NOW);
+    expect(afterFirstUse.usedCount).toBe(1);
+    expect(afterFirstUse.status).toBe('active');
+
+    // After recording the second use, it should be exhausted (2 of 2 used)
+    const afterSecondUse = incrementSessionCapabilityUsage(afterFirstUse, FIXED_NOW);
+    expect(afterSecondUse.usedCount).toBe(2);
+    expect(afterSecondUse.status).toBe('exhausted');
+  });
+
+  it('rejects a capability whose expiresAt is already in the past', () => {
+    const capability = makeCapability({ expiresAt: PAST });
+    const bundle = makeCreateGardenBundle();
+
+    const result = validateSessionCapabilityForBundle({
+      capability,
+      bundle,
+      chainKey: 'sepolia',
+      safeAddress: SAFE_ADDRESS,
+      pimlicoApiKey: 'test-pimlico-key',
+      hasEncryptedMaterial: true,
+      now: FIXED_NOW,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.rejectType).toBe('expired');
+      expect(result.reason).toContain('expired');
+    }
+  });
+
+  it('rejects when the bundle action class is not in the capability allowedActions', () => {
+    const capability = makeCapability({
+      allowedActions: ['green-goods-create-garden'],
+      targetAllowlist: {
+        'green-goods-create-garden': [CREATE_GARDEN_TARGET],
+      },
+    });
+
+    const policy = createPolicy({
+      actionClass: 'green-goods-create-garden-pools',
+      approvalRequired: false,
+      createdAt: FIXED_NOW,
+    });
+    const poolsBundle = createActionBundle({
+      actionClass: 'green-goods-create-garden-pools',
+      coopId: 'coop-1',
+      memberId: 'member-1',
+      payload: buildGreenGoodsCreateGardenPoolsPayload({
+        coopId: 'coop-1',
+        gardenAddress: CREATE_GARDEN_TARGET,
+      }),
+      policy,
+      createdAt: FIXED_NOW,
+      expiresAt: FUTURE,
+      chainId: 11155111,
+      chainKey: 'sepolia',
+      safeAddress: SAFE_ADDRESS,
+    });
+
+    const result = validateSessionCapabilityForBundle({
+      capability,
+      bundle: poolsBundle,
+      chainKey: 'sepolia',
+      safeAddress: SAFE_ADDRESS,
+      pimlicoApiKey: 'test-pimlico-key',
+      hasEncryptedMaterial: true,
+      now: FIXED_NOW,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.rejectType).toBe('action-denied');
+      expect(result.reason).toContain('green-goods-create-garden-pools');
+    }
+  });
+
+  it('rejects when encrypted session material is missing', () => {
+    const capability = makeCapability();
+    const bundle = makeCreateGardenBundle();
+
+    const result = validateSessionCapabilityForBundle({
+      capability,
+      bundle,
+      chainKey: 'sepolia',
+      safeAddress: SAFE_ADDRESS,
+      pimlicoApiKey: 'test-pimlico-key',
+      hasEncryptedMaterial: false,
+      now: FIXED_NOW,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.rejectType).toBe('missing-session-material');
+      expect(result.reason).toContain('session signer material');
+    }
+  });
 });

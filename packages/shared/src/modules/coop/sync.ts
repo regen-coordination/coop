@@ -10,10 +10,65 @@ import {
   artifactSchema,
   coopSharedStateSchema,
 } from '../../contracts/schema';
+import type { BlobRelayTransport } from '../blob/channel';
+import {
+  type BlobRelayMessage,
+  MESSAGE_BLOB_RELAY,
+  decodeBlobRelayMessage,
+  encodeBlobRelayMessage,
+} from '../blob/relay';
 import { createId, hashText } from '../../utils';
+
+// --- Minimal varuint framing (avoids lib0 dependency in shared package) ---
+
+function writeVarUint(num: number): Uint8Array {
+  const bytes: number[] = [];
+  while (num > 127) {
+    bytes.push((num & 0x7f) | 0x80);
+    num >>>= 7;
+  }
+  bytes.push(num & 0x7f);
+  return new Uint8Array(bytes);
+}
+
+function readVarUint(data: Uint8Array, offset: number): [number, number] {
+  let num = 0;
+  let shift = 0;
+  let pos = offset;
+  while (pos < data.length) {
+    const byte = data[pos++];
+    num |= (byte & 0x7f) << shift;
+    if ((byte & 0x80) === 0) return [num, pos];
+    shift += 7;
+  }
+  return [num, pos];
+}
+
+function encodeRelayFrame(messageType: number, jsonPayload: string): Uint8Array {
+  const typeBytes = writeVarUint(messageType);
+  const textEncoder = new TextEncoder();
+  const payloadBytes = textEncoder.encode(jsonPayload);
+  const lenBytes = writeVarUint(payloadBytes.length);
+  const result = new Uint8Array(typeBytes.length + lenBytes.length + payloadBytes.length);
+  result.set(typeBytes, 0);
+  result.set(lenBytes, typeBytes.length);
+  result.set(payloadBytes, typeBytes.length + lenBytes.length);
+  return result;
+}
+
+function decodeRelayFrame(data: Uint8Array): { messageType: number; payload: string } | null {
+  if (data.length === 0) return null;
+  const [messageType, offset1] = readVarUint(data, 0);
+  const [payloadLen, offset2] = readVarUint(data, offset1);
+  if (offset2 + payloadLen > data.length) return null;
+  const textDecoder = new TextDecoder();
+  const payload = textDecoder.decode(data.subarray(offset2, offset2 + payloadLen));
+  return { messageType, payload };
+}
 
 const ROOT_KEY = 'coop';
 const ARTIFACTS_MAP_KEY = 'coop-artifacts';
+const ARTIFACTS_V2_MAP_KEY = 'coop-artifacts-v2';
 export {
   buildIceServers,
   defaultIceServers,
@@ -95,14 +150,15 @@ export function createCoopDoc(state: CoopSharedState) {
 export function writeCoopState(doc: Y.Doc, state: CoopSharedState) {
   const root = doc.getMap<string>(ROOT_KEY);
   const artifactsMap = doc.getMap<string>(ARTIFACTS_MAP_KEY);
+  const artifactsV2 = doc.getMap<Y.Map<string>>(ARTIFACTS_V2_MAP_KEY);
 
   doc.transact(() => {
     for (const key of sharedKeys) {
-      // Dual-write: old format kept for backward compat with pre-migration peers
+      // Legacy format kept for backward compat with pre-migration peers
       root.set(key, JSON.stringify(state[key]));
     }
 
-    // New format: per-artifact entries in dedicated Y.Map
+    // v1 format: per-artifact JSON string entries
     const currentIds = new Set(state.artifacts.map((a) => a.id));
     for (const id of artifactsMap.keys()) {
       if (!currentIds.has(id)) {
@@ -112,16 +168,50 @@ export function writeCoopState(doc: Y.Doc, state: CoopSharedState) {
     for (const artifact of state.artifacts) {
       artifactsMap.set(artifact.id, JSON.stringify(artifact));
     }
+
+    // v2 format: per-artifact nested Y.Map with per-field entries.
+    // Two peers editing different fields of the same artifact merge cleanly.
+    for (const id of artifactsV2.keys()) {
+      if (!currentIds.has(id)) {
+        artifactsV2.delete(id);
+      }
+    }
+    for (const artifact of state.artifacts) {
+      let fieldMap = artifactsV2.get(artifact.id);
+      if (!fieldMap) {
+        fieldMap = new Y.Map<string>();
+        artifactsV2.set(artifact.id, fieldMap);
+      }
+      for (const [key, value] of Object.entries(artifact)) {
+        fieldMap.set(key, JSON.stringify(value));
+      }
+    }
   });
 }
 
 export function readCoopState(doc: Y.Doc): CoopSharedState {
   const root = doc.getMap<string>(ROOT_KEY);
   const artifactsMap = doc.getMap<string>(ARTIFACTS_MAP_KEY);
+  const artifactsV2 = doc.getMap<Y.Map<string>>(ARTIFACTS_V2_MAP_KEY);
 
-  // Read per-artifact map (new format) if populated, else fall back to old JSON string
+  // Read artifacts: prefer v2 (per-field) > v1 (per-artifact JSON) > legacy
   let artifacts: unknown[];
-  if (artifactsMap.size > 0) {
+  if (artifactsV2.size > 0) {
+    // v2: each artifact is a Y.Map of field→JSON-string
+    artifacts = [];
+    for (const fieldMap of artifactsV2.values()) {
+      try {
+        const obj: Record<string, unknown> = {};
+        for (const [key, value] of fieldMap.entries()) {
+          obj[key] = JSON.parse(value);
+        }
+        artifacts.push(obj);
+      } catch {
+        // skip corrupted entries
+      }
+    }
+  } else if (artifactsMap.size > 0) {
+    // v1: each artifact is a JSON string
     artifacts = [];
     for (const value of artifactsMap.values()) {
       try {
@@ -131,6 +221,7 @@ export function readCoopState(doc: Y.Doc): CoopSharedState {
       }
     }
   } else {
+    // legacy: all artifacts in a single JSON array string
     const raw = root.get('artifacts');
     artifacts = raw ? JSON.parse(raw) : [];
   }
@@ -225,6 +316,82 @@ export function connectSyncProviders(
   };
 }
 
+/**
+ * Create a BlobRelayTransport backed by a y-websocket provider.
+ *
+ * Hooks into the provider's underlying WebSocket to send/receive blob relay
+ * messages (message type 2) alongside normal Yjs sync traffic.
+ *
+ * Handles y-websocket reconnection: re-attaches the message listener when
+ * the provider creates a new WebSocket after disconnect/reconnect.
+ */
+export function createBlobRelayTransport(provider: WebsocketProvider): BlobRelayTransport | null {
+  const getWs = () => (provider as unknown as { ws: WebSocket | null }).ws;
+
+  const handlers = new Set<(msg: BlobRelayMessage) => void>();
+  let currentWs: WebSocket | null = null;
+
+  function messageListener(event: MessageEvent) {
+    const data = event.data;
+    if (!(data instanceof ArrayBuffer) && !(data instanceof Uint8Array)) return;
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    if (bytes.length === 0) return;
+
+    try {
+      const frame = decodeRelayFrame(bytes);
+      if (!frame || frame.messageType !== MESSAGE_BLOB_RELAY) return;
+
+      const msg = decodeBlobRelayMessage(frame.payload);
+      if (!msg) return;
+
+      for (const handler of handlers) {
+        handler(msg);
+      }
+    } catch {
+      // Not a blob relay message or decode error — ignore
+    }
+  }
+
+  function attachListener() {
+    const ws = getWs();
+    if (ws === currentWs) return; // already attached
+    if (currentWs) {
+      currentWs.removeEventListener('message', messageListener);
+    }
+    currentWs = ws;
+    if (ws) {
+      ws.addEventListener('message', messageListener);
+    }
+  }
+
+  // Attach to the current WebSocket
+  attachListener();
+
+  // Re-attach when the provider reconnects with a new WebSocket
+  const onStatus = () => attachListener();
+  provider.on('status', onStatus);
+
+  return {
+    sendMessage(msg: BlobRelayMessage) {
+      const ws = getWs();
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      const jsonStr = encodeBlobRelayMessage(msg);
+      ws.send(encodeRelayFrame(MESSAGE_BLOB_RELAY, jsonStr));
+    },
+    onMessage(handler: (msg: BlobRelayMessage) => void): () => void {
+      handlers.add(handler);
+      return () => {
+        handlers.delete(handler);
+        if (handlers.size === 0) {
+          if (currentWs) currentWs.removeEventListener('message', messageListener);
+          provider.off('status', onStatus);
+        }
+      };
+    },
+  };
+}
+
 export interface SyncTransportHealth {
   syncError: boolean;
   note?: string;
@@ -303,7 +470,8 @@ export function summarizeSyncTransportHealth(
 // --- Per-artifact observation (Step 20) ---
 
 /**
- * Observe per-artifact Y.Map changes for UI reactivity.
+ * Observe artifact changes for UI reactivity.
+ * Prefers v2 (per-field Y.Map) if populated, falls back to v1 (per-artifact JSON).
  * Returns an unsubscribe function.
  */
 export function observeArtifacts(
@@ -311,24 +479,49 @@ export function observeArtifacts(
   callback: (artifacts: CoopSharedState['artifacts']) => void,
 ): () => void {
   const artifactsMap = doc.getMap<string>(ARTIFACTS_MAP_KEY);
+  const artifactsV2 = doc.getMap<Y.Map<string>>(ARTIFACTS_V2_MAP_KEY);
 
-  const handler = () => {
+  const readFromV2 = (): CoopSharedState['artifacts'] => {
     const artifacts: CoopSharedState['artifacts'] = [];
-    for (const value of artifactsMap.values()) {
+    for (const fieldMap of artifactsV2.values()) {
       try {
-        const parsed = artifactSchema.safeParse(JSON.parse(value));
-        if (parsed.success) {
-          artifacts.push(parsed.data);
+        const obj: Record<string, unknown> = {};
+        for (const [key, value] of fieldMap.entries()) {
+          obj[key] = JSON.parse(value);
         }
+        const parsed = artifactSchema.safeParse(obj);
+        if (parsed.success) artifacts.push(parsed.data);
       } catch {
         // skip corrupted entries
       }
     }
-    callback(artifacts);
+    return artifacts;
   };
 
+  const readFromV1 = (): CoopSharedState['artifacts'] => {
+    const artifacts: CoopSharedState['artifacts'] = [];
+    for (const value of artifactsMap.values()) {
+      try {
+        const parsed = artifactSchema.safeParse(JSON.parse(value));
+        if (parsed.success) artifacts.push(parsed.data);
+      } catch {
+        // skip corrupted entries
+      }
+    }
+    return artifacts;
+  };
+
+  const handler = () => {
+    callback(artifactsV2.size > 0 ? readFromV2() : readFromV1());
+  };
+
+  // Observe both maps — v2 may be populated later by an updated peer
+  artifactsV2.observeDeep(handler);
   artifactsMap.observe(handler);
-  return () => artifactsMap.unobserve(handler);
+  return () => {
+    artifactsV2.unobserveDeep(handler);
+    artifactsMap.unobserve(handler);
+  };
 }
 
 // --- Horizon compaction (Step 21) ---
@@ -373,14 +566,16 @@ export function compactCoopArtifacts(input: {
     return { archivedIds: [], remainingCount: sorted.length };
   }
 
-  // Remove from both old and new Yjs structures
+  // Remove from all Yjs structures (legacy, v1, v2)
   const artifactsMap = input.doc.getMap<string>(ARTIFACTS_MAP_KEY);
+  const artifactsV2 = input.doc.getMap<Y.Map<string>>(ARTIFACTS_V2_MAP_KEY);
   const root = input.doc.getMap<string>(ROOT_KEY);
   const archivedSet = new Set(archivedIds);
 
   input.doc.transact(() => {
     for (const id of archivedIds) {
       artifactsMap.delete(id);
+      artifactsV2.delete(id);
     }
     const remaining = sorted.filter((a) => !archivedSet.has(a.id));
     root.set('artifacts', JSON.stringify(remaining));

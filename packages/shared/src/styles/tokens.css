@@ -56,6 +56,19 @@
   --coop-radius-sm: 8px;
   --coop-radius-xs: 6px;
 
+  /* ── Z-index scale ── */
+  --coop-z-base: 0;
+  --coop-z-sticky: 1;
+  --coop-z-dropdown: 10;
+  --coop-z-tooltip: 20;
+  --coop-z-toast: 25;
+  --coop-z-modal: 30;
+  --coop-z-overlay: 100;
+
+  /* ── Additional radii ── */
+  --coop-radius-button: 14px;
+  --coop-radius-icon: 10px;
+
   /* ── Spacing ── */
   --coop-space-3xs: 0.15rem;
   --coop-space-2xs: 0.2rem;
@@ -80,6 +93,23 @@
   --coop-surface-input: rgba(255, 255, 255, 0.86);
   --coop-surface-strong: rgba(255, 255, 255, 0.82);
   --coop-overlay: rgba(79, 46, 31, 0.32);
+
+  /* ── Semantic UI tokens ── */
+  --coop-text: var(--coop-brown);
+  --coop-text-soft: var(--coop-brown-soft);
+  --coop-border: rgba(79, 46, 31, 0.12);
+  --coop-panel: rgba(255, 250, 246, 0.96);
+  --coop-field: rgba(255, 251, 247, 0.98);
+  --coop-pill-bg: var(--coop-green-12);
+  --coop-pill-text: var(--coop-green);
+  --coop-primary: var(--coop-brown);
+  --coop-primary-contrast: #ffffff;
+  --coop-text-action: var(--coop-green);
+  --coop-active-bg: color-mix(in srgb, var(--coop-green) 10%, transparent);
+  --coop-active-border: color-mix(in srgb, var(--coop-green) 32%, transparent);
+  --coop-scrollbar: rgba(79, 46, 31, 0.24);
+  --coop-placeholder: rgba(112, 78, 59, 0.72);
+
   --coop-page-gradient: radial-gradient(
       circle at top right,
       rgba(90, 125, 16, 0.12),
@@ -114,6 +144,22 @@
     --coop-surface-input: rgba(46, 35, 29, 0.9);
     --coop-surface-strong: rgba(46, 35, 29, 0.88);
     --coop-overlay: rgba(0, 0, 0, 0.5);
+
+    --coop-text: #f4eadf;
+    --coop-text-soft: #ccb9ab;
+    --coop-border: rgba(255, 238, 220, 0.12);
+    --coop-panel: rgba(38, 29, 24, 0.94);
+    --coop-field: rgba(42, 32, 27, 0.98);
+    --coop-pill-bg: rgba(183, 210, 114, 0.16);
+    --coop-pill-text: #d7e891;
+    --coop-primary: #f1dfcb;
+    --coop-primary-contrast: #241913;
+    --coop-text-action: #d7e891;
+    --coop-active-bg: rgba(183, 210, 114, 0.12);
+    --coop-active-border: rgba(183, 210, 114, 0.32);
+    --coop-scrollbar: rgba(255, 238, 220, 0.22);
+    --coop-placeholder: rgba(214, 197, 185, 0.76);
+
     --coop-page-gradient: radial-gradient(
         circle at top right,
         rgba(131, 162, 54, 0.16),
@@ -148,6 +194,22 @@
   --coop-surface-input: rgba(46, 35, 29, 0.9);
   --coop-surface-strong: rgba(46, 35, 29, 0.88);
   --coop-overlay: rgba(0, 0, 0, 0.5);
+
+  --coop-text: #f4eadf;
+  --coop-text-soft: #ccb9ab;
+  --coop-border: rgba(255, 238, 220, 0.12);
+  --coop-panel: rgba(38, 29, 24, 0.94);
+  --coop-field: rgba(42, 32, 27, 0.98);
+  --coop-pill-bg: rgba(183, 210, 114, 0.16);
+  --coop-pill-text: #d7e891;
+  --coop-primary: #f1dfcb;
+  --coop-primary-contrast: #241913;
+  --coop-text-action: #d7e891;
+  --coop-active-bg: rgba(183, 210, 114, 0.12);
+  --coop-active-border: rgba(183, 210, 114, 0.32);
+  --coop-scrollbar: rgba(255, 238, 220, 0.22);
+  --coop-placeholder: rgba(214, 197, 185, 0.76);
+
   --coop-page-gradient: radial-gradient(
       circle at top right,
       rgba(131, 162, 54, 0.16),

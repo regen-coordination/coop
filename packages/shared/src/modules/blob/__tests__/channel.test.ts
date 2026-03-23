@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createBlobSyncChannel } from '../channel';
 
 /** Minimal mock for RTCDataChannel */
 function createMockDataChannel(state: RTCDataChannelState = 'open'): RTCDataChannel {
@@ -50,11 +51,6 @@ function createMockDb() {
   return {} as any;
 }
 
-// Dynamic import so the test file itself can be loaded even before channel.ts exists
-async function importChannel() {
-  return import('../channel');
-}
-
 describe('createBlobSyncChannel', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -64,8 +60,7 @@ describe('createBlobSyncChannel', () => {
     vi.useRealTimers();
   });
 
-  it('returns an object implementing BlobSyncChannel interface', async () => {
-    const { createBlobSyncChannel } = await importChannel();
+  it('returns an object implementing BlobSyncChannel interface', () => {
     const channel = createBlobSyncChannel({
       webrtcProvider: createMockWebrtcProvider(),
       db: createMockDb(),
@@ -79,8 +74,7 @@ describe('createBlobSyncChannel', () => {
     expect(typeof channel.destroy).toBe('function');
   });
 
-  it('getAvailablePeers returns empty array when no peers connected', async () => {
-    const { createBlobSyncChannel } = await importChannel();
+  it('getAvailablePeers returns empty array when no peers connected', () => {
     const channel = createBlobSyncChannel({
       webrtcProvider: createMockWebrtcProvider(),
       db: createMockDb(),
@@ -90,8 +84,7 @@ describe('createBlobSyncChannel', () => {
     expect(channel.getAvailablePeers()).toEqual([]);
   });
 
-  it('getAvailablePeers returns empty array when room is null', async () => {
-    const { createBlobSyncChannel } = await importChannel();
+  it('getAvailablePeers returns empty array when room is null', () => {
     const channel = createBlobSyncChannel({
       webrtcProvider: { room: null },
       db: createMockDb(),
@@ -101,8 +94,7 @@ describe('createBlobSyncChannel', () => {
     expect(channel.getAvailablePeers()).toEqual([]);
   });
 
-  it('broadcastManifest does not throw when no peers connected', async () => {
-    const { createBlobSyncChannel } = await importChannel();
+  it('broadcastManifest does not throw when no peers connected', () => {
     const channel = createBlobSyncChannel({
       webrtcProvider: createMockWebrtcProvider(),
       db: createMockDb(),
@@ -112,8 +104,7 @@ describe('createBlobSyncChannel', () => {
     expect(() => channel.broadcastManifest()).not.toThrow();
   });
 
-  it('destroy cleans up without errors', async () => {
-    const { createBlobSyncChannel } = await importChannel();
+  it('destroy cleans up without errors', () => {
     const channel = createBlobSyncChannel({
       webrtcProvider: createMockWebrtcProvider(),
       db: createMockDb(),
@@ -123,8 +114,7 @@ describe('createBlobSyncChannel', () => {
     expect(() => channel.destroy()).not.toThrow();
   });
 
-  it('destroy can be called multiple times safely', async () => {
-    const { createBlobSyncChannel } = await importChannel();
+  it('destroy can be called multiple times safely', () => {
     const channel = createBlobSyncChannel({
       webrtcProvider: createMockWebrtcProvider(),
       db: createMockDb(),
@@ -135,8 +125,7 @@ describe('createBlobSyncChannel', () => {
     expect(() => channel.destroy()).not.toThrow();
   });
 
-  it('sets up data channels for existing peer connections', async () => {
-    const { createBlobSyncChannel } = await importChannel();
+  it('sets up data channels for existing peer connections', () => {
     const pc = createMockPeerConnection();
     const peers = new Map([['peer-1', { peer: pc }]]);
     const provider = createMockWebrtcProvider(peers);
@@ -151,7 +140,6 @@ describe('createBlobSyncChannel', () => {
   });
 
   it('requestBlob returns null when no peers are available', async () => {
-    const { createBlobSyncChannel } = await importChannel();
     const channel = createBlobSyncChannel({
       webrtcProvider: createMockWebrtcProvider(),
       db: createMockDb(),
@@ -163,7 +151,6 @@ describe('createBlobSyncChannel', () => {
   });
 
   it('destroy resolves pending requests with null', async () => {
-    const { createBlobSyncChannel } = await importChannel();
     const channel = createBlobSyncChannel({
       webrtcProvider: createMockWebrtcProvider(),
       db: createMockDb(),

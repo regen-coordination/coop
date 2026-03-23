@@ -515,7 +515,7 @@ describe('settings persistence', () => {
       localInferenceOptIn: true,
       preferredExportMethod: 'file-picker',
       heartbeatEnabled: true,
-      agentCadenceMinutes: 60,
+      agentCadenceMinutes: 64,
       excludedCategories: ['email', 'banking', 'health'],
       customExcludedDomains: [],
       captureOnClose: false,
@@ -526,14 +526,14 @@ describe('settings persistence', () => {
       localInferenceOptIn: true,
       preferredExportMethod: 'file-picker',
       heartbeatEnabled: true,
-      agentCadenceMinutes: 60,
+      agentCadenceMinutes: 64,
       excludedCategories: ['email', 'banking', 'health'],
       customExcludedDomains: [],
       captureOnClose: false,
     });
   });
 
-  it('defaults agentCadenceMinutes to 60 when absent', async () => {
+  it('defaults agentCadenceMinutes to 64 when absent', async () => {
     const db = freshDb();
     await db.settings.put({
       key: 'ui-preferences',
@@ -550,7 +550,7 @@ describe('settings persistence', () => {
       localInferenceOptIn: false,
       preferredExportMethod: 'download',
       heartbeatEnabled: true,
-      agentCadenceMinutes: 60,
+      agentCadenceMinutes: 64,
       excludedCategories: ['email', 'banking', 'health'],
       customExcludedDomains: [],
       captureOnClose: false,

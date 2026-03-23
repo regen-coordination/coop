@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const authModeSchema = z.enum(['passkey', 'wallet', 'embedded']);
 export const memberRoleSchema = z.enum(['creator', 'trusted', 'member']);
 export const inviteTypeSchema = z.enum(['trusted', 'member']);
+export const inviteStatusSchema = z.enum(['active', 'revoked']);
 export const captureModeSchema = z.enum([
   'manual',
   '5-min',
@@ -1266,12 +1267,15 @@ export const inviteBootstrapSchema = z.object({
 export const inviteCodeSchema = z.object({
   id: z.string().min(1),
   type: inviteTypeSchema,
+  status: inviteStatusSchema.default('active'),
   expiresAt: z.string().datetime(),
   code: z.string().min(1),
   bootstrap: inviteBootstrapSchema,
   createdAt: z.string().datetime(),
   createdBy: z.string().min(1),
   usedByMemberIds: z.array(z.string()).default([]),
+  revokedAt: z.string().datetime().optional(),
+  revokedBy: z.string().min(1).optional(),
 });
 
 export const tabCandidateSchema = z.object({
@@ -1280,11 +1284,13 @@ export const tabCandidateSchema = z.object({
   windowId: z.number().int().nonnegative(),
   url: z.string().min(1),
   canonicalUrl: z.string().min(1),
+  canonicalUrlHash: z.string().optional(),
   title: z.string().min(1),
   domain: z.string().min(1),
   favicon: z.string().optional(),
   excerpt: z.string().optional(),
   tabGroupHint: z.string().optional(),
+  captureRunId: z.string().optional(),
   capturedAt: z.string().datetime(),
 });
 
@@ -1777,12 +1783,12 @@ export const preferredExportMethodSchema = z.enum(['download', 'file-picker']);
 
 export const uiPreferencesSchema = z.object({
   notificationsEnabled: z.boolean().default(true),
-  localInferenceOptIn: z.boolean().default(false),
+  localInferenceOptIn: z.boolean().default(true),
   preferredExportMethod: preferredExportMethodSchema.default('download'),
   heartbeatEnabled: z.boolean().default(true),
   agentCadenceMinutes: z
-    .union([z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)])
-    .default(60),
+    .union([z.literal(4), z.literal(8), z.literal(16), z.literal(32), z.literal(64)])
+    .default(64),
   excludedCategories: z
     .array(captureExclusionCategorySchema)
     .default(['email', 'banking', 'health']),
@@ -1910,6 +1916,7 @@ export type InviteBootstrap = z.infer<typeof inviteBootstrapSchema>;
 export type InviteCoopBootstrapSnapshot = z.infer<typeof inviteCoopBootstrapSnapshotSchema>;
 export type InviteCode = z.infer<typeof inviteCodeSchema>;
 export type InviteType = z.infer<typeof inviteTypeSchema>;
+export type InviteStatus = z.infer<typeof inviteStatusSchema>;
 export type IntegrationMode = z.infer<typeof integrationModeSchema>;
 export type SessionMode = z.infer<typeof sessionModeSchema>;
 export type LocalEnhancementAvailability = z.infer<typeof localEnhancementAvailabilitySchema>;

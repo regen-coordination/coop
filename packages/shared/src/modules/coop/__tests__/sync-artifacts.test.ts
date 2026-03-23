@@ -193,6 +193,38 @@ describe('Yjs per-artifact map migration', () => {
     expect(result1.artifacts.map((a) => a.id).sort()).toEqual(['a1', 'a2', 'a3']);
   });
 
+  it('v2 per-field Y.Map allows independent field updates without full-artifact clobber', () => {
+    const state = buildTestState([{ id: 'a1', title: 'Original', tags: ['alpha'] }]);
+
+    const doc = new Y.Doc();
+    writeCoopState(doc, state);
+
+    // Directly update only the 'title' field in the v2 map (simulating a partial write)
+    const artifactsV2 = doc.getMap<Y.Map<string>>('coop-artifacts-v2');
+    const fieldMap = artifactsV2.get('a1');
+    expect(fieldMap).toBeDefined();
+
+    // Update only 'title' — 'tags' remains untouched
+    fieldMap!.set('title', JSON.stringify('Updated Title'));
+
+    const result = readCoopState(doc);
+    expect(result.artifacts[0].title).toBe('Updated Title');
+    expect(result.artifacts[0].tags).toEqual(['alpha']); // unchanged
+  });
+
+  it('v2 format is populated by writeCoopState alongside v1', () => {
+    const state = buildTestState([{ id: 'a1', title: 'Test' }]);
+    const doc = new Y.Doc();
+    writeCoopState(doc, state);
+
+    const artifactsV2 = doc.getMap<Y.Map<string>>('coop-artifacts-v2');
+    expect(artifactsV2.size).toBe(1);
+
+    const fieldMap = artifactsV2.get('a1');
+    expect(fieldMap).toBeDefined();
+    expect(JSON.parse(fieldMap!.get('title') ?? '')).toBe('Test');
+  });
+
   it('createCoopDoc initialises both old and new format', () => {
     const state = buildTestState([{ id: 'a1' }]);
     const doc = createCoopDoc(state);
@@ -218,20 +250,18 @@ describe('observeArtifacts', () => {
     const callback = vi.fn();
     const unsubscribe = observeArtifacts(doc, callback);
 
-    // Modify the artifacts map
-    const artifactsMap = doc.getMap<string>('coop-artifacts');
-    artifactsMap.set(
-      'a2',
-      JSON.stringify({
-        ...state.artifacts[0],
-        id: 'a2',
-        title: 'New Artifact',
-      }),
-    );
+    // Add an artifact through writeCoopState so all formats are updated
+    const nextState = readCoopState(doc);
+    nextState.artifacts.push({
+      ...nextState.artifacts[0],
+      id: 'a2',
+      title: 'New Artifact',
+    });
+    writeCoopState(doc, nextState);
 
     expect(callback).toHaveBeenCalled();
-    const artifacts = callback.mock.calls[0][0];
-    expect(artifacts).toHaveLength(2);
+    const lastArtifacts = callback.mock.calls.at(-1)?.[0];
+    expect(lastArtifacts).toHaveLength(2);
 
     unsubscribe();
   });
@@ -280,8 +310,10 @@ describe('observeArtifacts', () => {
     const callback = vi.fn();
     const unsubscribe = observeArtifacts(doc, callback);
 
-    const artifactsMap = doc.getMap<string>('coop-artifacts');
-    artifactsMap.delete('a1');
+    // Remove via writeCoopState so all formats are consistent
+    const nextState = readCoopState(doc);
+    nextState.artifacts = nextState.artifacts.filter((a) => a.id !== 'a1');
+    writeCoopState(doc, nextState);
 
     expect(callback).toHaveBeenCalled();
     const lastCall = callback.mock.calls.at(-1)?.[0];

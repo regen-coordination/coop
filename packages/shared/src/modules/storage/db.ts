@@ -105,6 +105,22 @@ export interface ReplayIdRecord {
   executedAt: string;
 }
 
+export type SyncOutboxEntryType = 'artifact-publish' | 'state-update';
+export type SyncOutboxEntryStatus = 'pending' | 'synced' | 'failed';
+
+export interface SyncOutboxEntry {
+  id: string;
+  coopId: string;
+  type: SyncOutboxEntryType;
+  /** Key identifying the change (e.g., artifact ID) for dedup. */
+  entityKey: string;
+  createdAt: string;
+  status: SyncOutboxEntryStatus;
+  syncedAt?: string;
+  retryCount: number;
+  lastError?: string;
+}
+
 export class CoopDexie extends Dexie {
   tabCandidates!: EntityTable<TabCandidate, 'id'>;
   pageExtracts!: EntityTable<ReadablePageExtract, 'id'>;
@@ -137,6 +153,7 @@ export class CoopDexie extends Dexie {
   agentMemories!: EntityTable<AgentMemory, 'id'>;
   encryptedLocalPayloads!: EntityTable<EncryptedLocalPayload, 'id'>;
   coopBlobs!: EntityTable<CoopBlobRecord, 'blobId'>;
+  syncOutbox!: EntityTable<SyncOutboxEntry, 'id'>;
 
   constructor(name = 'coop-v1') {
     super(name);
@@ -514,10 +531,20 @@ export class CoopDexie extends Dexie {
       encryptedLocalPayloads: 'id, [kind+entityId], kind, entityId, wrappedAt, expiresAt',
       coopBlobs: 'blobId, sourceEntityId, coopId, kind, origin, accessedAt',
     });
+    this.version(16).stores({
+      syncOutbox: 'id, coopId, type, status, createdAt, entityKey',
+    });
+    this.version(17).stores({
+      pageExtracts: 'id, canonicalUrl, domain, textHash, createdAt',
+    });
+    this.version(18).stores({
+      tabCandidates: 'id, canonicalUrl, canonicalUrlHash, domain, captureRunId, capturedAt',
+    });
   }
 }
 
 const LOCAL_DATA_WRAPPING_SECRET_KEY = 'session-wrapping-secret';
+const wrappingSecretCache = new Map<string, string>();
 const LOCAL_DATA_PLACEHOLDER_PREFIX = 'encrypted://local';
 const LOCAL_DATA_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const LOCAL_DATA_REDACTED_SOURCE = {
@@ -613,8 +640,12 @@ function looksRedactedAgentMemory(memory: AgentMemory) {
 }
 
 async function ensureLocalDataWrappingSecret(db: CoopDexie) {
+  const cached = wrappingSecretCache.get(db.name);
+  if (cached) return cached;
+
   const existing = await db.settings.get(LOCAL_DATA_WRAPPING_SECRET_KEY);
   if (typeof existing?.value === 'string' && existing.value.length > 0) {
+    wrappingSecretCache.set(db.name, existing.value);
     return existing.value;
   }
 
@@ -623,6 +654,7 @@ async function ensureLocalDataWrappingSecret(db: CoopDexie) {
     key: LOCAL_DATA_WRAPPING_SECRET_KEY,
     value: secret,
   });
+  wrappingSecretCache.set(db.name, secret);
   return secret;
 }
 
@@ -876,6 +908,39 @@ export async function savePageExtract(db: CoopDexie, extract: ReadablePageExtrac
     await db.pageExtracts.put(buildRedactedPageExtract(extract));
     await db.encryptedLocalPayloads.put(payload);
   });
+}
+
+/**
+ * Find the most recent tab candidate matching a canonical URL hash.
+ * Uses the canonicalUrlHash index which survives redaction (unlike canonicalUrl).
+ * Returns the candidate with the latest capturedAt to ensure the dedup cooldown
+ * comparison uses the most recent capture, not an arbitrary older one.
+ *
+ * Note: canonicalUrlHash is optional in the schema to avoid back-filling existing
+ * rows. Pre-migration records have undefined and simply won't match.
+ */
+export async function findRecentCandidateByUrlHash(
+  db: CoopDexie,
+  canonicalUrlHash: string,
+): Promise<TabCandidate | undefined> {
+  const matches = await db.tabCandidates
+    .where('canonicalUrlHash')
+    .equals(canonicalUrlHash)
+    .sortBy('capturedAt');
+  return matches.at(-1);
+}
+
+/**
+ * Check if an extract with the same content hash already exists.
+ * Uses the redacted record's textHash (preserved through encryption redaction).
+ * Returns the existing record's id if found, undefined otherwise.
+ */
+export async function findExistingExtractByTextHash(
+  db: CoopDexie,
+  textHash: string,
+): Promise<string | undefined> {
+  const existing = await db.pageExtracts.where('textHash').equals(textHash).first();
+  return existing?.id;
 }
 
 export async function getPageExtract(db: CoopDexie, extractId: string) {
@@ -1655,6 +1720,7 @@ export async function purgeQuarantinedKnowledgeSkills(db: CoopDexie) {
 }
 
 export async function clearSensitiveLocalData(db: CoopDexie) {
+  wrappingSecretCache.delete(db.name);
   await db.transaction(
     'rw',
     [

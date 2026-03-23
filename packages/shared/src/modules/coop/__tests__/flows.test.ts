@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { sessionToMember } from '../../auth/auth';
 import {
+  canManageInvites,
   createCoop,
   createMember,
   createStateFromInviteBootstrap,
   generateInviteCode,
+  getComputedInviteStatus,
   joinCoop,
+  leaveCoop,
   parseInviteCode,
+  revokeInviteCode,
   verifyInviteCodeProof,
 } from '../flows';
 import {
@@ -518,6 +522,327 @@ describe('create, join, and publish flows', () => {
 
   it('throws a clear error when parseInviteCode receives empty input', () => {
     expect(() => parseInviteCode('')).toThrow('Invite code is malformed or corrupted.');
+  });
+
+  it('revokes an active invite code', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+    const stateWithInvite = { ...created.state, invites: [invite] };
+
+    const revoked = revokeInviteCode({
+      state: stateWithInvite,
+      inviteId: invite.id,
+      revokedBy: created.creator.id,
+    });
+
+    const revokedInvite = revoked.invites.find((i) => i.id === invite.id);
+    expect(revokedInvite?.status).toBe('revoked');
+    expect(revokedInvite?.revokedBy).toBe(created.creator.id);
+    expect(revokedInvite?.revokedAt).toBeDefined();
+  });
+
+  it('rejects join attempt on a revoked invite', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+    const stateWithInvite = { ...created.state, invites: [invite] };
+    const revoked = revokeInviteCode({
+      state: stateWithInvite,
+      inviteId: invite.id,
+      revokedBy: created.creator.id,
+    });
+
+    expect(() =>
+      joinCoop({
+        state: revoked,
+        invite,
+        displayName: 'Attacker',
+        seedContribution: 'Trying to join with a revoked invite.',
+      }),
+    ).toThrow(/revoked/i);
+  });
+
+  it('only allows creators and trusted members to revoke invites', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+    const stateWithInvite = { ...created.state, invites: [invite] };
+
+    const joined = joinCoop({
+      state: stateWithInvite,
+      invite,
+      displayName: 'Mina',
+      seedContribution: 'Regular member here.',
+    });
+    const regularMember = joined.state.members[1]!;
+
+    expect(canManageInvites(joined.state, created.creator.id)).toBe(true);
+    expect(canManageInvites(joined.state, regularMember.id)).toBe(false);
+    expect(() =>
+      revokeInviteCode({
+        state: joined.state,
+        inviteId: invite.id,
+        revokedBy: regularMember.id,
+      }),
+    ).toThrow(/creators and trusted members/i);
+
+    // Regular members also cannot generate invites
+    expect(() =>
+      generateInviteCode({
+        state: joined.state,
+        createdBy: regularMember.id,
+        type: 'member',
+      }),
+    ).toThrow(/creators and trusted members/i);
+  });
+
+  it('computes invite status correctly across lifecycle stages', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+
+    expect(getComputedInviteStatus(invite)).toBe('active');
+
+    const expiredInvite = { ...invite, expiresAt: '2020-01-01T00:00:00.000Z' };
+    expect(getComputedInviteStatus(expiredInvite)).toBe('expired');
+
+    const usedInvite = { ...invite, usedByMemberIds: ['member-1'] };
+    expect(getComputedInviteStatus(usedInvite)).toBe('used');
+
+    const revokedInvite = { ...invite, status: 'revoked' as const };
+    expect(getComputedInviteStatus(revokedInvite)).toBe('revoked');
+
+    // Revoked takes precedence over expired
+    const revokedAndExpired = {
+      ...invite,
+      status: 'revoked' as const,
+      expiresAt: '2020-01-01T00:00:00.000Z',
+    };
+    expect(getComputedInviteStatus(revokedAndExpired)).toBe('revoked');
+  });
+
+  it('supports custom expiry when generating invite codes', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+      expiresInHours: 1,
+    });
+
+    const expiresAt = new Date(invite.expiresAt).getTime();
+    const now = Date.now();
+    // Should expire within ~1 hour (with some tolerance)
+    expect(expiresAt - now).toBeLessThan(1.1 * 60 * 60 * 1000);
+    expect(expiresAt - now).toBeGreaterThan(0.9 * 60 * 60 * 1000);
+  });
+
+  it('prevents double-revocation of an invite', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+    const stateWithInvite = { ...created.state, invites: [invite] };
+    const revoked = revokeInviteCode({
+      state: stateWithInvite,
+      inviteId: invite.id,
+      revokedBy: created.creator.id,
+    });
+
+    expect(() =>
+      revokeInviteCode({
+        state: revoked,
+        inviteId: invite.id,
+        revokedBy: created.creator.id,
+      }),
+    ).toThrow(/already revoked/i);
+  });
+
+  it('trusted members can manage invites', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'trusted',
+    });
+    const stateWithInvite = { ...created.state, invites: [invite] };
+
+    const joined = joinCoop({
+      state: stateWithInvite,
+      invite,
+      displayName: 'Mina',
+      seedContribution: 'Trusted member here.',
+    });
+    const trustedMember = joined.state.members[1]!;
+    expect(trustedMember.role).toBe('trusted');
+    expect(canManageInvites(joined.state, trustedMember.id)).toBe(true);
+
+    // Trusted member can generate a new invite and revoke it
+    const newInvite = generateInviteCode({
+      state: joined.state,
+      createdBy: trustedMember.id,
+      type: 'member',
+    });
+    const stateWithNewInvite = { ...joined.state, invites: [...joined.state.invites, newInvite] };
+    const revokedState = revokeInviteCode({
+      state: stateWithNewInvite,
+      inviteId: newInvite.id,
+      revokedBy: trustedMember.id,
+    });
+    expect(revokedState.invites.find((i) => i.id === newInvite.id)?.status).toBe('revoked');
+  });
+
+  it('allows a member to leave a coop and removes their member account', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+    const joined = joinCoop({
+      state: { ...created.state, invites: [invite] },
+      invite,
+      displayName: 'Mina',
+      seedContribution: 'Regular member here.',
+    });
+    const regularMember = joined.state.members[1]!;
+
+    const result = leaveCoop({ state: joined.state, memberId: regularMember.id });
+
+    expect(result.state.members).toHaveLength(1);
+    expect(result.state.members[0]?.id).toBe(created.creator.id);
+    expect(result.removedMember.id).toBe(regularMember.id);
+    expect(result.state.memberAccounts.every((a) => a.memberId !== regularMember.id)).toBe(true);
+    expect(result.state.profile.active).toBe(true);
+  });
+
+  it('prevents the creator from leaving while other members remain', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const invite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+    const joined = joinCoop({
+      state: { ...created.state, invites: [invite] },
+      invite,
+      displayName: 'Mina',
+      seedContribution: 'Regular member here.',
+    });
+
+    expect(() => leaveCoop({ state: joined.state, memberId: created.creator.id })).toThrow(
+      /creator cannot leave while other members remain/i,
+    );
+  });
+
+  it('allows the creator to leave when they are the last member, deactivating the coop', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+
+    const result = leaveCoop({ state: created.state, memberId: created.creator.id });
+
+    expect(result.state.members).toHaveLength(0);
+    expect(result.state.profile.active).toBe(false);
+    expect(result.removedMember.id).toBe(created.creator.id);
+  });
+
+  it('throws when attempting to remove a non-existent member', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+
+    expect(() => leaveCoop({ state: created.state, memberId: 'nonexistent-id' })).toThrow(
+      /member not found/i,
+    );
   });
 
   it('fails multi-coop publish when the authenticated person is not a member of every target coop', () => {

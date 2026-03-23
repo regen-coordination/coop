@@ -9,6 +9,7 @@ import {
   type InviteCoopBootstrapSnapshot,
   type InviteType,
   type Member,
+  type MemberRole,
   type OnchainState,
   type SoundEvent,
   coopBootstrapSnapshotSchema,
@@ -43,6 +44,8 @@ import {
   toSyncRoomBootstrap,
   updateCoopState,
 } from './sync';
+
+const INVITE_MANAGER_ROLES: MemberRole[] = ['creator', 'trusted'];
 
 export interface CreateCoopInput {
   coopName: string;
@@ -449,6 +452,9 @@ export function generateInviteCode(input: {
   if (isBootstrapSyncRoomConfig(input.state.syncRoom)) {
     throw new Error('Invites are unavailable until sync completes on this member.');
   }
+  if (!canManageInvites(input.state, input.createdBy)) {
+    throw new Error('Only creators and trusted members can generate invites.');
+  }
 
   const inviteId = createId('invite');
   const expiresInHours = input.expiresInHours ?? (input.type === 'trusted' ? 48 : 24 * 7);
@@ -504,6 +510,11 @@ export function validateInvite(input: { invite: InviteCode; now?: Date }) {
 }
 
 export function joinCoop(input: JoinCoopInput) {
+  const stateInvite = input.state.invites.find((i) => i.id === input.invite.id);
+  if (stateInvite?.status === 'revoked') {
+    throw new Error('This invite has been revoked.');
+  }
+
   if (!validateInvite({ invite: input.invite })) {
     throw new Error('Invite has expired.');
   }
@@ -624,4 +635,89 @@ export function applyJoinToDoc(
 
 export function readStateFromDoc(doc: Y.Doc) {
   return readCoopState(doc);
+}
+
+// ---------------------------------------------------------------------------
+// Invite lifecycle
+// ---------------------------------------------------------------------------
+
+export function canManageInvites(state: CoopSharedState, memberId: string): boolean {
+  const member = state.members.find((m) => m.id === memberId);
+  if (!member) return false;
+  return INVITE_MANAGER_ROLES.includes(member.role);
+}
+
+export type ComputedInviteStatus = 'active' | 'revoked' | 'expired' | 'used';
+
+export function getComputedInviteStatus(invite: InviteCode, now?: Date): ComputedInviteStatus {
+  if (invite.status === 'revoked') return 'revoked';
+  if (!validateInvite({ invite, now })) return 'expired';
+  if (invite.usedByMemberIds.length > 0) return 'used';
+  return 'active';
+}
+
+export function revokeInviteCode(input: {
+  state: CoopSharedState;
+  inviteId: string;
+  revokedBy: string;
+}): CoopSharedState {
+  if (!canManageInvites(input.state, input.revokedBy)) {
+    throw new Error('Only creators and trusted members can revoke invites.');
+  }
+
+  const invite = input.state.invites.find((i) => i.id === input.inviteId);
+  if (!invite) {
+    throw new Error('Invite not found.');
+  }
+  if (invite.status === 'revoked') {
+    throw new Error('Invite is already revoked.');
+  }
+
+  return coopSharedStateSchema.parse({
+    ...input.state,
+    invites: input.state.invites.map((i) =>
+      i.id === input.inviteId
+        ? { ...i, status: 'revoked' as const, revokedAt: nowIso(), revokedBy: input.revokedBy }
+        : i,
+    ),
+  });
+}
+
+export function applyRevokeInviteToDoc(doc: Y.Doc, inviteId: string, revokedBy: string) {
+  return updateCoopState(doc, (current) =>
+    revokeInviteCode({ state: current, inviteId, revokedBy }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Leave coop
+// ---------------------------------------------------------------------------
+
+export interface LeaveCoopInput {
+  state: CoopSharedState;
+  memberId: string;
+}
+
+export interface LeaveCoopResult {
+  state: CoopSharedState;
+  removedMember: Member;
+}
+
+export function leaveCoop(input: LeaveCoopInput): LeaveCoopResult {
+  const member = input.state.members.find((m) => m.id === input.memberId);
+  if (!member) throw new Error('Member not found in coop.');
+  if (member.role === 'creator' && input.state.members.length > 1) {
+    throw new Error('The coop creator cannot leave while other members remain.');
+  }
+  const nextMembers = input.state.members.filter((m) => m.id !== input.memberId);
+  const nextMemberAccounts = (input.state.memberAccounts ?? []).filter(
+    (a) => a.memberId !== input.memberId,
+  );
+  const nextState: CoopSharedState = {
+    ...input.state,
+    members: nextMembers,
+    memberAccounts: nextMemberAccounts,
+    profile: { ...input.state.profile, active: nextMembers.length > 0 },
+  };
+  return { state: nextState, removedMember: member };
 }
