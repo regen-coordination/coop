@@ -175,6 +175,38 @@ export async function emitRoundupBatchObservation(input: {
   });
 }
 
+export async function emitAudioTranscriptObservation(input: {
+  captureId: string;
+  coopId?: string;
+  transcriptText: string;
+  durationSeconds?: number;
+}) {
+  if (!input.transcriptText.trim()) {
+    return null;
+  }
+
+  const TRANSCRIPT_PREVIEW_LIMIT = 200;
+  const preview = input.transcriptText.slice(0, TRANSCRIPT_PREVIEW_LIMIT);
+  const ellipsis = input.transcriptText.length > TRANSCRIPT_PREVIEW_LIMIT ? '…' : '';
+
+  // Store only a truncated preview in the payload — the full transcript
+  // is already persisted as a CoopBlob (kind: 'audio-transcript').
+  const PAYLOAD_TEXT_LIMIT = 2000;
+
+  return emitAgentObservationIfMissing({
+    trigger: 'audio-transcript-ready',
+    title: 'Voice note transcribed',
+    summary: `Transcribed audio capture: \u201C${preview}${ellipsis}\u201D`,
+    captureId: input.captureId,
+    coopId: input.coopId,
+    payload: {
+      captureId: input.captureId,
+      transcriptText: input.transcriptText.slice(0, PAYLOAD_TEXT_LIMIT),
+      durationSeconds: input.durationSeconds,
+    },
+  });
+}
+
 export async function syncHighConfidenceDraftObservations(drafts: ReviewDraft[]) {
   const candidates = drafts.filter((draft) => draft.confidence >= AGENT_HIGH_CONFIDENCE_THRESHOLD);
   for (const draft of candidates) {

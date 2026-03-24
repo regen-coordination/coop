@@ -335,6 +335,7 @@ export async function buildSummary(): Promise<RuntimeSummary> {
         : `Heuristics-first fallback (${enhancement.reason})`,
     localInferenceOptIn: prefs.localInferenceOptIn,
     activeCoopId: activeContext.activeCoopId,
+    pendingOutboxCount: outboxCount,
   };
 }
 
@@ -342,6 +343,18 @@ export async function writePopupSnapshot(
   summary: RuntimeSummary,
   coops: Array<{ profile: { id: string; name: string }; artifacts: unknown[] }>,
 ) {
+  // Fetch the 3 most recent draft titles for instant Chickens tab preview
+  const recentDraftTitles: string[] = [];
+  try {
+    const drafts = await listReviewDrafts(db);
+    const sorted = [...drafts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    for (const draft of sorted.slice(0, 3)) {
+      recentDraftTitles.push(draft.title);
+    }
+  } catch {
+    // Non-critical — snapshot works without previews
+  }
+
   const snapshot: PopupSnapshot = {
     hasCoops: coops.length > 0,
     coopCount: coops.length,
@@ -353,6 +366,7 @@ export async function writePopupSnapshot(
     draftCount: summary.pendingDrafts,
     artifactCount: coops.reduce((sum, c) => sum + c.artifacts.length, 0),
     lastCaptureAt: summary.lastCaptureAt,
+    recentDraftTitles,
     cachedAt: new Date().toISOString(),
   };
 

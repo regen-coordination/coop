@@ -169,7 +169,7 @@ export function useCapture(
           return { captureId: capture.id, coopId: capture.coopId };
         }
         setHatchedCaptureId(capture.id);
-        void playCoopSound('artifact-published', soundPreferencesRef.current).catch(() => {});
+        void playCoopSound('capture-complete', soundPreferencesRef.current).catch(() => {});
         triggerHaptic('capture-saved', hapticPreferencesRef.current);
         setMessage(
           usablePairing
@@ -229,7 +229,7 @@ export function useCapture(
           return;
         }
         setHatchedCaptureId(capture.id);
-        void playCoopSound('artifact-published', soundPreferencesRef.current).catch(() => {});
+        void playCoopSound('capture-complete', soundPreferencesRef.current).catch(() => {});
         triggerHaptic('capture-saved', hapticPreferencesRef.current);
         setMessage(
           usablePairing

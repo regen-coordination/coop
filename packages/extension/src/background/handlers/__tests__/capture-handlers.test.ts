@@ -84,6 +84,7 @@ vi.mock('../../operator', () => ({
 vi.mock('../agent', () => ({
   syncHighConfidenceDraftObservations: vi.fn(),
   emitRoundupBatchObservation: vi.fn(),
+  emitAudioTranscriptObservation: vi.fn(),
   drainAgentCycles: vi.fn(),
 }));
 
@@ -96,6 +97,8 @@ vi.mock('@coop/shared', async (importOriginal) => {
     saveReviewDraft: vi.fn().mockResolvedValue(undefined),
     updateReceiverCapture: vi.fn().mockResolvedValue(undefined),
     isWhisperSupported: vi.fn().mockResolvedValue(false),
+    transcribeAudio: vi.fn().mockResolvedValue({ text: '', segments: [], duration: 0 }),
+    saveCoopBlob: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -224,5 +227,68 @@ describe('captureAudio', () => {
 
     const { refreshBadge } = await import('../../dashboard');
     expect(vi.mocked(refreshBadge)).toHaveBeenCalled();
+  });
+
+  it('emits an observation and notification when Whisper transcription succeeds', async () => {
+    const shared = await import('@coop/shared');
+    vi.mocked(shared.isWhisperSupported).mockResolvedValue(true);
+    vi.mocked(shared.transcribeAudio).mockResolvedValue({
+      text: 'Maria mentioned the EPA grant requires 20% local match',
+      segments: [
+        {
+          start: 0,
+          end: 5,
+          text: 'Maria mentioned the EPA grant requires 20% local match',
+          confidence: 1,
+        },
+      ],
+      duration: 5,
+      language: 'en',
+      modelId: 'whisper-tiny.en',
+    });
+
+    await captureAudio({
+      dataBase64: btoa('audio-data'),
+      mimeType: 'audio/webm',
+      durationSeconds: 5,
+      fileName: 'voice-note.webm',
+    });
+
+    // Allow fire-and-forget async IIFE to settle
+    await vi.waitFor(() => Promise.resolve(), { timeout: 200 });
+
+    const { emitAudioTranscriptObservation } = await import('../agent');
+    expect(vi.mocked(emitAudioTranscriptObservation)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        captureId: expect.any(String),
+        transcriptText: 'Maria mentioned the EPA grant requires 20% local match',
+        durationSeconds: 5,
+      }),
+    );
+
+    const { notifyExtensionEvent } = await import('../../context');
+    expect(vi.mocked(notifyExtensionEvent)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKind: 'transcript-ready',
+        title: 'Voice note transcribed',
+      }),
+    );
+  });
+
+  it('does not emit observation when Whisper is unsupported', async () => {
+    const shared = await import('@coop/shared');
+    vi.mocked(shared.isWhisperSupported).mockResolvedValue(false);
+
+    await captureAudio({
+      dataBase64: btoa('audio-data'),
+      mimeType: 'audio/webm',
+      durationSeconds: 5,
+      fileName: 'voice-note.webm',
+    });
+
+    await new Promise((r) => setTimeout(r, 50));
+
+    const { emitAudioTranscriptObservation } = await import('../agent');
+    expect(vi.mocked(emitAudioTranscriptObservation)).not.toHaveBeenCalled();
   });
 });
