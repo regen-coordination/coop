@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+/** Ignore agent events older than this to avoid showing stale data on popup open. */
+const STALE_EVENT_THRESHOLD_MS = 30_000;
+/** Suppress events during initial mount to avoid racing with the first dashboard fetch. */
+const MOUNT_SETTLE_MS = 500;
 import {
+  type AgentStateDeltaEvent,
+  type BackgroundNotification,
   type DashboardResponse,
   POPUP_SNAPSHOT_KEY,
   type PopupSnapshot,
@@ -53,6 +60,9 @@ export function usePopupDashboard() {
       .catch(() => {});
   }, []);
 
+  const [agentDelta, setAgentDelta] = useState<AgentStateDeltaEvent | null>(null);
+  const mountedAtRef = useRef(Date.now());
+
   useEffect(() => {
     void loadDashboard();
 
@@ -62,7 +72,26 @@ export function usePopupDashboard() {
       }
     }
     document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+
+    // Listen for background push notifications (matching sidepanel pattern)
+    const listener = (msg: BackgroundNotification) => {
+      if (msg.type === 'DASHBOARD_UPDATED') {
+        void loadDashboard();
+      }
+      if (msg.type === 'AGENT_STATE_DELTA') {
+        // Ignore events older than 30s to avoid stale data on popup open
+        const age = Date.now() - new Date(msg.emittedAt).getTime();
+        if (age < STALE_EVENT_THRESHOLD_MS && Date.now() - mountedAtRef.current > MOUNT_SETTLE_MS) {
+          setAgentDelta(msg);
+        }
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      chrome.runtime.onMessage.removeListener(listener);
+    };
   }, [loadDashboard]);
 
   // Derive hasCoops from the best available source:
@@ -85,5 +114,7 @@ export function usePopupDashboard() {
     activeCoopDrafts: useMemo(() => selectVisibleDrafts(dashboard), [dashboard]),
     activeCoopReadyDrafts: useMemo(() => selectReadyDrafts(dashboard), [dashboard]),
     activeCoopArtifacts: useMemo(() => selectRecentArtifacts(dashboard), [dashboard]),
+    agentDelta,
+    clearAgentDelta: useCallback(() => setAgentDelta(null), []),
   };
 }

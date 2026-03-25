@@ -122,7 +122,7 @@ import {
 } from './agent-output-handlers';
 import { computeOutputConfidence } from './agent-quality';
 import { type RegisteredSkill, getRegisteredSkill, listRegisteredSkills } from './agent-registry';
-import { type RuntimeActionResponse, notifyDashboardUpdated } from './messages';
+import { type RuntimeActionResponse, notifyAgentEvent, notifyDashboardUpdated } from './messages';
 
 type CoopDexie = ReturnType<typeof createCoopDb>;
 
@@ -1821,6 +1821,13 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
     lastRequestAt: request?.requestedAt,
     lastError: undefined,
   });
+  void notifyAgentEvent({
+    type: 'AGENT_CYCLE_STARTED',
+    traceId: traceId ?? '',
+    reason: options.reason ?? 'scheduled',
+    pendingObservationCount: pendingObservations.length,
+    emittedAt: nowIso(),
+  });
 
   const result: AgentCycleResult = {
     processedObservationIds: [],
@@ -1898,7 +1905,14 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
       result.skillRunMetrics.push(...observationResult.skillRunMetrics);
     }
   } catch (error) {
-    result.errors.push(error instanceof Error ? error.message : 'Agent cycle failed.');
+    const errorMessage = error instanceof Error ? error.message : 'Agent cycle failed.';
+    result.errors.push(errorMessage);
+    void notifyAgentEvent({
+      type: 'AGENT_CYCLE_ERROR',
+      traceId: result.traceId ?? '',
+      error: errorMessage,
+      emittedAt: nowIso(),
+    });
   } finally {
     void pruneExpiredMemories(db).catch((err) => {
       console.warn('[agent-memory] Failed to prune expired memories:', err);
@@ -1948,6 +1962,17 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
         void runAgentCycle();
       });
     }
+    // Always emit AGENT_CYCLE_FINISHED to match the unconditional AGENT_CYCLE_STARTED,
+    // preventing agentRunning from getting stuck at true in the UI.
+    void notifyAgentEvent({
+      type: 'AGENT_CYCLE_FINISHED',
+      traceId: result.traceId ?? '',
+      processedCount: result.processedObservationIds.length,
+      draftCount: result.createdDraftIds.length,
+      errorCount: result.errors.length,
+      durationMs: result.totalDurationMs ?? 0,
+      emittedAt: nowIso(),
+    });
     if (
       result.processedObservationIds.length > 0 ||
       result.createdDraftIds.length > 0 ||

@@ -569,23 +569,73 @@ export async function sendRuntimeMessage<T = unknown>(message: RuntimeRequest) {
 }
 
 /**
- * Messages pushed from the background service worker to the sidepanel.
+ * Messages pushed from the background service worker to the popup/sidepanel.
  * These are fire-and-forget notifications, not request/response pairs.
+ *
+ * Agent event types are modeled on the AG-UI (Agent-User Interaction Protocol)
+ * event taxonomy, adapted for Chrome extension message passing.
+ * See: https://docs.ag-ui.com/concepts/events
  */
-export type BackgroundNotification = { type: 'DASHBOARD_UPDATED' };
 
-/**
- * Notify the sidepanel that dashboard-relevant state has changed.
- * Silently ignores the expected "Receiving end does not exist" error
- * (when no sidepanel listener is open) but warns on unexpected failures.
- */
+export interface AgentCycleStartedEvent {
+  type: 'AGENT_CYCLE_STARTED';
+  traceId: string;
+  reason: string;
+  pendingObservationCount: number;
+  emittedAt: string;
+}
+
+export interface AgentCycleFinishedEvent {
+  type: 'AGENT_CYCLE_FINISHED';
+  traceId: string;
+  processedCount: number;
+  draftCount: number;
+  errorCount: number;
+  durationMs: number;
+  emittedAt: string;
+}
+
+export interface AgentStateDeltaEvent {
+  type: 'AGENT_STATE_DELTA';
+  routedTabs: number;
+  insightDrafts: number;
+  reviewDigests: number;
+  pendingActions: number;
+  message: string;
+  emittedAt: string;
+}
+
+export interface AgentCycleErrorEvent {
+  type: 'AGENT_CYCLE_ERROR';
+  traceId: string;
+  error: string;
+  emittedAt: string;
+}
+
+export type AgentEvent =
+  | AgentCycleStartedEvent
+  | AgentCycleFinishedEvent
+  | AgentStateDeltaEvent
+  | AgentCycleErrorEvent;
+
+export type BackgroundNotification = { type: 'DASHBOARD_UPDATED' } | AgentEvent;
+
+/** Fire-and-forget push to any open popup or sidepanel. Suppresses "Receiving end does not exist". */
+function sendBackgroundNotification(msg: BackgroundNotification, label: string): Promise<void> {
+  return chrome.runtime.sendMessage(msg).catch((err: unknown) => {
+    const detail = err instanceof Error ? err.message : String(err);
+    if (!detail.includes('Receiving end does not exist')) {
+      console.warn(`[${label}] unexpected error:`, err);
+    }
+  });
+}
+
+/** Notify the popup/sidepanel that dashboard-relevant state has changed. */
 export function notifyDashboardUpdated(): Promise<void> {
-  return chrome.runtime
-    .sendMessage({ type: 'DASHBOARD_UPDATED' } satisfies BackgroundNotification)
-    .catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err);
-      if (!message.includes('Receiving end does not exist')) {
-        console.warn('[notifyDashboardUpdated] unexpected error:', err);
-      }
-    });
+  return sendBackgroundNotification({ type: 'DASHBOARD_UPDATED' }, 'notifyDashboardUpdated');
+}
+
+/** Push an agent lifecycle event to any open popup or sidepanel. */
+export function notifyAgentEvent(event: AgentEvent): Promise<void> {
+  return sendBackgroundNotification(event, 'notifyAgentEvent');
 }

@@ -49,10 +49,11 @@ import {
 } from '../../runtime/agent-config';
 import { filterAgentDashboardState, isTrustedNodeRole } from '../../runtime/agent-harness';
 import { listRegisteredSkills } from '../../runtime/agent-registry';
-import type {
-  AgentDashboardResponse,
-  RuntimeActionResponse,
-  RuntimeRequest,
+import {
+  type AgentDashboardResponse,
+  type RuntimeActionResponse,
+  type RuntimeRequest,
+  notifyAgentEvent,
 } from '../../runtime/messages';
 import {
   agentOnboardingKey,
@@ -842,6 +843,26 @@ async function notifyProactiveDelta(input: {
   ) {
     return;
   }
+
+  // Emit AG-UI state delta for any open popup/sidepanel
+  const deltaMessage =
+    delta.pendingActions > 0
+      ? `${delta.pendingActions} action bundle(s) awaiting review.`
+      : delta.reviewDigests > 0
+        ? `${delta.reviewDigests} review digest draft(s) ready.`
+        : delta.insightDrafts > 0
+          ? `${delta.insightDrafts} local insight draft(s) ready for review.`
+          : `${delta.routedTabs} tab signal(s) routed locally.`;
+
+  void notifyAgentEvent({
+    type: 'AGENT_STATE_DELTA',
+    routedTabs: delta.routedTabs,
+    insightDrafts: delta.insightDrafts,
+    reviewDigests: delta.reviewDigests,
+    pendingActions: delta.pendingActions,
+    message: deltaMessage,
+    emittedAt: nowIso(),
+  });
 
   if (input.onboardingKey) {
     await notifyExtensionEvent({

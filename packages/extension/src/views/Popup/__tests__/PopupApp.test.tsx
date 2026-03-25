@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  installDefaultRuntimeHandlers,
+  makeArtifact,
+  makeDashboard,
+  makeDraft,
+} from '../../__test-utils__/popup-harness';
 import { PopupApp } from '../PopupApp';
 
 const { mockSendRuntimeMessage, mockPlayCoopSound, mockPlayRandomChickenSound } = vi.hoisted(
@@ -20,177 +26,6 @@ vi.mock('../../../runtime/audio', () => ({
   playCoopSound: mockPlayCoopSound,
   playRandomChickenSound: mockPlayRandomChickenSound,
 }));
-
-function makeDraft(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'draft-1',
-    interpretationId: 'interp-1',
-    extractId: 'extract-1',
-    sourceCandidateId: 'candidate-1',
-    title: 'River restoration lead',
-    summary: 'A rounded-up draft that still needs quick review.',
-    whyItMatters: 'Important context.',
-    suggestedNextStep: 'Review and share.',
-    category: 'opportunity',
-    confidence: 0.62,
-    rationale: 'Captured from a relevant tab.',
-    tags: [],
-    previewImageUrl: 'https://example.com/preview.png',
-    sources: [
-      {
-        label: 'Example',
-        url: 'https://example.com/article',
-        domain: 'example.com',
-      },
-    ],
-    createdAt: new Date('2026-03-17T12:00:00.000Z').toISOString(),
-    createdBy: 'member-1',
-    reviewStatus: 'draft',
-    workflowStage: 'candidate',
-    suggestedTargetCoopIds: ['coop-1'],
-    provenance: {
-      type: 'tab-candidate',
-      candidateId: 'candidate-1',
-    },
-    archiveStatus: 'not-archived',
-    archiveReceiptIds: [],
-    ...overrides,
-  };
-}
-
-function makeArtifact(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'artifact-1',
-    originId: 'origin-1',
-    targetCoopId: 'coop-1',
-    title: 'Shared watershed note',
-    summary: 'A published artifact in the feed.',
-    sources: [
-      {
-        label: 'Example',
-        url: 'https://example.com/article',
-        domain: 'example.com',
-      },
-    ],
-    tags: ['shared'],
-    category: 'note',
-    whyItMatters: 'It helps the coop stay aligned on the latest research.',
-    suggestedNextStep: 'Open the note, skim the summary, and decide what to share next.',
-    previewImageUrl: 'https://example.com/artifact.png',
-    createdBy: 'member-1',
-    createdAt: new Date('2026-03-17T11:45:00.000Z').toISOString(),
-    reviewStatus: 'approved',
-    archiveStatus: 'not-archived',
-    archiveReceiptIds: [],
-    ...overrides,
-  };
-}
-
-function makeDashboard(overrides: Record<string, unknown> = {}) {
-  return {
-    coops: [
-      {
-        profile: {
-          id: 'coop-1',
-          name: 'Starter Coop',
-          purpose: 'Coordinate local research',
-          captureMode: 'manual',
-        },
-        members: [
-          {
-            id: 'member-1',
-            displayName: 'Ava',
-            address: '0x1234567890abcdef1234567890abcdef12345678',
-          },
-        ],
-        artifacts: [makeArtifact()],
-      },
-    ],
-    activeCoopId: 'coop-1',
-    coopBadges: [
-      {
-        coopId: 'coop-1',
-        coopName: 'Starter Coop',
-        pendingDrafts: 0,
-        routedTabs: 0,
-        insightDrafts: 0,
-        artifactCount: 1,
-        pendingActions: 0,
-        pendingAttentionCount: 0,
-      },
-    ],
-    drafts: [],
-    candidates: [],
-    tabRoutings: [],
-    summary: {
-      iconState: 'ready',
-      iconLabel: 'Synced',
-      pendingDrafts: 0,
-      routedTabs: 0,
-      insightDrafts: 0,
-      pendingActions: 0,
-      pendingAttentionCount: 0,
-      coopCount: 1,
-      syncState: 'Peer-ready local-first sync',
-      syncLabel: 'Healthy',
-      syncDetail: 'Peer-ready local-first sync.',
-      syncTone: 'ok',
-      lastCaptureAt: new Date('2026-03-17T11:50:00.000Z').toISOString(),
-      captureMode: 'manual',
-      agentCadenceMinutes: 64,
-      localEnhancement: 'Heuristics-first fallback',
-      localInferenceOptIn: false,
-      activeCoopId: 'coop-1',
-    },
-    soundPreferences: {
-      enabled: true,
-      reducedMotion: false,
-      reducedSound: false,
-    },
-    uiPreferences: {
-      notificationsEnabled: true,
-      localInferenceOptIn: false,
-      preferredExportMethod: 'download',
-      heartbeatEnabled: true,
-      agentCadenceMinutes: 64,
-    },
-    authSession: {
-      primaryAddress: '0x1234567890abcdef1234567890abcdef12345678',
-    },
-    identities: [],
-    receiverPairings: [],
-    receiverIntake: [],
-    runtimeConfig: {
-      chainKey: 'sepolia',
-      onchainMode: 'mock',
-      archiveMode: 'mock',
-      sessionMode: 'mock',
-      providerMode: 'rpc',
-      privacyMode: 'off',
-      receiverAppUrl: 'http://localhost:3000',
-      signalingUrls: [],
-    },
-    operator: {
-      anchorCapability: null,
-      anchorActive: false,
-      anchorDetail: '',
-      actionLog: [],
-      archiveMode: 'mock',
-      onchainMode: 'mock',
-      liveArchiveAvailable: false,
-      liveArchiveDetail: '',
-      liveOnchainAvailable: false,
-      liveOnchainDetail: '',
-      policyActionQueue: [],
-      policyActionLogEntries: [],
-      permits: [],
-      permitLog: [],
-      sessionCapabilities: [],
-      sessionCapabilityLog: [],
-    },
-    ...overrides,
-  };
-}
 
 describe('PopupApp', () => {
   beforeEach(() => {
@@ -242,6 +77,10 @@ describe('PopupApp', () => {
         },
         runtime: {
           getURL: vi.fn((path: string) => `chrome-extension://${path}`),
+          onMessage: {
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+          },
         },
       },
     });
@@ -250,58 +89,6 @@ describe('PopupApp', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
-
-  function installDefaultRuntimeHandlers(dashboard = makeDashboard()) {
-    let currentDashboard = dashboard;
-
-    mockSendRuntimeMessage.mockImplementation(
-      async (message: { type: string; payload?: unknown }) => {
-        if (message.type === 'get-dashboard') {
-          return { ok: true, data: currentDashboard };
-        }
-        if (message.type === 'get-sidepanel-state') {
-          return { ok: true, data: { open: false, canClose: true } };
-        }
-        if (message.type === 'manual-capture') {
-          return { ok: true, data: 2 };
-        }
-        if (message.type === 'capture-active-tab') {
-          return { ok: true, data: 1 };
-        }
-        if (message.type === 'toggle-sidepanel') {
-          return { ok: true, data: { open: true, canClose: true } };
-        }
-        if (message.type === 'set-active-coop') {
-          currentDashboard = {
-            ...currentDashboard,
-            activeCoopId: (message.payload as { coopId: string }).coopId,
-          };
-          return { ok: true };
-        }
-        if (message.type === 'set-ui-preferences') {
-          currentDashboard = {
-            ...currentDashboard,
-            uiPreferences: {
-              ...currentDashboard.uiPreferences,
-              ...(message.payload as object),
-            },
-          };
-          return { ok: true, data: currentDashboard.uiPreferences };
-        }
-        if (message.type === 'set-sound-preferences') {
-          currentDashboard = {
-            ...currentDashboard,
-            soundPreferences: {
-              ...currentDashboard.soundPreferences,
-              ...(message.payload as object),
-            },
-          };
-          return { ok: true, data: undefined };
-        }
-        return { ok: true };
-      },
-    );
-  }
 
   it('shows the no-coop setup state and routes into create flow', async () => {
     mockSendRuntimeMessage.mockImplementation(async (message: { type: string }) => {
@@ -367,7 +154,7 @@ describe('PopupApp', () => {
   });
 
   it('shows the aggregate Home layout with capture actions, notes, handoffs, and new footer tabs', async () => {
-    installDefaultRuntimeHandlers();
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
@@ -390,7 +177,7 @@ describe('PopupApp', () => {
   });
 
   it('saves notes via the compact input and persists them', async () => {
-    installDefaultRuntimeHandlers();
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
@@ -408,7 +195,7 @@ describe('PopupApp', () => {
   });
 
   it('triggers the random chicken sound from the header mark', async () => {
-    installDefaultRuntimeHandlers();
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
@@ -422,6 +209,7 @@ describe('PopupApp', () => {
 
   it('opens the profile drawer with coop management and segmented settings while omitting Local helper', async () => {
     installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
       makeDashboard({
         coops: [
           makeDashboard().coops[0],
@@ -459,7 +247,7 @@ describe('PopupApp', () => {
   });
 
   it('switches the popup theme from the header toggle', async () => {
-    installDefaultRuntimeHandlers();
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
@@ -472,7 +260,7 @@ describe('PopupApp', () => {
   });
 
   it('toggles the sidepanel explicitly from the popup header', async () => {
-    installDefaultRuntimeHandlers();
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
@@ -509,6 +297,7 @@ describe('PopupApp', () => {
 
   it('aggregates chickens across coops and narrows them with the coop filter', async () => {
     installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
       makeDashboard({
         coops: [
           makeDashboard().coops[0],
@@ -564,6 +353,7 @@ describe('PopupApp', () => {
 
   it('switches the sidepanel context to the selected draft coop before opening full view', async () => {
     installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
       makeDashboard({
         coops: [
           makeDashboard().coops[0],
@@ -619,6 +409,7 @@ describe('PopupApp', () => {
 
   it('aggregates feed artifacts across coops, filters them, and opens the minimal modal', async () => {
     installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
       makeDashboard({
         coops: [
           {
@@ -696,6 +487,7 @@ describe('PopupApp', () => {
 
     mockSendRuntimeMessage.mockReset();
     installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
       makeDashboard({
         summary: {
           ...makeDashboard().summary,
@@ -729,7 +521,7 @@ describe('PopupApp', () => {
   });
 
   it('shows the screenshot button on the home screen and wires capture action', async () => {
-    installDefaultRuntimeHandlers();
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
@@ -747,7 +539,7 @@ describe('PopupApp', () => {
   });
 
   it('shows the + button in the header and opens a create/join popover', async () => {
-    installDefaultRuntimeHandlers();
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
@@ -766,7 +558,7 @@ describe('PopupApp', () => {
   });
 
   it('shows invite codes per coop in the profile panel with copy support', async () => {
-    installDefaultRuntimeHandlers();
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
@@ -780,6 +572,7 @@ describe('PopupApp', () => {
 
   it('shows a Copy Invite button when the coop has invite codes', async () => {
     installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
       makeDashboard({
         coops: [
           {
@@ -829,6 +622,7 @@ describe('PopupApp', () => {
 
   it('shows the illustrated feed empty state when no artifacts are shared', async () => {
     installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
       makeDashboard({
         coops: [
           {
@@ -857,6 +651,7 @@ describe('PopupApp', () => {
 
   it('shows a feed badge count on the footer nav', async () => {
     installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
       makeDashboard({
         coops: [
           {

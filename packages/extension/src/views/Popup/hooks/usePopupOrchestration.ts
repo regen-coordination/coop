@@ -155,6 +155,8 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     loadDashboard,
     visibleDrafts,
     recentArtifacts,
+    agentDelta,
+    clearAgentDelta,
   } = usePopupDashboard();
   const [message, setMessage] = useState('');
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -197,6 +199,14 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     const timer = setTimeout(() => setMessage(''), 4000);
     return () => clearTimeout(timer);
   }, [message]);
+
+  // Surface agent state deltas as toast messages
+  useEffect(() => {
+    if (agentDelta) {
+      setMessage(agentDelta.message);
+      clearAgentDelta();
+    }
+  }, [agentDelta, clearAgentDelta]);
 
   const captureActions = useCaptureActions({
     setMessage,

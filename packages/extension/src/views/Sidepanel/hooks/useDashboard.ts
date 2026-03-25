@@ -35,6 +35,7 @@ import {
 } from '../../../runtime/config';
 import {
   type AgentDashboardResponse,
+  type AgentStateDeltaEvent,
   type BackgroundNotification,
   type DashboardResponse,
   sendRuntimeMessage,
@@ -68,6 +69,8 @@ export function useDashboard() {
   const [actionPolicies, setActionPolicies] = useState<ActionPolicy[]>([]);
   const [pairingResult, setPairingResult] = useState<ReceiverPairingRecord | null>(null);
   const [message, setMessage] = useState('');
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentDelta, setAgentDelta] = useState<AgentStateDeltaEvent | null>(null);
 
   const runtimeConfig = useMemo(
     () =>
@@ -297,10 +300,24 @@ export function useDashboard() {
     void loadDashboard();
     void loadAgentDashboard();
 
-    const listener = (message: BackgroundNotification) => {
-      if (message.type === 'DASHBOARD_UPDATED') {
+    const listener = (msg: BackgroundNotification) => {
+      if (msg.type === 'DASHBOARD_UPDATED') {
         void loadDashboard();
         void loadAgentDashboard();
+      }
+      if (msg.type === 'AGENT_CYCLE_STARTED') {
+        setAgentRunning(true);
+      }
+      if (msg.type === 'AGENT_CYCLE_FINISHED') {
+        setAgentRunning(false);
+        // Dashboard refresh is handled by the DASHBOARD_UPDATED event
+        // that the background always emits alongside AGENT_CYCLE_FINISHED.
+      }
+      if (msg.type === 'AGENT_CYCLE_ERROR') {
+        setAgentRunning(false);
+      }
+      if (msg.type === 'AGENT_STATE_DELTA') {
+        setAgentDelta(msg);
       }
     };
 
@@ -356,5 +373,8 @@ export function useDashboard() {
     updateUiPreferences,
     configuredSignalingUrls,
     configuredReceiverAppUrl,
+    agentRunning,
+    agentDelta,
+    clearAgentDelta: useCallback(() => setAgentDelta(null), []),
   };
 }
