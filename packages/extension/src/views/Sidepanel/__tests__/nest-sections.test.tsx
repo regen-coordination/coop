@@ -17,7 +17,7 @@ import { NestReceiverSection } from '../tabs/NestReceiverSection';
 import type { NestSettingsSectionProps } from '../tabs/NestSettingsSection';
 import { NestSettingsSection } from '../tabs/NestSettingsSection';
 import { NestTab } from '../tabs/NestTab';
-import type { NestTabProps } from '../tabs/NestTab';
+import type { SidepanelOrchestration } from '../hooks/useSidepanelOrchestration';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -931,10 +931,12 @@ describe('NestArchiveSection', () => {
 // ---------------------------------------------------------------------------
 
 describe('NestTab', () => {
-  function baseProps(overrides?: Partial<NestTabProps>): NestTabProps {
-    return {
+  function baseOrchestration(overrides?: Partial<SidepanelOrchestration>): {
+    orchestration: SidepanelOrchestration;
+  } {
+    const orchestration = {
       dashboard: {
-        coops: [],
+        coops: [makeActiveCoop()],
         activeCoopId: 'coop-1',
         coopBadges: [],
         receiverPairings: [],
@@ -959,9 +961,9 @@ describe('NestTab', () => {
         operator: {
           policyActionQueue: [],
         },
-      } as NestTabProps['dashboard'],
+      },
       activeCoop: makeActiveCoop(),
-      runtimeConfig: defaultRuntimeConfig as NestTabProps['runtimeConfig'],
+      runtimeConfig: defaultRuntimeConfig,
       authSession: null,
       soundPreferences: { enabled: true } as SoundPreferences,
       inferenceState: null,
@@ -974,7 +976,7 @@ describe('NestTab', () => {
       },
       configuredReceiverAppUrl: 'https://coop.town',
       stealthMetaAddress: null,
-      coopForm: mockCoopFormReturn() as NestTabProps['coopForm'],
+      coopForm: mockCoopFormReturn(),
       inviteResult: null,
       createInvite: vi.fn(),
       revokeInvite: vi.fn(),
@@ -985,13 +987,13 @@ describe('NestTab', () => {
       selectReceiverPairing: vi.fn(),
       copyText: vi.fn(),
       receiverIntake: [],
-      draftEditor: mockDraftEditorReturn() as NestTabProps['draftEditor'],
+      draftEditor: mockDraftEditorReturn(),
       tabCapture: {
         updateAgentCadence: vi.fn(),
         toggleCaptureOnClose: vi.fn(),
         updateExcludedCategories: vi.fn(),
         updateCustomExcludedDomains: vi.fn(),
-      } as unknown as NestTabProps['tabCapture'],
+      },
       agentDashboard: null,
       actionPolicies: [],
       refreshableArchiveReceipts: [],
@@ -1030,14 +1032,14 @@ describe('NestTab', () => {
       handleLeaveCoop: vi.fn(),
       loadDashboard: vi.fn(async () => undefined),
       setMessage: vi.fn(),
-      allCoops: [makeActiveCoop()],
       selectActiveCoop: vi.fn(),
       ...overrides,
-    };
+    } as unknown as SidepanelOrchestration;
+    return { orchestration };
   }
 
   it('renders sub-tab navigation with Members, Agent, and Settings pills', () => {
-    render(<NestTab {...baseProps()} />);
+    render(<NestTab {...baseOrchestration()} />);
 
     expect(screen.getByRole('button', { name: /members/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /agent/i })).toBeInTheDocument();
@@ -1045,7 +1047,7 @@ describe('NestTab', () => {
   });
 
   it('defaults to the Members sub-tab', () => {
-    render(<NestTab {...baseProps()} />);
+    render(<NestTab {...baseOrchestration()} />);
 
     const membersButton = screen.getByRole('button', { name: /members/i });
     expect(membersButton.className).toContain('is-active');
@@ -1054,7 +1056,7 @@ describe('NestTab', () => {
   it('switches to Agent sub-tab on click', async () => {
     const user = userEvent.setup();
 
-    render(<NestTab {...baseProps()} />);
+    render(<NestTab {...baseOrchestration()} />);
 
     await user.click(screen.getByRole('button', { name: /^agent$/i }));
 
@@ -1067,7 +1069,7 @@ describe('NestTab', () => {
   it('switches to Settings sub-tab on click', async () => {
     const user = userEvent.setup();
 
-    render(<NestTab {...baseProps()} />);
+    render(<NestTab {...baseOrchestration()} />);
 
     await user.click(screen.getByRole('button', { name: /settings/i }));
 
@@ -1080,20 +1082,20 @@ describe('NestTab', () => {
   });
 
   it('does not show sub-tab navigation when no activeCoop', () => {
-    render(<NestTab {...baseProps({ activeCoop: undefined })} />);
+    render(<NestTab {...baseOrchestration({ activeCoop: undefined })} />);
 
     expect(screen.queryByRole('navigation', { name: /nest sections/i })).not.toBeInTheDocument();
   });
 
   it('shows coop creation form when no activeCoop', () => {
-    render(<NestTab {...baseProps({ activeCoop: undefined })} />);
+    render(<NestTab {...baseOrchestration({ activeCoop: undefined })} />);
 
     expect(screen.getByText(/start a coop/i)).toBeInTheDocument();
   });
 
   describe('subheader actions', () => {
     it('renders Refresh and Invite icon buttons with active coop on members tab', () => {
-      const { container } = render(<NestTab {...baseProps()} />);
+      const { container } = render(<NestTab {...baseOrchestration()} />);
 
       const subheader = container.querySelector('.sidepanel-action-row') as HTMLElement;
       expect(within(subheader).getByRole('button', { name: /refresh/i })).toBeInTheDocument();
@@ -1101,7 +1103,7 @@ describe('NestTab', () => {
     });
 
     it('does not render subheader actions when no activeCoop', () => {
-      render(<NestTab {...baseProps({ activeCoop: undefined })} />);
+      render(<NestTab {...baseOrchestration({ activeCoop: undefined })} />);
 
       expect(screen.queryByRole('button', { name: /refresh/i })).not.toBeInTheDocument();
     });
@@ -1110,7 +1112,7 @@ describe('NestTab', () => {
       const loadDashboard = vi.fn(async () => undefined);
       const user = userEvent.setup();
 
-      const { container } = render(<NestTab {...baseProps({ loadDashboard })} />);
+      const { container } = render(<NestTab {...baseOrchestration({ loadDashboard })} />);
 
       const subheader = container.querySelector('.sidepanel-action-row') as HTMLElement;
       await user.click(within(subheader).getByRole('button', { name: /refresh/i }));
@@ -1121,7 +1123,7 @@ describe('NestTab', () => {
       const createInvite = vi.fn();
       const user = userEvent.setup();
 
-      const { container } = render(<NestTab {...baseProps({ createInvite })} />);
+      const { container } = render(<NestTab {...baseOrchestration({ createInvite })} />);
 
       const subheader = container.querySelector('.sidepanel-action-row') as HTMLElement;
       await user.click(within(subheader).getByRole('button', { name: /invite/i }));
@@ -1135,7 +1137,7 @@ describe('NestTab', () => {
         makeReceiverCapture({ id: 'c3' }),
       ];
 
-      render(<NestTab {...baseProps({ receiverIntake: captures })} />);
+      render(<NestTab {...baseOrchestration({ receiverIntake: captures })} />);
 
       expect(screen.getByText(/3 pocket finds waiting/i)).toBeInTheDocument();
     });
@@ -1143,7 +1145,7 @@ describe('NestTab', () => {
     it('shows singular text for 1 pocket find', () => {
       const captures = [makeReceiverCapture({ id: 'c1' })];
 
-      render(<NestTab {...baseProps({ receiverIntake: captures })} />);
+      render(<NestTab {...baseOrchestration({ receiverIntake: captures })} />);
 
       expect(screen.getByText(/1 pocket find waiting/i)).toBeInTheDocument();
     });
@@ -1151,7 +1153,7 @@ describe('NestTab', () => {
     it('shows receiver intake badge on Members pill when intake is non-empty', () => {
       const captures = [makeReceiverCapture({ id: 'c1' })];
 
-      render(<NestTab {...baseProps({ receiverIntake: captures })} />);
+      render(<NestTab {...baseOrchestration({ receiverIntake: captures })} />);
 
       // The badge is rendered inside the Members button
       const membersButton = screen.getByRole('button', { name: /members/i });
@@ -1162,13 +1164,13 @@ describe('NestTab', () => {
   });
 
   it('renders the Leave coop section', () => {
-    render(<NestTab {...baseProps()} />);
+    render(<NestTab {...baseOrchestration()} />);
 
     expect(screen.getByText(/leave this coop/i)).toBeInTheDocument();
   });
 
   it('renders coop profile with name, purpose, and member list on Members tab', () => {
-    render(<NestTab {...baseProps()} />);
+    render(<NestTab {...baseOrchestration()} />);
 
     // Name appears in subheader pill + profile section
     expect(screen.getAllByText('Test Coop').length).toBeGreaterThanOrEqual(1);
@@ -1179,7 +1181,7 @@ describe('NestTab', () => {
   });
 
   it('renders settings and archive when no activeCoop (settings is default fallback)', () => {
-    render(<NestTab {...baseProps({ activeCoop: undefined })} />);
+    render(<NestTab {...baseOrchestration({ activeCoop: undefined })} />);
 
     // Settings section always shows when no activeCoop
     expect(screen.getByText('My Preferences')).toBeInTheDocument();

@@ -1,25 +1,12 @@
-import type {
-  CaptureMode,
-  CoopSharedState,
-  CoopSpaceType,
-  ReceiverCapture,
-  ReceiverPairingRecord,
-} from '@coop/shared';
-import {
-  formatCoopSpaceTypeLabel,
-  getCoopChainLabel,
-  type getReceiverPairingStatus,
-} from '@coop/shared';
+import type { CaptureMode, CoopSharedState, CoopSpaceType } from '@coop/shared';
+import { formatCoopSpaceTypeLabel, getCoopChainLabel } from '@coop/shared';
 import { useState } from 'react';
-import type { InferenceBridgeState } from '../../../runtime/inference-bridge';
-import type { AgentDashboardResponse, DashboardResponse } from '../../../runtime/messages';
 import { PopupSubheader, type PopupSubheaderTag } from '../../Popup/PopupSubheader';
 import { Tooltip } from '../../shared/Tooltip';
 import { SidepanelSubheader } from '../SidepanelSubheader';
 import { getAddressExplorerUrl, truncateAddress } from '../helpers';
 import type { useCoopForm } from '../hooks/useCoopForm';
-import type { useDraftEditor } from '../hooks/useDraftEditor';
-import type { useTabCapture } from '../hooks/useTabCapture';
+import type { SidepanelOrchestration } from '../hooks/useSidepanelOrchestration';
 import type { CreateFormState } from '../setup-insights';
 import { NestAgentSection } from './NestAgentSection';
 import { NestArchiveSection, NestArchiveWizardSection } from './NestArchiveSection';
@@ -31,8 +18,6 @@ import { NestSettingsSection } from './NestSettingsSection';
 // Shared hook return types
 // ---------------------------------------------------------------------------
 
-type DraftEditorReturn = ReturnType<typeof useDraftEditor>;
-type TabCaptureReturn = ReturnType<typeof useTabCapture>;
 type CoopFormReturn = ReturnType<typeof useCoopForm>;
 
 // ---------------------------------------------------------------------------
@@ -45,119 +30,37 @@ export type NestSubTab = 'members' | 'agent' | 'settings';
 // Props
 // ---------------------------------------------------------------------------
 
-export interface NestTabProps {
-  dashboard: DashboardResponse | null;
-  activeCoop: CoopSharedState | undefined;
-  runtimeConfig: DashboardResponse['runtimeConfig'];
-  authSession: import('@coop/shared').AuthSession | null;
-  soundPreferences: import('@coop/shared').SoundPreferences;
-  inferenceState: InferenceBridgeState | null;
-  browserUxCapabilities: ReturnType<typeof import('@coop/shared').detectBrowserUxCapabilities>;
-  configuredReceiverAppUrl: string;
-  stealthMetaAddress: string | null;
-  coopForm: CoopFormReturn;
-  inviteResult: import('@coop/shared').InviteCode | null;
-  createInvite: (inviteType: 'trusted' | 'member') => void;
-  revokeInvite: (inviteId: string) => void;
-  createReceiverPairing: () => void;
-  activeReceiverPairing: ReceiverPairingRecord | null;
-  activeReceiverPairingStatus: ReturnType<typeof getReceiverPairingStatus> | null;
-  visibleReceiverPairings: ReceiverPairingRecord[];
-  selectReceiverPairing: (pairingId: string) => void;
-  copyText: (label: string, value: string) => void;
-  receiverIntake: ReceiverCapture[];
-  draftEditor: DraftEditorReturn;
-  tabCapture: TabCaptureReturn;
-  // Operator console props
-  agentDashboard: AgentDashboardResponse | null;
-  actionPolicies: import('@coop/shared').ActionPolicy[];
-  refreshableArchiveReceipts: CoopSharedState['archiveReceipts'];
-  archiveSnapshot: () => Promise<void>;
-  toggleAnchorMode: (enabled: boolean) => Promise<void>;
-  refreshArchiveStatus: (receiptId?: string) => Promise<void>;
-  exportSnapshot: (format: 'json' | 'text') => Promise<void>;
-  exportLatestReceipt: (format: 'json' | 'text') => Promise<void>;
-  archiveLatestArtifact: () => Promise<void>;
-  handleRunAgentCycle: () => Promise<void>;
-  handleApproveAgentPlan: (planId: string) => Promise<void>;
-  handleRejectAgentPlan: (planId: string) => Promise<void>;
-  handleRetrySkillRun: (skillRunId: string) => Promise<void>;
-  handleToggleSkillAutoRun: (skillId: string, enabled: boolean) => Promise<void>;
-  handleSetPolicy: (
-    actionClass: import('@coop/shared').PolicyActionClass,
-    approvalRequired: boolean,
-  ) => Promise<void>;
-  handleProposeAction: (
-    actionClass: import('@coop/shared').PolicyActionClass,
-    payload: Record<string, unknown>,
-  ) => Promise<void>;
-  handleApproveAction: (bundleId: string) => Promise<void>;
-  handleRejectAction: (bundleId: string) => Promise<void>;
-  handleExecuteAction: (bundleId: string) => Promise<void>;
-  handleIssuePermit: (input: {
-    coopId: string;
-    expiresAt: string;
-    maxUses: number;
-    allowedActions: import('@coop/shared').DelegatedActionClass[];
-  }) => Promise<void>;
-  handleRevokePermit: (permitId: string) => Promise<void>;
-  handleExecuteWithPermit: (
-    permitId: string,
-    actionClass: import('@coop/shared').DelegatedActionClass,
-    actionPayload: Record<string, unknown>,
-  ) => Promise<void>;
-  handleIssueSessionCapability: (input: {
-    coopId: string;
-    expiresAt: string;
-    maxUses: number;
-    allowedActions: import('@coop/shared').SessionCapableActionClass[];
-  }) => Promise<void>;
-  handleRotateSessionCapability: (capabilityId: string) => Promise<void>;
-  handleRevokeSessionCapability: (capabilityId: string) => Promise<void>;
-  handleQueueGreenGoodsWorkApproval: (
-    coopId: string,
-    request: import('@coop/shared').GreenGoodsWorkApprovalRequest,
-  ) => Promise<void>;
-  handleQueueGreenGoodsAssessment: (
-    coopId: string,
-    request: import('@coop/shared').GreenGoodsAssessmentRequest,
-  ) => Promise<void>;
-  handleQueueGreenGoodsGapAdminSync: (coopId: string) => Promise<void>;
-  handleQueueGreenGoodsMemberSync: (coopId: string) => Promise<void>;
-  updateSound: (next: import('@coop/shared').SoundPreferences) => Promise<void>;
-  testSound: () => Promise<void>;
-  toggleLocalInferenceOptIn: () => Promise<void>;
-  clearSensitiveLocalData: () => Promise<void>;
-  updateUiPreferences: (
-    patch: Partial<import('@coop/shared').UiPreferences>,
-  ) => Promise<import('@coop/shared').UiPreferences | null>;
-  updateCoopProfile: (patch: {
-    name?: string;
-    purpose?: string;
-    captureMode?: import('@coop/shared').CaptureMode;
-  }) => Promise<void>;
-  handleLeaveCoop: () => Promise<void>;
-  loadDashboard: () => Promise<void>;
-  setMessage: (msg: string) => void;
-  allCoops: CoopSharedState[];
-  selectActiveCoop: (coopId: string) => void;
+export interface NestTabOrchestrationProps {
+  orchestration: SidepanelOrchestration;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function NestTab(props: NestTabProps) {
-  const { activeCoop, coopForm, runtimeConfig, stealthMetaAddress, allCoops, selectActiveCoop } =
-    props;
+export function NestTab({ orchestration }: NestTabOrchestrationProps) {
+  const {
+    dashboard,
+    activeCoop,
+    authSession,
+    coopForm,
+    runtimeConfig,
+    stealthMetaAddress,
+    receiverIntake,
+    loadDashboard,
+    createInvite,
+    updateCoopProfile,
+    handleLeaveCoop,
+    selectActiveCoop,
+  } = orchestration;
 
+  const allCoops = dashboard?.coops ?? [];
   const [nestSubTab, setNestSubTab] = useState<NestSubTab>('members');
 
   // Badge counts
-  const receiverIntakeCount = props.receiverIntake.length;
+  const receiverIntakeCount = receiverIntake.length;
   const pendingActionCount =
-    props.dashboard?.operator?.policyActionQueue?.filter((b) => b.status === 'proposed').length ??
-    0;
+    dashboard?.operator?.policyActionQueue?.filter((b) => b.status === 'proposed').length ?? 0;
 
   // Build coop filter tags
   const coopTags: PopupSubheaderTag[] = allCoops.map((c) => ({
@@ -183,7 +86,7 @@ export function NestTab(props: NestTabProps) {
                     {...targetProps}
                     className="popup-icon-button"
                     aria-label="Refresh"
-                    onClick={() => void props.loadDashboard()}
+                    onClick={() => void loadDashboard()}
                     type="button"
                   >
                     <svg
@@ -212,7 +115,7 @@ export function NestTab(props: NestTabProps) {
                       {...targetProps}
                       className="popup-icon-button"
                       aria-label="Invite member"
-                      onClick={() => props.createInvite('member')}
+                      onClick={() => createInvite('member')}
                       type="button"
                     >
                       <svg
@@ -406,19 +309,19 @@ export function NestTab(props: NestTabProps) {
           {/* --- Edit Coop --- */}
           <NestEditCoopSection
             activeCoop={activeCoop}
-            updateCoopProfile={props.updateCoopProfile}
+            updateCoopProfile={orchestration.updateCoopProfile}
           />
 
           {/* --- Invite --- */}
           <NestInviteSection
-            inviteResult={props.inviteResult}
-            createInvite={props.createInvite}
-            revokeInvite={props.revokeInvite}
-            coopForm={props.coopForm}
+            inviteResult={orchestration.inviteResult}
+            createInvite={orchestration.createInvite}
+            revokeInvite={orchestration.revokeInvite}
+            coopForm={orchestration.coopForm}
             activeCoop={activeCoop}
             currentMemberId={
-              props.authSession
-                ? activeCoop.members.find((m) => m.address === props.authSession?.primaryAddress)
+              orchestration.authSession
+                ? activeCoop.members.find((m) => m.address === orchestration.authSession?.primaryAddress)
                     ?.id
                 : undefined
             }
@@ -426,14 +329,14 @@ export function NestTab(props: NestTabProps) {
 
           {/* --- Receiver --- */}
           <NestReceiverSection
-            createReceiverPairing={props.createReceiverPairing}
-            activeReceiverPairing={props.activeReceiverPairing}
-            activeReceiverPairingStatus={props.activeReceiverPairingStatus}
-            visibleReceiverPairings={props.visibleReceiverPairings}
-            selectReceiverPairing={props.selectReceiverPairing}
-            copyText={props.copyText}
-            receiverIntake={props.receiverIntake}
-            draftEditor={props.draftEditor}
+            createReceiverPairing={orchestration.createReceiverPairing}
+            activeReceiverPairing={orchestration.activeReceiverPairing}
+            activeReceiverPairingStatus={orchestration.activeReceiverPairingStatus}
+            visibleReceiverPairings={orchestration.visibleReceiverPairings}
+            selectReceiverPairing={orchestration.selectReceiverPairing}
+            copyText={orchestration.copyText}
+            receiverIntake={orchestration.receiverIntake}
+            draftEditor={orchestration.draftEditor}
           />
 
           {/* --- Leave Coop (destructive, bottom) --- */}
@@ -453,7 +356,7 @@ export function NestTab(props: NestTabProps) {
                   if (
                     window.confirm(`Are you sure you want to leave ${activeCoop.profile.name}?`)
                   ) {
-                    void props.handleLeaveCoop();
+                    void orchestration.handleLeaveCoop();
                   }
                 }}
                 type="button"
@@ -470,34 +373,34 @@ export function NestTab(props: NestTabProps) {
       {/* ================================================================= */}
       {nestSubTab === 'agent' && activeCoop ? (
         <NestAgentSection
-          dashboard={props.dashboard}
-          activeCoop={props.activeCoop}
-          runtimeConfig={props.runtimeConfig}
-          agentDashboard={props.agentDashboard}
-          actionPolicies={props.actionPolicies}
-          refreshableArchiveReceipts={props.refreshableArchiveReceipts}
-          refreshArchiveStatus={props.refreshArchiveStatus}
-          toggleAnchorMode={props.toggleAnchorMode}
-          handleRunAgentCycle={props.handleRunAgentCycle}
-          handleApproveAgentPlan={props.handleApproveAgentPlan}
-          handleRejectAgentPlan={props.handleRejectAgentPlan}
-          handleRetrySkillRun={props.handleRetrySkillRun}
-          handleToggleSkillAutoRun={props.handleToggleSkillAutoRun}
-          handleSetPolicy={props.handleSetPolicy}
-          handleProposeAction={props.handleProposeAction}
-          handleApproveAction={props.handleApproveAction}
-          handleRejectAction={props.handleRejectAction}
-          handleExecuteAction={props.handleExecuteAction}
-          handleIssuePermit={props.handleIssuePermit}
-          handleRevokePermit={props.handleRevokePermit}
-          handleExecuteWithPermit={props.handleExecuteWithPermit}
-          handleIssueSessionCapability={props.handleIssueSessionCapability}
-          handleRotateSessionCapability={props.handleRotateSessionCapability}
-          handleRevokeSessionCapability={props.handleRevokeSessionCapability}
-          handleQueueGreenGoodsWorkApproval={props.handleQueueGreenGoodsWorkApproval}
-          handleQueueGreenGoodsAssessment={props.handleQueueGreenGoodsAssessment}
-          handleQueueGreenGoodsGapAdminSync={props.handleQueueGreenGoodsGapAdminSync}
-          handleQueueGreenGoodsMemberSync={props.handleQueueGreenGoodsMemberSync}
+          dashboard={orchestration.dashboard}
+          activeCoop={orchestration.activeCoop}
+          runtimeConfig={orchestration.runtimeConfig}
+          agentDashboard={orchestration.agentDashboard}
+          actionPolicies={orchestration.actionPolicies}
+          refreshableArchiveReceipts={orchestration.refreshableArchiveReceipts}
+          refreshArchiveStatus={orchestration.refreshArchiveStatus}
+          toggleAnchorMode={orchestration.toggleAnchorMode}
+          handleRunAgentCycle={orchestration.handleRunAgentCycle}
+          handleApproveAgentPlan={orchestration.handleApproveAgentPlan}
+          handleRejectAgentPlan={orchestration.handleRejectAgentPlan}
+          handleRetrySkillRun={orchestration.handleRetrySkillRun}
+          handleToggleSkillAutoRun={orchestration.handleToggleSkillAutoRun}
+          handleSetPolicy={orchestration.handleSetPolicy}
+          handleProposeAction={orchestration.handleProposeAction}
+          handleApproveAction={orchestration.handleApproveAction}
+          handleRejectAction={orchestration.handleRejectAction}
+          handleExecuteAction={orchestration.handleExecuteAction}
+          handleIssuePermit={orchestration.handleIssuePermit}
+          handleRevokePermit={orchestration.handleRevokePermit}
+          handleExecuteWithPermit={orchestration.handleExecuteWithPermit}
+          handleIssueSessionCapability={orchestration.handleIssueSessionCapability}
+          handleRotateSessionCapability={orchestration.handleRotateSessionCapability}
+          handleRevokeSessionCapability={orchestration.handleRevokeSessionCapability}
+          handleQueueGreenGoodsWorkApproval={orchestration.handleQueueGreenGoodsWorkApproval}
+          handleQueueGreenGoodsAssessment={orchestration.handleQueueGreenGoodsAssessment}
+          handleQueueGreenGoodsGapAdminSync={orchestration.handleQueueGreenGoodsGapAdminSync}
+          handleQueueGreenGoodsMemberSync={orchestration.handleQueueGreenGoodsMemberSync}
         />
       ) : null}
 
@@ -507,34 +410,34 @@ export function NestTab(props: NestTabProps) {
       {nestSubTab === 'settings' || !activeCoop ? (
         <>
           <NestSettingsSection
-            dashboard={props.dashboard}
-            activeCoop={props.activeCoop}
-            runtimeConfig={props.runtimeConfig}
-            authSession={props.authSession}
-            soundPreferences={props.soundPreferences}
-            inferenceState={props.inferenceState}
-            browserUxCapabilities={props.browserUxCapabilities}
-            configuredReceiverAppUrl={props.configuredReceiverAppUrl}
-            tabCapture={props.tabCapture}
-            updateSound={props.updateSound}
-            testSound={props.testSound}
-            toggleLocalInferenceOptIn={props.toggleLocalInferenceOptIn}
-            clearSensitiveLocalData={props.clearSensitiveLocalData}
-            updateUiPreferences={props.updateUiPreferences}
+            dashboard={orchestration.dashboard}
+            activeCoop={orchestration.activeCoop}
+            runtimeConfig={orchestration.runtimeConfig}
+            authSession={orchestration.authSession}
+            soundPreferences={orchestration.soundPreferences}
+            inferenceState={orchestration.inferenceState}
+            browserUxCapabilities={orchestration.browserUxCapabilities}
+            configuredReceiverAppUrl={orchestration.configuredReceiverAppUrl}
+            tabCapture={orchestration.tabCapture}
+            updateSound={orchestration.updateSound}
+            testSound={orchestration.testSound}
+            toggleLocalInferenceOptIn={orchestration.toggleLocalInferenceOptIn}
+            clearSensitiveLocalData={orchestration.clearSensitiveLocalData}
+            updateUiPreferences={orchestration.updateUiPreferences}
           />
 
           {/* --- Save & Export --- */}
           <NestArchiveSection
-            archiveSnapshot={props.archiveSnapshot}
-            exportSnapshot={props.exportSnapshot}
-            exportLatestReceipt={props.exportLatestReceipt}
+            archiveSnapshot={orchestration.archiveSnapshot}
+            exportSnapshot={orchestration.exportSnapshot}
+            exportLatestReceipt={orchestration.exportLatestReceipt}
           />
 
           {/* --- Archive setup wizard --- */}
           <NestArchiveWizardSection
-            activeCoop={props.activeCoop}
-            loadDashboard={props.loadDashboard}
-            setMessage={props.setMessage}
+            activeCoop={orchestration.activeCoop}
+            loadDashboard={orchestration.loadDashboard}
+            setMessage={orchestration.setMessage}
           />
         </>
       ) : null}

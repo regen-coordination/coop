@@ -147,70 +147,7 @@ export function SidepanelTabRouter({ panelTab, orchestration }: SidepanelTabRout
     case 'nest':
       return (
         <ErrorBoundary>
-          <NestTab
-            dashboard={dashboard}
-            activeCoop={activeCoop}
-            runtimeConfig={runtimeConfig}
-            authSession={authSession}
-            soundPreferences={soundPreferences}
-            inferenceState={inferenceState}
-            browserUxCapabilities={browserUxCapabilities}
-            configuredReceiverAppUrl={configuredReceiverAppUrl}
-            stealthMetaAddress={stealthMetaAddress}
-            coopForm={coopForm}
-            inviteResult={inviteResult}
-            createInvite={createInvite}
-            revokeInvite={revokeInvite}
-            updateCoopProfile={updateCoopProfile}
-            handleLeaveCoop={handleLeaveCoop}
-            createReceiverPairing={createReceiverPairing}
-            activeReceiverPairing={activeReceiverPairing}
-            activeReceiverPairingStatus={activeReceiverPairingStatus}
-            visibleReceiverPairings={visibleReceiverPairings}
-            selectReceiverPairing={selectReceiverPairing}
-            copyText={copyText}
-            receiverIntake={receiverIntake}
-            draftEditor={draftEditor}
-            tabCapture={tabCapture}
-            agentDashboard={agentDashboard}
-            actionPolicies={actionPolicies}
-            refreshableArchiveReceipts={refreshableArchiveReceipts}
-            archiveSnapshot={archiveSnapshot}
-            toggleAnchorMode={toggleAnchorMode}
-            refreshArchiveStatus={refreshArchiveStatus}
-            exportSnapshot={exportSnapshot}
-            exportLatestReceipt={exportLatestReceipt}
-            archiveLatestArtifact={archiveLatestArtifact}
-            handleRunAgentCycle={handleRunAgentCycle}
-            handleApproveAgentPlan={handleApproveAgentPlan}
-            handleRejectAgentPlan={handleRejectAgentPlan}
-            handleRetrySkillRun={handleRetrySkillRun}
-            handleToggleSkillAutoRun={handleToggleSkillAutoRun}
-            handleSetPolicy={handleSetPolicy}
-            handleProposeAction={handleProposeAction}
-            handleApproveAction={handleApproveAction}
-            handleRejectAction={handleRejectAction}
-            handleExecuteAction={handleExecuteAction}
-            handleIssuePermit={handleIssuePermit}
-            handleRevokePermit={handleRevokePermit}
-            handleExecuteWithPermit={handleExecuteWithPermit}
-            handleIssueSessionCapability={handleIssueSessionCapability}
-            handleRotateSessionCapability={handleRotateSessionCapability}
-            handleRevokeSessionCapability={handleRevokeSessionCapability}
-            handleQueueGreenGoodsWorkApproval={handleQueueGreenGoodsWorkApproval}
-            handleQueueGreenGoodsAssessment={handleQueueGreenGoodsAssessment}
-            handleQueueGreenGoodsGapAdminSync={handleQueueGreenGoodsGapAdminSync}
-            handleQueueGreenGoodsMemberSync={handleQueueGreenGoodsMemberSync}
-            updateSound={updateSound}
-            testSound={testSound}
-            toggleLocalInferenceOptIn={toggleLocalInferenceOptIn}
-            clearSensitiveLocalData={clearSensitiveLocalData}
-            updateUiPreferences={updateUiPreferences}
-            loadDashboard={loadDashboard}
-            setMessage={setMessage}
-            allCoops={dashboard?.coops ?? []}
-            selectActiveCoop={selectActiveCoop}
-          />
+          <NestTab orchestration={orchestration} />
         </ErrorBoundary>
       );
   }

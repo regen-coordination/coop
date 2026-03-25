@@ -9,7 +9,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NestTab } from '../tabs/NestTab';
-import type { NestTabProps } from '../tabs/NestTab';
+import type { SidepanelOrchestration } from '../hooks/useSidepanelOrchestration';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -176,10 +176,12 @@ const defaultRuntimeConfig = {
   signalingUrls: ['wss://api.coop.town'],
 };
 
-function baseNestProps(overrides?: Partial<NestTabProps>): NestTabProps {
-  return {
+function baseNestProps(overrides?: Partial<SidepanelOrchestration>): {
+  orchestration: SidepanelOrchestration;
+} {
+  const orchestration = {
     dashboard: {
-      coops: [],
+      coops: [makeActiveCoop()],
       activeCoopId: 'coop-1',
       coopBadges: [],
       receiverPairings: [],
@@ -204,9 +206,9 @@ function baseNestProps(overrides?: Partial<NestTabProps>): NestTabProps {
       operator: {
         policyActionQueue: [],
       },
-    } as NestTabProps['dashboard'],
+    },
     activeCoop: makeActiveCoop(),
-    runtimeConfig: defaultRuntimeConfig as NestTabProps['runtimeConfig'],
+    runtimeConfig: defaultRuntimeConfig,
     authSession: null,
     soundPreferences: { enabled: true } as SoundPreferences,
     inferenceState: null,
@@ -219,7 +221,7 @@ function baseNestProps(overrides?: Partial<NestTabProps>): NestTabProps {
     },
     configuredReceiverAppUrl: 'https://coop.town',
     stealthMetaAddress: null,
-    coopForm: mockCoopFormReturn() as NestTabProps['coopForm'],
+    coopForm: mockCoopFormReturn(),
     inviteResult: null,
     createInvite: vi.fn(),
     revokeInvite: vi.fn(),
@@ -230,13 +232,13 @@ function baseNestProps(overrides?: Partial<NestTabProps>): NestTabProps {
     selectReceiverPairing: vi.fn(),
     copyText: vi.fn(),
     receiverIntake: [],
-    draftEditor: mockDraftEditorReturn() as NestTabProps['draftEditor'],
+    draftEditor: mockDraftEditorReturn(),
     tabCapture: {
       updateAgentCadence: vi.fn(),
       toggleCaptureOnClose: vi.fn(),
       updateExcludedCategories: vi.fn(),
       updateCustomExcludedDomains: vi.fn(),
-    } as unknown as NestTabProps['tabCapture'],
+    } as unknown,
     agentDashboard: null,
     actionPolicies: [],
     refreshableArchiveReceipts: [],
@@ -278,7 +280,8 @@ function baseNestProps(overrides?: Partial<NestTabProps>): NestTabProps {
     allCoops: [makeActiveCoop()],
     selectActiveCoop: vi.fn(),
     ...overrides,
-  };
+  } as unknown as SidepanelOrchestration;
+  return { orchestration };
 }
 
 // ---------------------------------------------------------------------------
@@ -340,9 +343,12 @@ describe('NestTab — SidepanelSubheader integration (Step 12)', () => {
       profile: { ...makeActiveCoop().profile, id: 'b', name: 'Beta' },
     });
 
-    const { container } = render(
-      <NestTab {...baseNestProps({ allCoops: [coopA, coopB], activeCoop: coopA })} />,
-    );
+    const base = baseNestProps({ activeCoop: coopA });
+    (base.orchestration as Record<string, unknown>).dashboard = {
+      ...base.orchestration.dashboard,
+      coops: [coopA, coopB],
+    };
+    const { container } = render(<NestTab {...base} />);
 
     // Scope to the subheader container so we don't pick up coop profile headings
     const subheader = container.querySelector('.popup-subheader') as HTMLElement;
@@ -361,11 +367,12 @@ describe('NestTab — SidepanelSubheader integration (Step 12)', () => {
       profile: { ...makeActiveCoop().profile, id: 'b', name: 'Beta' },
     });
 
-    render(
-      <NestTab
-        {...baseNestProps({ allCoops: [coopA, coopB], activeCoop: coopA, selectActiveCoop })}
-      />,
-    );
+    const base = baseNestProps({ activeCoop: coopA, selectActiveCoop });
+    (base.orchestration as Record<string, unknown>).dashboard = {
+      ...base.orchestration.dashboard,
+      coops: [coopA, coopB],
+    };
+    render(<NestTab {...base} />);
 
     await user.click(screen.getByText('Beta'));
     expect(selectActiveCoop).toHaveBeenCalledWith('b');
