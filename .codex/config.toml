@@ -1,0 +1,39 @@
+# Codex project configuration for Coop
+# See also: AGENTS.md (shared instructions), .claude/ (Claude Code config)
+
+# Model defaults
+model = "o3"
+
+# Sandbox: allow workspace writes, no network (local-first project)
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+# AGENTS.md is primary; fall back to CLAUDE.md for additional context
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+# Skills + context docs can be large
+project_doc_max_bytes = 65536
+
+[features]
+child_agents_md = true
+multi_agent = true
+
+[profiles.review]
+model = "o3"
+model_reasoning_effort = "high"
+
+[profiles.quick]
+model = "gpt-4.1-mini"
+model_reasoning_effort = "low"
+
+[profiles.research]
+model = "o3"
+model_reasoning_effort = "high"
+
+[profiles.triage]
+model = "gpt-4.1-mini"
+model_reasoning_effort = "low"
+
+[profiles.migrate]
+model = "o3"
+model_reasoning_effort = "high"
