@@ -4,6 +4,9 @@ const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir, rootDir } = require('./helpers/extension-build.cjs');
 
 const closeTimeoutMs = 5000;
+const appBaseUrl =
+  process.env.COOP_PLAYWRIGHT_BASE_URL ||
+  `http://127.0.0.1:${process.env.COOP_PLAYWRIGHT_APP_PORT || process.env.COOP_DEV_APP_PORT || '3001'}`;
 
 function withTimeout(promise, timeoutMs, label = 'operation') {
   return Promise.race([
@@ -150,7 +153,7 @@ test.describe('extension workflow', () => {
 
     try {
       const creatorAppPage = await creatorProfile.context.newPage();
-      await creatorAppPage.goto('http://127.0.0.1:3001/manual-roundup-fixture.html');
+      await creatorAppPage.goto(`${appBaseUrl}/manual-roundup-fixture.html`);
       await creatorProfile.page.bringToFront();
 
       await creatorProfile.page.fill('#coop-name', 'Coop Town Test');
@@ -295,7 +298,7 @@ test.describe('extension workflow', () => {
 
     try {
       const creatorAppPage = await creatorProfile.context.newPage();
-      await creatorAppPage.goto('http://127.0.0.1:3001/manual-roundup-fixture.html');
+      await creatorAppPage.goto(`${appBaseUrl}/manual-roundup-fixture.html`);
       await creatorAppPage.evaluate(
         (fixture) => {
           document.title = fixture.title;

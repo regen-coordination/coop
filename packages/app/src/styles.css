@@ -83,17 +83,17 @@ pre {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 1rem;
-  padding: 1rem 0 0;
+  padding: 0.65rem 0 0;
 }
 
 .wordmark {
-  width: 188px;
+  width: 108px;
 }
 
 .landing-main .wordmark {
-  width: 120px;
+  width: 92px;
 }
 
 .landing-main {
@@ -101,6 +101,8 @@ pre {
   gap: 0;
   color-scheme: light;
 
+  --landing-motion-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --landing-motion-emphasis: cubic-bezier(0.2, 0.9, 0.22, 1.14);
   --coop-cream: #fcf5ef;
   --coop-brown: #4f2e1f;
   --coop-brown-soft: #6b4a36;
@@ -121,7 +123,7 @@ pre {
   left: 0;
   right: 0;
   z-index: 20;
-  padding: 1rem 0;
+  padding: 0.3rem 0;
 }
 
 .topnav {
@@ -252,34 +254,32 @@ pre {
   width: 100%;
   min-height: calc(100vh - 4rem);
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: 1rem;
+  grid-template-columns: minmax(0, 4fr) minmax(14rem, 1.4fr);
+  gap: 1.2rem;
   align-items: center;
-  padding-top: 4rem;
+  padding-top: 4.25rem;
   position: relative;
 }
 
 .hero-copy {
   max-width: 40rem;
   display: grid;
-  gap: 1rem;
+  gap: 0.8rem;
   position: relative;
   z-index: 4;
-  background: linear-gradient(135deg, rgba(255, 252, 246, 0.92), rgba(255, 248, 238, 0.85));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  padding: 2rem 2.2rem;
-  border-radius: var(--coop-radius-card-xl);
-  border: 1px solid rgba(79, 46, 31, 0.08);
+  padding: 0;
 }
 
 .hero-logo {
   display: inline-flex;
   width: fit-content;
+  margin-left: 0;
 }
 
 .hero-title {
   margin: 0;
+  display: grid;
+  gap: 0.08em;
   font-family: "Gill Sans", "Trebuchet MS", sans-serif;
   font-size: clamp(3.2rem, 6vw, 5.9rem);
   line-height: 0.92;
@@ -288,17 +288,21 @@ pre {
     rgba(255, 248, 238, 0.5);
 }
 
+.hero-title-line {
+  display: block;
+}
+
+.hero-title-line-bottom {
+  white-space: nowrap;
+}
+
 .hero-subtitle {
   margin: 0;
-  font-size: clamp(1.1rem, 1.8vw, 1.4rem);
-  line-height: 1.4;
-  color: var(--coop-brown-soft);
-  max-width: 28rem;
-  background: rgba(255, 252, 246, 0.82);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  padding: 0.6rem 0.9rem;
-  border-radius: 12px;
+  font-size: clamp(1.2rem, 1.9vw, 1.45rem);
+  line-height: 1.35;
+  color: rgba(79, 46, 31, 0.9);
+  max-width: 22rem;
+  text-shadow: 0 0 20px rgba(255, 250, 244, 0.92);
 }
 
 .hero-note {
@@ -306,7 +310,7 @@ pre {
 }
 
 .hero-stage {
-  min-height: 30rem;
+  min-height: 28rem;
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
@@ -413,11 +417,11 @@ pre {
 
 .hero-scroll-hint {
   position: absolute;
-  bottom: 2.5rem;
+  bottom: 1.85rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
-  transition: opacity 400ms ease;
+  transition: opacity 180ms var(--landing-motion-soft);
 }
 
 .hero-scroll-hint.is-hidden {
@@ -446,22 +450,23 @@ pre {
 
 .works-panel {
   align-items: flex-end;
-  padding-bottom: 7rem;
+  justify-content: flex-end;
+  padding-bottom: 5.75rem;
   background: transparent;
 }
 
 .how-works-shell {
-  width: min(28rem, 44%);
+  width: min(33rem, 40vw);
   display: grid;
   gap: 1rem;
-  margin: 0;
-  background: linear-gradient(135deg, rgba(255, 252, 246, 0.9), rgba(255, 248, 238, 0.82));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  padding: 1.8rem 2rem;
+  margin: 0 0 0 auto;
+  background: linear-gradient(145deg, rgba(255, 252, 246, 0.97), rgba(255, 248, 238, 0.95));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 1.7rem 1.9rem;
   border-radius: var(--coop-radius-card-xl);
-  border: 1px solid rgba(79, 46, 31, 0.08);
-  box-shadow: 0 20px 48px rgba(79, 46, 31, 0.1);
+  border: 1px solid rgba(79, 46, 31, 0.16);
+  box-shadow: 0 28px 58px rgba(79, 46, 31, 0.16);
 }
 
 .how-works-heading {
@@ -509,11 +514,8 @@ pre {
   position: relative;
   z-index: 2;
   isolation: isolate;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  padding-top: 1.5rem;
+  padding-bottom: 3.5rem;
 }
 
 .ritual-section::before {
@@ -549,66 +551,76 @@ pre {
 }
 
 .ritual-section-heading {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .ritual-section-heading h2 {
-  margin-bottom: 0.15rem;
+  margin-bottom: 0.1rem;
 }
 
 .ritual-section-heading .lede {
-  font-size: 0.9rem;
-}
-
-.ritual-reset {
-  position: fixed;
-  top: 1.25rem;
-  right: 2rem;
-  z-index: 28;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-12px);
-  transition: opacity 180ms ease, transform 180ms ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.ritual-reset.is-visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
+  font-size: 0.96rem;
 }
 
 .ritual-game-shell {
+  --flashcard-card-height: clamp(12.75rem, 18vw, 15.25rem);
+  --flashcard-dialog-height: clamp(19.5rem, 48vh, 22rem);
+  --audience-accent: #5a7d10;
+  --audience-accent-ink: #415a0c;
+  --audience-accent-soft: rgba(90, 125, 16, 0.12);
+  --audience-accent-glow: rgba(90, 125, 16, 0.18);
+  --audience-accent-border: rgba(90, 125, 16, 0.32);
+  width: min(68rem, 100%);
+  margin: 0 auto;
   display: grid;
   gap: 1rem;
-  flex: 1;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto auto;
   background: radial-gradient(circle at top left, rgba(90, 125, 16, 0.1), transparent 22rem),
     radial-gradient(circle at top right, rgba(253, 138, 1, 0.1), transparent 24rem),
     rgba(255, 252, 249, 0.84);
-  transition: background 400ms ease;
+  transition: background 400ms var(--landing-motion-soft);
+  padding: 1.15rem 1.15rem 1.2rem;
 }
 
 .ritual-game-shell[data-audience="persona"] {
+  --audience-accent: #d47e4f;
+  --audience-accent-ink: #8b4e27;
+  --audience-accent-soft: rgba(212, 126, 79, 0.14);
+  --audience-accent-glow: rgba(212, 126, 79, 0.2);
+  --audience-accent-border: rgba(212, 126, 79, 0.38);
   background: radial-gradient(circle at top left, rgba(253, 210, 160, 0.18), transparent 22rem),
     radial-gradient(circle at top right, rgba(253, 138, 1, 0.08), transparent 24rem),
     rgba(255, 252, 249, 0.84);
 }
 
 .ritual-game-shell[data-audience="family"] {
+  --audience-accent: #4f8b4a;
+  --audience-accent-ink: #2f5d2d;
+  --audience-accent-soft: rgba(79, 139, 74, 0.12);
+  --audience-accent-glow: rgba(79, 139, 74, 0.18);
+  --audience-accent-border: rgba(79, 139, 74, 0.32);
   background: radial-gradient(circle at top left, rgba(90, 160, 60, 0.12), transparent 22rem),
     radial-gradient(circle at top right, rgba(90, 125, 16, 0.08), transparent 24rem),
     rgba(250, 255, 248, 0.84);
 }
 
 .ritual-game-shell[data-audience="friends"] {
+  --audience-accent: #d28b19;
+  --audience-accent-ink: #8a5910;
+  --audience-accent-soft: rgba(210, 139, 25, 0.12);
+  --audience-accent-glow: rgba(210, 139, 25, 0.18);
+  --audience-accent-border: rgba(210, 139, 25, 0.34);
   background: radial-gradient(circle at top left, rgba(253, 180, 80, 0.16), transparent 22rem),
     radial-gradient(circle at top right, rgba(253, 138, 1, 0.12), transparent 24rem),
     rgba(255, 252, 246, 0.84);
 }
 
 .ritual-game-shell[data-audience="community"] {
+  --audience-accent: #5a7d10;
+  --audience-accent-ink: #415a0c;
+  --audience-accent-soft: rgba(90, 125, 16, 0.12);
+  --audience-accent-glow: rgba(90, 125, 16, 0.18);
+  --audience-accent-border: rgba(90, 125, 16, 0.32);
   background: radial-gradient(circle at top left, rgba(90, 125, 16, 0.1), transparent 22rem),
     radial-gradient(circle at top right, rgba(253, 138, 1, 0.1), transparent 24rem),
     rgba(255, 252, 249, 0.84);
@@ -620,38 +632,67 @@ pre {
   gap: 1rem;
 }
 
-.audience-picker {
-  display: grid;
-  gap: 0.75rem;
+.ritual-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
 }
 
-.audience-picker > span {
-  font-weight: 700;
-  color: var(--coop-brown);
+.audience-picker {
+  display: grid;
+  gap: 0.5rem;
+  flex: 1;
 }
 
 .audience-chip-group {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .audience-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.55rem;
   min-height: 44px;
-  padding: 0.75rem 1.25rem;
+  padding: 0.7rem 1.15rem;
   border-radius: var(--coop-radius-card);
   border: 1.5px solid var(--coop-line);
   background: rgba(255, 255, 255, 0.78);
   color: var(--coop-brown);
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.96rem;
   cursor: pointer;
-  transition: border-color var(--coop-ease), transform var(--coop-ease), background-color
-    var(--coop-ease), box-shadow var(--coop-ease);
+  transition: border-color var(--landing-motion-soft), transform var(--landing-motion-soft),
+    background-color var(--landing-motion-soft), box-shadow var(--landing-motion-soft);
+}
+
+.audience-chip::before {
+  content: "";
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  background: var(--chip-accent, rgba(79, 46, 31, 0.16));
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.8);
+}
+
+.audience-chip[data-audience-option="persona"] {
+  --chip-accent: #d47e4f;
+}
+
+.audience-chip[data-audience-option="family"] {
+  --chip-accent: #4f8b4a;
+}
+
+.audience-chip[data-audience-option="friends"] {
+  --chip-accent: #d28b19;
+}
+
+.audience-chip[data-audience-option="community"] {
+  --chip-accent: #5a7d10;
 }
 
 .audience-chip:hover {
@@ -663,65 +704,141 @@ pre {
 
 .audience-chip.is-active {
   transform: translateY(-1px);
-  border-color: var(--coop-green);
-  background: var(--coop-green-12);
-  color: var(--coop-green);
+  border-color: var(--audience-accent);
+  background: var(--audience-accent-soft);
+  color: var(--audience-accent-ink);
   font-weight: 700;
+  box-shadow: 0 0 0 1px var(--audience-accent-border);
 }
 
-/* ── Flip card grid ── */
+.ritual-reset-inline {
+  min-width: 0;
+  color: var(--audience-accent-ink);
+  border-color: var(--audience-accent-border);
+  background: color-mix(in srgb, var(--audience-accent-soft) 80%, white);
+}
+
+.flashcard-deck {
+  position: relative;
+  display: grid;
+  align-items: stretch;
+}
+
+.flashcard-focus-shell {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 3.5rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.85rem) scale(0.985);
+  transition: opacity 220ms var(--landing-motion-soft), transform 240ms var(--landing-motion-soft);
+}
+
+.flashcard-focus-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--coop-radius-card-xl);
+  background: radial-gradient(circle at center, var(--audience-accent-glow), transparent 62%);
+  opacity: 0;
+  transition: opacity 220ms var(--landing-motion-soft);
+}
+
+.flashcard-focus-shell.is-active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.flashcard-focus-shell.is-active::before {
+  opacity: 1;
+}
+
+.flashcard-focus-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(79, 46, 31, 0.08) 0%, rgba(79, 46, 31, 0.12) 100%);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 220ms var(--landing-motion-soft);
+}
+
+.flashcard-focus-shell.is-active .flashcard-focus-backdrop {
+  opacity: 1;
+}
 
 .flashcard-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.95rem;
   align-items: stretch;
-  perspective: 1200px;
 }
 
 .flashcard {
   position: relative;
-  min-height: max(13rem, calc(100vh - 18rem));
-  cursor: pointer;
   border-radius: var(--coop-radius-card-lg);
   background: transparent;
   border: 0;
   padding: 0;
+  transition: opacity 220ms var(--landing-motion-soft), transform 280ms var(--landing-motion-soft);
 }
 
-.flashcard-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: inherit;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-style: preserve-3d;
+.flashcard.is-muted {
+  opacity: 0.58;
+  transform: scale(0.985);
 }
 
-.flashcard.is-flipped .flashcard-inner {
-  transform: rotateY(180deg);
-}
-
-.flashcard-front,
-.flashcard-back {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  border-radius: var(--coop-radius-card-lg);
-  overflow: hidden;
+.flashcard.is-open-source {
+  opacity: 0.16;
+  transform: translateY(-0.75rem) rotate(-2.2deg) scale(0.955);
 }
 
 .flashcard-front {
   display: grid;
   align-content: space-between;
-  padding: 1.5rem;
-  border: 1px solid var(--coop-line);
+  width: 100%;
+  min-height: var(--flashcard-card-height);
+  padding: 1.25rem;
+  border-radius: var(--coop-radius-card-lg);
+  border: 1px solid rgba(79, 46, 31, 0.12);
   text-align: left;
+  cursor: pointer;
+  box-shadow: 0 14px 34px rgba(79, 46, 31, 0.08);
+  transform-origin: 50% 85%;
+  transition: transform 240ms var(--landing-motion-soft), box-shadow 240ms
+    var(--landing-motion-soft), border-color 240ms var(--landing-motion-soft), background-color
+    240ms var(--landing-motion-soft);
+}
+
+.flashcard-front:hover,
+.flashcard-front:focus-visible {
+  border-color: var(--audience-accent-border);
+  box-shadow: 0 20px 44px rgba(79, 46, 31, 0.12), 0 0 0 1px var(--audience-accent-border);
+}
+
+.flashcard:nth-child(odd) .flashcard-front:hover,
+.flashcard:nth-child(odd) .flashcard-front:focus-visible {
+  animation: flashcard-jiggle-left 560ms var(--landing-motion-emphasis) both;
+}
+
+.flashcard:nth-child(even) .flashcard-front:hover,
+.flashcard:nth-child(even) .flashcard-front:focus-visible {
+  animation: flashcard-jiggle-right 560ms var(--landing-motion-emphasis) both;
+}
+
+.flashcard-front:focus-visible {
+  outline: 2px solid var(--audience-accent);
+  outline-offset: 3px;
 }
 
 .flashcard-front h3,
-.flashcard-back h3,
+.flashcard-stage h3,
 .ritual-output-copy h3,
 .footer-link-card a {
   margin: 0;
@@ -729,12 +846,7 @@ pre {
 }
 
 .flashcard-front h3 {
-  font-size: clamp(1.5rem, 2.2vw, 2rem);
-  line-height: 1.04;
-}
-
-.flashcard-back h3 {
-  font-size: clamp(1.2rem, 1.6vw, 1.5rem);
+  font-size: clamp(1.4rem, 1.8vw, 1.8rem);
   line-height: 1.12;
 }
 
@@ -747,21 +859,65 @@ pre {
 
 .flashcard-front-top {
   display: grid;
+  gap: 0.7rem;
+}
+
+.flashcard-front-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .flashcard-front-bottom {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
 }
 
-.flashcard-flip-hint {
-  font-size: 1rem;
+.flashcard-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--coop-radius-pill);
+  background: rgba(79, 46, 31, 0.08);
+  color: var(--coop-brown-soft);
+  font-size: 0.78rem;
   font-weight: 700;
-  color: var(--coop-brown);
-  opacity: 0.45;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.flashcard-status-pill.is-ready {
+  background: var(--audience-accent-soft);
+  color: var(--audience-accent-ink);
+}
+
+.flashcard-status-pill.is-drafting {
+  background: rgba(253, 138, 1, 0.12);
+  color: #9a5b10;
+}
+
+.flashcard-action-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  opacity: 0.72;
+}
+
+.flashcard-action-mark span {
+  display: block;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  border: 1px solid var(--audience-accent-border);
+  background: color-mix(in srgb, var(--audience-accent-soft) 74%, white);
+}
+
+.flashcard-action-mark span:first-child {
+  transform: translateX(0.2rem);
 }
 
 .flashcard-check {
@@ -771,34 +927,72 @@ pre {
   width: 2.2rem;
   height: 2.2rem;
   border-radius: 999px;
-  background: var(--coop-green-12);
-  color: var(--coop-green);
+  background: var(--audience-accent-soft);
+  color: var(--audience-accent-ink);
   font-weight: 700;
   font-size: 1.1rem;
 }
 
-.flashcard-back {
+.flashcard-stage {
   position: relative;
-  transform: rotateY(180deg);
   display: grid;
-  gap: 0.85rem;
-  padding: 1.25rem;
-  padding-top: 1rem;
-  align-content: start;
-  border: 1px solid var(--coop-line);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  width: min(36rem, calc(100% - 5rem));
+  min-height: var(--flashcard-dialog-height);
+  margin: 0;
+  padding: 1.15rem 1.15rem 1rem;
+  border-radius: var(--coop-radius-card-xl);
+  border: 1px solid var(--audience-accent-border);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 252, 248, 0.98));
-  overflow-y: auto;
+  box-shadow: 0 30px 80px rgba(79, 46, 31, 0.18);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: flashcard-pickup 420ms var(--landing-motion-emphasis) both;
 }
 
-.flashcard-back textarea {
-  min-height: 5rem;
-  flex: 1;
+.flashcard-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(160deg, var(--audience-accent-soft), transparent 28%);
+  pointer-events: none;
+}
+
+.flashcard-stage > * {
+  position: relative;
+  z-index: 1;
+}
+
+.flashcard-stage-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.flashcard-stage-copy {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.flashcard-stage-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--audience-accent-ink);
+}
+
+.flashcard-stage-tip {
+  color: var(--coop-brown-soft);
+  font-size: 0.88rem;
 }
 
 .flashcard-close-btn {
-  position: absolute;
-  top: 0.65rem;
-  right: 0.65rem;
+  position: static;
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
@@ -811,8 +1005,8 @@ pre {
   line-height: 1;
   color: var(--coop-brown);
   cursor: pointer;
-  transition: background-color 180ms ease, transform 180ms ease;
-  z-index: 2;
+  transition: background-color 180ms var(--landing-motion-soft), transform 180ms
+    var(--landing-motion-soft);
 }
 
 .flashcard-close-btn:hover {
@@ -822,17 +1016,10 @@ pre {
 
 .flashcard-question {
   margin: 0;
-  font-size: clamp(1.1rem, 1.6vw, 1.4rem);
+  font-size: clamp(1.15rem, 1.4vw, 1.45rem);
   line-height: 1.2;
   color: var(--coop-brown);
-  padding-right: 2rem;
-}
-
-.flashcard-back-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
+  padding-right: 0;
 }
 
 .flashcard-number {
@@ -852,6 +1039,16 @@ pre {
   color: var(--coop-brown-soft);
   line-height: 1.5;
   font-size: 0.9rem;
+}
+
+.flashcard-stage .ritual-field {
+  min-height: 0;
+}
+
+.flashcard-stage textarea {
+  min-height: 8.8rem;
+  height: 100%;
+  resize: none;
 }
 
 .flashcard-complete-btn {
@@ -879,17 +1076,15 @@ pre {
 }
 
 .flashcard-complete-btn.is-done {
-  background: var(--coop-green-12);
-  border-color: var(--coop-green);
-  color: var(--coop-green);
+  background: var(--audience-accent-soft);
+  border-color: var(--audience-accent);
+  color: var(--audience-accent-ink);
 }
-
-/* ── Card color themes ── */
 
 .flashcard-knowledge .flashcard-front {
   background: linear-gradient(
     168deg,
-    rgba(90, 125, 16, 0.1) 0%,
+    rgba(90, 125, 16, 0.14) 0%,
     rgba(255, 255, 255, 0.88) 50%,
     rgba(255, 252, 248, 0.94) 100%
   );
@@ -903,7 +1098,7 @@ pre {
 .flashcard-capital .flashcard-front {
   background: linear-gradient(
     168deg,
-    rgba(253, 138, 1, 0.1) 0%,
+    rgba(253, 138, 1, 0.14) 0%,
     rgba(255, 255, 255, 0.88) 50%,
     rgba(255, 252, 248, 0.94) 100%
   );
@@ -917,7 +1112,7 @@ pre {
 .flashcard-governance .flashcard-front {
   background: linear-gradient(
     168deg,
-    rgba(16, 100, 125, 0.1) 0%,
+    rgba(16, 100, 125, 0.14) 0%,
     rgba(255, 255, 255, 0.88) 50%,
     rgba(255, 252, 248, 0.94) 100%
   );
@@ -931,7 +1126,7 @@ pre {
 .flashcard-impact .flashcard-front {
   background: linear-gradient(
     168deg,
-    rgba(106, 50, 130, 0.1) 0%,
+    rgba(106, 50, 130, 0.14) 0%,
     rgba(255, 255, 255, 0.88) 50%,
     rgba(255, 252, 248, 0.94) 100%
   );
@@ -947,7 +1142,7 @@ pre {
 .ritual-synthesis {
   display: grid;
   gap: 1.25rem;
-  animation: ritual-reveal 500ms ease both;
+  animation: ritual-reveal 500ms var(--landing-motion-soft) both;
 }
 
 @keyframes ritual-reveal {
@@ -964,7 +1159,7 @@ pre {
 .ritual-progress-hint {
   text-align: center;
   color: var(--coop-brown-soft);
-  font-size: clamp(1.1rem, 2vw, 1.3rem);
+  font-size: clamp(0.95rem, 1.5vw, 1.08rem);
   font-weight: 600;
   margin: 0;
 }
@@ -997,30 +1192,22 @@ pre {
 }
 
 .why-build-panel {
-  align-items: flex-end;
-}
-
-.why-build-shell {
-  width: min(64rem, 100%);
-  display: grid;
-  gap: 1rem;
-  justify-items: center;
-}
-
-.why-build-spacer {
-  height: clamp(24rem, 50vh, 36rem);
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 7rem;
+  padding-bottom: 2rem;
 }
 
 .arrival-scroll-spacer {
-  height: 200vh;
+  height: 120vh;
   pointer-events: none;
 }
 
 .why-build-copy {
-  width: min(58rem, 100%);
+  width: min(38rem, 100%);
   display: grid;
-  gap: 1.25rem;
-  text-align: center;
+  gap: 1rem;
+  text-align: left;
 }
 
 .why-build-copy h2 {
@@ -1032,11 +1219,30 @@ pre {
   text-align: left;
 }
 
+.why-build-proof {
+  display: grid;
+  gap: 1rem;
+}
+
+.why-build-group {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.why-build-label {
+  margin: 0;
+  color: var(--coop-brown-soft);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .team-strip,
 .partner-strip {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.75rem;
 }
 
@@ -1267,12 +1473,28 @@ pre {
   );
 }
 
+.scene-night-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+  background: linear-gradient(
+    180deg,
+    rgba(23, 24, 52, 0.1) 0%,
+    rgba(21, 22, 48, 0.36) 28%,
+    rgba(14, 14, 34, 0.68) 62%,
+    rgba(6, 5, 16, 0.92) 100%
+  );
+}
+
 /* ── Night stars ── */
 
 .scene-stars {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
   opacity: 0;
   will-change: opacity;
@@ -1307,10 +1529,25 @@ pre {
   animation: star-twinkle 3.6s ease-in-out infinite 1.2s;
 }
 
-/* Moon removed — golden hour has no moon */
-
 .scene-moon {
-  display: none;
+  position: absolute;
+  top: 8%;
+  right: 10%;
+  width: min(8rem, 13vw);
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 34% 30%,
+    rgba(255, 248, 230, 0.98) 0%,
+    rgba(252, 233, 186, 0.94) 46%,
+    rgba(255, 214, 140, 0.48) 74%,
+    rgba(255, 214, 140, 0) 100%
+  );
+  box-shadow: 0 0 44px rgba(255, 225, 170, 0.32), 0 0 140px rgba(255, 214, 140, 0.16);
+  opacity: 0;
+  transform: translateY(1.5rem) scale(0.82);
+  pointer-events: none;
+  will-change: opacity, transform;
 }
 
 /* ── Coop window glow (night) ── */
@@ -1416,7 +1653,8 @@ pre {
 }
 
 .journey-scene-arrival .why-build-copy.nest-card {
-  background: rgba(255, 252, 246, 0.92);
+  background: rgba(255, 252, 246, 0.94);
+  border-color: rgba(255, 232, 206, 0.3);
 }
 
 .scene-path {
@@ -1434,6 +1672,27 @@ pre {
   width: min(38rem, 48vw);
   height: 14rem;
   transform: translateX(-50%) rotate(8deg);
+}
+
+.scene-feed-spot {
+  position: absolute;
+  bottom: 9%;
+  width: min(17rem, 20vw);
+  height: 5.25rem;
+  border-radius: 999px;
+  background: radial-gradient(circle at center, rgba(244, 221, 161, 0.6), rgba(244, 221, 161, 0));
+  opacity: 0.78;
+}
+
+.scene-feed-spot-a {
+  left: 18%;
+}
+
+.scene-feed-spot-b {
+  right: 15%;
+  bottom: 12%;
+  width: min(13rem, 16vw);
+  height: 4.2rem;
 }
 
 .scene-coop {
@@ -1483,24 +1742,26 @@ pre {
   position: absolute;
   inset: 0;
   opacity: 0;
+  z-index: 2;
 }
 
 .inside-bird {
   position: absolute;
-  width: 2.8rem;
-  height: 2.3rem;
+  width: 2.35rem;
+  height: 1.95rem;
   border-radius: 2rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 223, 191, 0.98));
   box-shadow: 0 10px 20px rgba(79, 46, 31, 0.12);
+  animation: inside-bob 3.6s ease-in-out infinite;
 }
 
 .inside-bird::before {
   content: "";
   position: absolute;
-  right: 0.32rem;
-  top: 0.86rem;
-  width: 0.65rem;
-  height: 0.46rem;
+  right: 0.3rem;
+  top: 0.72rem;
+  width: 0.55rem;
+  height: 0.4rem;
   clip-path: polygon(0 50%, 100% 0, 100% 100%);
   background: var(--coop-orange);
 }
@@ -1508,32 +1769,44 @@ pre {
 .inside-bird::after {
   content: "";
   position: absolute;
-  left: 0.42rem;
-  top: -0.26rem;
-  width: 0.82rem;
-  height: 0.58rem;
+  left: 0.35rem;
+  top: -0.2rem;
+  width: 0.74rem;
+  height: 0.5rem;
   border-radius: 999px 999px 0.4rem 0.28rem;
   background: var(--coop-green);
 }
 
 .inside-bird-a {
-  left: 21%;
-  top: 34%;
+  left: 28%;
+  top: 48%;
+  animation-delay: 0s;
 }
 
 .inside-bird-b {
-  left: 32%;
-  top: 42%;
+  left: 35%;
+  top: 55%;
+  animation-delay: 0.4s;
 }
 
 .inside-bird-c {
-  right: 32%;
-  top: 40%;
+  right: 35%;
+  top: 52%;
+  animation-delay: 0.9s;
 }
 
 .inside-bird-d {
-  right: 21%;
-  top: 31%;
+  right: 27%;
+  top: 45%;
+  animation-delay: 0.6s;
+}
+
+.inside-bird-e {
+  left: 47%;
+  top: 73%;
+  width: 2.05rem;
+  height: 1.7rem;
+  animation-delay: 1.15s;
 }
 
 .scene-chicken {
@@ -1542,6 +1815,15 @@ pre {
   display: grid;
   justify-items: center;
   gap: 0.45rem;
+}
+
+.scene-chicken-art {
+  display: block;
+  width: 100%;
+}
+
+.scene-chicken-art.is-facing-left {
+  transform: scaleX(-1);
 }
 
 /* Re-enable pointer events on story chickens for hover interactivity */
@@ -1570,9 +1852,7 @@ pre {
   padding: 0.45rem 0.7rem;
   border-radius: 1rem 1rem 1rem 0.25rem;
   background: rgba(255, 255, 255, 0.95);
-  box-shadow:
-    0 2px 8px rgba(79, 46, 31, 0.1),
-    inset 0 -1px 2px rgba(79, 46, 31, 0.04);
+  box-shadow: 0 2px 8px rgba(79, 46, 31, 0.1), inset 0 -1px 2px rgba(79, 46, 31, 0.04);
   font-size: 0.75rem;
   color: var(--coop-brown);
   white-space: nowrap;
@@ -1634,43 +1914,43 @@ pre {
 }
 
 .journey-scene-story .scene-chicken-tabs {
-  left: 8%;
+  left: 6%;
   top: 74%;
 }
 
 .journey-scene-story .scene-chicken-notes {
-  left: 24%;
+  left: 17%;
   top: 64%;
 }
 
 .journey-scene-story .scene-chicken-ideas {
-  right: 24%;
+  right: 17%;
   top: 64%;
 }
 
 .journey-scene-story .scene-chicken-signals {
-  right: 8%;
+  right: 6%;
   top: 74%;
 }
 
 .journey-scene-story .scene-chicken-links {
-  left: 16%;
+  left: 12%;
   top: 80%;
 }
 
 .journey-scene-story .scene-chicken-drafts {
-  left: 38%;
-  top: 72%;
+  left: 22%;
+  top: 73%;
 }
 
 .journey-scene-story .scene-chicken-threads {
-  right: 16%;
+  right: 12%;
   top: 80%;
 }
 
 .journey-scene-story .scene-chicken-clips {
-  right: 38%;
-  top: 72%;
+  right: 22%;
+  top: 73%;
 }
 
 .journey-scene-arrival .scene-chicken-tabs {
@@ -2142,6 +2422,57 @@ pre {
   animation: recording-pulse 1.2s ease-in-out infinite;
 }
 
+@keyframes flashcard-jiggle-left {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  34% {
+    transform: translateY(-5px) rotate(-1.4deg);
+  }
+  58% {
+    transform: translateY(-3px) rotate(0.9deg);
+  }
+  78% {
+    transform: translateY(-5px) rotate(-0.6deg);
+  }
+  100% {
+    transform: translateY(-4px) rotate(-0.8deg);
+  }
+}
+
+@keyframes flashcard-jiggle-right {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  34% {
+    transform: translateY(-5px) rotate(1.4deg);
+  }
+  58% {
+    transform: translateY(-3px) rotate(-0.9deg);
+  }
+  78% {
+    transform: translateY(-5px) rotate(0.6deg);
+  }
+  100% {
+    transform: translateY(-4px) rotate(0.8deg);
+  }
+}
+
+@keyframes flashcard-pickup {
+  0% {
+    opacity: 0;
+    transform: translateY(1.35rem) scale(0.95) rotateX(-14deg);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-0.2rem) scale(1.01) rotateX(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+  }
+}
+
 .ritual-transcript-status {
   margin: 0 0 0.8rem;
   color: var(--coop-brown-soft);
@@ -2229,7 +2560,7 @@ pre {
 
   .nest-card,
   .footer-card {
-    animation: landing-rise-in 460ms ease both;
+    animation: landing-rise-in 460ms var(--landing-motion-soft) both;
   }
 }
 
@@ -2266,6 +2597,17 @@ pre {
   }
 }
 
+@keyframes inside-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
 @media (max-width: 1024px) {
   .journey-panel {
     min-height: auto;
@@ -2293,16 +2635,20 @@ pre {
     width: min(23rem, 70vw);
   }
 
-  .hero-shell,
   .ritual-setup-grid,
   .ritual-output-grid,
-  .ritual-output-summary,
+  .ritual-output-summary {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
   .landing-footer-inner {
     flex-direction: column;
     text-align: center;
   }
 
   .hero-shell {
+    grid-template-columns: 1fr;
     min-height: auto;
   }
 
@@ -2320,27 +2666,64 @@ pre {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .how-works-shell {
+    width: min(100%, 34rem);
+    margin-left: 0;
+  }
+
   .how-works-card {
     grid-column: auto;
+  }
+
+  .ritual-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .flashcard-deck {
+    min-height: auto;
+    display: grid;
+    gap: 1rem;
+  }
+
+  .flashcard-focus-shell {
+    position: static;
+    padding: 0;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    display: none;
+  }
+
+  .flashcard-focus-shell::before {
+    display: none;
+  }
+
+  .flashcard-focus-backdrop {
+    display: none;
+  }
+
+  .flashcard-focus-shell.is-active {
+    display: flex;
+  }
+
+  .flashcard-stage {
+    width: 100%;
+    min-height: auto;
   }
 
   .flashcard-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .why-build-spacer {
-    height: 16rem;
-  }
 }
 
 @media (max-width: 720px) {
   .topbar {
-    flex-direction: column;
-    align-items: flex-start;
+    justify-content: flex-start;
   }
 
   .wordmark {
-    width: 154px;
+    width: 84px;
   }
 
   .story-card h1,
@@ -2373,6 +2756,14 @@ pre {
     font-size: clamp(2.2rem, 10vw, 3.4rem);
   }
 
+  .hero-copy {
+    max-width: 100%;
+  }
+
+  .hero-title-line-bottom {
+    white-space: normal;
+  }
+
   .hero-stage {
     min-height: 9rem;
     justify-content: flex-start;
@@ -2392,16 +2783,11 @@ pre {
     grid-template-columns: 1fr;
   }
 
-  .ritual-step-strip,
   .audience-chip-group {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .audience-chip-group {
-    display: grid;
-  }
-
-  .flashcard-back-header,
   .prompt-toolbar {
     flex-direction: column;
     align-items: flex-start;
@@ -2409,14 +2795,27 @@ pre {
 
   .ritual-record-button,
   .packet-actions .button,
-  .ritual-reset {
+  .ritual-reset-inline {
     width: 100%;
   }
 
-  .ritual-reset {
-    right: 0.5rem;
-    left: 0.5rem;
-    top: 0.5rem;
+  .flashcard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .flashcard-stage-header,
+  .flashcard-front-meta {
+    align-items: flex-start;
+  }
+
+  .why-build-copy {
+    width: 100%;
+  }
+
+  .scene-moon {
+    width: 5.5rem;
+    right: 7%;
+    top: 9%;
   }
 }
 
@@ -2457,35 +2856,35 @@ pre {
   }
 
   .journey-scene-story.is-static .scene-chicken-tabs {
-    transform: translate(26vw, -6vh) rotate(0deg) scale(0.9);
+    transform: translate(20vw, -3vh) rotate(0deg) scale(0.95);
   }
 
   .journey-scene-story.is-static .scene-chicken-notes {
-    transform: translate(24vw, -4vh) rotate(0deg) scale(0.88);
+    transform: translate(12vw, 6vh) rotate(0deg) scale(0.95);
   }
 
   .journey-scene-story.is-static .scene-chicken-ideas {
-    transform: translate(22vw, -5vh) rotate(0deg) scale(0.9);
+    transform: translate(-12vw, 6vh) rotate(0deg) scale(0.95);
   }
 
   .journey-scene-story.is-static .scene-chicken-signals {
-    transform: translate(20vw, -6vh) rotate(0deg) scale(0.88);
+    transform: translate(-20vw, -3vh) rotate(0deg) scale(0.95);
   }
 
   .journey-scene-story.is-static .scene-chicken-links {
-    transform: translate(22vw, -5vh) rotate(0deg) scale(0.86);
+    transform: translate(16vw, -9vh) rotate(0deg) scale(0.92);
   }
 
   .journey-scene-story.is-static .scene-chicken-drafts {
-    transform: translate(19vw, -4vh) rotate(0deg) scale(0.84);
+    transform: translate(8vw, -9vh) rotate(0deg) scale(0.94);
   }
 
   .journey-scene-story.is-static .scene-chicken-threads {
-    transform: translate(24vw, -5vh) rotate(0deg) scale(0.86);
+    transform: translate(-16vw, -9vh) rotate(0deg) scale(0.92);
   }
 
   .journey-scene-story.is-static .scene-chicken-clips {
-    transform: translate(18vw, -4vh) rotate(0deg) scale(0.84);
+    transform: translate(-8vw, -9vh) rotate(0deg) scale(0.94);
   }
 
   .journey-scene-arrival.is-static .scene-chicken-arrival {
@@ -2499,7 +2898,8 @@ pre {
   .ritual-record-button.is-recording,
   .nest-card,
   .footer-card,
-  .scene-chicken-svg {
+  .scene-chicken-svg,
+  .inside-bird {
     animation: none;
   }
 }

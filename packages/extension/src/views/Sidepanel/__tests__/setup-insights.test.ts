@@ -44,7 +44,6 @@ describe('sidepanel setup insights shaping', () => {
       ...initialCreateForm,
       coopName: 'Pocket Flock',
       purpose: 'Keep good ideas from getting loose.',
-      seedContribution: 'I bring tabs and field notes.',
     });
 
     expect(insights.summary).toContain('Pocket Flock uses Coop');

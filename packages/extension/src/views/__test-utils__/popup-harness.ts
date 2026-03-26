@@ -4,7 +4,7 @@
  * Extracted from PopupApp.test.tsx to enable reuse across view tests.
  * Pattern: message-passing mocks + dashboard factory + snapshot hydration.
  */
-import { vi } from 'vitest';
+import type { vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Data factories
@@ -212,6 +212,23 @@ export function installDefaultRuntimeHandlers(
       }
       if (message.type === 'capture-active-tab') {
         return { ok: true, data: 1 };
+      }
+      if (message.type === 'prepare-visible-screenshot') {
+        return {
+          ok: true,
+          data: {
+            kind: 'photo',
+            dataBase64: btoa('image-data'),
+            mimeType: 'image/png',
+            fileName: 'coop-screenshot.png',
+            title: 'Page screenshot',
+            note: 'Captured from https://example.com via Extension Browser.',
+            sourceUrl: 'https://example.com',
+          },
+        };
+      }
+      if (message.type === 'save-popup-capture') {
+        return { ok: true, data: { id: 'capture-1' } };
       }
       if (message.type === 'toggle-sidepanel') {
         return { ok: true, data: { open: true, canClose: true } };

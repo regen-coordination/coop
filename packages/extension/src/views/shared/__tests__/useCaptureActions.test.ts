@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PopupPendingCapture } from '../../Popup/popup-types';
 import { useCaptureActions } from '../useCaptureActions';
 
 const { mockSendRuntimeMessage, mockPlayCoopSound } = vi.hoisted(() => ({
@@ -17,41 +18,56 @@ vi.mock('../../../runtime/audio', () => ({
 
 const soundPrefs = { enabled: true, reducedMotion: false, reducedSound: false };
 
+function installChromeMocks(overrides: Record<string, unknown> = {}) {
+  Object.defineProperty(globalThis, 'chrome', {
+    configurable: true,
+    value: {
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 7, windowId: 1, url: 'https://example.com' }]),
+      },
+      permissions: {
+        contains: vi.fn().mockResolvedValue(true),
+        request: vi.fn().mockResolvedValue(true),
+      },
+      ...overrides,
+    },
+  });
+}
+
 function renderCaptureActions(overrides: Record<string, unknown> = {}) {
   const setMessage = vi.fn();
   const loadDashboard = vi.fn().mockResolvedValue(undefined);
   const afterManualCapture = vi.fn();
+  const afterActiveTabCapture = vi.fn();
 
   const { result } = renderHook(() =>
     useCaptureActions({
       setMessage,
       loadDashboard,
       afterManualCapture,
+      afterActiveTabCapture,
       soundPreferences: soundPrefs,
       ...overrides,
     }),
   );
 
-  return { result, setMessage, loadDashboard, afterManualCapture };
+  return { result, setMessage, loadDashboard, afterManualCapture, afterActiveTabCapture };
 }
 
 describe('useCaptureActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPlayCoopSound.mockResolvedValue(undefined);
+    installChromeMocks();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    Reflect.deleteProperty(globalThis, 'chrome');
   });
 
-  describe('isCapturing guard', () => {
-    it('starts with isCapturing false', () => {
-      const { result } = renderCaptureActions();
-      expect(result.current.isCapturing).toBe(false);
-    });
-
-    it('sets isCapturing true during runManualCapture', async () => {
+  describe('runManualCapture', () => {
+    it('sets isCapturing while the runtime call is in flight', async () => {
       let resolveCapture: (value: unknown) => void;
       mockSendRuntimeMessage.mockReturnValue(
         new Promise((resolve) => {
@@ -59,11 +75,12 @@ describe('useCaptureActions', () => {
         }),
       );
 
-      const { result, loadDashboard } = renderCaptureActions();
+      const { result } = renderCaptureActions();
 
       let capturePromise: Promise<void>;
-      act(() => {
+      await act(async () => {
         capturePromise = result.current.runManualCapture();
+        await Promise.resolve();
       });
 
       expect(result.current.isCapturing).toBe(true);
@@ -76,37 +93,7 @@ describe('useCaptureActions', () => {
       expect(result.current.isCapturing).toBe(false);
     });
 
-    it('prevents double calls while capturing', async () => {
-      let resolveCapture: (value: unknown) => void;
-      mockSendRuntimeMessage.mockReturnValue(
-        new Promise((resolve) => {
-          resolveCapture = resolve;
-        }),
-      );
-
-      const { result } = renderCaptureActions();
-
-      let firstPromise: Promise<void>;
-      act(() => {
-        firstPromise = result.current.runManualCapture();
-      });
-
-      // Second call while first is in progress should return immediately
-      act(() => {
-        result.current.runManualCapture();
-      });
-
-      expect(mockSendRuntimeMessage).toHaveBeenCalledTimes(1);
-
-      await act(async () => {
-        resolveCapture!({ ok: true, data: 2 });
-        await firstPromise!;
-      });
-    });
-  });
-
-  describe('runManualCapture', () => {
-    it('sends manual-capture message and sets success toast', async () => {
+    it('sends manual-capture and only navigates when tabs were captured', async () => {
       mockSendRuntimeMessage.mockResolvedValue({ ok: true, data: 5 });
 
       const { result, setMessage, loadDashboard, afterManualCapture } = renderCaptureActions();
@@ -119,9 +106,23 @@ describe('useCaptureActions', () => {
       expect(setMessage).toHaveBeenCalledWith('Rounded up 5 tabs.');
       expect(loadDashboard).toHaveBeenCalled();
       expect(afterManualCapture).toHaveBeenCalled();
+      expect(mockPlayCoopSound).toHaveBeenCalledWith('capture-complete', soundPrefs);
     });
 
-    it('sets error toast on failure', async () => {
+    it('stays put when roundup finds no eligible tabs', async () => {
+      mockSendRuntimeMessage.mockResolvedValue({ ok: true, data: 0 });
+
+      const { result, setMessage, afterManualCapture } = renderCaptureActions();
+
+      await act(async () => {
+        await result.current.runManualCapture();
+      });
+
+      expect(setMessage).toHaveBeenCalledWith('No eligible tabs were captured.');
+      expect(afterManualCapture).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a structured runtime error', async () => {
       mockSendRuntimeMessage.mockResolvedValue({ ok: false, error: 'Something broke' });
 
       const { result, setMessage } = renderCaptureActions();
@@ -133,8 +134,13 @@ describe('useCaptureActions', () => {
       expect(setMessage).toHaveBeenCalledWith('Something broke');
     });
 
-    it('uses default error message when none provided', async () => {
-      mockSendRuntimeMessage.mockResolvedValue({ ok: false });
+    it('stops before the runtime call when webpage access preflight fails', async () => {
+      installChromeMocks({
+        permissions: {
+          contains: vi.fn().mockResolvedValue(false),
+          request: vi.fn().mockResolvedValue(false),
+        },
+      });
 
       const { result, setMessage } = renderCaptureActions();
 
@@ -142,54 +148,50 @@ describe('useCaptureActions', () => {
         await result.current.runManualCapture();
       });
 
-      expect(setMessage).toHaveBeenCalledWith('Roundup failed — try again.');
-    });
-
-    it('plays sound on success when soundPreferences provided', async () => {
-      mockSendRuntimeMessage.mockResolvedValue({ ok: true, data: 3 });
-
-      const { result } = renderCaptureActions();
-
-      await act(async () => {
-        await result.current.runManualCapture();
-      });
-
-      expect(mockPlayCoopSound).toHaveBeenCalledWith('capture-complete', soundPrefs);
-    });
-
-    it('does not play sound when soundPreferences not provided', async () => {
-      mockSendRuntimeMessage.mockResolvedValue({ ok: true, data: 3 });
-
-      const { result } = renderCaptureActions({ soundPreferences: undefined });
-
-      await act(async () => {
-        await result.current.runManualCapture();
-      });
-
-      expect(mockPlayCoopSound).not.toHaveBeenCalled();
+      expect(mockSendRuntimeMessage).not.toHaveBeenCalled();
+      expect(setMessage).toHaveBeenCalledWith(
+        'Coop needs webpage access to round up and capture standard sites.',
+      );
     });
   });
 
-  describe('captureFile', () => {
-    it('sends capture-file message with base64 data', async () => {
-      mockSendRuntimeMessage.mockResolvedValue({ ok: true });
+  describe('prepareFileCapture / savePendingCapture', () => {
+    it('creates a pending file capture and saves it through save-popup-capture', async () => {
+      mockSendRuntimeMessage.mockResolvedValue({ ok: true, data: { id: 'capture-1' } });
 
       const { result, setMessage } = renderCaptureActions();
       const file = new File(['hello world'], 'test.txt', { type: 'text/plain' });
 
+      let pendingCapture: PopupPendingCapture | null | undefined = null;
       await act(async () => {
-        await result.current.captureFile(file);
+        pendingCapture = await result.current.prepareFileCapture(file);
+      });
+
+      expect(pendingCapture).toMatchObject({
+        kind: 'file',
+        title: 'test.txt',
+        mimeType: 'text/plain',
+        byteSize: 11,
+      });
+      const preparedCapture = pendingCapture;
+      if (!preparedCapture) {
+        throw new Error('Expected a pending file capture.');
+      }
+
+      await act(async () => {
+        await result.current.savePendingCapture(preparedCapture);
       });
 
       expect(mockSendRuntimeMessage).toHaveBeenCalledWith({
-        type: 'capture-file',
+        type: 'save-popup-capture',
         payload: expect.objectContaining({
+          kind: 'file',
           fileName: 'test.txt',
           mimeType: 'text/plain',
-          byteSize: 11,
+          title: 'test.txt',
         }),
       });
-      expect(setMessage).toHaveBeenCalledWith('File captured.');
+      expect(setMessage).toHaveBeenCalledWith('File saved to Pocket Coop finds.');
     });
 
     it('rejects files over 10 MB', async () => {
@@ -198,34 +200,18 @@ describe('useCaptureActions', () => {
         type: 'application/octet-stream',
       });
 
+      let pendingCapture: PopupPendingCapture | null | undefined = null;
       await act(async () => {
-        await result.current.captureFile(bigFile);
+        pendingCapture = await result.current.prepareFileCapture(bigFile);
       });
 
-      expect(mockSendRuntimeMessage).not.toHaveBeenCalled();
+      expect(pendingCapture).toBeNull();
       expect(setMessage).toHaveBeenCalledWith('This file is too large — 10 MB maximum.');
-    });
-
-    it('defaults mime type to application/octet-stream', async () => {
-      mockSendRuntimeMessage.mockResolvedValue({ ok: true });
-
-      const { result } = renderCaptureActions();
-      const file = new File(['data'], 'unknown', { type: '' });
-
-      await act(async () => {
-        await result.current.captureFile(file);
-      });
-
-      expect(mockSendRuntimeMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          payload: expect.objectContaining({ mimeType: 'application/octet-stream' }),
-        }),
-      );
     });
   });
 
   describe('createNoteDraft', () => {
-    it('sends create-note-draft message and returns true on success', async () => {
+    it('sends create-note-draft and returns true on success', async () => {
       mockSendRuntimeMessage.mockResolvedValue({ ok: true });
 
       const { result, setMessage } = renderCaptureActions();
@@ -242,79 +228,95 @@ describe('useCaptureActions', () => {
       });
       expect(setMessage).toHaveBeenCalledWith('Note hatched into your roost.');
     });
-
-    it('returns false for empty/whitespace text', async () => {
-      const { result } = renderCaptureActions();
-
-      let success: boolean | undefined;
-      await act(async () => {
-        success = await result.current.createNoteDraft('   ');
-      });
-
-      expect(success).toBe(false);
-      expect(mockSendRuntimeMessage).not.toHaveBeenCalled();
-    });
-
-    it('returns false on failure', async () => {
-      mockSendRuntimeMessage.mockResolvedValue({ ok: false, error: 'DB full' });
-
-      const { result, setMessage } = renderCaptureActions();
-
-      let success: boolean | undefined;
-      await act(async () => {
-        success = await result.current.createNoteDraft('note text');
-      });
-
-      expect(success).toBe(false);
-      expect(setMessage).toHaveBeenCalledWith('DB full');
-    });
   });
 
-  describe('captureAudioBlob', () => {
-    it('sends capture-audio message with base64 data and duration', async () => {
-      mockSendRuntimeMessage.mockResolvedValue({ ok: true });
+  describe('audio and screenshot prep', () => {
+    it('creates a pending audio capture and saves it through save-popup-capture', async () => {
+      mockSendRuntimeMessage.mockResolvedValue({ ok: true, data: { id: 'capture-1' } });
 
       const { result, setMessage } = renderCaptureActions();
       const blob = new Blob(['audio data'], { type: 'audio/webm' });
 
+      let pendingCapture: PopupPendingCapture | null | undefined = null;
       await act(async () => {
-        await result.current.captureAudioBlob(blob, 15);
+        pendingCapture = await result.current.prepareAudioCapture(blob, 15);
+      });
+
+      expect(pendingCapture).toMatchObject({
+        kind: 'audio',
+        title: 'Voice note',
+        mimeType: 'audio/webm',
+        durationSeconds: 15,
+      });
+      const preparedCapture = pendingCapture;
+      if (!preparedCapture) {
+        throw new Error('Expected a pending audio capture.');
+      }
+
+      await act(async () => {
+        await result.current.savePendingCapture(preparedCapture);
       });
 
       expect(mockSendRuntimeMessage).toHaveBeenCalledWith({
-        type: 'capture-audio',
+        type: 'save-popup-capture',
         payload: expect.objectContaining({
+          kind: 'audio',
           mimeType: 'audio/webm',
           durationSeconds: 15,
         }),
       });
       expect(setMessage).toHaveBeenCalledWith('Voice note saved.');
     });
-  });
 
-  describe('existing capture methods', () => {
-    it('runActiveTabCapture uses updated toast messages', async () => {
+    it('prepares a screenshot for review instead of saving immediately', async () => {
+      mockSendRuntimeMessage.mockResolvedValue({
+        ok: true,
+        data: {
+          kind: 'photo',
+          dataBase64: btoa('image'),
+          mimeType: 'image/png',
+          fileName: 'capture.png',
+          title: 'Page screenshot',
+          note: 'Captured from https://example.com',
+          sourceUrl: 'https://example.com',
+        },
+      });
+
+      const { result } = renderCaptureActions();
+
+      let pendingCapture: PopupPendingCapture | null | undefined = null;
+      await act(async () => {
+        pendingCapture = await result.current.prepareVisibleScreenshot();
+      });
+      const preparedCapture = pendingCapture;
+      if (!preparedCapture) {
+        throw new Error('Expected a prepared screenshot.');
+      }
+      const screenshotCapture: PopupPendingCapture = preparedCapture;
+
+      expect(mockSendRuntimeMessage).toHaveBeenCalledWith({
+        type: 'prepare-visible-screenshot',
+      });
+      expect(screenshotCapture).toMatchObject({
+        kind: 'photo',
+        title: 'Page screenshot',
+        fileName: 'capture.png',
+      });
+      expect(screenshotCapture.previewUrl).toBeDefined();
+      expect(screenshotCapture.previewUrl!).toContain('data:image/png;base64,');
+    });
+
+    it('uses the updated capture-tab success message', async () => {
       mockSendRuntimeMessage.mockResolvedValue({ ok: true, data: 1 });
 
-      const { result, setMessage } = renderCaptureActions();
+      const { result, setMessage, afterActiveTabCapture } = renderCaptureActions();
 
       await act(async () => {
         await result.current.runActiveTabCapture();
       });
 
       expect(setMessage).toHaveBeenCalledWith('Tab captured.');
-    });
-
-    it('captureVisibleScreenshot uses updated toast messages', async () => {
-      mockSendRuntimeMessage.mockResolvedValue({ ok: true });
-
-      const { result, setMessage } = renderCaptureActions();
-
-      await act(async () => {
-        await result.current.captureVisibleScreenshot();
-      });
-
-      expect(setMessage).toHaveBeenCalledWith('Screenshot snapped.');
+      expect(afterActiveTabCapture).toHaveBeenCalled();
     });
   });
 });

@@ -73,7 +73,7 @@ function createMinimalCoop(overrides: Partial<CoopSharedState['profile']> = {}):
     syncRoom: { signalingServers: [], roomId: '', password: '' },
     invites: [],
     memberCommitments: [],
-  } as CoopSharedState;
+  } as unknown as CoopSharedState;
 }
 
 function buildProps(overrides: Partial<RoostTabProps> = {}): RoostTabProps {

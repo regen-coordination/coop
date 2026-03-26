@@ -1,3 +1,4 @@
+import type { ReviewDraft } from '@coop/shared';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { PopupCreateCoopScreen } from './PopupCreateCoopScreen';
 import { PopupDraftDetailScreen } from './PopupDraftDetailScreen';
@@ -55,7 +56,7 @@ export function PopupScreenRouter({ state }: { state: PopupOrchestrationState })
         <PopupDraftListScreen
           drafts={state.filteredDraftItems.map((draft) => ({
             ...draft,
-            ...state.resolveDraftValue(draft),
+            ...state.resolveDraftValue(draft as unknown as ReviewDraft),
           }))}
           filterTags={state.draftFilterTags}
           isCapturing={state.isCapturing}
@@ -127,6 +128,8 @@ export function PopupScreenRouter({ state }: { state: PopupOrchestrationState })
   return (
     <ErrorBoundary>
       <PopupHomeScreen
+        audioPermissionMessage={state.recording.permissionMessage}
+        audioStatus={state.recording.status}
         elapsedSeconds={state.recording.elapsedSeconds}
         isCapturing={state.isCapturing}
         isRecording={state.recording.isRecording}
@@ -134,11 +137,11 @@ export function PopupScreenRouter({ state }: { state: PopupOrchestrationState })
         onCancelRecording={state.recording.cancelRecording}
         onCaptureTab={() => void state.captureActions.runActiveTabCapture()}
         onChangeNote={state.setNoteDraftText}
-        onFileSelected={(file: File) => void state.captureActions.captureFile(file)}
+        onFileSelected={(file: File) => void state.handlePrepareFileCapture(file)}
         onPaste={() => void state.handlePasteNote()}
         onRoundUp={() => void state.captureActions.runManualCapture()}
         onSaveNote={() => void state.handleSaveNote()}
-        onScreenshot={() => void state.captureActions.captureVisibleScreenshot()}
+        onScreenshot={() => void state.handlePrepareScreenshot()}
         onStartRecording={() => void state.recording.startRecording()}
         onStopRecording={state.recording.stopRecording}
         statusItems={state.homeStatusItems}

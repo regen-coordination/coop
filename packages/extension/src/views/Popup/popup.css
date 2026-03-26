@@ -320,10 +320,15 @@ button:focus-visible,
 }
 
 .popup-screen--home-aggregate {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   min-height: 100%;
+}
+
+.popup-screen--home-body {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-height: 0;
+  padding-top: 8px;
 }
 
 .popup-screen--onboarding {
@@ -1426,6 +1431,45 @@ button:focus-visible,
   line-height: 1.5;
 }
 
+.popup-dialog__field {
+  display: grid;
+  gap: 6px;
+}
+
+.popup-dialog__field span {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.popup-dialog__field input,
+.popup-dialog__field textarea {
+  width: 100%;
+  border: 1px solid var(--coop-border);
+  border-radius: var(--coop-radius-icon);
+  background: var(--coop-field);
+  color: var(--coop-text);
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.popup-dialog__field textarea {
+  min-height: 88px;
+}
+
+.popup-dialog__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.popup-dialog__meta a {
+  color: var(--coop-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .popup-dialog__sources {
   display: grid;
   gap: 8px;
@@ -1902,6 +1946,35 @@ body::-webkit-scrollbar,
 
 .popup-recording__actions .popup-handoff-button {
   flex: 0 0 auto;
+}
+
+.popup-audio-permission {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--coop-radius-photo);
+  border: 1px solid var(--coop-border);
+  background: color-mix(in srgb, var(--coop-panel) 96%, transparent);
+}
+
+.popup-audio-permission strong {
+  font-size: 0.9rem;
+}
+
+.popup-audio-permission p {
+  margin: 0;
+  color: var(--coop-text-soft);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.popup-audio-permission--pending {
+  border-style: dashed;
+}
+
+.popup-audio-permission .popup-secondary-action {
+  width: auto;
+  justify-self: start;
 }
 
 /* Red accent for cancel recording button */

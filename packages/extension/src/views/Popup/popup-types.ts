@@ -69,3 +69,17 @@ export interface PopupHomeNoteState {
 }
 
 export type PopupFooterTab = 'home' | 'drafts' | 'feed';
+
+export interface PopupPendingCapture {
+  kind: 'audio' | 'photo' | 'file';
+  title: string;
+  note: string;
+  mimeType: string;
+  fileName?: string;
+  sourceUrl?: string;
+  durationSeconds?: number;
+  byteSize: number;
+  dataBase64?: string;
+  blob?: Blob;
+  previewUrl?: string;
+}

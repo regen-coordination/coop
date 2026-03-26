@@ -656,7 +656,7 @@ export function ArchiveReceiptCard({
           className="badge anchor-badge source-link"
           href={getFvmExplorerTxUrl(
             receipt.fvmRegistryTxHash,
-            receipt.fvmChainKey ?? 'filecoin-calibration',
+            (receipt.fvmChainKey ?? 'filecoin-calibration') as 'filecoin' | 'filecoin-calibration',
           )}
           rel="noreferrer"
           target="_blank"

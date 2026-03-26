@@ -61,7 +61,9 @@ async function ensureModel() {
     // Configure for worker context
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    env.backends.onnx.wasm.wasmPaths = resolveOnnxRuntimeWasmPaths();
+    if (env.backends.onnx.wasm) {
+      env.backends.onnx.wasm.wasmPaths = resolveOnnxRuntimeWasmPaths();
+    }
 
     const progressCallback = (progress: { progress?: number; status?: string }) => {
       if (progress?.progress !== undefined) {
@@ -77,28 +79,28 @@ async function ensureModel() {
     const hasWebGpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
     if (hasWebGpu) {
       try {
-        pipeline = await createPipeline('text-generation', MODEL_ID, {
+        pipeline = (await createPipeline('text-generation', MODEL_ID, {
           dtype: 'q4',
           device: 'webgpu',
           progress_callback: progressCallback,
-        });
+        })) as unknown as typeof pipeline;
       } catch {
         // WebGPU pipeline failed — fall back to WASM
         pipeline = null;
       }
     }
     if (!pipeline) {
-      pipeline = await createPipeline('text-generation', MODEL_ID, {
+      pipeline = (await createPipeline('text-generation', MODEL_ID, {
         dtype: 'q4',
         device: 'wasm',
         progress_callback: progressCallback,
-      });
+      })) as unknown as typeof pipeline;
     }
 
     // Set up the reusable stopping criteria for cooperative cancellation.
     stoppingCriteria = new InterruptableStoppingCriteria();
     stoppingCriteriaList = new StoppingCriteriaList();
-    stoppingCriteriaList.push(
+    (stoppingCriteriaList as unknown as { push(c: unknown): void }).push(
       stoppingCriteria as unknown as InstanceType<typeof InterruptableStoppingCriteria>,
     );
 
@@ -126,6 +128,7 @@ async function handleRefine(id: string, prompt: string, maxTokens: number) {
 
     const messages = [{ role: 'user', content: prompt }];
 
+    if (!pipeline) throw new Error('Inference pipeline not initialized');
     const result = await pipeline(messages, {
       max_new_tokens: maxTokens,
       temperature: 0.3,

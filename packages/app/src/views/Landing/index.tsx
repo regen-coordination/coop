@@ -1,611 +1,52 @@
-import {
-  type CoopSpaceType,
-  type SetupInsightsInput,
-  emptySetupInsightsInput,
-  getRitualLenses,
-  toSetupInsights,
-} from '@coop/shared';
+import type { SetupInsightsInput } from '@coop/shared';
+import { getRitualLenses } from '@coop/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DevTunnelBadge } from '../../components/DevTunnelBadge';
 import type { DevEnvironmentState } from '../../dev-environment';
+import { ChickenSprite, CoopIllustration } from './landing-animations';
+import {
+  LANDING_DRAFT_STORAGE_KEY,
+  STAR_COUNT,
+  arrivalFlightPaths,
+  audienceOptions,
+  audienceToSpaceType,
+  buildLandingSetupPacket,
+  buildPacketFilename,
+  chickenThoughts,
+  cleanText,
+  cloneSetupInput,
+  cloneTranscripts,
+  compact,
+  defaultTranscriptStatus,
+  emptyLandingTranscripts,
+  getLensProgress,
+  howItWorksCards,
+  initialsForName,
+  journeyChickens,
+  partnerMarks,
+  readLandingDraft,
+  resolveSpeechError,
+  resolveSpeechRecognitionConstructor,
+  ritualCardMappings,
+  starStyle,
+  statusLabel,
+  storyFlightPaths,
+  teamMembers,
+} from './landing-data';
+import type {
+  AudienceId,
+  BrowserSpeechRecognition,
+  LandingDraft,
+  SetupFieldKey,
+  TranscriptKey,
+  TranscriptMap,
+} from './landing-types';
 
-type TranscriptKey = 'capital' | 'impact' | 'governance' | 'knowledge';
-type TranscriptMap = Record<TranscriptKey, string>;
-type SetupFieldKey = keyof SetupInsightsInput;
-type LensStatus = 'empty' | 'drafting' | 'ready';
-type AudienceId = 'persona' | 'family' | 'friends' | 'community';
-
-type SpeechRecognitionAlternativeLike = {
-  transcript?: string;
-};
-
-type SpeechRecognitionResultLike = {
-  isFinal: boolean;
-  0: SpeechRecognitionAlternativeLike;
-};
-
-type SpeechRecognitionEventLike = {
-  resultIndex?: number;
-  results: ArrayLike<SpeechRecognitionResultLike>;
-};
-
-type SpeechRecognitionErrorLike = {
-  error?: string;
-};
-
-type BrowserSpeechRecognition = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onend: (() => void) | null;
-  onerror: ((event: SpeechRecognitionErrorLike) => void) | null;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onstart: (() => void) | null;
-  abort?: () => void;
-  start: () => void;
-  stop: () => void;
-};
-
-type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
-
-type SpeechWindow = Window &
-  typeof globalThis & {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  };
-
-type ChickenVariant = 'adult' | 'young' | 'chick';
-
-type JourneyChicken = {
-  id: string;
-  label: string;
-  variant?: ChickenVariant;
-};
-
-type RitualCardMapping = {
-  id: TranscriptKey;
-  currentKey: SetupFieldKey;
-  painKey: SetupFieldKey;
-  improveKey: SetupFieldKey;
-};
-
-type LensProgress = {
-  captureReady: boolean;
-  distillReady: boolean;
-  status: LensStatus;
-  filledCount: number;
-};
-
-type LandingDraft = {
-  version: number;
-  audience: AudienceId;
-  openCardId: TranscriptKey | null;
-  sharedNotes: string;
-  setupInput: SetupInsightsInput;
-  transcripts: TranscriptMap;
-};
-
-type LandingPacketOptions = {
-  audience?: AudienceId;
-  sharedNotes?: string;
-};
-
-type AudienceOption = {
-  id: AudienceId;
-  label: string;
-};
-
-type StoryCard = {
-  title: string;
-  detail: string;
-};
-
-const LANDING_DRAFT_STORAGE_KEY = 'coop-landing-ritual-v2';
-const defaultTranscriptStatus =
-  'Use live transcript if this browser supports it, or type directly into the card. Everything stays saved on this device.';
-
-const journeyChickens: JourneyChicken[] = [
-  { id: 'tabs', label: 'Tabs' },
-  { id: 'notes', label: 'Notes' },
-  { id: 'ideas', label: 'Ideas' },
-  { id: 'signals', label: 'Signals' },
-  { id: 'links', label: 'Links', variant: 'young' },
-  { id: 'drafts', label: 'Drafts', variant: 'chick' },
-  { id: 'threads', label: 'Threads', variant: 'young' },
-  { id: 'clips', label: 'Clips', variant: 'chick' },
-];
-
-const audienceOptions: AudienceOption[] = [
-  { id: 'persona', label: 'Personal' },
-  { id: 'family', label: 'Family' },
-  { id: 'friends', label: 'Friends' },
-  { id: 'community', label: 'Community' },
-];
-
-const audienceToSpaceType: Record<AudienceId, CoopSpaceType> = {
-  persona: 'personal',
-  family: 'family',
-  friends: 'friends',
-  community: 'community',
-};
-
-const ritualCardMappings: RitualCardMapping[] = [
-  {
-    id: 'knowledge',
-    currentKey: 'knowledgeCurrent',
-    painKey: 'knowledgePain',
-    improveKey: 'knowledgeImprove',
-  },
-  {
-    id: 'capital',
-    currentKey: 'capitalCurrent',
-    painKey: 'capitalPain',
-    improveKey: 'capitalImprove',
-  },
-  {
-    id: 'governance',
-    currentKey: 'governanceCurrent',
-    painKey: 'governancePain',
-    improveKey: 'governanceImprove',
-  },
-  { id: 'impact', currentKey: 'impactCurrent', painKey: 'impactPain', improveKey: 'impactImprove' },
-];
-
-const howItWorksCards: StoryCard[] = [
-  {
-    title: 'Your data stays yours',
-    detail: 'Everything you capture stays on your device until your group decides what to share.',
-  },
-  {
-    title: 'One place for everything',
-    detail: 'Tabs, notes, files, and call fragments land together before they scatter.',
-  },
-  {
-    title: 'Shared review loop',
-    detail: 'One clear queue for the group instead of hunting across chats, browsers, and memory.',
-  },
-  {
-    title: 'Proof that lasts',
-    detail:
-      'Progress and outcomes stay close to the work so updates are easier to revisit and trust.',
-  },
-];
-
-const teamMembers = ['Afolabi Aiyeloja', 'Luiz Fernando', 'Sofia Villareal'];
-const partnerMarks = [
-  'Regen Coordination',
-  'Greenpill',
-  'Greenpill Dev Guild',
-  'ReFi DAO',
-  'Green Goods',
-];
-
-// All chickens drift rightward as user scrolls, clearing the left side for hero copy
-// and "How it works" content. 5 keyframes with alternating y/rotate create a grazing bob.
-const storyFlightPaths: Record<
-  JourneyChicken['id'],
-  Array<{ x: string; y: string; rotate: number; scale?: number }>
-> = {
-  tabs: [
-    { x: '2vw', y: '1vh', rotate: -4, scale: 1.0 },
-    { x: '8vw', y: '-2vh', rotate: 3, scale: 0.98 },
-    { x: '14vw', y: '1vh', rotate: -2, scale: 0.96 },
-    { x: '20vw', y: '-3vh', rotate: 2, scale: 0.93 },
-    { x: '26vw', y: '-6vh', rotate: 0, scale: 0.9 },
-  ],
-  notes: [
-    { x: '3vw', y: '-1vh', rotate: 5, scale: 1.0 },
-    { x: '9vw', y: '2vh', rotate: -3, scale: 0.97 },
-    { x: '15vw', y: '-1vh', rotate: 2, scale: 0.95 },
-    { x: '19vw', y: '1vh', rotate: -1, scale: 0.92 },
-    { x: '24vw', y: '-4vh', rotate: 0, scale: 0.88 },
-  ],
-  ideas: [
-    { x: '-2vw', y: '2vh', rotate: -6, scale: 1.0 },
-    { x: '4vw', y: '-1vh', rotate: 4, scale: 0.98 },
-    { x: '10vw', y: '2vh', rotate: -2, scale: 0.96 },
-    { x: '16vw', y: '-1vh', rotate: 1, scale: 0.93 },
-    { x: '22vw', y: '-5vh', rotate: 0, scale: 0.9 },
-  ],
-  signals: [
-    { x: '-3vw', y: '-1vh', rotate: 6, scale: 1.0 },
-    { x: '3vw', y: '2vh', rotate: -4, scale: 0.97 },
-    { x: '9vw', y: '-1vh', rotate: 3, scale: 0.95 },
-    { x: '15vw', y: '1vh', rotate: -1, scale: 0.92 },
-    { x: '20vw', y: '-6vh', rotate: 0, scale: 0.88 },
-  ],
-  links: [
-    { x: '1vw', y: '1vh', rotate: -3, scale: 1.0 },
-    { x: '6vw', y: '-2vh', rotate: 2, scale: 0.96 },
-    { x: '12vw', y: '1vh', rotate: -1, scale: 0.93 },
-    { x: '17vw', y: '-2vh', rotate: 1, scale: 0.9 },
-    { x: '22vw', y: '-5vh', rotate: 0, scale: 0.86 },
-  ],
-  drafts: [
-    { x: '2vw', y: '-1vh', rotate: 4, scale: 1.0 },
-    { x: '7vw', y: '1vh', rotate: -2, scale: 0.95 },
-    { x: '11vw', y: '-1vh', rotate: 2, scale: 0.92 },
-    { x: '16vw', y: '1vh', rotate: -1, scale: 0.88 },
-    { x: '19vw', y: '-4vh', rotate: 0, scale: 0.84 },
-  ],
-  threads: [
-    { x: '-1vw', y: '2vh', rotate: -5, scale: 1.0 },
-    { x: '5vw', y: '-1vh', rotate: 3, scale: 0.96 },
-    { x: '11vw', y: '2vh', rotate: -2, scale: 0.93 },
-    { x: '17vw', y: '-1vh', rotate: 1, scale: 0.9 },
-    { x: '24vw', y: '-5vh', rotate: 0, scale: 0.86 },
-  ],
-  clips: [
-    { x: '-2vw', y: '-1vh', rotate: 3, scale: 1.0 },
-    { x: '4vw', y: '2vh', rotate: -3, scale: 0.95 },
-    { x: '9vw', y: '-1vh', rotate: 1, scale: 0.92 },
-    { x: '14vw', y: '1vh', rotate: -1, scale: 0.88 },
-    { x: '18vw', y: '-4vh', rotate: 0, scale: 0.84 },
-  ],
-};
-
-// Chickens waddle toward the coop door (center-bottom) then shrink/fade as they enter.
-// Each path has 5 keyframes for fluid motion with alternating rotation (waddle).
-// The door is roughly at (50%, 72%) of the scene — chickens from the left move
-// rightward and chickens from the right move leftward, all converging on the door.
-const arrivalFlightPaths: Record<
-  JourneyChicken['id'],
-  Array<{ x: string; y: string; rotate: number; scale?: number; opacity?: number }>
-> = {
-  tabs: [
-    { x: '4vw', y: '-1vh', rotate: -5, scale: 0.96, opacity: 1 },
-    { x: '12vw', y: '-3vh', rotate: 4, scale: 0.88, opacity: 1 },
-    { x: '20vw', y: '-5vh', rotate: -3, scale: 0.68, opacity: 0.9 },
-    { x: '28vw', y: '-6vh', rotate: 2, scale: 0.42, opacity: 0.45 },
-    { x: '34vw', y: '-7vh', rotate: 0, scale: 0.18, opacity: 0 },
-  ],
-  notes: [
-    { x: '3vw', y: '0vh', rotate: 5, scale: 0.95, opacity: 1 },
-    { x: '9vw', y: '-2vh', rotate: -4, scale: 0.85, opacity: 1 },
-    { x: '16vw', y: '-4vh', rotate: 3, scale: 0.66, opacity: 0.88 },
-    { x: '22vw', y: '-5vh', rotate: -2, scale: 0.4, opacity: 0.4 },
-    { x: '26vw', y: '-6vh', rotate: 0, scale: 0.16, opacity: 0 },
-  ],
-  ideas: [
-    { x: '-3vw', y: '0vh', rotate: -5, scale: 0.95, opacity: 1 },
-    { x: '-9vw', y: '-2vh', rotate: 4, scale: 0.85, opacity: 1 },
-    { x: '-16vw', y: '-4vh', rotate: -3, scale: 0.66, opacity: 0.88 },
-    { x: '-22vw', y: '-5vh', rotate: 2, scale: 0.4, opacity: 0.4 },
-    { x: '-26vw', y: '-6vh', rotate: 0, scale: 0.16, opacity: 0 },
-  ],
-  signals: [
-    { x: '-4vw', y: '-1vh', rotate: 5, scale: 0.96, opacity: 1 },
-    { x: '-12vw', y: '-3vh', rotate: -4, scale: 0.88, opacity: 1 },
-    { x: '-20vw', y: '-5vh', rotate: 3, scale: 0.68, opacity: 0.9 },
-    { x: '-28vw', y: '-6vh', rotate: -2, scale: 0.42, opacity: 0.45 },
-    { x: '-34vw', y: '-7vh', rotate: 0, scale: 0.18, opacity: 0 },
-  ],
-  links: [
-    { x: '2vw', y: '0vh', rotate: -4, scale: 0.93, opacity: 1 },
-    { x: '8vw', y: '-2vh', rotate: 3, scale: 0.82, opacity: 1 },
-    { x: '15vw', y: '-4vh', rotate: -2, scale: 0.62, opacity: 0.85 },
-    { x: '24vw', y: '-6vh', rotate: 1, scale: 0.36, opacity: 0.35 },
-    { x: '30vw', y: '-7vh', rotate: 0, scale: 0.14, opacity: 0 },
-  ],
-  drafts: [
-    { x: '2vw', y: '1vh', rotate: 3, scale: 0.91, opacity: 1 },
-    { x: '6vw', y: '-1vh', rotate: -3, scale: 0.78, opacity: 1 },
-    { x: '12vw', y: '-3vh', rotate: 2, scale: 0.58, opacity: 0.82 },
-    { x: '18vw', y: '-5vh', rotate: -1, scale: 0.34, opacity: 0.32 },
-    { x: '22vw', y: '-6vh', rotate: 0, scale: 0.12, opacity: 0 },
-  ],
-  threads: [
-    { x: '-2vw', y: '0vh', rotate: 4, scale: 0.93, opacity: 1 },
-    { x: '-8vw', y: '-2vh', rotate: -3, scale: 0.82, opacity: 1 },
-    { x: '-15vw', y: '-4vh', rotate: 2, scale: 0.62, opacity: 0.85 },
-    { x: '-24vw', y: '-6vh', rotate: -1, scale: 0.36, opacity: 0.35 },
-    { x: '-30vw', y: '-7vh', rotate: 0, scale: 0.14, opacity: 0 },
-  ],
-  clips: [
-    { x: '-2vw', y: '1vh', rotate: -3, scale: 0.91, opacity: 1 },
-    { x: '-6vw', y: '-1vh', rotate: 3, scale: 0.78, opacity: 1 },
-    { x: '-12vw', y: '-3vh', rotate: -2, scale: 0.58, opacity: 0.82 },
-    { x: '-18vw', y: '-5vh', rotate: 1, scale: 0.34, opacity: 0.32 },
-    { x: '-22vw', y: '-6vh', rotate: 0, scale: 0.12, opacity: 0 },
-  ],
-};
-
-const chickenThoughts: Record<JourneyChicken['id'], string> = {
-  tabs: 'Open browser tabs',
-  notes: 'Meeting notes & memos',
-  ideas: 'Sparks worth exploring',
-  signals: 'Trends & opportunities',
-  links: 'Saved references',
-  drafts: 'Work in progress',
-  threads: 'Conversation fragments',
-  clips: 'Audio & video moments',
-};
-
-const STAR_COUNT = 10;
-
-function starStyle(index: number): React.CSSProperties {
-  const golden = 0.618033988749895;
-  const x = (index * golden * 137.508) % 100;
-  const y = (index * golden * 83.7) % 60;
-  const size = 1.5 + (index % 4) * 0.7;
-  return {
-    left: `${x}%`,
-    top: `${y}%`,
-    width: `${size}px`,
-    height: `${size}px`,
-  };
-}
-
-export const emptyLandingTranscripts: TranscriptMap = {
-  capital: '',
-  impact: '',
-  governance: '',
-  knowledge: '',
-};
-
-function cleanText(value: string) {
-  return value.trim().replace(/\s+/g, ' ');
-}
-
-function compact<T>(values: Array<T | null | undefined>) {
-  return values.filter((value): value is T => value != null);
-}
-
-function cloneSetupInput() {
-  return { ...emptySetupInsightsInput };
-}
-
-function cloneTranscripts() {
-  return { ...emptyLandingTranscripts };
-}
-
-function createEmptyLandingDraft(): LandingDraft {
-  return {
-    version: 2,
-    audience: 'community',
-    openCardId: null,
-    sharedNotes: '',
-    setupInput: cloneSetupInput(),
-    transcripts: cloneTranscripts(),
-  };
-}
-
-function isTranscriptKey(value: unknown): value is TranscriptKey {
-  return (
-    value === 'capital' || value === 'impact' || value === 'governance' || value === 'knowledge'
-  );
-}
-
-function isAudienceId(value: unknown): value is AudienceId {
-  return value === 'persona' || value === 'family' || value === 'friends' || value === 'community';
-}
-
-function mergeSetupInput(value: unknown): SetupInsightsInput {
-  const next = cloneSetupInput();
-
-  if (!value || typeof value !== 'object') {
-    return next;
-  }
-
-  for (const key of Object.keys(emptySetupInsightsInput) as SetupFieldKey[]) {
-    const candidate = (value as Record<string, unknown>)[key];
-
-    if (typeof candidate === 'string') {
-      next[key] = candidate;
-    }
-  }
-
-  return next;
-}
-
-function mergeTranscripts(value: unknown): TranscriptMap {
-  const next = cloneTranscripts();
-
-  if (!value || typeof value !== 'object') {
-    return next;
-  }
-
-  for (const key of Object.keys(emptyLandingTranscripts) as TranscriptKey[]) {
-    const candidate = (value as Record<string, unknown>)[key];
-
-    if (typeof candidate === 'string') {
-      next[key] = candidate;
-    }
-  }
-
-  return next;
-}
-
-function readLandingDraft(): LandingDraft {
-  if (typeof window === 'undefined') {
-    return createEmptyLandingDraft();
-  }
-
-  try {
-    const rawDraft = window.localStorage.getItem(LANDING_DRAFT_STORAGE_KEY);
-
-    if (!rawDraft) {
-      return createEmptyLandingDraft();
-    }
-
-    const parsed = JSON.parse(rawDraft) as Record<string, unknown>;
-
-    return {
-      version: 2,
-      audience: isAudienceId(parsed.audience) ? parsed.audience : 'community',
-      openCardId: isTranscriptKey(parsed.openCardId) ? parsed.openCardId : null,
-      sharedNotes: typeof parsed.sharedNotes === 'string' ? parsed.sharedNotes : '',
-      setupInput: mergeSetupInput(parsed.setupInput),
-      transcripts: mergeTranscripts(parsed.transcripts),
-    };
-  } catch {
-    return createEmptyLandingDraft();
-  }
-}
-
-function resolveSpeechRecognitionConstructor(target: Window & typeof globalThis) {
-  const speechWindow = target as SpeechWindow;
-  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
-}
-
-function resolveSpeechError(error?: string) {
-  switch (error) {
-    case 'not-allowed':
-    case 'service-not-allowed':
-      return 'Microphone or speech permissions were denied. Type notes manually for this card.';
-    case 'audio-capture':
-      return 'No microphone is available here. You can still type notes into the card.';
-    case 'no-speech':
-      return 'No speech was detected. Try again or type notes manually.';
-    default:
-      return 'Live transcript stopped unexpectedly. Your typed notes are still safe.';
-  }
-}
-
-function getLensProgress(
-  mapping: RitualCardMapping,
-  setupInput: SetupInsightsInput,
-  transcripts: TranscriptMap,
-): LensProgress {
-  const transcript = cleanText(transcripts[mapping.id]);
-  const current = cleanText(setupInput[mapping.currentKey]);
-  const pain = cleanText(setupInput[mapping.painKey]);
-  const improve = cleanText(setupInput[mapping.improveKey]);
-  const filledCount = [transcript, current, pain, improve].filter(Boolean).length;
-  const captureReady = Boolean(transcript || current || pain || improve);
-  const distillReady = [current, pain, improve].filter(Boolean).length >= 2;
-  const status: LensStatus =
-    current && pain && improve ? 'ready' : filledCount > 0 ? 'drafting' : 'empty';
-
-  return {
-    captureReady,
-    distillReady,
-    status,
-    filledCount,
-  };
-}
-
-function statusLabel(status: LensStatus) {
-  switch (status) {
-    case 'ready':
-      return 'Ready';
-    case 'drafting':
-      return 'In progress';
-    default:
-      return 'Not started';
-  }
-}
-
-function initialsForName(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((segment) => segment[0]?.toUpperCase() ?? '')
-    .slice(0, 2)
-    .join('');
-}
-
-function buildPacketFilename(coopName: string) {
-  const cleaned = cleanText(coopName)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return `${cleaned || 'coop'}-setup-packet.json`;
-}
-
-export function buildLandingSetupPacket(
-  setupInput: SetupInsightsInput,
-  transcripts: TranscriptMap,
-  options: LandingPacketOptions = {},
-) {
-  const spaceType = options.audience ? audienceToSpaceType[options.audience] : 'community';
-  const setupInsights = toSetupInsights(setupInput, spaceType);
-
-  return {
-    coopName: cleanText(setupInput.coopName) || 'This coop',
-    purpose: cleanText(setupInput.purpose) || 'Keep useful context from getting loose.',
-    audience: options.audience ?? 'community',
-    sharedNotes: cleanText(options.sharedNotes ?? ''),
-    summary: setupInsights.summary,
-    setupInsights,
-    transcripts: {
-      moneyAndResources: cleanText(transcripts.capital),
-      impactAndProgress: cleanText(transcripts.impact),
-      decisionsAndTeamwork: cleanText(transcripts.governance),
-      knowledgeAndTools: cleanText(transcripts.knowledge),
-    },
-  };
-}
-
-function ChickenSprite({
-  label,
-  showLabel = true,
-  variant = 'adult',
-}: { label: string; showLabel?: boolean; variant?: ChickenVariant }) {
-  const variantClass = variant !== 'adult' ? ` chicken-${variant}` : '';
-
-  return (
-    <>
-      <svg
-        aria-hidden="true"
-        className={`scene-chicken-svg${variantClass}`}
-        viewBox="0 0 150 118"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          className="chicken-tail"
-          d="M34 61c-10-8-14-19-11-31 16 0 30 6 38 18-6 8-15 12-27 13Z"
-        />
-        <path
-          className="chicken-body"
-          d="M42 31c15-10 38-13 61-6 27 9 42 31 36 52-5 19-25 31-48 31-18 0-35-6-46-18-16-16-18-41-3-59Z"
-        />
-        <path
-          className="chicken-wing"
-          d="M78 53c17 1 30 11 31 24 0 9-8 17-19 20-15-2-25-10-26-21 0-11 6-19 14-23Z"
-        />
-        <path
-          className="chicken-comb"
-          d="M80 22c4-9 9-14 16-14 5 0 9 3 12 8 5-5 11-6 17-1 5 5 6 12 1 21H82c-6-3-7-8-2-14Z"
-        />
-        <circle className="chicken-eye" cx="104" cy="49" r="3.3" />
-        <path className="chicken-beak" d="M117 54l22 6-22 8-4-7 4-7Z" />
-        <path className="chicken-leg" d="M66 100v15" />
-        <path className="chicken-leg" d="M90 103v15" />
-        <path className="chicken-foot" d="M60 116h12" />
-        <path className="chicken-foot" d="M84 118h12" />
-      </svg>
-      {showLabel ? <span className="scene-chicken-label">{label}</span> : null}
-    </>
-  );
-}
-
-function CoopIllustration() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="scene-coop-svg"
-      viewBox="0 0 320 278"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path className="coop-roof" d="M67 94L160 26l93 68-16 18H83z" />
-      <rect className="coop-body" x="56" y="94" width="208" height="154" rx="30" />
-      <rect className="coop-window" x="88" y="124" width="54" height="54" rx="14" />
-      <rect className="coop-window" x="178" y="124" width="54" height="54" rx="14" />
-      <rect className="coop-door" x="134" y="170" width="52" height="78" rx="16" />
-      <path className="coop-slat" d="M104 104v132" />
-      <path className="coop-slat" d="M160 104v132" />
-      <path className="coop-slat" d="M216 104v132" />
-      <path className="coop-trim" d="M56 152h208" />
-    </svg>
-  );
-}
+export { buildLandingSetupPacket, emptyLandingTranscripts };
 
 export function App({
-  appHref = '/pair',
   devEnvironment = null,
 }: {
-  appHref?: string;
   devEnvironment?: DevEnvironmentState | null;
 }) {
   const initialDraftRef = useRef<LandingDraft | null>(null);
@@ -619,10 +60,8 @@ export function App({
   const landingRootRef = useRef<HTMLDivElement | null>(null);
   const storyJourneyRef = useRef<HTMLElement | null>(null);
   const arrivalJourneyRef = useRef<HTMLElement | null>(null);
-  const ritualSectionRef = useRef<HTMLElement | null>(null);
   const heroCopyRef = useRef<HTMLDivElement | null>(null);
   const howItWorksRef = useRef<HTMLDivElement | null>(null);
-  const whyBuildRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const recognitionHadErrorRef = useRef(false);
 
@@ -647,6 +86,7 @@ export function App({
 
   const storySkyOverlayRef = useRef<HTMLDivElement | null>(null);
   const storySunWarmRef = useRef<HTMLDivElement | null>(null);
+  const arrivalNightSkyRef = useRef<HTMLDivElement | null>(null);
   const arrivalStarsRef = useRef<HTMLDivElement | null>(null);
   const arrivalMoonRef = useRef<HTMLDivElement | null>(null);
   const arrivalCoopGlowRef = useRef<HTMLDivElement | null>(null);
@@ -683,8 +123,7 @@ export function App({
   const [recordingLens, setRecordingLens] = useState<TranscriptKey | null>(null);
   const [transcriptStatus, setTranscriptStatus] = useState(defaultTranscriptStatus);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const [showResetButton, setShowResetButton] = useState(false);
-  const [scrolledPastHero, setScrolledPastHero] = useState(false);
+  const [heroScrollHintOpacity, setHeroScrollHintOpacity] = useState(1);
 
   const speechRecognition =
     typeof window === 'undefined' ? null : resolveSpeechRecognitionConstructor(window);
@@ -698,8 +137,11 @@ export function App({
     [setupInput, transcripts],
   );
   const completedLensCount = lensProgress.filter((progress) => progress.status === 'ready').length;
-  const activeDraftCount = lensProgress.filter((progress) => progress.captureReady).length;
   const allLensesReady = completedLensCount === ritualCardMappings.length;
+  const openCardIndex = openCardId ? ritualLenses.findIndex((lens) => lens.id === openCardId) : -1;
+  const openCardLens = openCardIndex >= 0 ? ritualLenses[openCardIndex] : null;
+  const openCardMapping = openCardIndex >= 0 ? ritualCardMappings[openCardIndex] : null;
+  const openCardProgress = openCardIndex >= 0 ? lensProgress[openCardIndex] : null;
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) {
@@ -736,53 +178,33 @@ export function App({
   }, [audience, openCardId, sharedNotes, setupInput, transcripts]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !heroCopyRef.current) {
+    if (typeof window === 'undefined') {
       return undefined;
     }
 
-    if (!('IntersectionObserver' in window)) {
-      return undefined;
-    }
-
-    const heroObserver = new window.IntersectionObserver(
-      (entries) => {
-        setScrolledPastHero(!(entries[0]?.isIntersecting ?? true));
-      },
-      { threshold: 0.1 },
-    );
-
-    heroObserver.observe(heroCopyRef.current);
-
-    return () => {
-      heroObserver.disconnect();
+    let frameId = 0;
+    const updateHintOpacity = () => {
+      const heroHeight = heroCopyRef.current?.offsetHeight ?? window.innerHeight * 0.25;
+      const fadeDistance = Math.max(96, Math.min(window.innerHeight * 0.18, heroHeight * 0.5));
+      const nextOpacity = Math.max(0, 1 - window.scrollY / fadeDistance);
+      setHeroScrollHintOpacity((current) =>
+        Math.abs(current - nextOpacity) < 0.01 ? current : nextOpacity,
+      );
     };
-  }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !ritualSectionRef.current) {
-      return undefined;
-    }
+    updateHintOpacity();
 
-    if (!('IntersectionObserver' in window)) {
-      setShowResetButton(true);
-      return undefined;
-    }
+    const handleScroll = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(updateHintOpacity);
+    };
 
-    const observer = new window.IntersectionObserver(
-      (entries) => {
-        const activeEntry = entries[0];
-        setShowResetButton(activeEntry?.isIntersecting ?? false);
-      },
-      {
-        rootMargin: '-96px 0px -28% 0px',
-        threshold: 0.01,
-      },
-    );
-
-    observer.observe(ritualSectionRef.current);
-
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
     return () => {
-      observer.disconnect();
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
     };
   }, []);
 
@@ -811,6 +233,7 @@ export function App({
         const { gsap } = gsapModule;
         const { ScrollTrigger } = scrollTriggerModule;
         const scope = landingRootRef.current;
+        const scrubEase = 'power1.inOut';
 
         if (!scope || !storyJourneyRef.current || !arrivalJourneyRef.current) {
           return;
@@ -827,7 +250,7 @@ export function App({
           );
           const howItWorksHeading =
             howItWorksRef.current?.querySelector<HTMLDivElement>('.how-works-heading') ?? null;
-          const howItWorksCards = Array.from(
+          const howItWorksCardElements = Array.from(
             howItWorksRef.current?.querySelectorAll<HTMLElement>('.how-works-card') ?? [],
           );
 
@@ -840,6 +263,9 @@ export function App({
               ) ?? [],
             ),
           };
+          const insideBirds = Array.from(
+            arrivalInsideFlockRef.current?.querySelectorAll<HTMLElement>('.inside-bird') ?? [],
+          );
 
           gsap.set(storyChickens, { transformOrigin: '50% 50%' });
           gsap.set(arrivalChickens, { transformOrigin: '50% 50%', opacity: 0.94 });
@@ -847,7 +273,9 @@ export function App({
             transformOrigin: '50% 100%',
           });
           gsap.set(arrivalCoopParts.frames, { transformOrigin: '50% 50%' });
-          gsap.set(howItWorksCards, { transformOrigin: '50% 50%' });
+          gsap.set(howItWorksCardElements, { transformOrigin: '50% 50%' });
+          gsap.set(insideBirds, { transformOrigin: '50% 100%' });
+          gsap.set(arrivalMoonRef.current, { transformOrigin: '50% 50%' });
 
           const storyTimeline = gsap.timeline({
             defaults: { ease: 'none' },
@@ -855,7 +283,7 @@ export function App({
               trigger: storyJourneyRef.current,
               start: 'top top',
               end: 'bottom bottom',
-              scrub: 1.1,
+              scrub: 0.96,
             },
           });
 
@@ -904,15 +332,20 @@ export function App({
               { scaleX: 1.12, scaleY: 1.08, rotate: -4, opacity: 0.78 },
               0.12,
             )
-            .fromTo(heroCopyRef.current, { autoAlpha: 1, y: 0 }, { autoAlpha: 0, y: -32 }, 0.5)
-            .fromTo(howItWorksRef.current, { autoAlpha: 0.55 }, { autoAlpha: 1 }, 0.38)
-            .fromTo(howItWorksHeading, { autoAlpha: 0.6, y: 34 }, { autoAlpha: 1, y: 0 }, 0.4)
+            .fromTo(heroCopyRef.current, { autoAlpha: 1, y: 0 }, { autoAlpha: 0.08, y: -24 }, 0.44)
             .fromTo(
-              howItWorksCards,
+              howItWorksRef.current,
+              { autoAlpha: 0.18, y: 32, scale: 0.97 },
+              { autoAlpha: 1, y: 0, scale: 1 },
+              0.26,
+            )
+            .fromTo(howItWorksHeading, { autoAlpha: 0.48, y: 22 }, { autoAlpha: 1, y: 0 }, 0.32)
+            .fromTo(
+              howItWorksCardElements,
               {
-                autoAlpha: 0.55,
-                y: 48,
-                scale: 0.96,
+                autoAlpha: 0.22,
+                y: 24,
+                scale: 0.975,
               },
               {
                 autoAlpha: 1,
@@ -920,22 +353,8 @@ export function App({
                 scale: 1,
                 stagger: 0.08,
               },
-              0.42,
-            )
-            .to(
-              howItWorksCards,
-              {
-                autoAlpha: 0.35,
-                y: -24,
-                scale: 0.98,
-                stagger: {
-                  each: 0.05,
-                  from: 'end',
-                },
-              },
-              0.92,
-            )
-            .to(howItWorksRef.current, { autoAlpha: 0.4, y: -36 }, 0.94);
+              0.36,
+            );
 
           storyTimeline
             .fromTo(storySkyOverlayRef.current, { opacity: 0 }, { opacity: 0.88 }, 0.15)
@@ -997,7 +416,7 @@ export function App({
               trigger: arrivalJourneyRef.current,
               start: 'top top',
               end: 'bottom bottom',
-              scrub: 1.15,
+              scrub: 0.98,
             },
           });
 
@@ -1044,12 +463,25 @@ export function App({
             )
             .fromTo(
               arrivalInsideFlockRef.current,
-              { autoAlpha: 0, scale: 0.85 },
-              { autoAlpha: 1, scale: 1 },
+              { autoAlpha: 0, y: 18, scale: 0.94 },
+              { autoAlpha: 1, y: 0, scale: 1 },
               0.62,
+            )
+            .fromTo(
+              insideBirds,
+              { autoAlpha: 0, y: 18, scale: 0.82 },
+              { autoAlpha: 1, y: 0, scale: 1, stagger: 0.04 },
+              0.66,
             );
           arrivalTimeline
-            .fromTo(arrivalStarsRef.current, { opacity: 0 }, { opacity: 0.35 }, 0.3)
+            .fromTo(arrivalNightSkyRef.current, { opacity: 0 }, { opacity: 0.82 }, 0.46)
+            .fromTo(arrivalStarsRef.current, { opacity: 0 }, { opacity: 0.78 }, 0.56)
+            .fromTo(
+              arrivalMoonRef.current,
+              { opacity: 0, y: 24, scale: 0.82 },
+              { opacity: 0.96, y: 0, scale: 1, ease: scrubEase },
+              0.66,
+            )
             // Warm halo fades in as coop rises
             .fromTo(
               '.scene-coop-halo',
@@ -1061,8 +493,8 @@ export function App({
             .fromTo(arrivalCoopGlowRef.current, { opacity: 0 }, { opacity: 0.3 }, 0.25)
             .to(arrivalCoopGlowRef.current, { opacity: 0.15 }, 0.3)
             .to(arrivalCoopGlowRef.current, { opacity: 0.5 }, 0.38)
-            .to(arrivalCoopGlowRef.current, { opacity: 1 }, 0.55)
-            .to(arrivalCloudRef.current, { opacity: 0.25 }, 0.15);
+            .to(arrivalCoopGlowRef.current, { opacity: 1 }, 0.52)
+            .to(arrivalCloudRef.current, { opacity: 0.14 }, 0.42);
 
           // Stagger chicken arrivals — each starts slightly later for a natural procession
           for (let i = 0; i < journeyChickens.length; i++) {
@@ -1074,12 +506,12 @@ export function App({
               continue;
             }
 
-            const staggerDelay = 0.04 + i * 0.03;
+            const staggerDelay = 0.02 + i * 0.02;
 
             arrivalTimeline.to(
               node,
               {
-                ease: 'power1.inOut',
+                ease: scrubEase,
                 keyframes: path.map((frame) => ({
                   x: frame.x,
                   y: frame.y,
@@ -1091,6 +523,17 @@ export function App({
               staggerDelay,
             );
           }
+
+          arrivalTimeline.to(
+            arrivalChickens,
+            {
+              autoAlpha: 0,
+              scale: 0.08,
+              y: '-=2vh',
+              duration: 0.1,
+            },
+            0.54,
+          );
         }, scope);
 
         revertAnimations = () => {
@@ -1121,6 +564,39 @@ export function App({
       recognition.stop();
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !openCardId) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      focusReturnCardRef.current = openCardId;
+      const recognition = recognitionRef.current;
+
+      if (recognition) {
+        if (recognition.abort) {
+          recognition.abort();
+        } else {
+          recognition.stop();
+        }
+        recognitionRef.current = null;
+        setRecordingLens(null);
+      }
+
+      setOpenCardId(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openCardId]);
 
   useEffect(() => {
     const openCardIdToFocus = focusOpenCardRef.current;
@@ -1315,6 +791,16 @@ export function App({
     });
   }
 
+  function closeOpenCard() {
+    if (!openCardId) {
+      return;
+    }
+
+    focusReturnCardRef.current = openCardId;
+    stopRecognitionNow();
+    setOpenCardId(null);
+  }
+
   async function copySetupNotes() {
     if (!navigator.clipboard?.writeText) {
       setCopyState('failed');
@@ -1362,21 +848,111 @@ export function App({
     }
   }
 
+  function renderOpenCardStage() {
+    if (!openCardLens || !openCardMapping || !openCardProgress) {
+      return null;
+    }
+
+    const isDone = openCardProgress.status === 'ready';
+
+    return (
+      <dialog
+        aria-label={openCardLens.title}
+        aria-modal="false"
+        className={`flashcard-stage flashcard-${openCardLens.id}${isDone ? ' is-done' : ''}`}
+        id={`flashcard-panel-${openCardLens.id}`}
+        open
+      >
+        <div className="flashcard-stage-header">
+          <div className="flashcard-front-meta">
+            <span className="flashcard-number">Lens {openCardIndex + 1}</span>
+            <span className={`flashcard-status-pill is-${openCardProgress.status}`}>
+              {statusLabel(openCardProgress.status)}
+            </span>
+          </div>
+          <button
+            className="flashcard-close-btn"
+            onClick={closeOpenCard}
+            ref={setFlashcardCloseRef(openCardLens.id)}
+            type="button"
+            aria-label="Close card"
+          >
+            {'\u00D7'}
+          </button>
+        </div>
+
+        <div className="flashcard-stage-copy">
+          <div>
+            <p className="flashcard-stage-label">{openCardLens.title}</p>
+            <h3 className="flashcard-question">{openCardLens.transcriptPrompt}</h3>
+          </div>
+          <p className="flashcard-detail">{openCardLens.detail}</p>
+        </div>
+
+        <div className="ritual-transcript-header">
+          <button
+            className={
+              recordingLens === openCardLens.id
+                ? 'button button-primary button-small ritual-record-button is-recording'
+                : 'button button-secondary button-small ritual-record-button'
+            }
+            onClick={() =>
+              recordingLens === openCardLens.id ? stopRecording() : startRecording(openCardLens.id)
+            }
+            type="button"
+          >
+            {recordingLens === openCardLens.id ? 'Stop recording' : 'Record'}
+          </button>
+
+          <span className="flashcard-stage-tip">Everything stays saved on this device.</span>
+        </div>
+
+        {recordingLens === openCardLens.id || transcripts[openCardLens.id] ? (
+          <output aria-live="polite" className="ritual-transcript-status">
+            {transcriptStatus}
+          </output>
+        ) : null}
+
+        <label className="ritual-field">
+          <span>{openCardLens.title} notes</span>
+          <textarea
+            onChange={(event) => updateTranscript(openCardLens.id, event.target.value)}
+            placeholder="Paste notes or let live transcript fill this in."
+            ref={setFlashcardNotesRef(openCardLens.id)}
+            value={transcripts[openCardLens.id]}
+          />
+        </label>
+
+        <button
+          className={isDone ? 'flashcard-complete-btn is-done' : 'flashcard-complete-btn'}
+          onClick={() => {
+            if (!isDone) {
+              updateField(
+                openCardMapping.currentKey,
+                setupInput[openCardMapping.currentKey] || 'Captured',
+              );
+              updateField(
+                openCardMapping.painKey,
+                setupInput[openCardMapping.painKey] || 'Captured',
+              );
+              updateField(
+                openCardMapping.improveKey,
+                setupInput[openCardMapping.improveKey] || 'Captured',
+              );
+            }
+            toggleCard(openCardLens.id);
+          }}
+          type="button"
+        >
+          {isDone ? '\u2713 Complete' : 'Mark complete'}
+        </button>
+      </dialog>
+    );
+  }
+
   return (
     <div className="page-shell landing-shell" ref={landingRootRef}>
       <div className="backdrop landing-backdrop" />
-
-      <button
-        className={
-          showResetButton
-            ? 'button button-secondary ritual-reset is-visible'
-            : 'button button-secondary ritual-reset'
-        }
-        onClick={resetRitual}
-        type="button"
-      >
-        Reset ritual
-      </button>
 
       <header className="landing-topbar">
         <div className="topbar">
@@ -1409,6 +985,8 @@ export function App({
               <div className="scene-hill scene-hill-mid" ref={storyHillMidRef} />
               <div className="scene-hill scene-hill-front" ref={storyHillFrontRef} />
               <div className="scene-path" ref={storyPathRef} />
+              <div className="scene-feed-spot scene-feed-spot-a" />
+              <div className="scene-feed-spot scene-feed-spot-b" />
             </div>
             <div className="journey-scene-inner">
               {journeyChickens.map((chicken) => (
@@ -1420,7 +998,12 @@ export function App({
                   <div className="thought-bubble" aria-hidden="true">
                     {chickenThoughts[chicken.id]}
                   </div>
-                  <ChickenSprite label={chicken.label} showLabel={true} variant={chicken.variant} />
+                  <ChickenSprite
+                    facing={chicken.facing}
+                    label={chicken.label}
+                    showLabel={true}
+                    variant={chicken.variant}
+                  />
                 </div>
               ))}
             </div>
@@ -1431,13 +1014,10 @@ export function App({
               <div className="hero-shell">
                 <div className="hero-copy" ref={heroCopyRef}>
                   <h1 className="hero-title">
-                    No more
-                    <br />
-                    chickens loose.
+                    <span className="hero-title-line">No more</span>
+                    <span className="hero-title-line hero-title-line-bottom">chickens loose.</span>
                   </h1>
-                  <p className="hero-subtitle">
-                    Your group's knowledge, gathered and ready to act on.
-                  </p>
+                  <p className="hero-subtitle">Turning knowledge into opportunity.</p>
                   <p className="sr-only">
                     Eight chickens start apart in the meadow and converge as you scroll.
                   </p>
@@ -1446,8 +1026,9 @@ export function App({
                 <div aria-hidden="true" className="hero-stage" />
 
                 <div
-                  className={`hero-scroll-hint${scrolledPastHero ? ' is-hidden' : ''}`}
+                  className={`hero-scroll-hint${heroScrollHintOpacity < 0.04 ? ' is-hidden' : ''}`}
                   aria-hidden="true"
+                  style={{ opacity: heroScrollHintOpacity }}
                 >
                   <svg
                     className="hero-scroll-arrow"
@@ -1481,7 +1062,7 @@ export function App({
                 </div>
 
                 <div className="how-works-grid">
-                  {howItWorksCards.map((card, index) => (
+                  {howItWorksCards.map((card) => (
                     <article className="how-works-card nest-card" key={card.title}>
                       <div>
                         <h3>{card.title}</h3>
@@ -1495,67 +1076,103 @@ export function App({
           </div>
         </section>
 
-        <section className="section ritual-section" id="ritual" ref={ritualSectionRef}>
+        <section className="section ritual-section" id="ritual">
           <div className="section-heading ritual-section-heading">
-            <p className="eyebrow">Get started</p>
             <h2>Curate your coop</h2>
             <p className="lede ritual-section-copy">
-              Flip each card, capture what matters, and walk away with a clean setup packet.
+              Open each card, capture what matters, and walk away with a clean setup packet.
             </p>
           </div>
 
           <div className="ritual-game-shell nest-card" data-audience={audience}>
-            <div className="audience-picker">
-              <div className="audience-chip-group">
-                {audienceOptions.map((option) => (
-                  <button
-                    aria-pressed={option.id === audience}
-                    className={option.id === audience ? 'audience-chip is-active' : 'audience-chip'}
-                    key={option.id}
-                    onClick={() => setAudience(option.id)}
-                    type="button"
-                  >
-                    {option.label}
-                  </button>
-                ))}
+            <div className="ritual-toolbar">
+              <div className="audience-picker">
+                <div className="audience-chip-group">
+                  {audienceOptions.map((option) => (
+                    <button
+                      aria-pressed={option.id === audience}
+                      className={
+                        option.id === audience ? 'audience-chip is-active' : 'audience-chip'
+                      }
+                      data-audience-option={option.id}
+                      key={option.id}
+                      onClick={() => setAudience(option.id)}
+                      title={option.tone}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              <button
+                className="button button-secondary button-small ritual-reset-inline"
+                onClick={resetRitual}
+                type="button"
+              >
+                Reset ritual
+              </button>
             </div>
 
-            <div className="flashcard-grid">
-              {ritualLenses.map((lens, index) => {
-                const mapping = ritualCardMappings[index];
-                const progress = lensProgress[index];
-                const isFlipped = openCardId === lens.id;
-                const isDone = progress.status === 'ready';
+            <div className={`flashcard-deck${openCardLens ? ' has-open-card' : ''}`}>
+              <div className={`flashcard-focus-shell${openCardLens ? ' is-active' : ''}`}>
+                {openCardLens ? (
+                  <button
+                    aria-label="Close card backdrop"
+                    className="flashcard-focus-backdrop"
+                    onClick={closeOpenCard}
+                    type="button"
+                  />
+                ) : null}
+                {renderOpenCardStage()}
+              </div>
 
-                return (
-                  <article
-                    className={[
-                      'flashcard',
-                      `flashcard-${lens.id}`,
-                      isFlipped ? 'is-flipped' : '',
-                      isDone ? 'is-done' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    key={lens.id}
-                  >
-                    <div className="flashcard-inner">
+              <div className="flashcard-grid">
+                {ritualLenses.map((lens, index) => {
+                  const progress = lensProgress[index];
+                  const isOpen = openCardId === lens.id;
+                  const isDone = progress.status === 'ready';
+                  const isMuted = openCardId !== null && openCardId !== lens.id;
+
+                  return (
+                    <article
+                      className={[
+                        'flashcard',
+                        `flashcard-${lens.id}`,
+                        isOpen ? 'is-open-source' : '',
+                        isMuted ? 'is-muted' : '',
+                        isDone ? 'is-done' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      key={lens.id}
+                    >
                       <button
-                        aria-expanded={isFlipped}
                         aria-controls={`flashcard-panel-${lens.id}`}
+                        aria-expanded={isOpen}
+                        aria-haspopup="dialog"
                         className="flashcard-front"
                         onClick={() => toggleCard(lens.id)}
                         ref={setFlashcardTriggerRef(lens.id)}
                         type="button"
-                        tabIndex={isFlipped ? -1 : 0}
                       >
                         <div className="flashcard-front-top">
+                          <div className="flashcard-front-meta">
+                            <span className="flashcard-number">Lens {index + 1}</span>
+                            <span className={`flashcard-status-pill is-${progress.status}`}>
+                              {statusLabel(progress.status)}
+                            </span>
+                          </div>
                           <h3>{lens.title}</h3>
                           <p>{lens.detail}</p>
                         </div>
+
                         <div className="flashcard-front-bottom">
-                          <span className="flashcard-flip-hint">Flip</span>
+                          <span aria-hidden="true" className="flashcard-action-mark">
+                            <span />
+                            <span />
+                          </span>
                           {isDone ? (
                             <span className="flashcard-check" aria-label="Complete">
                               &#10003;
@@ -1563,88 +1180,10 @@ export function App({
                           ) : null}
                         </div>
                       </button>
-
-                      <section
-                        aria-label={lens.title}
-                        aria-hidden={!isFlipped}
-                        className="flashcard-back"
-                        id={`flashcard-panel-${lens.id}`}
-                        inert={!isFlipped ? true : undefined}
-                      >
-                        <button
-                          className="flashcard-close-btn"
-                          onClick={() => toggleCard(lens.id)}
-                          ref={setFlashcardCloseRef(lens.id)}
-                          type="button"
-                          aria-label="Flip back"
-                        >
-                          {'\u00D7'}
-                        </button>
-
-                        <h3 className="flashcard-question">{lens.transcriptPrompt}</h3>
-
-                        <div className="ritual-transcript-header">
-                          <button
-                            className={
-                              recordingLens === lens.id
-                                ? 'button button-primary button-small ritual-record-button is-recording'
-                                : 'button button-secondary button-small ritual-record-button'
-                            }
-                            onClick={() =>
-                              recordingLens === lens.id ? stopRecording() : startRecording(lens.id)
-                            }
-                            type="button"
-                          >
-                            {recordingLens === lens.id ? 'Stop recording' : 'Record'}
-                          </button>
-                        </div>
-
-                        {recordingLens === lens.id || transcripts[lens.id] ? (
-                          <output aria-live="polite" className="ritual-transcript-status">
-                            {transcriptStatus}
-                          </output>
-                        ) : null}
-
-                        <label className="ritual-field">
-                          <span>{lens.title} notes</span>
-                          <textarea
-                            onChange={(event) => updateTranscript(lens.id, event.target.value)}
-                            placeholder="Paste notes or let live transcript fill this in."
-                            ref={setFlashcardNotesRef(lens.id)}
-                            value={transcripts[lens.id]}
-                          />
-                        </label>
-
-                        <button
-                          className={
-                            isDone ? 'flashcard-complete-btn is-done' : 'flashcard-complete-btn'
-                          }
-                          onClick={() => {
-                            if (!isDone) {
-                              updateField(
-                                mapping.currentKey,
-                                setupInput[mapping.currentKey] || 'Captured',
-                              );
-                              updateField(
-                                mapping.painKey,
-                                setupInput[mapping.painKey] || 'Captured',
-                              );
-                              updateField(
-                                mapping.improveKey,
-                                setupInput[mapping.improveKey] || 'Captured',
-                              );
-                            }
-                            toggleCard(lens.id);
-                          }}
-                          type="button"
-                        >
-                          {isDone ? '\u2713 Complete' : 'Mark complete'}
-                        </button>
-                      </section>
-                    </div>
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                })}
+              </div>
             </div>
 
             {allLensesReady ? (
@@ -1723,8 +1262,8 @@ export function App({
             ) : (
               <p className="ritual-progress-hint">
                 {completedLensCount > 0
-                  ? `${completedLensCount} of 4 lenses complete — flip and capture the rest.`
-                  : 'Flip a card to start capturing.'}
+                  ? `${completedLensCount} of 4 lenses complete. Open the next card when you are ready.`
+                  : 'Open a card to start capturing.'}
               </p>
             )}
           </div>
@@ -1740,8 +1279,10 @@ export function App({
             }
           >
             <div className="journey-scene-bg">
+              <div className="scene-night-sky" ref={arrivalNightSkyRef} />
               <div className="scene-stars" ref={arrivalStarsRef}>
                 {Array.from({ length: STAR_COUNT }, (_, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: static decorative stars never reorder
                   <span className="scene-star" key={`star-${i}`} style={starStyle(i)} />
                 ))}
               </div>
@@ -1768,6 +1309,7 @@ export function App({
                   <span className="inside-bird inside-bird-b" />
                   <span className="inside-bird inside-bird-c" />
                   <span className="inside-bird inside-bird-d" />
+                  <span className="inside-bird inside-bird-e" />
                 </div>
               </div>
 
@@ -1778,6 +1320,7 @@ export function App({
                   ref={setArrivalChickenRef(chicken.id)}
                 >
                   <ChickenSprite
+                    facing={chicken.facing}
                     label={chicken.label}
                     showLabel={false}
                     variant={chicken.variant}
@@ -1789,12 +1332,37 @@ export function App({
 
           <div className="journey-panels">
             <article className="journey-panel why-build-panel">
-              <div className="why-build-copy nest-card story-card story-card-center">
+              <div className="why-build-copy nest-card story-card">
                 <h2>Why we build</h2>
                 <p className="lede">
                   Scattered knowledge becomes shared action when the right group has a clear place
                   to work from.
                 </p>
+
+                <div className="why-build-proof">
+                  <div className="why-build-group">
+                    <p className="why-build-label">Built by the Coop team</p>
+                    <div className="team-strip">
+                      {teamMembers.map((name) => (
+                        <span className="team-card" key={name}>
+                          <span className="team-avatar">{initialsForName(name)}</span>
+                          <span>{name}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="why-build-group">
+                    <p className="why-build-label">Shaped with regen coordination communities</p>
+                    <div className="partner-strip">
+                      {partnerMarks.map((mark) => (
+                        <span className="partner-pill" key={mark}>
+                          {mark}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </article>
             <div className="arrival-scroll-spacer" aria-hidden="true" />

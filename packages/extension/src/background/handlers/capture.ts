@@ -25,6 +25,7 @@ import {
   transcribeAudio,
   updateReceiverCapture,
 } from '@coop/shared';
+import type { PopupPreparedCapture } from '../../runtime/messages';
 import { resolveReceiverPairingMember } from '../../runtime/receiver';
 import {
   type CaptureSnapshot,
@@ -60,7 +61,7 @@ export async function collectCandidate(
   tab: chrome.tabs.Tab,
   options?: { captureRunId?: string },
 ): Promise<{ candidate: TabCandidate; snapshot: CaptureSnapshot } | null> {
-  if (!tab.id || !tab.url || !isSupportedUrl(tab.url)) {
+  if (tab.id == null || !tab.url || !isSupportedUrl(tab.url)) {
     return null;
   }
 
@@ -275,9 +276,127 @@ export async function captureActiveTab() {
   return runCaptureForTabs([tab], { drainAgent: true });
 }
 
-export async function captureVisibleScreenshot(): Promise<ReceiverCapture> {
+function decodeBase64(dataBase64: string) {
+  return Uint8Array.from(atob(dataBase64), (char) => char.charCodeAt(0));
+}
+
+async function encodeBlobBase64(blob: Blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  const chunkSize = 0x8000;
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+
+  return btoa(binary);
+}
+
+async function resolveCaptureContext() {
+  const coops = await getCoops();
+  const authSession = await getAuthSession(db);
+  const activeContext = await getActiveReviewContextForSession(coops, authSession);
+  const activeCoop = coops.find((coop) => coop.profile.id === activeContext.activeCoopId);
+  const activeMember = resolveReceiverPairingMember(activeCoop, authSession);
+
+  return {
+    coops,
+    activeContext,
+    activeCoop,
+    activeMember,
+  };
+}
+
+async function persistPopupCapture(input: {
+  kind: PopupPreparedCapture['kind'];
+  blob: Blob;
+  fileName?: string;
+  title?: string;
+  note?: string;
+  sourceUrl?: string;
+  createdAt?: string;
+}) {
+  const timestamp = input.createdAt ?? nowIso();
+  const { activeCoop, activeMember } = await resolveCaptureContext();
+
+  const capture = {
+    ...createReceiverCapture({
+      deviceId: extensionCaptureDeviceId,
+      kind: input.kind,
+      blob: input.blob,
+      fileName: input.fileName,
+      title: input.title,
+      note: input.note,
+      sourceUrl: input.sourceUrl,
+      createdAt: timestamp,
+    }),
+    coopId: activeCoop?.profile.id,
+    coopDisplayName: activeCoop?.profile.name,
+    memberId: activeMember?.id,
+    memberDisplayName: activeMember?.displayName,
+    updatedAt: timestamp,
+  } satisfies ReceiverCapture;
+
+  await saveReceiverCapture(db, capture, input.blob);
+  await refreshBadge();
+
+  return {
+    capture,
+    activeCoop,
+  };
+}
+
+async function startAudioTranscription(
+  capture: ReceiverCapture,
+  blob: Blob,
+  durationSeconds: number,
+) {
+  try {
+    const supported = await isWhisperSupported();
+    if (!supported) return;
+    const result = await transcribeAudio({ audioBlob: blob });
+    if (!result.text.trim()) return;
+    const transcriptBytes = new TextEncoder().encode(JSON.stringify(result));
+    const blobId = createId('blob');
+    const now = nowIso();
+    await saveCoopBlob(
+      db,
+      {
+        blobId,
+        sourceEntityId: capture.id,
+        coopId: capture.coopId ?? '',
+        mimeType: 'application/json',
+        byteSize: transcriptBytes.length,
+        kind: 'audio-transcript',
+        origin: 'self',
+        createdAt: now,
+        accessedAt: now,
+      },
+      transcriptBytes,
+    );
+
+    await emitAudioTranscriptObservation({
+      captureId: capture.id,
+      coopId: capture.coopId,
+      transcriptText: result.text,
+      durationSeconds: durationSeconds || result.duration,
+    });
+
+    await notifyExtensionEvent({
+      eventKind: 'transcript-ready',
+      entityId: capture.id,
+      state: 'completed',
+      title: 'Voice note transcribed',
+      message: `"${result.text.slice(0, 80)}${result.text.length > 80 ? '…' : ''}"`,
+    });
+  } catch (err) {
+    console.warn('[captureAudio] Background transcription failed:', err);
+  }
+}
+
+export async function prepareVisibleScreenshot(): Promise<PopupPreparedCapture> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.windowId || !tab.url || !isSupportedUrl(tab.url)) {
+  if (tab?.windowId == null || !tab.url || !isSupportedUrl(tab.url)) {
     throw new Error('Open a standard web page before capturing a screenshot.');
   }
 
@@ -299,41 +418,58 @@ export async function captureVisibleScreenshot(): Promise<ReceiverCapture> {
   }
 
   const timestamp = nowIso();
-  const coops = await getCoops();
-  const authSession = await getAuthSession(db);
-  const activeContext = await getActiveReviewContextForSession(coops, authSession);
-  const activeCoop = coops.find((coop) => coop.profile.id === activeContext.activeCoopId);
-  const activeMember = resolveReceiverPairingMember(activeCoop, authSession);
-  const capture = {
-    ...createReceiverCapture({
-      deviceId: extensionCaptureDeviceId,
-      kind: 'photo',
-      blob,
-      fileName: `coop-screenshot-${timestamp.replace(/[:.]/gu, '-')}.${fileExt}`,
-      title: `Page screenshot · ${tab.title || new URL(tab.url).hostname}`,
-      note: `Captured from ${tab.url} via Extension Browser.`,
-      sourceUrl: tab.url,
-      createdAt: timestamp,
-    }),
-    coopId: activeCoop?.profile.id,
-    coopDisplayName: activeCoop?.profile.name,
-    memberId: activeMember?.id,
-    memberDisplayName: activeMember?.displayName,
-    updatedAt: timestamp,
-  } satisfies ReceiverCapture;
+  return {
+    kind: 'photo',
+    dataBase64: await encodeBlobBase64(blob),
+    mimeType: blob.type || `image/${fileExt}`,
+    fileName: `coop-screenshot-${timestamp.replace(/[:.]/gu, '-')}.${fileExt}`,
+    title: `Page screenshot · ${tab.title || new URL(tab.url).hostname}`,
+    note: `Captured from ${tab.url} via Extension Browser.`,
+    sourceUrl: tab.url,
+  };
+}
 
-  await saveReceiverCapture(db, capture, blob);
-  await refreshBadge();
-  await notifyExtensionEvent({
-    eventKind: 'screenshot-saved',
-    entityId: capture.id,
-    state: 'saved',
-    title: 'Screenshot saved',
-    message: activeCoop?.profile.name
-      ? `Saved a private screenshot for ${activeCoop.profile.name}.`
-      : 'Saved a private local screenshot to Coop.',
+export async function savePopupCapture(payload: PopupPreparedCapture): Promise<ReceiverCapture> {
+  if (payload.kind === 'audio') {
+    const estimatedBytes = Math.ceil((payload.dataBase64.length * 3) / 4);
+    if (estimatedBytes > AUDIO_SIZE_LIMIT) {
+      throw new Error('Audio recording exceeds the 25 MB size limit.');
+    }
+  }
+
+  const blob = new Blob([decodeBase64(payload.dataBase64)], {
+    type: payload.mimeType || 'application/octet-stream',
   });
+  const { capture, activeCoop } = await persistPopupCapture({
+    kind: payload.kind,
+    blob,
+    fileName: payload.fileName,
+    title: payload.title,
+    note: payload.note,
+    sourceUrl: payload.sourceUrl,
+  });
+
+  if (payload.kind === 'audio') {
+    void startAudioTranscription(capture, blob, payload.durationSeconds ?? 0);
+  }
+
+  if (payload.kind === 'photo') {
+    await notifyExtensionEvent({
+      eventKind: 'screenshot-saved',
+      entityId: capture.id,
+      state: 'saved',
+      title: 'Screenshot saved',
+      message: activeCoop?.profile.name
+        ? `Saved a private screenshot for ${activeCoop.profile.name}.`
+        : 'Saved a private local screenshot to Coop.',
+    });
+  }
+
   return capture;
+}
+
+export async function captureVisibleScreenshot(): Promise<ReceiverCapture> {
+  return savePopupCapture(await prepareVisibleScreenshot());
 }
 
 export async function handleTabRemoved(tabId: number) {
@@ -438,7 +574,7 @@ export async function registerContextMenus() {
 
 export async function openCoopSidepanel() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.windowId) {
+  if (tab?.windowId == null) {
     return false;
   }
 
@@ -462,35 +598,14 @@ export async function captureFile(payload: {
   if (payload.byteSize > FILE_SIZE_LIMIT) {
     throw new Error('File exceeds the 10 MB size limit.');
   }
-
-  const bytes = Uint8Array.from(atob(payload.dataBase64), (c) => c.charCodeAt(0));
-  const blob = new Blob([bytes], { type: payload.mimeType });
-
-  const timestamp = nowIso();
-  const coops = await getCoops();
-  const authSession = await getAuthSession(db);
-  const activeContext = await getActiveReviewContextForSession(coops, authSession);
-  const activeCoop = coops.find((coop) => coop.profile.id === activeContext.activeCoopId);
-  const activeMember = resolveReceiverPairingMember(activeCoop, authSession);
-
-  const capture = {
-    ...createReceiverCapture({
-      deviceId: extensionCaptureDeviceId,
-      kind: 'file',
-      blob,
-      fileName: payload.fileName,
-      createdAt: timestamp,
-    }),
-    coopId: activeCoop?.profile.id,
-    coopDisplayName: activeCoop?.profile.name,
-    memberId: activeMember?.id,
-    memberDisplayName: activeMember?.displayName,
-    updatedAt: timestamp,
-  } satisfies ReceiverCapture;
-
-  await saveReceiverCapture(db, capture, blob);
-  await refreshBadge();
-  return capture;
+  return savePopupCapture({
+    kind: 'file',
+    dataBase64: payload.dataBase64,
+    mimeType: payload.mimeType,
+    fileName: payload.fileName,
+    title: payload.fileName,
+    note: '',
+  });
 }
 
 export async function createNoteDraft(payload: { text: string }) {
@@ -555,82 +670,13 @@ export async function captureAudio(payload: {
   if (estimatedBytes > AUDIO_SIZE_LIMIT) {
     throw new Error('Audio recording exceeds the 25 MB size limit.');
   }
-
-  const bytes = Uint8Array.from(atob(payload.dataBase64), (c) => c.charCodeAt(0));
-  const blob = new Blob([bytes], { type: payload.mimeType });
-
-  const timestamp = nowIso();
-  const coops = await getCoops();
-  const authSession = await getAuthSession(db);
-  const activeContext = await getActiveReviewContextForSession(coops, authSession);
-  const activeCoop = coops.find((coop) => coop.profile.id === activeContext.activeCoopId);
-  const activeMember = resolveReceiverPairingMember(activeCoop, authSession);
-
-  const capture = {
-    ...createReceiverCapture({
-      deviceId: extensionCaptureDeviceId,
-      kind: 'audio',
-      blob,
-      title: 'Voice note',
-      fileName: payload.fileName,
-      createdAt: timestamp,
-    }),
-    coopId: activeCoop?.profile.id,
-    coopDisplayName: activeCoop?.profile.name,
-    memberId: activeMember?.id,
-    memberDisplayName: activeMember?.displayName,
-    updatedAt: timestamp,
-  } satisfies ReceiverCapture;
-
-  await saveReceiverCapture(db, capture, blob);
-  await refreshBadge();
-
-  // Fire-and-forget background Whisper transcription
-  void (async () => {
-    try {
-      const supported = await isWhisperSupported();
-      if (!supported) return;
-      const result = await transcribeAudio({ audioBlob: blob });
-      if (!result.text.trim()) return;
-      const transcriptBytes = new TextEncoder().encode(JSON.stringify(result));
-      const blobId = createId('blob');
-      const now = nowIso();
-      await saveCoopBlob(
-        db,
-        {
-          blobId,
-          sourceEntityId: capture.id,
-          coopId: capture.coopId ?? '',
-          mimeType: 'application/json',
-          byteSize: transcriptBytes.length,
-          kind: 'audio-transcript',
-          origin: 'self',
-          createdAt: now,
-          accessedAt: now,
-        },
-        transcriptBytes,
-      );
-
-      // Feed transcript into the agent observation pipeline (non-blocking)
-      await emitAudioTranscriptObservation({
-        captureId: capture.id,
-        coopId: capture.coopId,
-        transcriptText: result.text,
-        durationSeconds: result.duration,
-      });
-
-      // Notify the user that transcription completed (independent of observation)
-      await notifyExtensionEvent({
-        eventKind: 'transcript-ready',
-        entityId: capture.id,
-        state: 'completed',
-        title: 'Voice note transcribed',
-        message: `"${result.text.slice(0, 80)}${result.text.length > 80 ? '…' : ''}"`,
-      });
-    } catch (err) {
-      console.warn('[captureAudio] Background transcription failed:', err);
-    }
-  })();
-
-  return capture;
+  return savePopupCapture({
+    kind: 'audio',
+    dataBase64: payload.dataBase64,
+    mimeType: payload.mimeType,
+    fileName: payload.fileName,
+    title: 'Voice note',
+    note: '',
+    durationSeconds: payload.durationSeconds,
+  });
 }

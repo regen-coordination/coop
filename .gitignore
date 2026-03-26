@@ -6,6 +6,7 @@ coverage
 playwright-report
 test-results
 output/playwright/*
+**/__screenshots__
 !.gitkeep
 
 docs/build

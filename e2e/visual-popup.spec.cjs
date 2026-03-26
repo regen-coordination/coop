@@ -61,19 +61,71 @@ async function setTheme(page, theme) {
   await page.waitForTimeout(200);
 }
 
+async function ensurePopupHasCoop(page) {
+  const homeButton = page.getByRole('button', { name: 'Home' });
+  if (await homeButton.isVisible().catch(() => false)) {
+    return;
+  }
+
+  await page.evaluate(async () => {
+    await chrome.runtime.sendMessage({
+      type: 'create-coop',
+      payload: {
+        coopName: 'Popup Visual Coop',
+        purpose: 'Capture popup alignment snapshots across the main tabs.',
+        creatorDisplayName: 'Ari',
+        captureMode: 'manual',
+        seedContribution: 'I bring popup QA notes and UI regression checks.',
+        setupInsights: {
+          summary: 'Need a stable popup shell for home, chickens, and feed.',
+          crossCuttingPainPoints: ['Popup layout shifts make regressions harder to notice'],
+          crossCuttingOpportunities: ['Snapshot the popup tabs after each visual change'],
+          lenses: [
+            {
+              lens: 'capital-formation',
+              currentState: 'Popup regressions are tracked ad hoc.',
+              painPoints: 'Visual changes are easy to miss across tabs.',
+              improvements: 'Snapshot the popup main tabs after UI changes.',
+            },
+            {
+              lens: 'impact-reporting',
+              currentState: 'QA findings are collected manually.',
+              painPoints: 'Layout drift is hard to compare over time.',
+              improvements: 'Keep stable screenshot references for the popup.',
+            },
+            {
+              lens: 'governance-coordination',
+              currentState: 'Popup polish decisions are reviewed case by case.',
+              painPoints: 'Regressions slip through when tests lack visual coverage.',
+              improvements: 'Use popup snapshots to support review decisions.',
+            },
+            {
+              lens: 'knowledge-garden-resources',
+              currentState: 'Popup checks happen manually.',
+              painPoints: 'UI regressions can hide between tabs.',
+              improvements: 'Keep main-tab snapshots in the visual suite.',
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  await page.reload();
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForSelector('.popup-app', { timeout: 10_000 });
+  await homeButton.waitFor({ state: 'visible', timeout: 10_000 });
+}
+
 test.describe('popup visual snapshots', () => {
   test.describe.configure({ timeout: 120_000 });
-
-  test.skip(
-    ({ isMobile }) => isMobile,
-    'Extension visual tests run only on the desktop Chromium project.',
-  );
 
   let context;
   let page;
   let extensionId;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ isMobile }) => {
+    test.skip(isMobile, 'Extension visual tests run only on the desktop Chromium project.');
     ensureExtensionBuilt();
 
     const userDataDir = path.join(os.tmpdir(), `coop-visual-popup-${Date.now()}`);
@@ -140,6 +192,21 @@ test.describe('popup visual snapshots', () => {
         await page.waitForTimeout(300);
       }
       await expect(page).toHaveScreenshot(`popup-join-coop-${theme}.png`);
+    });
+
+    test(`main tabs – ${theme}`, async () => {
+      await ensurePopupHasCoop(page);
+      await setTheme(page, theme);
+
+      await expect(page).toHaveScreenshot(`popup-main-tabs-home-${theme}.png`);
+
+      await page.getByRole('button', { name: 'Chickens' }).click();
+      await page.waitForTimeout(250);
+      await expect(page).toHaveScreenshot(`popup-main-tabs-drafts-${theme}.png`);
+
+      await page.getByRole('button', { name: /Feed/ }).click();
+      await page.waitForTimeout(250);
+      await expect(page).toHaveScreenshot(`popup-main-tabs-feed-${theme}.png`);
     });
   }
 });

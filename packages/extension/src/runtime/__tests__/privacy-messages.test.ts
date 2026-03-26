@@ -67,6 +67,7 @@ describe('DashboardResponse runtimeConfig includes providerMode', () => {
       receiverAppUrl: 'http://localhost:3001',
       signalingUrls: [],
       providerMode: 'standard',
+      privacyMode: 'off',
     };
     expect(config.providerMode).toBe('standard');
   });

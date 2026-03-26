@@ -55,20 +55,17 @@ function createMinimalCoop(overrides: Partial<CoopSharedState['profile']> = {}):
     syncRoom: { signalingServers: [], roomId: '', password: '' },
     invites: [],
     memberCommitments: [],
-  } as CoopSharedState;
+  } as unknown as CoopSharedState;
 }
 
 function buildRuntimeConfig(): DashboardResponse['runtimeConfig'] {
   return {
-    captureMode: 'manual',
     onchainMode: 'mock',
     archiveMode: 'mock',
     sessionMode: 'off',
     privacyMode: 'off',
     providerMode: 'standard',
-    fvmChain: 'filecoin-calibration',
-    localEnhancement: 'off',
-  };
+  } as DashboardResponse['runtimeConfig'];
 }
 
 function buildProps(overrides: Partial<CoopsTabProps> = {}): CoopsTabProps {

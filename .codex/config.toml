@@ -2,7 +2,7 @@
 # See also: AGENTS.md (shared instructions), .claude/ (Claude Code config)
 
 # Model defaults
-model = "o3"
+model = "gpt-5.4"
 
 # Sandbox: allow workspace writes, no network (local-first project)
 sandbox_mode = "workspace-write"
@@ -19,7 +19,7 @@ child_agents_md = true
 multi_agent = true
 
 [profiles.review]
-model = "o3"
+model = "gpt-5.4"
 model_reasoning_effort = "high"
 
 [profiles.quick]
@@ -27,7 +27,7 @@ model = "gpt-4.1-mini"
 model_reasoning_effort = "low"
 
 [profiles.research]
-model = "o3"
+model = "gpt-5.4"
 model_reasoning_effort = "high"
 
 [profiles.triage]
@@ -35,5 +35,5 @@ model = "gpt-4.1-mini"
 model_reasoning_effort = "low"
 
 [profiles.migrate]
-model = "o3"
+model = "gpt-5.4"
 model_reasoning_effort = "high"

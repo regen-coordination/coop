@@ -1,7 +1,7 @@
-import {
-  type ActionBundle,
-  type CoopSharedState,
-  type PolicyActionClass,
+import type {
+  ActionBundle,
+  CoopSharedState,
+  PolicyActionClass,
   getAuthSession,
 } from '@coop/shared';
 import {

@@ -3,6 +3,8 @@ import {
   type ActionLogEntry,
   type ActionPolicy,
   approveBundle,
+  buildGreenGoodsAddGardenerPayload,
+  buildGreenGoodsRemoveGardenerPayload,
   createActionBundle,
   createActionLogEntry,
   createDefaultPolicies,
@@ -194,17 +196,21 @@ export async function handleQueueGreenGoodsMemberSync(
       };
     }
 
+    const buildPayload =
+      action.actionClass === 'green-goods-add-gardener'
+        ? buildGreenGoodsAddGardenerPayload
+        : buildGreenGoodsRemoveGardenerPayload;
     bundles.push(
       await persistProposedBundle({
         actionClass: action.actionClass,
         coopId: trustedNodeContext.coop.profile.id,
         memberId: trustedNodeContext.member.id,
-        payload: {
+        payload: buildPayload({
           coopId: trustedNodeContext.coop.profile.id,
           gardenAddress: trustedNodeContext.coop.greenGoods.gardenAddress,
           memberId: action.memberId,
           gardenerAddress: action.gardenerAddress,
-        },
+        }),
         policy,
         chainId: trustedNodeContext.coop.onchainState.chainId,
         chainKey: trustedNodeContext.coop.onchainState.chainKey,

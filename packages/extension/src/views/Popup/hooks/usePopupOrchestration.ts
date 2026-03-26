@@ -1,6 +1,5 @@
 import { type ReviewDraft, type UiPreferences, defaultSoundPreferences } from '@coop/shared';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { playRandomChickenSound } from '../../../runtime/audio';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type PopupSidepanelState, sendRuntimeMessage } from '../../../runtime/messages';
 import { useCaptureActions } from '../../shared/useCaptureActions';
 import { useCoopActions } from '../../shared/useCoopActions';
@@ -8,7 +7,6 @@ import { useQuickDraftActions } from '../../shared/useQuickDraftActions';
 import type { YardItem } from '../PopupHomeScreen';
 import type { PopupSubheaderTag } from '../PopupSubheader';
 import {
-  accountSummary,
   buildFilterTags,
   formatRelativeTime,
   isCompatibilitySidepanelError,
@@ -23,11 +21,16 @@ import type {
   PopupFeedArtifactItem,
   PopupFooterTab,
   PopupHomeNoteState,
+  PopupPendingCapture,
   PopupScreen,
 } from '../popup-types';
 import { usePersistedPopupState } from './usePersistedPopupState';
 import { usePopupDashboard } from './usePopupDashboard';
+import { usePopupDraftHandlers } from './usePopupDraftHandlers';
+import { usePopupFormHandlers } from './usePopupFormHandlers';
 import { usePopupNavigation } from './usePopupNavigation';
+import { usePopupNoteHandlers } from './usePopupNoteHandlers';
+import { usePopupProfile } from './usePopupProfile';
 import type { PopupRecordingState } from './usePopupRecording';
 import { usePopupRecording } from './usePopupRecording';
 import { usePopupTheme } from './usePopupTheme';
@@ -73,6 +76,7 @@ export interface PopupOrchestrationState {
   homeStatusItems: PopupSubheaderTag[];
   yardItems: YardItem[];
   noteDraftText: string;
+  pendingCapture: PopupPendingCapture | null;
   setNoteDraftText: (value: string) => void;
 
   // Filter state
@@ -110,6 +114,11 @@ export interface PopupOrchestrationState {
   handleShareDraft: (draft: ReviewDraft) => Promise<void>;
   handleSaveNote: () => Promise<void>;
   handlePasteNote: () => Promise<void>;
+  handlePrepareScreenshot: () => Promise<void>;
+  handlePrepareFileCapture: (file: File) => Promise<void>;
+  handleSavePendingCapture: () => Promise<void>;
+  handleDismissPendingCapture: () => void;
+  handleUpdatePendingCapture: (patch: Partial<PopupPendingCapture>) => void;
   dismissFeedArtifact: (artifactId: string) => void;
   openCreateFlow: () => void;
   openJoinFlow: () => void;
@@ -159,10 +168,6 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     clearAgentDelta,
   } = usePopupDashboard();
   const [message, setMessage] = useState('');
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [joinSubmitting, setJoinSubmitting] = useState(false);
-  const [draftSaving, setDraftSaving] = useState(false);
-  const [draftEdits, setDraftEdits] = useState<Record<string, ReviewDraft>>({});
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const cachedWindowIdRef = useRef<number | null>(null);
   const [workspaceState, setWorkspaceState] = useState<PopupSidepanelState>({
@@ -172,6 +177,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
   const [draftFilterId, setDraftFilterId] = useState('all');
   const [feedFilterId, setFeedFilterId] = useState('all');
   const [noteDraftText, setNoteDraftText] = useState('');
+  const [pendingCapture, setPendingCapture] = useState<PopupPendingCapture | null>(null);
   const [subscreenReturnTab, setSubscreenReturnTab] = useState<PopupFooterTab>('home');
 
   // Sync draft text with persisted note when it first hydrates from storage
@@ -216,10 +222,71 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     soundPreferences: dashboard?.soundPreferences,
   });
 
+  const replacePendingCapture = useCallback((nextCapture: PopupPendingCapture | null) => {
+    setPendingCapture((current) => {
+      if (current?.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      return nextCapture;
+    });
+  }, []);
+
+  const handleUpdatePendingCapture = useCallback((patch: Partial<PopupPendingCapture>) => {
+    setPendingCapture((current) => (current ? { ...current, ...patch } : current));
+  }, []);
+
+  const handleDismissPendingCapture = useCallback(() => {
+    replacePendingCapture(null);
+  }, [replacePendingCapture]);
+
+  const handlePrepareScreenshot = useCallback(async () => {
+    const preparedCapture = await captureActions.prepareVisibleScreenshot();
+    if (preparedCapture) {
+      replacePendingCapture(preparedCapture);
+    }
+  }, [captureActions, replacePendingCapture]);
+
+  const handlePrepareFileCapture = useCallback(
+    async (file: File) => {
+      const preparedCapture = await captureActions.prepareFileCapture(file);
+      if (preparedCapture) {
+        replacePendingCapture(preparedCapture);
+      }
+    },
+    [captureActions, replacePendingCapture],
+  );
+
+  const handleSavePendingCapture = useCallback(async () => {
+    if (!pendingCapture) {
+      return;
+    }
+
+    const saved = await captureActions.savePendingCapture(pendingCapture);
+    if (saved) {
+      replacePendingCapture(null);
+    }
+  }, [captureActions, pendingCapture, replacePendingCapture]);
+
   const recording = usePopupRecording({
-    captureAudioBlob: captureActions.captureAudioBlob,
+    onRecordingReady: async (blob, durationSeconds) => {
+      const preparedCapture = await captureActions.prepareAudioCapture(blob, durationSeconds);
+      if (preparedCapture) {
+        replacePendingCapture(preparedCapture);
+      }
+    },
+    onEmergencySave: async (blob, durationSeconds) => {
+      await captureActions.saveAudioCaptureDirect(blob, durationSeconds, 'Partial voice note');
+    },
     setMessage,
   });
+
+  useEffect(() => {
+    return () => {
+      if (pendingCapture?.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(pendingCapture.previewUrl);
+      }
+    };
+  }, [pendingCapture]);
 
   // Show partial save message from a previous recording session
   // biome-ignore lint/correctness/useExhaustiveDependencies: only run when partialSaveMessage changes
@@ -247,6 +314,37 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     !hasCoops && !['create', 'join'].includes(navigation.state.screen)
       ? 'no-coop'
       : navigation.state.screen;
+
+  // ── Sub-hooks ──
+
+  const formHandlers = usePopupFormHandlers({
+    navigation,
+    coopActions,
+    subscreenReturnTab,
+  });
+
+  const draftHandlers = usePopupDraftHandlers({
+    navigation,
+    quickDraftActions,
+    visibleDrafts,
+  });
+
+  const noteHandlers = usePopupNoteHandlers({
+    captureActions,
+    noteDraftText,
+    setNoteDraftText,
+    homeNote,
+    setMessage,
+  });
+
+  const profile = usePopupProfile({
+    dashboard,
+    coops,
+    loadDashboard,
+    setMessage,
+  });
+
+  // ── Derived data ──
 
   const coopOptions = useMemo(
     () =>
@@ -291,13 +389,6 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     () => feedArtifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null,
     [feedArtifacts, selectedArtifactId],
   );
-  const selectedDraftBase = useMemo(
-    () => visibleDrafts.find((draft) => draft.id === navigation.state.selectedDraftId) ?? null,
-    [navigation.state.selectedDraftId, visibleDrafts],
-  );
-  const selectedDraft = selectedDraftBase
-    ? (draftEdits[selectedDraftBase.id] ?? selectedDraftBase)
-    : null;
   const workspaceTargetCoopId = useMemo(() => {
     if (selectedArtifact) {
       if (feedFilterId !== 'all' && selectedArtifact.coopIds.includes(feedFilterId)) {
@@ -306,8 +397,11 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       return selectedArtifact.coopIds[0];
     }
 
-    if (currentScreen === 'draft-detail' && selectedDraft) {
-      const draftCoopIds = normalizeCoopIds(selectedDraft.suggestedTargetCoopIds, coopLabels);
+    if (currentScreen === 'draft-detail' && draftHandlers.selectedDraft) {
+      const draftCoopIds = normalizeCoopIds(
+        draftHandlers.selectedDraft.suggestedTargetCoopIds,
+        coopLabels,
+      );
       if (draftFilterId !== 'all' && draftCoopIds.includes(draftFilterId)) {
         return draftFilterId;
       }
@@ -334,14 +428,14 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     draftFilterId,
     feedFilterId,
     selectedArtifact,
-    selectedDraft,
+    draftHandlers.selectedDraft,
   ]);
 
   useEffect(() => {
-    if (navigation.state.screen === 'draft-detail' && !selectedDraftBase) {
+    if (navigation.state.screen === 'draft-detail' && !draftHandlers.selectedDraft) {
       navigation.navigate(hasCoops ? 'drafts' : 'home');
     }
-  }, [hasCoops, navigation, selectedDraftBase]);
+  }, [hasCoops, navigation, draftHandlers.selectedDraft]);
 
   useEffect(() => {
     if (currentScreen !== 'feed' && selectedArtifactId) {
@@ -514,198 +608,6 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     }
   }
 
-  // ── Preferences ──
-
-  async function updateUiPreferences(patch: Partial<UiPreferences>) {
-    if (!dashboard) {
-      return;
-    }
-
-    const response = await sendRuntimeMessage<UiPreferences>({
-      type: 'set-ui-preferences',
-      payload: {
-        ...dashboard.uiPreferences,
-        ...patch,
-      },
-    });
-    if (!response.ok) {
-      setMessage(response.error ?? 'Could not update preferences.');
-      return;
-    }
-    await loadDashboard();
-    setMessage('Preferences updated.');
-  }
-
-  async function updateSound(enabled: boolean) {
-    if (!dashboard) {
-      return;
-    }
-
-    const response = await sendRuntimeMessage({
-      type: 'set-sound-preferences',
-      payload: {
-        ...dashboard.soundPreferences,
-        enabled,
-      },
-    });
-    if (!response.ok) {
-      setMessage(response.error ?? 'Could not update sound settings.');
-      return;
-    }
-    await loadDashboard();
-    setMessage(enabled ? 'Sound is on.' : 'Sound is off.');
-  }
-
-  // ── Form submission handlers ──
-
-  async function handleCreateSubmit() {
-    setCreateSubmitting(true);
-    const created = await coopActions.createCoop(navigation.state.createForm);
-    setCreateSubmitting(false);
-    if (!created) {
-      return;
-    }
-    navigation.resetCreateForm();
-    navigation.navigate(subscreenReturnTab);
-  }
-
-  async function handleJoinSubmit() {
-    setJoinSubmitting(true);
-    const joined = await coopActions.joinCoop(navigation.state.joinForm);
-    setJoinSubmitting(false);
-    if (!joined) {
-      return;
-    }
-    navigation.resetJoinForm();
-    navigation.navigate(subscreenReturnTab);
-  }
-
-  // ── Draft handlers ──
-
-  function resolveDraftValue(draft: ReviewDraft) {
-    return draftEdits[draft.id] ?? draft;
-  }
-
-  function updateSelectedDraft(patch: Partial<ReviewDraft>) {
-    if (!selectedDraft) {
-      return;
-    }
-
-    setDraftEdits((current) => ({
-      ...current,
-      [selectedDraft.id]: {
-        ...selectedDraft,
-        ...patch,
-      },
-    }));
-  }
-
-  async function handleSaveSelectedDraft() {
-    if (!selectedDraft) {
-      return;
-    }
-
-    setDraftSaving(true);
-    const saved = await quickDraftActions.saveDraft(selectedDraft);
-    setDraftSaving(false);
-    if (!saved) {
-      return;
-    }
-    setDraftEdits((current) => ({
-      ...current,
-      [saved.id]: saved,
-    }));
-  }
-
-  async function handleToggleSelectedDraftReady() {
-    if (!selectedDraft) {
-      return;
-    }
-
-    setDraftSaving(true);
-    const updated = await quickDraftActions.changeWorkflowStage(
-      selectedDraft,
-      selectedDraft.workflowStage === 'ready' ? 'candidate' : 'ready',
-    );
-    setDraftSaving(false);
-    if (!updated) {
-      return;
-    }
-    setDraftEdits((current) => ({
-      ...current,
-      [updated.id]: updated,
-    }));
-  }
-
-  async function handleShareSelectedDraft() {
-    if (!selectedDraft) {
-      return;
-    }
-
-    setDraftSaving(true);
-    const shared = await quickDraftActions.publishDraft(selectedDraft);
-    setDraftSaving(false);
-    if (!shared) {
-      return;
-    }
-
-    setDraftEdits((current) => {
-      const next = { ...current };
-      delete next[selectedDraft.id];
-      return next;
-    });
-    navigation.navigate('drafts');
-  }
-
-  async function handleMarkDraftReady(draft: ReviewDraft) {
-    const updated = await quickDraftActions.changeWorkflowStage(resolveDraftValue(draft), 'ready');
-    if (!updated) {
-      return;
-    }
-
-    setDraftEdits((current) => ({
-      ...current,
-      [updated.id]: updated,
-    }));
-  }
-
-  async function handleShareDraft(draft: ReviewDraft) {
-    const shared = await quickDraftActions.publishDraft(resolveDraftValue(draft));
-    if (!shared) {
-      return;
-    }
-
-    setDraftEdits((current) => {
-      const next = { ...current };
-      delete next[draft.id];
-      return next;
-    });
-  }
-
-  // ── Note handlers ──
-
-  async function handleSaveNote() {
-    const success = await captureActions.createNoteDraft(noteDraftText);
-    if (success) {
-      setNoteDraftText('');
-      homeNote.setState({ text: '' });
-    }
-  }
-
-  async function handlePasteNote() {
-    try {
-      const pasted = await navigator.clipboard.readText();
-      if (!pasted.trim()) {
-        return;
-      }
-      setNoteDraftText((current) =>
-        current.trim() ? `${current.trim()}\n${pasted.trim()}` : pasted.trim(),
-      );
-    } catch {
-      setMessage('Could not paste into the note.');
-    }
-  }
-
   // ── Feed handlers ──
 
   function dismissFeedArtifact(artifactId: string) {
@@ -845,25 +747,6 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     currentScreen !== 'no-coop' && [...mainScreens, 'draft-detail'].includes(currentScreen);
   const showCreateJoinInHeader = onMainScreen && currentScreen !== 'no-coop';
 
-  const accountLabel = accountSummary(dashboard?.authSession?.primaryAddress);
-  const profileCoops = useMemo(
-    () =>
-      coops.map((coop) => ({
-        name: coop.profile.name,
-        inviteCode: coop.invites?.[coop.invites.length - 1]?.code,
-      })),
-    [coops],
-  );
-
-  function onCopyInviteCode(_coopName: string, code: string) {
-    void navigator.clipboard.writeText(code);
-    setMessage('Invite code copied.');
-  }
-
-  function playBrandSound() {
-    void playRandomChickenSound(dashboard?.soundPreferences ?? defaultSoundPreferences);
-  }
-
   return {
     currentScreen,
     loading,
@@ -881,34 +764,40 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     feedArtifacts,
     visibleFeedArtifacts,
     selectedArtifact,
-    selectedDraft,
+    selectedDraft: draftHandlers.selectedDraft,
     visibleDrafts,
     homeStatusItems,
     yardItems,
     noteDraftText,
+    pendingCapture,
     setNoteDraftText,
     draftFilterTags,
     feedFilterTags,
     activeFooterTab,
     workspaceState,
     workspaceTargetCoopId,
-    createSubmitting,
-    joinSubmitting,
-    draftSaving,
+    createSubmitting: formHandlers.createSubmitting,
+    joinSubmitting: formHandlers.joinSubmitting,
+    draftSaving: draftHandlers.draftSaving,
     isCapturing: captureActions.isCapturing,
     message,
     showProfileAction,
     showWorkspaceAction,
     showCreateJoinInHeader,
-    handleCreateSubmit,
-    handleJoinSubmit,
-    handleSaveSelectedDraft,
-    handleToggleSelectedDraftReady,
-    handleShareSelectedDraft,
-    handleMarkDraftReady,
-    handleShareDraft,
-    handleSaveNote,
-    handlePasteNote,
+    handleCreateSubmit: formHandlers.handleCreateSubmit,
+    handleJoinSubmit: formHandlers.handleJoinSubmit,
+    handleSaveSelectedDraft: draftHandlers.handleSaveSelectedDraft,
+    handleToggleSelectedDraftReady: draftHandlers.handleToggleSelectedDraftReady,
+    handleShareSelectedDraft: draftHandlers.handleShareSelectedDraft,
+    handleMarkDraftReady: draftHandlers.handleMarkDraftReady,
+    handleShareDraft: draftHandlers.handleShareDraft,
+    handleSaveNote: noteHandlers.handleSaveNote,
+    handlePasteNote: noteHandlers.handlePasteNote,
+    handlePrepareScreenshot,
+    handlePrepareFileCapture,
+    handleSavePendingCapture,
+    handleDismissPendingCapture,
+    handleUpdatePendingCapture,
     dismissFeedArtifact,
     openCreateFlow,
     openJoinFlow,
@@ -917,15 +806,15 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     setSelectedArtifactId,
     toggleWorkspace,
     openWorkspace,
-    updateSelectedDraft,
-    resolveDraftValue,
-    updateUiPreferences,
-    updateSound,
-    playBrandSound,
+    updateSelectedDraft: draftHandlers.updateSelectedDraft,
+    resolveDraftValue: draftHandlers.resolveDraftValue,
+    updateUiPreferences: profile.updateUiPreferences,
+    updateSound: profile.updateSound,
+    playBrandSound: profile.playBrandSound,
     captureActions,
     recording,
-    accountLabel,
-    profileCoops,
-    onCopyInviteCode,
+    accountLabel: profile.accountLabel,
+    profileCoops: profile.profileCoops,
+    onCopyInviteCode: profile.onCopyInviteCode,
   };
 }

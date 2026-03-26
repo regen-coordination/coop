@@ -80,8 +80,10 @@ const ALWAYS_SAFE = new Set(['FunctionDeclaration', 'MethodDefinition']);
 // ONLY if they are NOT immediately invoked (i.e., not the callee of a CallExpression).
 const MAYBE_SAFE = new Set(['FunctionExpression', 'ArrowFunctionExpression']);
 
-type AstNode = ReturnType<typeof parseAst> & {
+type AstNode = {
   type: string;
+  start?: number;
+  end?: number;
   [key: string]: unknown;
 };
 
@@ -153,7 +155,7 @@ function scanFile(filePath: string, code: string): Violation[] {
 
   let ast: AstNode;
   try {
-    ast = parseAst(code) as AstNode;
+    ast = parseAst(code) as unknown as AstNode;
   } catch {
     // If parsing fails (rare), skip this file.
     return [];

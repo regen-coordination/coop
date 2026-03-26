@@ -2,7 +2,7 @@
 # Maps to Claude Code agent: .claude/agents/cracked-coder.md
 
 name = "coder"
-model = "o3"
+model = "gpt-5.4"
 model_reasoning_effort = "high"
 
 instructions = """

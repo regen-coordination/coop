@@ -1,7 +1,9 @@
 const { defineConfig, devices } = require('@playwright/test');
 
 const attachedDevMode = process.env.COOP_PLAYWRIGHT_DEV === '1';
-const appBaseUrl = process.env.COOP_PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3001';
+const appPort = process.env.COOP_PLAYWRIGHT_APP_PORT || process.env.COOP_DEV_APP_PORT || '3001';
+const apiPort = process.env.COOP_PLAYWRIGHT_API_PORT || process.env.COOP_DEV_API_PORT || '4444';
+const appBaseUrl = process.env.COOP_PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${appPort}`;
 
 module.exports = defineConfig({
   testDir: './e2e',
@@ -35,14 +37,14 @@ module.exports = defineConfig({
     ? undefined
     : [
         {
-          command: 'bun run --filter @coop/app dev --host 127.0.0.1 --port 3001 --strictPort',
-          url: 'http://127.0.0.1:3001',
+          command: `bun run --filter @coop/app dev --host 127.0.0.1 --port ${appPort} --strictPort`,
+          url: `http://127.0.0.1:${appPort}`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
         },
         {
-          command: 'HOST=127.0.0.1 PORT=4444 bun run --filter @coop/api dev',
-          url: 'http://127.0.0.1:4444',
+          command: `HOST=127.0.0.1 PORT=${apiPort} bun run --filter @coop/api dev`,
+          url: `http://127.0.0.1:${apiPort}`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
         },

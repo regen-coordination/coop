@@ -4,6 +4,9 @@ const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir, rootDir } = require('./helpers/extension-build.cjs');
 
 const closeTimeoutMs = 5000;
+const appBaseUrl =
+  process.env.COOP_PLAYWRIGHT_BASE_URL ||
+  `http://127.0.0.1:${process.env.COOP_PLAYWRIGHT_APP_PORT || process.env.COOP_DEV_APP_PORT || '3001'}`;
 
 function withTimeout(promise, timeoutMs, label = 'operation') {
   return Promise.race([
@@ -243,7 +246,7 @@ test.describe('receiver pairing and sync', () => {
 
     try {
       const appPage = await creatorProfile.context.newPage();
-      await appPage.goto('http://127.0.0.1:3001');
+      await appPage.goto(appBaseUrl);
       await creatorProfile.page.bringToFront();
 
       await launchCoop(creatorProfile.page, {

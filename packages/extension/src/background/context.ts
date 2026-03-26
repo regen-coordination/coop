@@ -197,7 +197,9 @@ export const prefersLocalEnhancement = isLocalEnhancementEnabled(
 export const trustedNodeArchiveBootstrap = (() => {
   try {
     return {
-      config: resolveTrustedNodeArchiveBootstrapConfig(import.meta.env),
+      config: resolveTrustedNodeArchiveBootstrapConfig(
+        import.meta.env as Record<string, string | undefined>,
+      ),
       error: undefined,
     } as const;
   } catch (error) {

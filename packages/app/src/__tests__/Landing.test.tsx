@@ -67,10 +67,15 @@ describe('landing page', () => {
     render(<App />);
 
     expect(screen.getByRole('heading', { name: /no more chickens loose/i })).toBeInTheDocument();
+    expect(screen.getByText(/^No more$/)).toBeInTheDocument();
+    expect(screen.getByText(/^chickens loose\.$/)).toBeInTheDocument();
+    expect(screen.getByText(/turning knowledge into opportunity/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^how coop works$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^curate your coop$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^why we build$/i })).toBeInTheDocument();
     expect(screen.getByText(/your data stays yours/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^get started$/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reset ritual/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /github/i })).toBeInTheDocument();
   });
 
@@ -188,8 +193,39 @@ describe('landing page', () => {
     const transcriptField = screen.getByRole('textbox', { name: /collective intelligence notes/i });
     expect(transcriptField).toHaveFocus();
 
-    fireEvent.click(screen.getByRole('button', { name: /flip back/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^close card$/i }));
     expect(screen.getByRole('button', { name: /collective intelligence/i })).toHaveFocus();
+  });
+
+  it('closes the centered flashcard stage from the backdrop and Escape', () => {
+    render(<App />);
+
+    openCard('Collective Intelligence');
+    expect(screen.getByRole('dialog', { name: /collective intelligence/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /close card backdrop/i }));
+    expect(
+      screen.queryByRole('textbox', { name: /collective intelligence notes/i }),
+    ).not.toBeInTheDocument();
+
+    openCard('Collective Intelligence');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(
+      screen.queryByRole('textbox', { name: /collective intelligence notes/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps one flashcard open at a time', () => {
+    render(<App />);
+
+    openCard('Collective Intelligence');
+    expect(screen.getByRole('textbox', { name: /collective intelligence notes/i })).toBeVisible();
+
+    openCard('Funding & Resources');
+    expect(screen.getByRole('textbox', { name: /funding & resources notes/i })).toBeVisible();
+    expect(
+      screen.queryByRole('textbox', { name: /collective intelligence notes/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('fills the open flashcard transcript when browser speech recognition is available', () => {

@@ -171,6 +171,17 @@ export interface ReceiverSyncRuntimeStatus {
   activeBindingKeys: string[];
 }
 
+export interface PopupPreparedCapture {
+  kind: 'audio' | 'photo' | 'file';
+  dataBase64: string;
+  mimeType: string;
+  fileName?: string;
+  title: string;
+  note: string;
+  sourceUrl?: string;
+  durationSeconds?: number;
+}
+
 export interface AgentDashboardResponse {
   observations: AgentObservation[];
   plans: AgentPlan[];
@@ -198,6 +209,7 @@ export type RuntimeRequest =
   | { type: 'get-receiver-sync-runtime' }
   | { type: 'manual-capture' }
   | { type: 'capture-active-tab' }
+  | { type: 'prepare-visible-screenshot' }
   | { type: 'capture-visible-screenshot' }
   | {
       type: 'capture-file';
@@ -222,6 +234,10 @@ export type RuntimeRequest =
         durationSeconds: number;
         fileName: string;
       };
+    }
+  | {
+      type: 'save-popup-capture';
+      payload: PopupPreparedCapture;
     }
   | { type: 'clear-sensitive-local-data' }
   | { type: 'get-ui-preferences' }
@@ -502,6 +518,8 @@ export type RuntimeRequest =
   | { type: 'export-agent-manifest'; payload: { coopId: string } }
   | { type: 'export-agent-log'; payload: { coopId: string; traceId?: string } }
   | { type: 'get-agent-identity'; payload: { coopId: string } }
+  | { type: 'get-agent-reputation'; payload: { coopId: string; agentId: number } }
+  | { type: 'get-agent-feedback-history'; payload: { coopId: string; agentId: number } }
   | { type: 'get-privacy-identity'; payload: { coopId: string; memberId: string } }
   | { type: 'get-stealth-meta-address'; payload: { coopId: string } }
   | { type: 'get-membership-commitments'; payload: { coopId: string } }

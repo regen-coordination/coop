@@ -80,12 +80,13 @@ export function useDraftEditor(deps: {
       return null;
     }
 
+    const savedDraft = response.data;
     setDraftEdits((current) => ({
       ...current,
-      [draft.id]: response.data,
+      [draft.id]: savedDraft,
     }));
     await loadDashboard();
-    return response.data;
+    return savedDraft;
   }
 
   async function refineDraft(draft: ReviewDraft, task: RefineTask) {
@@ -193,9 +194,10 @@ export function useDraftEditor(deps: {
       return;
     }
 
+    const movedDraft = response.data;
     setDraftEdits((current) => ({
       ...current,
-      [response.data.id]: response.data,
+      [movedDraft.id]: movedDraft,
     }));
     setMessage(
       workflowStage === 'ready'
@@ -284,12 +286,13 @@ export function useDraftEditor(deps: {
       setMessage(response.error ?? 'Could not update the save mark.');
       return;
     }
+    const updatedDraft = response.data;
     setDraftEdits((current) => ({
       ...current,
-      [draft.id]: response.data,
+      [draft.id]: updatedDraft,
     }));
     setMessage(
-      isArchiveWorthy(response.data) ? 'Draft marked worth saving.' : 'Draft save mark removed.',
+      isArchiveWorthy(updatedDraft) ? 'Draft marked worth saving.' : 'Draft save mark removed.',
     );
     await loadDashboard();
   }

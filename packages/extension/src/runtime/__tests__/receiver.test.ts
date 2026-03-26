@@ -1,3 +1,4 @@
+import type { CoopSharedState, ReceiverCapture, ReviewDraft } from '@coop/shared';
 import { createMockOnchainState } from '@coop/shared';
 import { describe, expect, it } from 'vitest';
 import {
@@ -65,8 +66,8 @@ describe('receiver runtime helpers', () => {
         inviteSigningSecret: 'invite-secret',
         signalingUrls: ['ws://127.0.0.1:4444'],
       },
-      onchain: createMockOnchainState({}),
-    };
+      onchainState: createMockOnchainState({ seed: 'test-coop' }),
+    } as unknown as CoopSharedState;
 
     expect(resolveReceiverPairingMember(coop, null)).toBeUndefined();
     expect(
@@ -168,7 +169,7 @@ describe('receiver runtime helpers', () => {
         retryCount: 0,
         intakeStatus: 'private-intake',
       },
-    ];
+    ] as unknown as ReceiverCapture[];
 
     expect(
       filterPrivateReceiverIntake(captures, 'coop-1', 'member-1').map((item) => item.id),
@@ -224,8 +225,8 @@ describe('receiver runtime helpers', () => {
           inviteSigningSecret: 'invite-secret',
           signalingUrls: ['ws://127.0.0.1:4444'],
         },
-        onchain: createMockOnchainState({}),
-      },
+        onchainState: createMockOnchainState({ seed: 'test-coop' }),
+      } as unknown as CoopSharedState,
     ];
 
     expect(
@@ -301,7 +302,7 @@ describe('receiver runtime helpers', () => {
         },
         createdAt: '2026-03-11T18:01:00.000Z',
       },
-    ];
+    ] as unknown as ReviewDraft[];
 
     expect(
       filterVisibleReviewDrafts(drafts, 'coop-1', 'member-1').map((draft) => draft.id),

@@ -1,24 +1,24 @@
 import type { ReceiverCapture, SoundPreferences } from '@coop/shared';
 import { useState } from 'react';
 import { playCoopSound } from '../../runtime/audio';
+import type { PopupPreparedCapture } from '../../runtime/messages';
 import { sendRuntimeMessage } from '../../runtime/messages';
+import type { PopupPendingCapture } from '../Popup/popup-types';
+import {
+  preflightActiveTabCapture,
+  preflightManualCapture,
+  preflightScreenshotCapture,
+} from './capture-preflight';
 
 export function useCaptureActions(deps: {
   setMessage: (message: string) => void;
   loadDashboard: () => Promise<void>;
   afterManualCapture?: () => void;
   afterActiveTabCapture?: () => void;
-  afterScreenshotCapture?: () => void;
   soundPreferences?: SoundPreferences;
 }) {
-  const {
-    setMessage,
-    loadDashboard,
-    afterManualCapture,
-    afterActiveTabCapture,
-    afterScreenshotCapture,
-    soundPreferences,
-  } = deps;
+  const { setMessage, loadDashboard, afterManualCapture, afterActiveTabCapture, soundPreferences } =
+    deps;
 
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -28,19 +28,73 @@ export function useCaptureActions(deps: {
     }
   }
 
+  function sizeFromBase64(dataBase64: string) {
+    return Math.ceil((dataBase64.length * 3) / 4);
+  }
+
+  function toEditableNote(note: string | undefined) {
+    const trimmedNote = note?.trim() ?? '';
+    return trimmedNote ? `${trimmedNote}\n\n` : '';
+  }
+
+  async function encodeBlobBase64(blob: Blob) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = '';
+    const chunkSize = 0x8000;
+
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+
+    return btoa(binary);
+  }
+
+  function toSavePayload(
+    pendingCapture: PopupPendingCapture,
+    dataBase64: string,
+  ): PopupPreparedCapture {
+    return {
+      kind: pendingCapture.kind,
+      dataBase64,
+      mimeType: pendingCapture.mimeType,
+      fileName: pendingCapture.fileName,
+      title: pendingCapture.title.trim() || pendingCapture.title,
+      note: pendingCapture.note.trim(),
+      sourceUrl: pendingCapture.sourceUrl,
+      durationSeconds: pendingCapture.durationSeconds,
+    };
+  }
+
   async function runManualCapture() {
     if (isCapturing) return;
+    const preflight = await preflightManualCapture();
+    if (!preflight.ok) {
+      setMessage(preflight.error);
+      return;
+    }
+
     setIsCapturing(true);
     try {
       const response = await sendRuntimeMessage<number>({ type: 'manual-capture' });
-      setMessage(
-        response.ok
-          ? `Rounded up ${response.data ?? 0} tabs.`
-          : (response.error ?? 'Roundup failed — try again.'),
-      );
-      if (response.ok) playCaptureSound();
+      const capturedCount = response.data ?? 0;
+
+      if (!response.ok) {
+        setMessage(response.error ?? 'Roundup failed — try again.');
+        return;
+      }
+
+      if (capturedCount > 0) {
+        setMessage(`Rounded up ${capturedCount} ${capturedCount === 1 ? 'tab' : 'tabs'}.`);
+        playCaptureSound();
+        await loadDashboard();
+        afterManualCapture?.();
+        return;
+      }
+
+      setMessage('No eligible tabs were captured.');
       await loadDashboard();
-      afterManualCapture?.();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Roundup failed — try again.');
     } finally {
       setIsCapturing(false);
     }
@@ -48,70 +102,94 @@ export function useCaptureActions(deps: {
 
   async function runActiveTabCapture() {
     if (isCapturing) return;
+    const preflight = await preflightActiveTabCapture();
+    if (!preflight.ok) {
+      setMessage(preflight.error);
+      return;
+    }
+
     setIsCapturing(true);
     try {
       const response = await sendRuntimeMessage<number>({ type: 'capture-active-tab' });
-      setMessage(response.ok ? 'Tab captured.' : (response.error ?? 'Could not capture this tab.'));
-      if (response.ok) playCaptureSound();
+      const capturedCount = response.data ?? 0;
+
+      if (!response.ok) {
+        setMessage(response.error ?? 'Could not capture this tab.');
+        return;
+      }
+
+      if (capturedCount > 0) {
+        setMessage('Tab captured.');
+        playCaptureSound();
+        await loadDashboard();
+        afterActiveTabCapture?.();
+        return;
+      }
+
+      setMessage('This tab did not produce a new capture.');
       await loadDashboard();
-      afterActiveTabCapture?.();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not capture this tab.');
     } finally {
       setIsCapturing(false);
     }
   }
 
-  async function captureVisibleScreenshot() {
+  async function prepareVisibleScreenshot() {
     if (isCapturing) return;
+    const preflight = await preflightScreenshotCapture();
+    if (!preflight.ok) {
+      setMessage(preflight.error);
+      return null;
+    }
+
     setIsCapturing(true);
     try {
-      const response = await sendRuntimeMessage<ReceiverCapture>({
-        type: 'capture-visible-screenshot',
+      const response = await sendRuntimeMessage<PopupPreparedCapture>({
+        type: 'prepare-visible-screenshot',
       });
-      setMessage(
-        response.ok
-          ? 'Screenshot snapped.'
-          : (response.error ?? 'Could not take screenshot — open a regular web page first.'),
-      );
-      if (response.ok) playCaptureSound();
-      await loadDashboard();
-      afterScreenshotCapture?.();
+      if (!response.ok || !response.data) {
+        setMessage(response.error ?? 'Could not take a screenshot — try again.');
+        return null;
+      }
+
+      return {
+        kind: response.data.kind,
+        title: response.data.title,
+        note: toEditableNote(response.data.note),
+        mimeType: response.data.mimeType,
+        fileName: response.data.fileName,
+        sourceUrl: response.data.sourceUrl,
+        durationSeconds: response.data.durationSeconds,
+        byteSize: sizeFromBase64(response.data.dataBase64),
+        dataBase64: response.data.dataBase64,
+        previewUrl: `data:${response.data.mimeType};base64,${response.data.dataBase64}`,
+      } satisfies PopupPendingCapture;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not take a screenshot.');
+      return null;
     } finally {
       setIsCapturing(false);
     }
   }
 
-  async function captureFile(file: File) {
+  async function prepareFileCapture(file: File) {
     if (isCapturing) return;
     if (file.size > 10 * 1024 * 1024) {
       setMessage('This file is too large — 10 MB maximum.');
-      return;
+      return null;
     }
-    setIsCapturing(true);
-    try {
-      const buffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const dataBase64 = btoa(binary);
-      const response = await sendRuntimeMessage({
-        type: 'capture-file',
-        payload: {
-          fileName: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          dataBase64,
-          byteSize: file.size,
-        },
-      });
-      setMessage(
-        response.ok ? 'File captured.' : (response.error ?? 'Could not capture file — try again.'),
-      );
-      if (response.ok) playCaptureSound();
-      await loadDashboard();
-    } finally {
-      setIsCapturing(false);
-    }
+
+    return {
+      kind: 'file',
+      title: file.name || 'File capture',
+      note: '',
+      mimeType: file.type || 'application/octet-stream',
+      fileName: file.name,
+      byteSize: file.size,
+      blob: file,
+      previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+    } satisfies PopupPendingCapture;
   }
 
   async function createNoteDraft(text: string): Promise<boolean> {
@@ -136,39 +214,81 @@ export function useCaptureActions(deps: {
     }
   }
 
-  async function captureAudioBlob(blob: Blob, durationSeconds: number) {
+  async function prepareAudioCapture(blob: Blob, durationSeconds: number) {
+    if (isCapturing) return null;
+    return {
+      kind: 'audio',
+      title: 'Voice note',
+      note: '',
+      mimeType: blob.type || 'audio/webm',
+      fileName: `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.webm`,
+      durationSeconds,
+      byteSize: blob.size,
+      blob,
+    } satisfies PopupPendingCapture;
+  }
+
+  async function savePendingCapture(pendingCapture: PopupPendingCapture) {
     if (isCapturing) return;
     setIsCapturing(true);
     try {
-      const buffer = await blob.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
+      const dataBase64 =
+        pendingCapture.dataBase64 ??
+        (pendingCapture.blob ? await encodeBlobBase64(pendingCapture.blob) : null);
+
+      if (!dataBase64) {
+        setMessage('Could not prepare this capture for saving.');
+        return false;
       }
-      const dataBase64 = btoa(binary);
-      const fileName = `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.webm`;
-      const response = await sendRuntimeMessage({
-        type: 'capture-audio',
-        payload: { dataBase64, mimeType: blob.type || 'audio/webm', durationSeconds, fileName },
+
+      const response = await sendRuntimeMessage<ReceiverCapture>({
+        type: 'save-popup-capture',
+        payload: toSavePayload(pendingCapture, dataBase64),
       });
-      setMessage(
-        response.ok ? 'Voice note saved.' : (response.error ?? 'Could not save recording.'),
-      );
-      if (response.ok) playCaptureSound();
+
+      if (!response.ok) {
+        setMessage(response.error ?? 'Could not save this capture.');
+        return false;
+      }
+
+      const successMessage =
+        pendingCapture.kind === 'photo'
+          ? 'Screenshot saved to Pocket Coop finds.'
+          : pendingCapture.kind === 'file'
+            ? 'File saved to Pocket Coop finds.'
+            : 'Voice note saved.';
+
+      setMessage(successMessage);
+      playCaptureSound();
       await loadDashboard();
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not save this capture.');
+      return false;
     } finally {
       setIsCapturing(false);
     }
   }
 
+  async function saveAudioCaptureDirect(blob: Blob, durationSeconds: number, title = 'Voice note') {
+    const pendingCapture = await prepareAudioCapture(blob, durationSeconds);
+    if (!pendingCapture) {
+      return false;
+    }
+
+    pendingCapture.title = title;
+    return savePendingCapture(pendingCapture);
+  }
+
   return {
     runManualCapture,
     runActiveTabCapture,
-    captureVisibleScreenshot,
-    captureFile,
+    prepareVisibleScreenshot,
+    prepareFileCapture,
+    prepareAudioCapture,
+    savePendingCapture,
+    saveAudioCaptureDirect,
     createNoteDraft,
-    captureAudioBlob,
     isCapturing,
   };
 }

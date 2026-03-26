@@ -235,7 +235,7 @@ export function makeActionBundle(overrides?: Partial<ActionBundle>): ActionBundl
     expiresAt: FIXED_MUCH_LATER,
     policyId: 'policy-1',
     status: 'proposed',
-    digest: '0x' + 'ab'.repeat(32),
+    digest: `0x${'ab'.repeat(32)}`,
     ...overrides,
   };
 }

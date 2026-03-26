@@ -55,7 +55,7 @@ export function PopupDraftListScreen(props: {
                   {draft.workflowStage === 'ready' ? (
                     <button
                       className="popup-primary-action popup-primary-action--small"
-                      onClick={() => void onShare(draft as ReviewDraft)}
+                      onClick={() => void onShare(draft as unknown as ReviewDraft)}
                       type="button"
                     >
                       Share
@@ -63,7 +63,7 @@ export function PopupDraftListScreen(props: {
                   ) : (
                     <button
                       className="popup-secondary-action"
-                      onClick={() => void onMarkReady(draft as ReviewDraft)}
+                      onClick={() => void onMarkReady(draft as unknown as ReviewDraft)}
                       type="button"
                     >
                       Mark Ready

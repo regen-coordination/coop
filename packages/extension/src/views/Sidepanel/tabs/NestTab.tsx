@@ -34,6 +34,8 @@ export interface NestTabOrchestrationProps {
   orchestration: SidepanelOrchestration;
 }
 
+export type NestTabProps = NestTabOrchestrationProps;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -321,8 +323,9 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
             activeCoop={activeCoop}
             currentMemberId={
               orchestration.authSession
-                ? activeCoop.members.find((m) => m.address === orchestration.authSession?.primaryAddress)
-                    ?.id
+                ? activeCoop.members.find(
+                    (m) => m.address === orchestration.authSession?.primaryAddress,
+                  )?.id
                 : undefined
             }
           />
@@ -784,7 +787,7 @@ function NestEditCoopSection({
   updateCoopProfile,
 }: {
   activeCoop: CoopSharedState;
-  updateCoopProfile: NestTabProps['updateCoopProfile'];
+  updateCoopProfile: SidepanelOrchestration['updateCoopProfile'];
 }) {
   const [editForm, setEditForm] = useState({
     name: activeCoop.profile.name,

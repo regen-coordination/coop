@@ -83,7 +83,7 @@ export function usePopupOverlayFocusTrap(input: {
         if (hadAriaHidden === null) {
           surface.removeAttribute('aria-hidden');
         } else {
-          surface.setAttribute('aria-hidden', hadAriaHidden);
+          surface.setAttribute('aria-hidden', hadAriaHidden ?? '');
         }
 
         if (!hadInert) {

@@ -172,7 +172,7 @@ describe('OnboardingOverlay', () => {
         </div>,
       );
 
-      expect(siblingHeader.hasAttribute('inert')).toBe(false);
+      expect(siblingHeader?.hasAttribute('inert')).toBe(false);
     });
   });
 });

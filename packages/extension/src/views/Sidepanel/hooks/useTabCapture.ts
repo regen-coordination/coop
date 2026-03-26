@@ -1,5 +1,10 @@
 import type { CaptureExclusionCategory, ReceiverCapture, UiPreferences } from '@coop/shared';
 import { sendRuntimeMessage } from '../../../runtime/messages';
+import {
+  preflightActiveTabCapture,
+  preflightManualCapture,
+  preflightScreenshotCapture,
+} from '../../shared/capture-preflight';
 
 export function useTabCapture(deps: {
   setMessage: (msg: string) => void;
@@ -9,38 +14,80 @@ export function useTabCapture(deps: {
   const { setMessage, setPanelTab, loadDashboard } = deps;
 
   async function runManualCapture() {
-    const response = await sendRuntimeMessage<number>({ type: 'manual-capture' });
-    setMessage(
-      response.ok
-        ? `Round-up complete. Coop checked ${response.data ?? 0} tabs locally.`
-        : (response.error ?? 'Round-up failed.'),
-    );
-    setPanelTab('Roost');
-    await loadDashboard();
+    const preflight = await preflightManualCapture();
+    if (!preflight.ok) {
+      setMessage(preflight.error);
+      return;
+    }
+
+    try {
+      const response = await sendRuntimeMessage<number>({ type: 'manual-capture' });
+      if (!response.ok) {
+        setMessage(response.error ?? 'Round-up failed.');
+        return;
+      }
+
+      if ((response.data ?? 0) > 0) {
+        setMessage(`Round-up complete. Coop checked ${response.data ?? 0} tabs locally.`);
+        setPanelTab('Roost');
+      } else {
+        setMessage('No eligible tabs were captured.');
+      }
+      await loadDashboard();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Round-up failed.');
+    }
   }
 
   async function runActiveTabCapture() {
-    const response = await sendRuntimeMessage<number>({ type: 'capture-active-tab' });
-    setMessage(
-      response.ok
-        ? `This tab was rounded up locally. Coop checked ${response.data ?? 0} tab.`
-        : (response.error ?? 'This-tab round-up failed.'),
-    );
-    setPanelTab('Roost');
-    await loadDashboard();
+    const preflight = await preflightActiveTabCapture();
+    if (!preflight.ok) {
+      setMessage(preflight.error);
+      return;
+    }
+
+    try {
+      const response = await sendRuntimeMessage<number>({ type: 'capture-active-tab' });
+      if (!response.ok) {
+        setMessage(response.error ?? 'This-tab round-up failed.');
+        return;
+      }
+
+      if ((response.data ?? 0) > 0) {
+        setMessage(`This tab was rounded up locally. Coop checked ${response.data ?? 0} tab.`);
+        setPanelTab('Roost');
+      } else {
+        setMessage('This tab did not produce a new capture.');
+      }
+      await loadDashboard();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'This-tab round-up failed.');
+    }
   }
 
   async function captureVisibleScreenshotAction() {
-    const response = await sendRuntimeMessage<ReceiverCapture>({
-      type: 'capture-visible-screenshot',
-    });
-    setMessage(
-      response.ok
-        ? 'This page was snapped into Pocket Coop finds.'
-        : (response.error ?? 'Screenshot capture failed.'),
-    );
-    setPanelTab('Nest');
-    await loadDashboard();
+    const preflight = await preflightScreenshotCapture();
+    if (!preflight.ok) {
+      setMessage(preflight.error);
+      return;
+    }
+
+    try {
+      const response = await sendRuntimeMessage<ReceiverCapture>({
+        type: 'capture-visible-screenshot',
+      });
+      setMessage(
+        response.ok
+          ? 'This page was snapped into Pocket Coop finds.'
+          : (response.error ?? 'Screenshot capture failed.'),
+      );
+      if (response.ok) {
+        setPanelTab('Nest');
+        await loadDashboard();
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Screenshot capture failed.');
+    }
   }
 
   async function updateAgentCadence(agentCadenceMinutes: UiPreferences['agentCadenceMinutes']) {

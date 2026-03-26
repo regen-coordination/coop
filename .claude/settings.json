@@ -2,6 +2,10 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "attribution": {
+    "commit": "Co-Roosted-By: Claude (Coop AI) <noreply@anthropic.com>",
+    "pr": "Hatched with [Claude Code](https://claude.ai/claude-code) in the Coop"
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -141,19 +145,18 @@
       }
     ]
   },
+  "worktree": {
+    "symlinkDirectories": ["node_modules", ".cache"]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "MSGS=('All chickens roosted' 'Coop is warm' 'Eggs incubating' 'Flock assembled'); printf '%s | %s' \"$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'no-branch')\" \"${MSGS[$((RANDOM % 4))]}\"",
+    "padding": 1
+  },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true
-  },
-  "teammateMode": "in-process",
-  "plansDirectory": ".plans",
-  "worktree": {
-    "symlinkDirectories": ["node_modules", ".cache"]
-  },
-  "attribution": {
-    "commit": "Co-Roosted-By: Claude (Coop AI) <noreply@anthropic.com>",
-    "pr": "Hatched with [Claude Code](https://claude.ai/claude-code) in the Coop"
   },
   "spinnerTipsOverride": {
     "excludeDefault": false,
@@ -166,9 +169,6 @@
       "/review before merging — 6-pass systematic analysis"
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "MSGS=('All chickens roosted' 'Coop is warm' 'Eggs incubating' 'Flock assembled'); printf '%s | %s' \"$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'no-branch')\" \"${MSGS[$((RANDOM % 4))]}\"",
-    "padding": 1
-  }
+  "plansDirectory": ".plans",
+  "teammateMode": "in-process"
 }

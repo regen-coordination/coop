@@ -136,8 +136,8 @@ describe('ArtifactCard onShareToFeed', () => {
       suggestedNextStep: 'Act on it',
       createdBy: 'user-1',
       createdAt: new Date().toISOString(),
-      reviewStatus: 'pending' as const,
-      archiveStatus: 'none' as const,
+      reviewStatus: 'draft' as const,
+      archiveStatus: 'not-archived' as const,
       archiveReceiptIds: [],
       attachments: [],
     };

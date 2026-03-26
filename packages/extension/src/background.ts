@@ -15,6 +15,8 @@ import {
   migrateLegacySensitiveRecords,
   pruneSensitiveLocalData,
   purgeQuarantinedKnowledgeSkills,
+  readAgentFeedbackHistory,
+  readAgentReputation,
   selectActiveReceiverPairingsForSync,
   setAuthSession,
   setSoundPreferences,
@@ -31,11 +33,17 @@ import type {
 import { filterVisibleReceiverPairings } from './runtime/receiver';
 import { requestWebAuthnCredentialViaExtensionBridge } from './runtime/webauthn-bridge';
 
-setWebAuthnCredentialGetFnOverride(requestWebAuthnCredentialViaExtensionBridge);
+setWebAuthnCredentialGetFnOverride(
+  requestWebAuthnCredentialViaExtensionBridge as Parameters<
+    typeof setWebAuthnCredentialGetFnOverride
+  >[0],
+);
 
 // ---- Context (shared state) ----
 import {
   alarmNames,
+  configuredChain,
+  configuredOnchainMode,
   contextMenuIds,
   db,
   ensureDbReady,
@@ -59,6 +67,10 @@ import {
 } from './background/context';
 
 import { handleAlarmEvent } from './background/alarm-dispatch';
+import {
+  dispatchCaptureRuntimeMessage,
+  isCaptureRuntimeMessage,
+} from './background/runtime-capture-dispatch';
 // ---- Operator ----
 import { getActiveReviewContextForSession } from './background/operator';
 
@@ -127,8 +139,10 @@ import {
   createNoteDraft,
   handleTabRemoved,
   openCoopSidepanel,
+  prepareVisibleScreenshot,
   registerContextMenus,
   runCaptureCycle,
+  savePopupCapture,
 } from './background/handlers/capture';
 import {
   handleCreateCoop,
@@ -293,7 +307,7 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
     await ensureDefaults();
 
     const extensionOrigin = `chrome-extension://${chrome.runtime.id}`;
-    const senderUrl = sender.url ?? sender.documentUrl ?? sender.origin ?? sender.tab?.url ?? '';
+    const senderUrl = sender.url ?? sender.origin ?? sender.tab?.url ?? '';
     const isExtensionContext = senderUrl.startsWith(extensionOrigin);
     const isAllowedBridgeMessage = message.type === 'ingest-receiver-capture';
 
@@ -302,6 +316,21 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
         ok: false,
         error: 'Unauthorized sender.',
       } satisfies RuntimeActionResponse);
+      return;
+    }
+
+    if (isCaptureRuntimeMessage(message)) {
+      const captureResponse = await dispatchCaptureRuntimeMessage(message, {
+        runCaptureCycle,
+        captureActiveTab,
+        prepareVisibleScreenshot,
+        captureVisibleScreenshot,
+        captureFile,
+        createNoteDraft,
+        captureAudio,
+        savePopupCapture,
+      });
+      sendResponse(captureResponse);
       return;
     }
 
@@ -367,70 +396,6 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
           ok: true,
           data: await getReceiverSyncRuntime(),
         } satisfies RuntimeActionResponse<ReceiverSyncRuntimeStatus>);
-        return;
-      case 'manual-capture':
-        sendResponse({
-          ok: true,
-          data: await runCaptureCycle(),
-        } satisfies RuntimeActionResponse<number>);
-        return;
-      case 'capture-active-tab':
-        sendResponse({
-          ok: true,
-          data: await captureActiveTab(),
-        } satisfies RuntimeActionResponse<number>);
-        return;
-      case 'capture-visible-screenshot':
-        try {
-          sendResponse({
-            ok: true,
-            data: await captureVisibleScreenshot(),
-          } satisfies RuntimeActionResponse<ReceiverCapture>);
-        } catch (error) {
-          sendResponse({
-            ok: false,
-            error: error instanceof Error ? error.message : 'Screenshot capture failed.',
-          } satisfies RuntimeActionResponse);
-        }
-        return;
-      case 'capture-file':
-        try {
-          sendResponse({
-            ok: true,
-            data: await captureFile(message.payload),
-          } satisfies RuntimeActionResponse<ReceiverCapture>);
-        } catch (error) {
-          sendResponse({
-            ok: false,
-            error: error instanceof Error ? error.message : 'File capture failed.',
-          } satisfies RuntimeActionResponse);
-        }
-        return;
-      case 'create-note-draft':
-        try {
-          sendResponse({
-            ok: true,
-            data: await createNoteDraft(message.payload),
-          } satisfies RuntimeActionResponse);
-        } catch (error) {
-          sendResponse({
-            ok: false,
-            error: error instanceof Error ? error.message : 'Note creation failed.',
-          } satisfies RuntimeActionResponse);
-        }
-        return;
-      case 'capture-audio':
-        try {
-          sendResponse({
-            ok: true,
-            data: await captureAudio(message.payload),
-          } satisfies RuntimeActionResponse<ReceiverCapture>);
-        } catch (error) {
-          sendResponse({
-            ok: false,
-            error: error instanceof Error ? error.message : 'Audio capture failed.',
-          } satisfies RuntimeActionResponse);
-        }
         return;
       case 'clear-sensitive-local-data':
         await clearSensitiveLocalData(db);
@@ -732,6 +697,24 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
           ok: true,
           data: coop.agentIdentity ?? null,
         } satisfies RuntimeActionResponse);
+        return;
+      }
+      case 'get-agent-reputation': {
+        const reputation = await readAgentReputation({
+          mode: configuredOnchainMode,
+          chainKey: configuredChain,
+          agentId: message.payload.agentId,
+        });
+        sendResponse({ ok: true, data: reputation } satisfies RuntimeActionResponse);
+        return;
+      }
+      case 'get-agent-feedback-history': {
+        const history = await readAgentFeedbackHistory({
+          mode: configuredOnchainMode,
+          chainKey: configuredChain,
+          agentId: message.payload.agentId,
+        });
+        sendResponse({ ok: true, data: history } satisfies RuntimeActionResponse);
         return;
       }
       case 'get-privacy-identity': {

@@ -13,6 +13,7 @@ import type {
 } from '@coop/shared';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { OperatorConsole } from '../OperatorConsole';
 
@@ -88,7 +89,7 @@ const baseProps = {
   onRejectPlan: vi.fn(),
   onRetrySkillRun: vi.fn(),
   onToggleSkillAutoRun: vi.fn(),
-};
+} as unknown as ComponentProps<typeof OperatorConsole>;
 
 describe('operator console', () => {
   it('renders anchor state, action log entries, and refresh affordances', async () => {
@@ -174,7 +175,7 @@ describe('operator console', () => {
             executionAttempts: [],
             createdAt: '2026-03-20T00:05:00.000Z',
             updatedAt: '2026-03-20T00:05:00.000Z',
-          } as ActionBundle,
+          } as unknown as ActionBundle,
         ]}
         actionHistory={[
           {
@@ -184,7 +185,7 @@ describe('operator console', () => {
             eventType: 'executed',
             detail: 'Added gardener 0x2222... to the linked garden.',
             createdAt: '2026-03-20T00:06:00.000Z',
-          } as ActionLogEntry,
+          } as unknown as ActionLogEntry,
         ]}
         onQueueGreenGoodsMemberSync={onQueueGreenGoodsMemberSync}
       />,

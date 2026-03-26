@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePopupRecording } from '../usePopupRecording';
 
 describe('usePopupRecording', () => {
-  const captureAudioBlob = vi.fn().mockResolvedValue(undefined);
+  const onRecordingReady = vi.fn().mockResolvedValue(undefined);
+  const onEmergencySave = vi.fn().mockResolvedValue(undefined);
   const setMessage = vi.fn();
 
   beforeEach(() => {
@@ -18,12 +19,15 @@ describe('usePopupRecording', () => {
   });
 
   it('starts with isRecording false and elapsedSeconds 0', () => {
-    const { result } = renderHook(() => usePopupRecording({ captureAudioBlob, setMessage }));
+    const { result } = renderHook(() =>
+      usePopupRecording({ onEmergencySave, onRecordingReady, setMessage }),
+    );
     expect(result.current.isRecording).toBe(false);
+    expect(result.current.status).toBe('idle');
     expect(result.current.elapsedSeconds).toBe(0);
   });
 
-  it('shows error when getUserMedia is not available', async () => {
+  it('moves into a recoverable denied state when getUserMedia is not available', async () => {
     const originalNav = navigator.mediaDevices;
     Object.defineProperty(navigator, 'mediaDevices', {
       value: undefined,
@@ -31,14 +35,18 @@ describe('usePopupRecording', () => {
       configurable: true,
     });
 
-    const { result } = renderHook(() => usePopupRecording({ captureAudioBlob, setMessage }));
+    const { result } = renderHook(() =>
+      usePopupRecording({ onEmergencySave, onRecordingReady, setMessage }),
+    );
 
     await act(async () => {
       await result.current.startRecording();
     });
 
     expect(result.current.isRecording).toBe(false);
-    expect(setMessage).toHaveBeenCalledWith('This browser cannot record audio.');
+    expect(result.current.status).toBe('denied');
+    expect(result.current.permissionMessage).toBe('This browser cannot record audio.');
+    expect(setMessage).not.toHaveBeenCalled();
 
     Object.defineProperty(navigator, 'mediaDevices', {
       value: originalNav,
@@ -48,7 +56,9 @@ describe('usePopupRecording', () => {
   });
 
   it('cancelRecording sets commit mode to cancel', () => {
-    const { result } = renderHook(() => usePopupRecording({ captureAudioBlob, setMessage }));
+    const { result } = renderHook(() =>
+      usePopupRecording({ onEmergencySave, onRecordingReady, setMessage }),
+    );
 
     // cancelRecording on inactive recorder should be a no-op
     act(() => {
@@ -61,7 +71,9 @@ describe('usePopupRecording', () => {
   it('reads partial save message from sessionStorage on mount', () => {
     sessionStorage.setItem('coop:popup-partial-recording', 'Partial voice note saved (5s).');
 
-    const { result } = renderHook(() => usePopupRecording({ captureAudioBlob, setMessage }));
+    const { result } = renderHook(() =>
+      usePopupRecording({ onEmergencySave, onRecordingReady, setMessage }),
+    );
 
     expect(result.current.partialSaveMessage).toBe('Partial voice note saved (5s).');
     // sessionStorage should be cleaned up
@@ -71,7 +83,9 @@ describe('usePopupRecording', () => {
   it('clearPartialSaveMessage clears the message', () => {
     sessionStorage.setItem('coop:popup-partial-recording', 'Saved!');
 
-    const { result } = renderHook(() => usePopupRecording({ captureAudioBlob, setMessage }));
+    const { result } = renderHook(() =>
+      usePopupRecording({ onEmergencySave, onRecordingReady, setMessage }),
+    );
 
     expect(result.current.partialSaveMessage).toBe('Saved!');
 

@@ -68,8 +68,14 @@ describe('PopupApp', () => {
           },
         },
         tabs: {
-          query: vi.fn().mockResolvedValue([{ windowId: 7 }]),
+          query: vi
+            .fn()
+            .mockResolvedValue([{ id: 7, windowId: 7, url: 'https://example.com', title: 'Example' }]),
           create: vi.fn().mockResolvedValue(undefined),
+        },
+        permissions: {
+          contains: vi.fn().mockResolvedValue(true),
+          request: vi.fn().mockResolvedValue(true),
         },
         sidePanel: {
           open: vi.fn().mockResolvedValue(undefined),
@@ -335,6 +341,7 @@ describe('PopupApp', () => {
     // Wait for home screen to load, then navigate to Chickens tab via footer nav
     await screen.findByRole('button', { name: 'Roundup Chickens' });
     const chickensTabButtons = screen.getAllByRole('button', { name: /Chickens/i });
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — footer tab always exists in rendered popup
     const chickensFooterTab = chickensTabButtons.find((btn) =>
       btn.classList.contains('popup-footer-nav__button'),
     )!;
@@ -391,6 +398,7 @@ describe('PopupApp', () => {
     // Wait for home screen to load, then navigate to Chickens tab via footer nav
     await screen.findByRole('button', { name: 'Roundup Chickens' });
     const chickensTabButtons = screen.getAllByRole('button', { name: /Chickens/i });
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — footer tab always exists in rendered popup
     const chickensFooterTab = chickensTabButtons.find((btn) =>
       btn.classList.contains('popup-footer-nav__button'),
     )!;
@@ -533,9 +541,101 @@ describe('PopupApp', () => {
 
     await waitFor(() => {
       expect(mockSendRuntimeMessage).toHaveBeenCalledWith({
-        type: 'capture-visible-screenshot',
+        type: 'prepare-visible-screenshot',
       });
     });
+  });
+
+  it('opens the capture review dialog for screenshots and saves edited context', async () => {
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
+    const user = userEvent.setup();
+
+    render(<PopupApp />);
+
+    await user.click(await screen.findByRole('button', { name: 'Screenshot' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+
+    const titleInput = screen.getByRole('textbox', { name: 'Title' });
+    const contextInput = screen.getByRole('textbox', { name: 'Context' });
+
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Field note screenshot');
+    await user.type(contextInput, 'Needs follow-up in the next coop review.');
+    await user.click(screen.getByRole('button', { name: 'Save to Pocket Coop' }));
+
+    await waitFor(() => {
+      expect(mockSendRuntimeMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'save-popup-capture',
+          payload: expect.objectContaining({
+            kind: 'photo',
+            title: 'Field note screenshot',
+            note: expect.stringContaining('Needs follow-up in the next coop review.'),
+          }),
+        }),
+      );
+    });
+  });
+
+  it('lets the user cancel the capture review dialog without saving', async () => {
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
+    const user = userEvent.setup();
+
+    render(<PopupApp />);
+
+    await user.click(await screen.findByRole('button', { name: 'Screenshot' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(
+      mockSendRuntimeMessage.mock.calls.some(
+        ([message]) => (message as { type: string }).type === 'save-popup-capture',
+      ),
+    ).toBe(false);
+  });
+
+  it('shows inline microphone recovery when popup audio permission is denied', async () => {
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
+    const user = userEvent.setup();
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: {
+        getUserMedia: vi.fn().mockRejectedValue(new Error('NotAllowedError')),
+      },
+    });
+    Object.defineProperty(globalThis, 'MediaRecorder', {
+      configurable: true,
+      value: class {},
+    });
+
+    render(<PopupApp />);
+
+    await user.click(await screen.findByRole('button', { name: 'Audio' }));
+
+    expect(await screen.findByText('Microphone access needed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
+  });
+
+  it('uses the shared fill-frame on Home, Chickens, and Feed', async () => {
+    installDefaultRuntimeHandlers(mockSendRuntimeMessage);
+    const user = userEvent.setup();
+
+    render(<PopupApp />);
+
+    const homeSubheader = await screen.findByLabelText('Home status');
+    expect(homeSubheader.closest('.popup-screen--fill')).not.toBeNull();
+
+    await user.click(await screen.findByRole('button', { name: 'Chickens' }));
+    const chickensSubheader = await screen.findByLabelText('Filter chickens by coop');
+    expect(chickensSubheader.closest('.popup-screen--fill')).not.toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /Feed/ }));
+    const feedSubheader = await screen.findByLabelText('Filter feed by coop');
+    expect(feedSubheader.closest('.popup-screen--fill')).not.toBeNull();
   });
 
   it('shows the + button in the header and opens a create/join popover', async () => {

@@ -100,7 +100,7 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
               <button
                 className="secondary-button"
                 onClick={() =>
-                  void props.onQueueGreenGoodsGapAdminSync?.(props.greenGoodsContext?.coopId)
+                  void props.onQueueGreenGoodsGapAdminSync?.(props.greenGoodsContext?.coopId ?? '')
                 }
                 type="button"
               >
@@ -110,7 +110,7 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
                 className="secondary-button"
                 disabled={syncableBindings.length === 0}
                 onClick={() =>
-                  void props.onQueueGreenGoodsMemberSync?.(props.greenGoodsContext.coopId)
+                  void props.onQueueGreenGoodsMemberSync?.(props.greenGoodsContext?.coopId ?? '')
                 }
                 type="button"
               >

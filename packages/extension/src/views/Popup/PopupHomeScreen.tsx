@@ -1,5 +1,6 @@
 import type { ArtifactCategory } from '@coop/shared';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { PopupRecordingStatus } from './hooks/usePopupRecording';
 import { PopupSubheader, type PopupSubheaderTag } from './PopupSubheader';
 
 export interface YardItem {
@@ -226,6 +227,8 @@ export function PopupHomeScreen(props: {
   onFileSelected: (file: File) => void;
   isCapturing: boolean;
   isRecording: boolean;
+  audioStatus: PopupRecordingStatus;
+  audioPermissionMessage: string | null;
   elapsedSeconds: number;
   onStartRecording: () => void;
   onStopRecording: () => void;
@@ -244,6 +247,8 @@ export function PopupHomeScreen(props: {
     onFileSelected,
     isCapturing,
     isRecording,
+    audioStatus,
+    audioPermissionMessage,
     elapsedSeconds,
     onStartRecording,
     onStopRecording,
@@ -252,7 +257,7 @@ export function PopupHomeScreen(props: {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const busy = isCapturing || isRecording;
+  const busy = isCapturing || isRecording || audioStatus === 'requesting-permission';
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -263,138 +268,159 @@ export function PopupHomeScreen(props: {
 
   useEffect(() => {
     autoResize();
-  }, [noteText, autoResize]);
+  }, [autoResize]);
 
   return (
-    <section className="popup-screen popup-screen--home-aggregate">
+    <section className="popup-screen popup-screen--fill popup-screen--home-aggregate">
       <PopupSubheader ariaLabel="Home status" equalWidth tags={statusItems} />
 
-      <ChickenYard items={yardItems} />
+      <div className="popup-screen--home-body">
+        <ChickenYard items={yardItems} />
 
-      <button className="popup-primary-action" disabled={busy} onClick={onRoundUp} type="button">
-        Roundup Chickens
-      </button>
+        <button className="popup-primary-action" disabled={busy} onClick={onRoundUp} type="button">
+          Roundup Chickens
+        </button>
 
-      {isRecording ? (
-        <div className="popup-recording" aria-label="Recording audio">
-          <div className="popup-recording__status">
-            <span className="popup-recording__dot" />
-            <span className="popup-recording__timer">
-              {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:
-              {String(elapsedSeconds % 60).padStart(2, '0')}
-              {' / 00:30'}
-            </span>
+        {isRecording ? (
+          <div className="popup-recording" aria-label="Recording audio">
+            <div className="popup-recording__status">
+              <span className="popup-recording__dot" />
+              <span className="popup-recording__timer">
+                {String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:
+                {String(elapsedSeconds % 60).padStart(2, '0')}
+                {' / 00:30'}
+              </span>
+            </div>
+            <p className="popup-recording__hint">Keep popup open while recording</p>
+            <div className="popup-recording__actions">
+              <button className="popup-primary-action" onClick={onStopRecording} type="button">
+                Save Voice Note
+              </button>
+              <button
+                className="popup-handoff-button"
+                data-accent="red"
+                onClick={onCancelRecording}
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-          <p className="popup-recording__hint">Keep popup open while recording</p>
-          <div className="popup-recording__actions">
-            <button className="popup-primary-action" onClick={onStopRecording} type="button">
-              Save Voice Note
-            </button>
+        ) : (
+          <>
+            {audioStatus === 'requesting-permission' ? (
+              <div className="popup-audio-permission popup-audio-permission--pending" role="status">
+                <strong>Requesting microphone access</strong>
+                <p>Allow microphone access to record a voice note here in the popup.</p>
+              </div>
+            ) : null}
+
+            {audioStatus === 'denied' ? (
+              <div className="popup-audio-permission" role="status">
+                <strong>Microphone access needed</strong>
+                <p>{audioPermissionMessage ?? 'Allow microphone access to record a voice note.'}</p>
+                <button className="popup-secondary-action" onClick={onStartRecording} type="button">
+                  Try Again
+                </button>
+              </div>
+            ) : null}
+
+            <div className="popup-action-grid" aria-label="Quick actions">
+              <button
+                className="popup-handoff-button"
+                data-accent="blue"
+                disabled={busy}
+                onClick={onCaptureTab}
+                type="button"
+              >
+                <CaptureTabIcon />
+                <span>Capture Tab</span>
+              </button>
+              <button
+                className="popup-handoff-button"
+                data-accent="purple"
+                disabled={busy}
+                onClick={onScreenshot}
+                type="button"
+              >
+                <ScreenshotIcon />
+                <span>Screenshot</span>
+              </button>
+              <button
+                className="popup-handoff-button"
+                data-accent="green"
+                disabled={busy}
+                onClick={onStartRecording}
+                type="button"
+              >
+                <MicrophoneIcon />
+                <span>{audioStatus === 'denied' ? 'Retry Audio' : 'Audio'}</span>
+              </button>
+              <button
+                className="popup-handoff-button"
+                data-accent="orange"
+                disabled={busy}
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+              >
+                <DocumentIcon />
+                <span>Files</span>
+              </button>
+              <input
+                type="file"
+                hidden
+                ref={fileInputRef}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (file) onFileSelected(file);
+                }}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="popup-note-bar">
+          <div className="popup-note-bar__field">
+            <textarea
+              aria-label="Note"
+              className="popup-note-bar__input"
+              disabled={busy}
+              onChange={(event) => {
+                onChangeNote(event.target.value);
+                autoResize();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  onSaveNote();
+                }
+              }}
+              placeholder="Jot a quick note..."
+              ref={textareaRef}
+              rows={1}
+              value={noteText}
+            />
             <button
-              className="popup-handoff-button"
-              data-accent="red"
-              onClick={onCancelRecording}
+              aria-label="Paste"
+              className="popup-note-bar__paste"
+              disabled={busy}
+              onClick={onPaste}
               type="button"
             >
-              Cancel
+              <PasteIcon />
             </button>
           </div>
-        </div>
-      ) : (
-        <div className="popup-action-grid" aria-label="Quick actions">
           <button
-            className="popup-handoff-button"
-            data-accent="blue"
-            disabled={busy}
-            onClick={onCaptureTab}
+            aria-label="Save note"
+            className="popup-note-bar__save"
+            disabled={!noteText.trim() || busy}
+            onClick={onSaveNote}
             type="button"
           >
-            <CaptureTabIcon />
-            <span>Capture Tab</span>
-          </button>
-          <button
-            className="popup-handoff-button"
-            data-accent="purple"
-            disabled={busy}
-            onClick={onScreenshot}
-            type="button"
-          >
-            <ScreenshotIcon />
-            <span>Screenshot</span>
-          </button>
-          <button
-            className="popup-handoff-button"
-            data-accent="green"
-            disabled={busy}
-            onClick={onStartRecording}
-            type="button"
-          >
-            <MicrophoneIcon />
-            <span>Audio</span>
-          </button>
-          <button
-            className="popup-handoff-button"
-            data-accent="orange"
-            disabled={busy}
-            onClick={() => fileInputRef.current?.click()}
-            type="button"
-          >
-            <DocumentIcon />
-            <span>Files</span>
-          </button>
-          <input
-            type="file"
-            hidden
-            ref={fileInputRef}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = '';
-              if (file) onFileSelected(file);
-            }}
-          />
-        </div>
-      )}
-
-      <div className="popup-note-bar">
-        <div className="popup-note-bar__field">
-          <textarea
-            aria-label="Note"
-            className="popup-note-bar__input"
-            disabled={busy}
-            onChange={(event) => {
-              onChangeNote(event.target.value);
-              autoResize();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                onSaveNote();
-              }
-            }}
-            placeholder="Jot a quick note..."
-            ref={textareaRef}
-            rows={1}
-            value={noteText}
-          />
-          <button
-            aria-label="Paste"
-            className="popup-note-bar__paste"
-            disabled={busy}
-            onClick={onPaste}
-            type="button"
-          >
-            <PasteIcon />
+            <PlusIcon />
           </button>
         </div>
-        <button
-          aria-label="Save note"
-          className="popup-note-bar__save"
-          disabled={!noteText.trim() || busy}
-          onClick={onSaveNote}
-          type="button"
-        >
-          <PlusIcon />
-        </button>
       </div>
     </section>
   );

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+export type PopupRecordingStatus = 'idle' | 'requesting-permission' | 'recording' | 'denied';
+
 export interface PopupRecordingState {
   isRecording: boolean;
+  status: PopupRecordingStatus;
+  permissionMessage: string | null;
   elapsedSeconds: number;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
@@ -13,23 +17,25 @@ export interface PopupRecordingState {
 const MAX_RECORDING_SECONDS = 30;
 
 export function usePopupRecording(deps: {
-  captureAudioBlob: (blob: Blob, durationSeconds: number) => Promise<void>;
+  onRecordingReady: (blob: Blob, durationSeconds: number) => Promise<void>;
+  onEmergencySave: (blob: Blob, durationSeconds: number) => Promise<void>;
   setMessage: (message: string) => void;
 }): PopupRecordingState {
-  const { captureAudioBlob, setMessage } = deps;
-  const [isRecording, setIsRecording] = useState(false);
+  const { onEmergencySave, onRecordingReady, setMessage } = deps;
+  const [status, setStatus] = useState<PopupRecordingStatus>('idle');
+  const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [partialSaveMessage, setPartialSaveMessage] = useState<string | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const commitRef = useRef<'save' | 'cancel'>('save');
+  const commitRef = useRef<'save' | 'cancel' | 'emergency-save'>('save');
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const cleanup = useCallback(() => {
+  const cleanup = useCallback((nextStatus: PopupRecordingStatus = 'idle') => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -46,17 +52,21 @@ export function usePopupRecording(deps: {
     }
     recorderRef.current = null;
     chunksRef.current = [];
-    setIsRecording(false);
+    setStatus(nextStatus);
     setElapsedSeconds(0);
   }, []);
 
   const startRecording = useCallback(async () => {
     if (recorderRef.current) return;
+    setPermissionMessage(null);
 
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      setMessage('This browser cannot record audio.');
+      setPermissionMessage('This browser cannot record audio.');
+      setStatus('denied');
       return;
     }
+
+    setStatus('requesting-permission');
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -78,25 +88,37 @@ export function usePopupRecording(deps: {
           type: recorder.mimeType || 'audio/webm',
         });
         const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
+        const commitMode = commitRef.current;
         cleanup();
 
-        if (commitRef.current === 'save' && blob.size > 0) {
-          await captureAudioBlob(blob, duration);
-        } else {
-          setMessage('Recording canceled.');
+        if (blob.size === 0) {
+          if (commitMode === 'cancel') {
+            setMessage('Recording canceled.');
+          }
+          return;
         }
+
+        if (commitMode === 'save') {
+          await onRecordingReady(blob, duration);
+          return;
+        }
+
+        if (commitMode === 'emergency-save') {
+          await onEmergencySave(blob, duration);
+          return;
+        }
+
+        setMessage('Recording canceled.');
       };
 
       recorder.start(250);
-      setIsRecording(true);
+      setStatus('recording');
       setElapsedSeconds(0);
 
-      // Elapsed timer
       timerRef.current = setInterval(() => {
         setElapsedSeconds(Math.round((Date.now() - startTimeRef.current) / 1000));
       }, 1000);
 
-      // Max recording timer (30s)
       maxTimerRef.current = setTimeout(() => {
         if (recorderRef.current && recorderRef.current.state !== 'inactive') {
           commitRef.current = 'save';
@@ -104,19 +126,19 @@ export function usePopupRecording(deps: {
         }
       }, MAX_RECORDING_SECONDS * 1000);
     } catch (error) {
-      cleanup();
+      cleanup('denied');
       const msg = error instanceof Error ? error.message : 'Could not start recording.';
       if (
         msg.includes('Permission') ||
         msg.includes('permission') ||
         msg.includes('NotAllowedError')
       ) {
-        setMessage('Microphone access denied — check browser permissions.');
+        setPermissionMessage('Microphone access was denied. Allow it and try again.');
       } else {
-        setMessage(msg);
+        setPermissionMessage(msg);
       }
     }
-  }, [captureAudioBlob, cleanup, setMessage]);
+  }, [cleanup, onEmergencySave, onRecordingReady, setMessage]);
 
   const stopRecording = useCallback(() => {
     if (!recorderRef.current || recorderRef.current.state === 'inactive') return;
@@ -130,24 +152,25 @@ export function usePopupRecording(deps: {
     recorderRef.current.stop();
   }, []);
 
-  // Auto-save on popup close
   useEffect(() => {
     function handleBeforeUnload() {
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-        commitRef.current = 'save';
+        commitRef.current = 'emergency-save';
         recorderRef.current.stop();
       }
     }
+
     function handleVisibilityChange() {
       if (
         document.visibilityState === 'hidden' &&
         recorderRef.current &&
         recorderRef.current.state !== 'inactive'
       ) {
-        commitRef.current = 'save';
+        commitRef.current = 'emergency-save';
         recorderRef.current.stop();
       }
     }
+
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
@@ -156,7 +179,6 @@ export function usePopupRecording(deps: {
     };
   }, []);
 
-  // Check for partial save message from previous session
   useEffect(() => {
     const key = 'coop:popup-partial-recording';
     const stored = sessionStorage.getItem(key);
@@ -166,7 +188,6 @@ export function usePopupRecording(deps: {
     }
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {
@@ -177,7 +198,7 @@ export function usePopupRecording(deps: {
             `Partial voice note saved (${duration}s).`,
           );
         }
-        commitRef.current = 'save';
+        commitRef.current = 'emergency-save';
         recorderRef.current.stop();
       }
       cleanup();
@@ -187,7 +208,9 @@ export function usePopupRecording(deps: {
   const clearPartialSaveMessage = useCallback(() => setPartialSaveMessage(null), []);
 
   return {
-    isRecording,
+    isRecording: status === 'recording',
+    status,
+    permissionMessage,
     elapsedSeconds,
     startRecording,
     stopRecording,

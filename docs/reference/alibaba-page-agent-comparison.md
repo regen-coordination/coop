@@ -54,9 +54,9 @@ Coop is a browser-first, local-first coordination system that:
 
 Relevant local references:
 
-- [README.md](/Users/afo/Code/regen-coordination/coop/README.md)
-- [agent-harness.md](/Users/afo/Code/regen-coordination/coop/docs/reference/agent-harness.md)
-- [policy-session-permit.md](/Users/afo/Code/regen-coordination/coop/docs/reference/policy-session-permit.md)
+- Repo root: `README.md`
+- [agent-harness.md](./agent-harness.md)
+- [policy-session-permit.md](./policy-session-permit.md)
 
 ## Similarities
 
@@ -219,8 +219,8 @@ This is especially useful for grant portals, governance dashboards, and admin to
 
 Coop already has a bridge-like pattern in the receiver flow:
 
-- [receiver-bridge.js](/Users/afo/Code/regen-coordination/coop/packages/extension/public/receiver-bridge.js)
-- [useReceiverSync.ts](/Users/afo/Code/regen-coordination/coop/packages/app/src/hooks/useReceiverSync.ts)
+- `packages/extension/public/receiver-bridge.js`
+- `packages/app/src/hooks/useReceiverSync.ts`
 
 That suggests a path toward a more general embedded bridge.
 

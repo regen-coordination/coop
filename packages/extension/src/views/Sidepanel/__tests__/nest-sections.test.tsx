@@ -8,6 +8,7 @@ import type {
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SidepanelOrchestration } from '../hooks/useSidepanelOrchestration';
 import type { NestArchiveSectionProps } from '../tabs/NestArchiveSection';
 import { NestArchiveSection } from '../tabs/NestArchiveSection';
 import type { NestInviteSectionProps } from '../tabs/NestInviteSection';
@@ -17,7 +18,6 @@ import { NestReceiverSection } from '../tabs/NestReceiverSection';
 import type { NestSettingsSectionProps } from '../tabs/NestSettingsSection';
 import { NestSettingsSection } from '../tabs/NestSettingsSection';
 import { NestTab } from '../tabs/NestTab';
-import type { SidepanelOrchestration } from '../hooks/useSidepanelOrchestration';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -265,7 +265,7 @@ describe('NestInviteSection', () => {
       inviteResult: null,
       createInvite: vi.fn(),
       revokeInvite: vi.fn(),
-      coopForm: mockCoopFormReturn() as ReturnType<
+      coopForm: mockCoopFormReturn() as unknown as ReturnType<
         typeof import('../hooks/useCoopForm').useCoopForm
       >,
       activeCoop: makeActiveCoop(),
@@ -503,7 +503,7 @@ describe('NestReceiverSection', () => {
       selectReceiverPairing: vi.fn(),
       copyText: vi.fn(),
       receiverIntake: [],
-      draftEditor: mockDraftEditorReturn() as ReturnType<
+      draftEditor: mockDraftEditorReturn() as unknown as ReturnType<
         typeof import('../hooks/useDraftEditor').useDraftEditor
       >,
       ...overrides,
@@ -707,9 +707,9 @@ describe('NestSettingsSection', () => {
         operator: {
           policyActionQueue: [],
         },
-      } as NestSettingsSectionProps['dashboard'],
+      } as unknown as NestSettingsSectionProps['dashboard'],
       activeCoop: makeActiveCoop(),
-      runtimeConfig: defaultRuntimeConfig as NestSettingsSectionProps['runtimeConfig'],
+      runtimeConfig: defaultRuntimeConfig as unknown as NestSettingsSectionProps['runtimeConfig'],
       authSession: {
         displayName: 'Ari',
         primaryAddress: '0xAri',

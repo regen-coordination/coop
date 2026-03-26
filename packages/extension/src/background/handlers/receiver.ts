@@ -62,7 +62,10 @@ import {
  * the Dexie state is updated but the Yjs doc only gets overwritten on the
  * next full saveCoopState() call, losing CRDT-level granularity.
  */
-async function persistInviteToYjsDoc(coopId: string, mutation: (doc: import('yjs').Doc) => void) {
+async function persistInviteToYjsDoc(
+  coopId: string,
+  mutation: (doc: ReturnType<typeof hydrateCoopDoc>) => void,
+) {
   const record = await db.coopDocs.get(coopId);
   if (!record) return; // No persisted doc yet — saveState() will create one
 
@@ -300,7 +303,7 @@ export async function handleIngestReceiverCapture(
   }
 
   const syncedAt = nowIso();
-  const capture = {
+  const capture: ReceiverCapture = {
     ...envelope.capture,
     pairingId: pairing.pairingId,
     coopId: pairing.coopId,

@@ -1,5 +1,6 @@
 import { PopupArtifactDialog } from './PopupArtifactDialog';
 import { PopupBlockingNotice } from './PopupBlockingNotice';
+import { PopupCaptureReviewDialog } from './PopupCaptureReviewDialog';
 import { PopupFooterNav } from './PopupFooterNav';
 import { PopupHeader } from './PopupHeader';
 import { PopupScreenRouter } from './PopupScreenRouter';
@@ -46,6 +47,16 @@ export function PopupApp() {
       />
     ) : null;
 
+  const captureOverlay = state.pendingCapture ? (
+    <PopupCaptureReviewDialog
+      capture={state.pendingCapture}
+      onChange={state.handleUpdatePendingCapture}
+      onClose={state.handleDismissPendingCapture}
+      onSave={() => void state.handleSavePendingCapture()}
+      saving={state.isCapturing}
+    />
+  ) : null;
+
   const artifactOverlay = state.selectedArtifact ? (
     <PopupArtifactDialog
       artifact={state.selectedArtifact}
@@ -79,7 +90,7 @@ export function PopupApp() {
       footer={footer}
       header={header}
       message={state.message}
-      overlay={artifactOverlay ?? blockingOverlay}
+      overlay={captureOverlay ?? artifactOverlay ?? blockingOverlay}
       theme={state.theme.resolvedTheme}
     >
       <PopupScreenRouter state={state} />

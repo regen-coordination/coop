@@ -8,8 +8,8 @@ import type {
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { NestTab } from '../tabs/NestTab';
 import type { SidepanelOrchestration } from '../hooks/useSidepanelOrchestration';
+import { NestTab } from '../tabs/NestTab';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -303,7 +303,7 @@ describe('NestTab — badge positioning (Step 11)', () => {
         byteSize: 10,
         createdAt: '2026-01-01T00:00:00.000Z',
       },
-    ] as ReceiverCapture[];
+    ] as unknown as ReceiverCapture[];
 
     render(<NestTab {...baseNestProps({ receiverIntake: captures })} />);
 
@@ -344,7 +344,7 @@ describe('NestTab — SidepanelSubheader integration (Step 12)', () => {
     });
 
     const base = baseNestProps({ activeCoop: coopA });
-    (base.orchestration as Record<string, unknown>).dashboard = {
+    (base.orchestration as unknown as Record<string, unknown>).dashboard = {
       ...base.orchestration.dashboard,
       coops: [coopA, coopB],
     };
@@ -368,7 +368,7 @@ describe('NestTab — SidepanelSubheader integration (Step 12)', () => {
     });
 
     const base = baseNestProps({ activeCoop: coopA, selectActiveCoop });
-    (base.orchestration as Record<string, unknown>).dashboard = {
+    (base.orchestration as unknown as Record<string, unknown>).dashboard = {
       ...base.orchestration.dashboard,
       coops: [coopA, coopB],
     };

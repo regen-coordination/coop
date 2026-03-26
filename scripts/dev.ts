@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -11,9 +11,9 @@ import { loadRootEnv, repoRoot } from './load-root-env';
 loadRootEnv();
 
 const LOCAL_HOST = '127.0.0.1';
-const APP_PORT = 3001;
-const API_PORT = 4444;
-const DOCS_PORT = 3003;
+const DEFAULT_APP_PORT = 3001;
+const DEFAULT_API_PORT = 4444;
+const DEFAULT_DOCS_PORT = 3003;
 const DEV_STATE_DIR = path.join(repoRoot, 'packages/app/public/__coop_dev__');
 const DEV_STATE_PATH = path.join(DEV_STATE_DIR, 'state.json');
 
@@ -62,6 +62,18 @@ function parseTunnelMode(raw: string | undefined): TunnelMode {
     return raw;
   }
   return 'auto';
+}
+
+function parsePort(raw: string | undefined, fallback: number, label: string) {
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+    throw new Error(`${label} must be a valid TCP port. Received "${raw}".`);
+  }
+  return parsed;
 }
 
 function formatLog(label: string, line: string) {
@@ -137,6 +149,109 @@ async function waitForPort(host: string, port: number, timeoutMs: number) {
   }
 
   throw new Error(`Timed out waiting for ${host}:${port}`);
+}
+
+async function waitForHttpReady(url: string, timeoutMs: number) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          accept: 'text/html,application/json;q=0.9,*/*;q=0.8',
+        },
+      });
+
+      if (response.ok || response.status === 404) {
+        await response.arrayBuffer().catch(() => undefined);
+        return;
+      }
+    } catch {
+      // Retry until timeout; the service may still be compiling or booting.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  throw new Error(`Timed out waiting for ${url} to return an HTTP response.`);
+}
+
+async function isPortAvailable(host: string, port: number) {
+  return new Promise<boolean>((resolve, reject) => {
+    const server = net.createServer();
+    let settled = false;
+
+    const finish = (available: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(available);
+    };
+
+    server.once('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        finish(false);
+        return;
+      }
+      reject(error);
+    });
+
+    server.listen(port, host, () => {
+      server.close(() => finish(true));
+    });
+  });
+}
+
+function describeListeningProcess(port: number) {
+  const result = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpct'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+
+  if (result.status !== 0 || !result.stdout.trim()) {
+    return undefined;
+  }
+
+  const details = {
+    pid: undefined as string | undefined,
+    command: undefined as string | undefined,
+    name: undefined as string | undefined,
+  };
+
+  for (const line of result.stdout.trim().split('\n')) {
+    if (line.startsWith('p')) {
+      details.pid = line.slice(1);
+      continue;
+    }
+    if (line.startsWith('c')) {
+      details.command = line.slice(1);
+      continue;
+    }
+    if (line.startsWith('t')) {
+      details.name = line.slice(1);
+    }
+  }
+
+  return details;
+}
+
+async function assertPortAvailable(host: string, port: number, label: string) {
+  if (await isPortAvailable(host, port)) {
+    return;
+  }
+
+  const owner = describeListeningProcess(port);
+  const ownerMessage =
+    owner?.pid || owner?.command
+      ? ` Currently owned by PID ${owner.pid ?? 'unknown'}${owner.command ? ` (${owner.command})` : ''}.`
+      : '';
+
+  throw new Error(
+    `${label} port ${port} is already in use on ${host}.${ownerMessage} Stop the existing process or change the port before running bun dev.`,
+  );
 }
 
 function generateAccessToken() {
@@ -247,9 +362,16 @@ function printSummary(state: DevState) {
 async function main() {
   const tunnelMode = parseTunnelMode(process.env.COOP_DEV_TUNNEL);
   const docsEnabled = process.env.COOP_DEV_DOCS !== 'off';
-  const appLocalUrl = `http://${LOCAL_HOST}:${APP_PORT}`;
-  const apiLocalUrl = `http://${LOCAL_HOST}:${API_PORT}`;
-  const docsLocalUrl = `http://${LOCAL_HOST}:${DOCS_PORT}`;
+  const appPort = parsePort(process.env.COOP_DEV_APP_PORT, DEFAULT_APP_PORT, 'COOP_DEV_APP_PORT');
+  const apiPort = parsePort(process.env.COOP_DEV_API_PORT, DEFAULT_API_PORT, 'COOP_DEV_API_PORT');
+  const docsPort = parsePort(
+    process.env.COOP_DEV_DOCS_PORT,
+    DEFAULT_DOCS_PORT,
+    'COOP_DEV_DOCS_PORT',
+  );
+  const appLocalUrl = `http://${LOCAL_HOST}:${appPort}`;
+  const apiLocalUrl = `http://${LOCAL_HOST}:${apiPort}`;
+  const docsLocalUrl = `http://${LOCAL_HOST}:${docsPort}`;
 
   const state: DevState = {
     version: 1,
@@ -260,7 +382,7 @@ async function main() {
     },
     api: {
       localUrl: apiLocalUrl,
-      websocketUrl: `ws://${LOCAL_HOST}:${API_PORT}`,
+      websocketUrl: `ws://${LOCAL_HOST}:${apiPort}`,
       status: 'starting',
     },
     docs: docsEnabled
@@ -277,7 +399,7 @@ async function main() {
       distPath: path.join(repoRoot, 'packages/extension/dist'),
       mode: 'watch',
       receiverAppUrl: appLocalUrl,
-      signalingUrls: [`ws://${LOCAL_HOST}:${API_PORT}`, 'wss://api.coop.town'],
+      signalingUrls: [`ws://${LOCAL_HOST}:${apiPort}`, 'wss://api.coop.town'],
       status: 'starting',
     },
     tunnel: {
@@ -287,6 +409,12 @@ async function main() {
   };
 
   writeDevState(state);
+
+  await assertPortAvailable(LOCAL_HOST, appPort, 'App');
+  await assertPortAvailable(LOCAL_HOST, apiPort, 'API');
+  if (docsEnabled) {
+    await assertPortAvailable(LOCAL_HOST, docsPort, 'Docs');
+  }
 
   const managed: ManagedProcess[] = [];
   let shuttingDown = false;
@@ -354,7 +482,7 @@ async function main() {
     '--host',
     LOCAL_HOST,
     '--port',
-    String(APP_PORT),
+    String(appPort),
     '--strictPort',
   ]);
   trackManagedProcess(appProcess);
@@ -363,7 +491,7 @@ async function main() {
     env: {
       ...process.env,
       HOST: LOCAL_HOST,
-      PORT: String(API_PORT),
+      PORT: String(apiPort),
     },
   });
   trackManagedProcess(apiProcess);
@@ -373,16 +501,19 @@ async function main() {
     trackManagedProcess(docsProcess);
   }
 
-  await waitForPort(LOCAL_HOST, APP_PORT, 120_000);
+  await waitForPort(LOCAL_HOST, appPort, 120_000);
+  await waitForHttpReady(appLocalUrl, 120_000);
   state.app.status = 'ready';
   writeDevState(state);
 
-  await waitForPort(LOCAL_HOST, API_PORT, 120_000);
+  await waitForPort(LOCAL_HOST, apiPort, 120_000);
+  await waitForHttpReady(apiLocalUrl, 120_000);
   state.api.status = 'ready';
   writeDevState(state);
 
   if (docsEnabled) {
-    await waitForPort(LOCAL_HOST, DOCS_PORT, 120_000);
+    await waitForPort(LOCAL_HOST, docsPort, 120_000);
+    await waitForHttpReady(docsLocalUrl, 120_000);
     state.docs.status = 'ready';
     writeDevState(state);
   }

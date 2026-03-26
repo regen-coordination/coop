@@ -204,7 +204,7 @@ export async function ensureSessionCapabilityReadyLive(input: {
 
   for (const module of [modules.validator, modules.fallback]) {
     const installed = await checkModuleInstalled({
-      client: context.publicClient,
+      client: context.publicClient as Parameters<typeof checkModuleInstalled>[0]['client'],
       account: context.moduleAccount,
       module,
     });
@@ -213,7 +213,7 @@ export async function ensureSessionCapabilityReadyLive(input: {
     }
 
     const executions = await buildModuleInstallExecutions({
-      client: context.publicClient,
+      client: context.publicClient as Parameters<typeof buildModuleInstallExecutions>[0]['client'],
       account: context.moduleAccount,
       module,
     });
@@ -221,7 +221,7 @@ export async function ensureSessionCapabilityReadyLive(input: {
       await context.smartClient.sendTransaction({
         to: execution.to,
         data: execution.data,
-        value: execution.value,
+        value: execution.value as bigint,
       });
     }
   }
@@ -235,7 +235,7 @@ export async function ensureSessionCapabilityReadyLive(input: {
     await context.smartClient.sendTransaction({
       to: execution.to,
       data: execution.data,
-      value: execution.value,
+      value: execution.value as bigint,
     });
   }
 
@@ -274,7 +274,7 @@ export async function revokeSessionCapabilityLive(input: {
   await context.smartClient.sendTransaction({
     to: execution.to,
     data: execution.data,
-    value: execution.value,
+    value: execution.value as bigint,
   });
 }
 

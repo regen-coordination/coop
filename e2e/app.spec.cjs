@@ -250,27 +250,55 @@ function buildBoardSnapshotFixture() {
   };
 }
 
-test('landing page renders the locked v1 narrative', async ({ page }) => {
-  await page.goto('/');
+test('landing page renders the refreshed narrative', async ({ page }) => {
+  await page.goto('/landing');
 
   await expect(page.getByRole('heading', { name: /no more chickens loose/i })).toBeVisible();
+  await expect(page.locator('.hero-title-line')).toHaveCount(2);
+  await expect(page.getByText(/turning knowledge into opportunity/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: /^how coop works$/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^curate your coop$/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^why we build$/i })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /local, secure & private/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Open receiver', exact: true })).toBeVisible();
+  await expect(page.getByText(/your data stays yours/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /reset ritual/i })).toBeVisible();
+  await expect(page.getByText('Afolabi Aiyeloja')).toBeVisible();
+  await expect(page.getByText('Greenpill Dev Guild')).toBeVisible();
+
+  const logoBox = await page.locator('.hero-logo').boundingBox();
+  if (!logoBox) {
+    throw new Error('Hero logo did not render for bounding box check.');
+  }
+  expect(logoBox.x).toBeLessThan(140);
+
+  await page.getByRole('button', { name: /collective intelligence/i }).click();
+  await expect(page.getByRole('dialog', { name: /collective intelligence/i })).toBeVisible();
+  const stageBox = await page.locator('.flashcard-stage').boundingBox();
+  const viewport = page.viewportSize();
+  if (!stageBox || !viewport) {
+    throw new Error('Flashcard stage or viewport missing for alignment check.');
+  }
+  expect(Math.abs(stageBox.x + stageBox.width / 2 - viewport.width / 2)).toBeLessThan(170);
+  await expect(page.getByRole('button', { name: /^close card$/i })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /collective intelligence notes/i })).toBeVisible();
+  await page.locator('.flashcard-focus-shell').click({ position: { x: 20, y: 20 } });
+  await expect(page.getByRole('textbox', { name: /collective intelligence notes/i })).toHaveCount(
+    0,
+  );
+
+  await page.getByRole('button', { name: /funding & resources/i }).click();
+  await expect(page.getByRole('textbox', { name: /funding & resources notes/i })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('textbox', { name: /funding & resources notes/i })).toHaveCount(0);
 });
 
 test('landing page stays legible on mobile', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'This scenario validates the mobile project only.');
 
-  await page.goto('/');
+  await page.goto('/landing');
 
   await expect(page.getByRole('heading', { name: /no more chickens loose/i })).toBeVisible();
-  await expect(
-    page.locator('main').getByRole('link', { name: 'Open receiver', exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: /card 1 knowledge/i })).toBeVisible();
+  await expect(page.getByText(/turning knowledge into opportunity/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /collective intelligence/i })).toBeVisible();
 });
 
 test('receiver route exposes the egg capture shell and Roost link', async ({ page }) => {

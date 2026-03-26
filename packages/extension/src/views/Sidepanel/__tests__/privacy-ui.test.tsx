@@ -47,7 +47,7 @@ describe('privacy UI elements', () => {
     });
 
     it('renders member name when createdBy is a normal member id', () => {
-      const createdBy = 'member-123';
+      const createdBy: string = 'member-123';
       const memberName = 'Alice';
 
       const { container } = render(
@@ -137,7 +137,7 @@ describe('privacy UI elements', () => {
     });
 
     it('does not render badge when providerMode is not kohaku', () => {
-      const runtimeConfig = { providerMode: 'rpc' as const };
+      const runtimeConfig: { providerMode: string } = { providerMode: 'rpc' };
 
       render(
         <div>
@@ -181,7 +181,7 @@ describe('privacy UI elements', () => {
     });
 
     it('does not render toggle when workflowStage is candidate', () => {
-      const workflowStage = 'candidate';
+      const workflowStage: string = 'candidate';
 
       render(
         <div>

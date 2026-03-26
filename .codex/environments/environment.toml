@@ -3,7 +3,9 @@ version = 1
 name = "coop"
 
 [setup]
-script = ""
+script = '''
+bun install
+'''
 
 [[actions]]
 name = "Dev"

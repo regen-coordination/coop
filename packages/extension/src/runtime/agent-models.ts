@@ -187,9 +187,12 @@ async function ensureTransformersPipeline() {
     const { pipeline, env } = await import('@huggingface/transformers');
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    env.backends.onnx.wasm.wasmPaths = resolveOnnxRuntimeWasmPaths();
+    if (env.backends.onnx.wasm) {
+      env.backends.onnx.wasm.wasmPaths = resolveOnnxRuntimeWasmPaths();
+    }
 
-    return (await pipeline('text-generation', TRANSFORMERS_MODEL_ID, {
+    // biome-ignore lint/suspicious/noExplicitAny: pipeline overloads produce an unrepresentable union
+    return (await (pipeline as any)('text-generation', TRANSFORMERS_MODEL_ID, {
       dtype: 'q4',
       device: 'wasm',
     })) as TextGenerationPipeline;

@@ -167,7 +167,7 @@ describe('agent model provider fallback', () => {
     });
 
     expect(result.provider).toBe('webllm');
-    expect(result.output.title).toBe('Review digest');
+    expect((result.output as Record<string, unknown>).title).toBe('Review digest');
     expect(webLlmComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         maxTokens: 432,
@@ -200,7 +200,7 @@ describe('agent model provider fallback', () => {
     });
 
     expect(result.provider).toBe('transformers');
-    expect(result.output.title).toBe('Capital brief');
+    expect((result.output as Record<string, unknown>).title).toBe('Capital brief');
   });
 
   it('falls back from a hung WebLLM call to transformers after the skill timeout', async () => {
@@ -232,7 +232,7 @@ describe('agent model provider fallback', () => {
     const result = await resultPromise;
 
     expect(result.provider).toBe('transformers');
-    expect(result.output.title).toBe('Capital brief');
+    expect((result.output as Record<string, unknown>).title).toBe('Capital brief');
     expect(webLlmComplete).toHaveBeenCalledTimes(1);
   });
 
@@ -249,7 +249,7 @@ describe('agent model provider fallback', () => {
     });
 
     expect(result.provider).toBe('heuristic');
-    expect(result.output.summary).toContain('Recent activity');
+    expect((result.output as Record<string, unknown>).summary).toContain('Recent activity');
   });
 
   it('retries once with error context on parse failure then succeeds', async () => {
@@ -284,7 +284,7 @@ describe('agent model provider fallback', () => {
     });
 
     expect(result.provider).toBe('webllm');
-    expect(result.output.title).toBe('Review digest');
+    expect((result.output as Record<string, unknown>).title).toBe('Review digest');
     // The retry call should include error context in the prompt
     expect(webLlmComplete).toHaveBeenCalledTimes(2);
     const retryCall = webLlmComplete.mock.calls[1][0];

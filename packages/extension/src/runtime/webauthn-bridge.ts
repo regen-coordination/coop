@@ -70,7 +70,7 @@ function serializeCredentialRequestOptions(
   options?: CredentialRequestOptions,
 ): SerializedCredentialRequestOptions | undefined {
   if (!options?.publicKey) {
-    return options;
+    return options as SerializedCredentialRequestOptions | undefined;
   }
 
   return {
@@ -78,9 +78,9 @@ function serializeCredentialRequestOptions(
       ...options.publicKey,
       allowCredentials: options.publicKey.allowCredentials?.map((credential) => ({
         ...credential,
-        id: Array.from(new Uint8Array(credential.id)),
+        id: Array.from(new Uint8Array(credential.id as ArrayBuffer)),
       })),
-      challenge: Array.from(new Uint8Array(options.publicKey.challenge)),
+      challenge: Array.from(new Uint8Array(options.publicKey.challenge as ArrayBuffer)),
     },
   };
 }
@@ -89,7 +89,7 @@ function deserializeCredentialRequestOptions(
   options?: SerializedCredentialRequestOptions,
 ): CredentialRequestOptions | undefined {
   if (!options?.publicKey) {
-    return options;
+    return options as CredentialRequestOptions | undefined;
   }
 
   return {
@@ -121,7 +121,7 @@ function deserializeAssertionCredential(
         ? Uint8Array.from(credential.response.userHandle).buffer
         : null,
     },
-  } as Credential;
+  } as unknown as Credential;
 }
 
 export async function requestWebAuthnCredentialViaExtensionBridge(

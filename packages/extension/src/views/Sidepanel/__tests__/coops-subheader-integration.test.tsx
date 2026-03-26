@@ -74,7 +74,7 @@ function makeCoop(id: string, name: string): CoopSharedState {
       narratives: [],
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-  } as CoopSharedState;
+  } as unknown as CoopSharedState;
 }
 
 const defaultRuntimeConfig = {
@@ -115,14 +115,14 @@ function baseProps(overrides?: Partial<CoopsTabProps>): CoopsTabProps {
       operator: {
         policyActionQueue: [],
       },
-    } as CoopsTabProps['dashboard'],
+    } as unknown as CoopsTabProps['dashboard'],
     activeCoop: makeCoop('a', 'Alpha Coop'),
     allCoops: [makeCoop('a', 'Alpha Coop'), makeCoop('b', 'Beta Coop')],
     currentMemberId: 'me',
     archiveStory: null,
     archiveReceipts: [],
     refreshableArchiveReceipts: [],
-    runtimeConfig: defaultRuntimeConfig as CoopsTabProps['runtimeConfig'],
+    runtimeConfig: defaultRuntimeConfig as unknown as CoopsTabProps['runtimeConfig'],
     boardUrl: 'https://board.example.com',
     archiveSnapshot: vi.fn(),
     exportLatestReceipt: vi.fn(),

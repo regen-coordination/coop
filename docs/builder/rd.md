@@ -15,7 +15,7 @@ The current reference docs repeatedly point to the same core issues:
 - CRDT correctness where shared arrays are still written too coarsely
 - remotely hosted WASM that weakens offline and extension-distribution guarantees
 - fixed-interval polling that burns battery and CPU
-- missing evaluation harnesses for the agent
+- ~~missing evaluation harnesses for the agent~~ — resolved: agent-eval.ts provides skill eval fixtures and structural/semantic assertion passes
 - weak eventing between contexts compared with a typed bus model
 
 ## Near-Term Research Lanes

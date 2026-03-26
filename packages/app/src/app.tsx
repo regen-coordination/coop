@@ -740,7 +740,7 @@ export function RootApp({
   }
 
   if (route.kind === 'landing') {
-    return <LandingPage appHref="/" devEnvironment={devEnvironment} />;
+    return <LandingPage devEnvironment={devEnvironment} />;
   }
 
   if (route.kind === 'board') {

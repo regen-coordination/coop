@@ -135,7 +135,7 @@ describe('selectKnowledgeSkills', () => {
   function makeObservation(overrides: Partial<AgentObservation> = {}): AgentObservation {
     return {
       id: overrides.id ?? 'obs-1',
-      trigger: overrides.trigger ?? 'tab-capture',
+      trigger: overrides.trigger ?? 'high-confidence-draft',
       status: overrides.status ?? 'pending',
       title: overrides.title ?? 'New tab captured',
       summary: overrides.summary ?? 'User opened a page about Ethereum gas fees',

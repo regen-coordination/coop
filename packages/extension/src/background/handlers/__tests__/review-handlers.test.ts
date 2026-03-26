@@ -1,5 +1,6 @@
 import { createCoop, createReceiverDraftSeed, sessionToMember } from '@coop/shared';
 import type { ReviewDraft } from '@coop/shared';
+import type { MockInstance } from 'vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mocks for context and operator modules ---
@@ -43,8 +44,10 @@ vi.mock('../receiver', () => ({
   syncReceiverCaptureFromDraft: vi.fn(),
 }));
 
-let mockCreateAgentMemory: ReturnType<typeof vi.fn>;
-let mockAddOutboxEntry: ReturnType<typeof vi.fn>;
+// biome-ignore lint/suspicious/noExplicitAny: vi.spyOn returns a specific MockInstance<Fn> that won't unify with a generic signature
+let mockCreateAgentMemory: MockInstance<(...args: any[]) => any>;
+// biome-ignore lint/suspicious/noExplicitAny: vi.spyOn returns a specific MockInstance<Fn> that won't unify with a generic signature
+let mockAddOutboxEntry: MockInstance<(...args: any[]) => any>;
 
 // Import after mocks are registered
 const { getCoops } = await import('../../context');

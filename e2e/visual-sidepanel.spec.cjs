@@ -68,16 +68,12 @@ async function openPanelTab(page, name) {
 test.describe('sidepanel visual snapshots', () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test.skip(
-    ({ isMobile }) => isMobile,
-    'Extension visual tests run only on the desktop Chromium project.',
-  );
-
   let context;
   let page;
   let extensionId;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ isMobile }) => {
+    test.skip(isMobile, 'Extension visual tests run only on the desktop Chromium project.');
     ensureExtensionBuilt();
 
     const userDataDir = path.join(os.tmpdir(), `coop-visual-sidepanel-${Date.now()}`);
