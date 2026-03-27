@@ -152,6 +152,10 @@ pre {
   position: relative;
 }
 
+.arrival-journey {
+  z-index: 3;
+}
+
 .journey-scene {
   position: sticky;
   top: 0;
@@ -221,7 +225,7 @@ pre {
 /* Re-enable pointer events on actual content cards within panels */
 .hero-copy,
 .how-works-shell,
-.why-build-copy {
+.why-build-heading-card {
   pointer-events: auto;
 }
 
@@ -301,7 +305,7 @@ pre {
   font-size: clamp(1.2rem, 1.9vw, 1.45rem);
   line-height: 1.35;
   color: rgba(79, 46, 31, 0.9);
-  max-width: 22rem;
+  max-width: 32rem;
   text-shadow: 0 0 20px rgba(255, 250, 244, 0.92);
 }
 
@@ -548,21 +552,22 @@ pre {
 }
 
 .works-panel {
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding-bottom: 5.75rem;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding-top: 2rem;
+  padding-bottom: 1.5rem;
   background: transparent;
 }
 
 .how-works-shell {
-  width: min(33rem, 40vw);
+  width: min(34rem, 48vw);
   display: grid;
-  gap: 1rem;
-  margin: 0 0 0 auto;
+  gap: 0.35rem;
+  margin: 0 auto 0 0;
   background: linear-gradient(145deg, rgba(255, 252, 246, 0.97), rgba(255, 248, 238, 0.95));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 1.7rem 1.9rem;
+  padding: 0.8rem 1.1rem;
   border-radius: var(--coop-radius-card-xl);
   border: 1px solid rgba(79, 46, 31, 0.16);
   box-shadow: 0 28px 58px rgba(79, 46, 31, 0.16);
@@ -577,16 +582,16 @@ pre {
 .how-works-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.85rem;
+  gap: 0.3rem;
 }
 
 .how-works-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.95rem;
+  gap: 0.5rem;
   align-items: start;
   position: relative;
-  padding: 1rem 1.05rem;
+  padding: 0.4rem 0.6rem;
 }
 
 .how-works-card::after {
@@ -610,22 +615,23 @@ pre {
 
 .how-works-card h3 {
   margin: 0;
-  font-size: 1.32rem;
-  line-height: 1.08;
+  font-size: 1.08rem;
+  line-height: 1.12;
   color: var(--coop-brown);
 }
 
 .how-works-card p {
-  margin: 0.35rem 0 0;
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
 }
 
 .how-works-index {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 1rem;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.75rem;
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--coop-green-12) 82%, white),
@@ -640,8 +646,7 @@ pre {
   position: relative;
   z-index: 2;
   isolation: isolate;
-  padding-top: 1.5rem;
-  padding-bottom: 3.5rem;
+  padding: 0.75rem 1rem 2rem;
 }
 
 .ritual-section::before {
@@ -662,12 +667,13 @@ pre {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: -8rem;
+  bottom: -2rem;
   width: 100vw;
-  height: 10rem;
+  height: 4rem;
   transform: translateX(-50%);
   background: linear-gradient(180deg, #ffecd2, #c4753a);
   z-index: -1;
+  pointer-events: none;
   pointer-events: none;
 }
 
@@ -677,7 +683,7 @@ pre {
 }
 
 .ritual-section-heading {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .ritual-section-heading h2 {
@@ -689,7 +695,7 @@ pre {
 }
 
 .ritual-game-shell {
-  --flashcard-card-height: clamp(12.75rem, 18vw, 15.25rem);
+  --flashcard-card-height: clamp(8.5rem, 13vw, 11.5rem);
   --flashcard-dialog-height: clamp(20.5rem, 50vh, 23rem);
   --audience-accent: #5a7d10;
   --audience-accent-ink: #415a0c;
@@ -720,14 +726,14 @@ pre {
 }
 
 .ritual-game-shell[data-audience="family"] {
-  --audience-accent: #4f8b4a;
-  --audience-accent-ink: #2f5d2d;
-  --audience-accent-soft: rgba(79, 139, 74, 0.12);
-  --audience-accent-glow: rgba(79, 139, 74, 0.18);
-  --audience-accent-border: rgba(79, 139, 74, 0.32);
-  background: radial-gradient(circle at top left, rgba(90, 160, 60, 0.12), transparent 22rem),
-    radial-gradient(circle at top right, rgba(90, 125, 16, 0.08), transparent 24rem),
-    rgba(250, 255, 248, 0.84);
+  --audience-accent: #3d8b8b;
+  --audience-accent-ink: #265858;
+  --audience-accent-soft: rgba(61, 139, 139, 0.12);
+  --audience-accent-glow: rgba(61, 139, 139, 0.18);
+  --audience-accent-border: rgba(61, 139, 139, 0.32);
+  background: radial-gradient(circle at top left, rgba(61, 139, 139, 0.14), transparent 22rem),
+    radial-gradient(circle at top right, rgba(61, 160, 160, 0.08), transparent 24rem),
+    rgba(248, 253, 253, 0.84);
 }
 
 .ritual-game-shell[data-audience="friends"] {
@@ -763,6 +769,36 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 0.85rem;
+}
+
+.ritual-local-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: var(--coop-radius-pill, 999px);
+  background: rgba(90, 125, 16, 0.08);
+  border: 1px solid rgba(90, 125, 16, 0.18);
+  color: var(--coop-green);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ritual-local-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+}
+
+.record-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--coop-error, #a63b20);
+  margin-right: 0.25rem;
 }
 
 .audience-picker {
@@ -810,7 +846,7 @@ pre {
 }
 
 .audience-chip[data-audience-option="family"] {
-  --chip-accent: #4f8b4a;
+  --chip-accent: #3d8b8b;
 }
 
 .audience-chip[data-audience-option="friends"] {
@@ -887,6 +923,7 @@ pre {
 .flashcard-focus-backdrop {
   position: absolute;
   inset: 0;
+  z-index: 1;
   border: 0;
   border-radius: inherit;
   background: linear-gradient(180deg, rgba(79, 46, 31, 0.08) 0%, rgba(79, 46, 31, 0.12) 100%);
@@ -902,7 +939,7 @@ pre {
 .flashcard-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.05rem 1rem;
+  gap: 0.85rem;
   align-items: stretch;
 }
 
@@ -929,29 +966,7 @@ pre {
   transform: translateY(0.28rem) rotate(var(--flashcard-stack-angle));
 }
 
-.flashcard:nth-child(1) {
-  --flashcard-rest-angle: -1.1deg;
-  --flashcard-stack-angle: 0.45deg;
-  transform: translate(-0.25rem, 0.18rem);
-}
-
-.flashcard:nth-child(2) {
-  --flashcard-rest-angle: 1deg;
-  --flashcard-stack-angle: -0.4deg;
-  transform: translate(0.16rem, 0);
-}
-
-.flashcard:nth-child(3) {
-  --flashcard-rest-angle: 0.85deg;
-  --flashcard-stack-angle: -0.35deg;
-  transform: translate(0.08rem, -0.14rem);
-}
-
-.flashcard:nth-child(4) {
-  --flashcard-rest-angle: -0.95deg;
-  --flashcard-stack-angle: 0.4deg;
-  transform: translate(-0.16rem, 0.08rem);
-}
+/* Cards are flat at rest — tilt only appears on hover via flashcard-hover-* animations */
 
 .flashcard.is-muted {
   opacity: 0.66;
@@ -975,7 +990,7 @@ pre {
   align-content: space-between;
   width: 100%;
   min-height: var(--flashcard-card-height);
-  padding: 1.25rem;
+  padding: 1rem;
   border-radius: var(--coop-radius-card-lg);
   border: 1px solid rgba(79, 46, 31, 0.12);
   text-align: left;
@@ -1030,8 +1045,8 @@ pre {
 }
 
 .flashcard-front h3 {
-  font-size: clamp(1.4rem, 1.8vw, 1.8rem);
-  line-height: 1.12;
+  font-size: clamp(1.15rem, 1.8vw, 1.65rem);
+  line-height: 1.18;
 }
 
 .flashcard-front p {
@@ -1119,6 +1134,7 @@ pre {
 
 .flashcard-stage {
   position: relative;
+  z-index: 2;
   display: grid;
   grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
   gap: 0.85rem;
@@ -1409,9 +1425,10 @@ pre {
 
 .why-build-panel {
   align-items: flex-start;
-  justify-content: center;
-  padding-top: 5rem;
+  justify-content: flex-start;
+  padding-top: 3rem;
   padding-bottom: 1.5rem;
+  gap: 1.5rem;
 }
 
 .arrival-scroll-spacer {
@@ -1419,89 +1436,108 @@ pre {
   pointer-events: none;
 }
 
-.why-build-copy {
-  width: min(34rem, 100%);
+.why-build-heading-card {
+  position: absolute;
+  left: max(1rem, calc((100% - 1120px) / 2));
+  top: 8%;
+  max-width: 22rem;
+  padding: 1.25rem 1.4rem;
+  border-radius: 1.2rem;
+  background: rgba(255, 252, 246, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 232, 206, 0.3);
+  box-shadow: 0 12px 32px rgba(79, 46, 31, 0.1);
+  z-index: 4;
+  pointer-events: auto;
   display: grid;
-  gap: 0.85rem;
+  gap: 0.45rem;
   text-align: left;
+  visibility: hidden;
+  opacity: 0;
 }
 
-.why-build-intro {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.why-build-copy h2 {
+.why-build-heading-card h2 {
   margin: 0;
+  font-size: 1.6rem;
+  color: var(--coop-brown);
   opacity: 1;
 }
 
-.why-build-copy .lede {
+.why-build-heading-card .lede {
   text-align: left;
+  font-size: 0.92rem;
 }
 
-.why-build-proof {
-  display: grid;
-  gap: 0.9rem;
+.why-build-scene-team {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 4;
+  visibility: hidden;
+  opacity: 0;
 }
 
-.why-build-group {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.why-build-label {
-  margin: 0;
-  color: var(--coop-brown-soft);
-  font-size: 0.88rem;
+.scene-team-label {
+  position: absolute;
+  left: max(1rem, calc((100% - 1120px) / 2));
+  top: 34%;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 252, 246, 0.7);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
 }
 
-.team-strip,
-.partner-strip {
+.scene-team-member {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  opacity: 0.92;
+  pointer-events: auto;
+}
+
+.scene-team-member .team-avatar {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 999px;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 0.75rem;
-}
-
-.team-card {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.72rem 0.9rem;
-  border-radius: var(--coop-radius-pill);
-  border: 1px solid var(--coop-line);
-  background: rgba(255, 255, 255, 0.68);
-  color: var(--coop-brown);
-  font-size: 0.94rem;
-}
-
-.team-avatar {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(90, 125, 16, 0.18), rgba(253, 138, 1, 0.18));
-  color: var(--coop-brown);
+  background: rgba(255, 252, 246, 0.9);
+  border: 2px solid rgba(79, 46, 31, 0.15);
+  box-shadow: 0 4px 12px rgba(79, 46, 31, 0.12);
+  font-size: 0.85rem;
   font-weight: 700;
+  color: var(--coop-brown);
 }
 
-.partner-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0.48rem 0.82rem;
-  border-radius: var(--coop-radius-pill);
-  border: 1px solid var(--coop-line);
-  background: rgba(255, 255, 255, 0.62);
-  color: var(--coop-brown);
-  font-weight: 700;
-  font-size: 0.9rem;
+.scene-team-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 252, 246, 0.88);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+.scene-team-left {
+  left: max(1.5rem, calc((100% - 1120px) / 2 + 0.5rem));
+  top: 40%;
+}
+
+.scene-team-right-top {
+  left: max(6.5rem, calc((100% - 1120px) / 2 + 5.5rem));
+  top: 40%;
+}
+
+.scene-team-right-bottom {
+  left: max(11.5rem, calc((100% - 1120px) / 2 + 10.5rem));
+  top: 40%;
 }
 
 .landing-footer {
@@ -1705,10 +1741,10 @@ pre {
   will-change: opacity;
   background: linear-gradient(
     180deg,
-    rgba(23, 24, 52, 0.1) 0%,
-    rgba(21, 22, 48, 0.36) 28%,
-    rgba(14, 14, 34, 0.68) 62%,
-    rgba(6, 5, 16, 0.92) 100%
+    rgba(16, 16, 42, 0.18) 0%,
+    rgba(14, 14, 38, 0.48) 28%,
+    rgba(8, 8, 28, 0.78) 62%,
+    rgba(4, 3, 12, 0.96) 100%
   );
 }
 
@@ -1875,7 +1911,7 @@ pre {
   box-shadow: 0 0 10px rgba(255, 200, 80, 0.25), 0 8px 16px rgba(60, 30, 14, 0.35);
 }
 
-.journey-scene-arrival .why-build-copy.nest-card {
+.journey-scene-arrival .why-build-heading-card {
   background: rgba(255, 252, 246, 0.94);
   border-color: rgba(255, 232, 206, 0.3);
 }
@@ -2075,20 +2111,23 @@ pre {
 
 .thought-bubble {
   position: absolute;
-  bottom: calc(100% + 1.2rem);
+  bottom: calc(100% + 1.6rem);
   left: 50%;
-  transform: translateX(-50%) scale(0.8);
-  padding: 0.45rem 0.7rem;
-  border-radius: 1rem 1rem 1rem 0.25rem;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 8px rgba(79, 46, 31, 0.1), inset 0 -1px 2px rgba(79, 46, 31, 0.04);
-  font-size: 0.75rem;
+  transform: translateX(-50%) scale(0.85);
+  width: max-content;
+  max-width: 11rem;
+  padding: 0.55rem 0.75rem 0.5rem;
+  border-radius: 1rem 1rem 1rem 0.3rem;
+  background: rgba(255, 252, 246, 1);
+  box-shadow: 0 6px 18px rgba(79, 46, 31, 0.18), inset 0 -1px 2px rgba(79, 46, 31, 0.04);
   color: var(--coop-brown);
-  white-space: nowrap;
+  white-space: normal;
   opacity: 0;
   pointer-events: none;
   transition: opacity 250ms var(--landing-motion-soft), transform 250ms var(--landing-motion-soft);
   z-index: 10;
+  display: grid;
+  gap: 0.15rem;
 }
 
 /* Trailing thought circles (comic-style dots descending from bubble) */
@@ -2116,11 +2155,36 @@ pre {
   box-shadow: 0 1px 3px rgba(79, 46, 31, 0.06);
 }
 
-/* Reveal on hover */
+/* Show 2 thought bubbles by default — far-right chickens that are well
+   separated and clear of the hero copy. Others reveal on hover. */
+.journey-scene-story .scene-chicken-ideas .thought-bubble {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+.journey-scene-story .scene-chicken-signals .thought-bubble {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
 .scene-chicken:hover .thought-bubble,
 .scene-chicken:focus-within .thought-bubble {
   opacity: 1;
   transform: translateX(-50%) scale(1);
+}
+
+.thought-kicker {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(79, 46, 31, 0.7);
+}
+
+.thought-text {
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: var(--coop-brown);
 }
 
 .chicken-young {
@@ -2143,44 +2207,66 @@ pre {
   fill: #d4c44a;
 }
 
+/* Left-side chickens (6) — staggered across left 45% of scene */
 .journey-scene-story .scene-chicken-tabs {
-  left: 4.5%;
-  top: 76%;
+  left: 3%;
+  top: 68%;
 }
 
 .journey-scene-story .scene-chicken-notes {
-  left: 14%;
-  top: 67%;
-}
-
-.journey-scene-story .scene-chicken-ideas {
-  right: 14%;
-  top: 67%;
-}
-
-.journey-scene-story .scene-chicken-signals {
-  right: 4.5%;
-  top: 76%;
+  left: 16%;
+  top: 60%;
 }
 
 .journey-scene-story .scene-chicken-links {
-  left: 8.5%;
-  top: 82%;
+  left: 6%;
+  top: 80%;
 }
 
 .journey-scene-story .scene-chicken-drafts {
-  left: 20%;
-  top: 75%;
+  left: 22%;
+  top: 74%;
+}
+
+.journey-scene-story .scene-chicken-bookmarks {
+  left: 32%;
+  top: 66%;
+}
+
+.journey-scene-story .scene-chicken-voice-memos {
+  left: 12%;
+  top: 88%;
+}
+
+/* Right-side chickens (6) — staggered across right 45% of scene */
+.journey-scene-story .scene-chicken-ideas {
+  right: 16%;
+  top: 60%;
+}
+
+.journey-scene-story .scene-chicken-signals {
+  right: 3%;
+  top: 68%;
 }
 
 .journey-scene-story .scene-chicken-threads {
-  right: 8.5%;
-  top: 82%;
+  right: 22%;
+  top: 74%;
 }
 
 .journey-scene-story .scene-chicken-clips {
-  right: 20%;
-  top: 75%;
+  right: 6%;
+  top: 80%;
+}
+
+.journey-scene-story .scene-chicken-photos {
+  right: 32%;
+  top: 66%;
+}
+
+.journey-scene-story .scene-chicken-receipts {
+  right: 12%;
+  top: 88%;
 }
 
 .journey-scene-arrival .scene-chicken-tabs {
@@ -2655,31 +2741,31 @@ pre {
 
 @keyframes flashcard-hover-left {
   0% {
-    transform: rotate(var(--flashcard-rest-angle)) translateY(0);
+    transform: rotate(0deg) translateY(0) scale(1);
   }
   40% {
-    transform: rotate(calc(var(--flashcard-rest-angle) - 0.65deg)) translateY(-4px);
+    transform: rotate(-2deg) translateY(-6px) scale(1.02);
   }
   68% {
-    transform: rotate(calc(var(--flashcard-rest-angle) + 0.22deg)) translateY(-2px);
+    transform: rotate(0.5deg) translateY(-3px) scale(1.01);
   }
   100% {
-    transform: rotate(calc(var(--flashcard-rest-angle) - 0.28deg)) translateY(-3px);
+    transform: rotate(-0.8deg) translateY(-4px) scale(1.015);
   }
 }
 
 @keyframes flashcard-hover-right {
   0% {
-    transform: rotate(var(--flashcard-rest-angle)) translateY(0);
+    transform: rotate(0deg) translateY(0) scale(1);
   }
   40% {
-    transform: rotate(calc(var(--flashcard-rest-angle) + 0.65deg)) translateY(-4px);
+    transform: rotate(2deg) translateY(-6px) scale(1.02);
   }
   68% {
-    transform: rotate(calc(var(--flashcard-rest-angle) - 0.22deg)) translateY(-2px);
+    transform: rotate(-0.5deg) translateY(-3px) scale(1.01);
   }
   100% {
-    transform: rotate(calc(var(--flashcard-rest-angle) + 0.28deg)) translateY(-3px);
+    transform: rotate(0.8deg) translateY(-4px) scale(1.015);
   }
 }
 
@@ -3070,8 +3156,8 @@ pre {
     width: 100%;
   }
 
-  .why-build-copy {
-    width: 100%;
+  .why-build-heading-card {
+    max-width: 100%;
   }
 
   .arrival-scroll-spacer {
@@ -3158,6 +3244,12 @@ pre {
   }
 
   .journey-scene-arrival.is-static .scene-inside-flock {
+    opacity: 1;
+  }
+
+  .journey-scene-arrival.is-static .why-build-heading-card,
+  .journey-scene-arrival.is-static .why-build-scene-team {
+    visibility: visible;
     opacity: 1;
   }
 
