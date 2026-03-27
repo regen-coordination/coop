@@ -1,12 +1,5 @@
 import { toSafeSmartAccount } from 'permissionless/accounts';
-import {
-  http,
-  type Address,
-  createPublicClient,
-  decodeFunctionData,
-  toHex,
-  parseAbi,
-} from 'viem';
+import { http, type Address, createPublicClient, decodeFunctionData, parseAbi, toHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { CoopChainKey } from '../packages/shared/src/contracts';
 import {
@@ -135,9 +128,7 @@ async function simulatePreparedCall(input: {
       method: 'eth_call',
       params: [directCall, input.blockTag],
     });
-    console.log(
-      `[probe:greengoods-hypercert-sim] direct eth_call -> ${formatRpcValue(result)}`,
-    );
+    console.log(`[probe:greengoods-hypercert-sim] direct eth_call -> ${formatRpcValue(result)}`);
   } catch (error) {
     console.log(
       `[probe:greengoods-hypercert-sim] direct eth_call failed -> ${formatProbeResult(error)}`,
@@ -169,8 +160,9 @@ async function main() {
     process.exit(0);
   }
 
-  const gardenAddress = process.env
-    .COOP_GREENGOODS_HYPERCERT_SIM_GARDEN_ADDRESS as Address | undefined;
+  const gardenAddress = process.env.COOP_GREENGOODS_HYPERCERT_SIM_GARDEN_ADDRESS as
+    | Address
+    | undefined;
   if (!gardenAddress || !/^0x[a-fA-F0-9]{40}$/.test(gardenAddress)) {
     console.log(
       '[probe:greengoods-hypercert-sim] Skipping Hypercert probe. Set COOP_GREENGOODS_HYPERCERT_SIM_GARDEN_ADDRESS to a real Green Goods garden address.',
@@ -210,11 +202,9 @@ async function main() {
   console.log(
     `[probe:greengoods-hypercert-sim] Garden code present: ${gardenCode && gardenCode !== '0x' ? 'yes' : 'no'}`,
   );
+  console.log(`[probe:greengoods-hypercert-sim] Hypercerts module: ${deployment.hypercertsModule}`);
   console.log(
-    `[probe:greengoods-hypercert-sim] Hypercerts module: ${deployment.hypercertsModule}`,
-  );
-  console.log(
-    '[probe:greengoods-hypercert-sim] Karma GAP remains part of this package through existing work approval / assessment resolver flows plus optional gapProjectUid metadata.',
+    '[probe:greengoods-hypercert-sim] Karma GAP remains coupled through existing work approval and assessment resolver flows; the Hypercert package itself carries approved work and assessment evidence.',
   );
 
   let captured: PreparedCall | undefined;
@@ -263,9 +253,6 @@ async function main() {
         actionType: 'planting',
       },
     ],
-    gapProjectUid:
-      (process.env.COOP_GREENGOODS_HYPERCERT_SIM_GAP_PROJECT_UID as `0x${string}` | undefined) ??
-      (`0x${'44'.repeat(32)}` as const),
     rationale: 'Mint a Green Goods Hypercert package for approved work and assessments.',
   };
 
@@ -283,7 +270,10 @@ async function main() {
     request,
     uploader: async ({ kind }) => ({
       cid: kind === 'metadata' ? 'bafyprobehypercertmetadata' : 'bafyprobehypercertallowlist',
-      uri: kind === 'metadata' ? 'ipfs://bafyprobehypercertmetadata' : 'ipfs://bafyprobehypercertallowlist',
+      uri:
+        kind === 'metadata'
+          ? 'ipfs://bafyprobehypercertmetadata'
+          : 'ipfs://bafyprobehypercertallowlist',
     }),
     liveExecutor: async (input) => {
       captured = input;
@@ -302,12 +292,8 @@ async function main() {
     abi: HYPERCERTS_MODULE_ABI,
     data: captured.data,
   });
-  console.log(
-    `[probe:greengoods-hypercert-sim] Packaged metadata URI: ${packaged.metadataUri}`,
-  );
-  console.log(
-    `[probe:greengoods-hypercert-sim] Packaged allowlist URI: ${packaged.allowlistUri}`,
-  );
+  console.log(`[probe:greengoods-hypercert-sim] Packaged metadata URI: ${packaged.metadataUri}`);
+  console.log(`[probe:greengoods-hypercert-sim] Packaged allowlist URI: ${packaged.allowlistUri}`);
   console.log(`[probe:greengoods-hypercert-sim] Merkle root: ${packaged.merkleRoot}`);
   console.log(
     `[probe:greengoods-hypercert-sim] Decoded mintAndRegister args -> garden=${decoded.args[0]} totalUnits=${decoded.args[1].toString()} merkleRoot=${decoded.args[2]} metadataUri=${decoded.args[3]}`,

@@ -1,8 +1,8 @@
 import {
-  buildGreenGoodsMintHypercertPayload,
   type GreenGoodsAssessmentRequest,
   type GreenGoodsHypercertMintRequest,
   type GreenGoodsWorkApprovalRequest,
+  buildGreenGoodsMintHypercertPayload,
 } from '@coop/shared';
 import { sendRuntimeMessage } from '../../../runtime/messages';
 import type { useDashboard } from './useDashboard';
@@ -128,7 +128,6 @@ export function useSidepanelGreenGoods(deps: SidepanelGreenGoodsDeps) {
           outcomes: request.outcomes,
           allowlist: request.allowlist,
           attestations: request.attestations,
-          gapProjectUid: request.gapProjectUid,
         }),
       },
     });

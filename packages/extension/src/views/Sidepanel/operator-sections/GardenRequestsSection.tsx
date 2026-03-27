@@ -102,7 +102,6 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
     imageUri: '',
     sdgs: '',
     capitals: '',
-    gapProjectUid: '',
     outcomesJson: '',
     allowlistJson: '',
     attestationsJson: '',
@@ -478,6 +477,12 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
                   }
 
                   try {
+                    const gardenAddress = props.greenGoodsContext.gardenAddress;
+                    if (!gardenAddress) {
+                      throw new Error(
+                        'Link a Green Goods garden before queueing a Hypercert mint.',
+                      );
+                    }
                     const allowlist = JSON.parse(hypercert.allowlistJson || '[]');
                     const attestations = JSON.parse(hypercert.attestationsJson || '[]');
                     const outcomes = hypercert.outcomesJson
@@ -485,7 +490,7 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
                       : undefined;
 
                     const request: GreenGoodsHypercertMintRequest = {
-                      gardenAddress: props.greenGoodsContext.gardenAddress!,
+                      gardenAddress,
                       title: hypercert.title,
                       description: hypercert.description,
                       workScopes: splitCsv(hypercert.workScopes),
@@ -498,8 +503,8 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
                       impactTimeframeEnd: parseOptionalUnixSeconds(hypercert.impactTimeframeEnd),
                       externalUrl: hypercert.externalUrl || undefined,
                       imageUri: hypercert.imageUri || undefined,
-                      domain:
-                        (hypercert.domain || undefined) as GreenGoodsHypercertMintRequest['domain'],
+                      domain: (hypercert.domain ||
+                        undefined) as GreenGoodsHypercertMintRequest['domain'],
                       sdgs: splitCsv(hypercert.sdgs).map((value) => Number(value)),
                       capitals: splitCsv(
                         hypercert.capitals,
@@ -507,7 +512,6 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
                       outcomes,
                       allowlist,
                       attestations,
-                      gapProjectUid: hypercert.gapProjectUid || undefined,
                       rationale:
                         'Mint a Green Goods Hypercert package for approved work and assessment evidence.',
                     };
@@ -624,19 +628,6 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
                       setHypercert((current) => ({
                         ...current,
                         workTimeframeEnd: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className="helper-text">
-                  GAP project UID (optional)
-                  <input
-                    type="text"
-                    value={hypercert.gapProjectUid}
-                    onChange={(event) =>
-                      setHypercert((current) => ({
-                        ...current,
-                        gapProjectUid: event.target.value,
                       }))
                     }
                   />

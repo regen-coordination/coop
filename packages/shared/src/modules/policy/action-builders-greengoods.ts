@@ -185,7 +185,6 @@ export function buildGreenGoodsMintHypercertPayload(input: {
     feedback?: string;
     actionType?: string;
   }>;
-  gapProjectUid?: string;
   rationale?: string;
 }): Record<string, unknown> {
   return {
@@ -222,7 +221,6 @@ export function buildGreenGoodsMintHypercertPayload(input: {
       feedback: attestation.feedback,
       actionType: attestation.actionType,
     })),
-    gapProjectUid: input.gapProjectUid,
     rationale: input.rationale ?? 'Mint a Green Goods Hypercert package.',
   };
 }

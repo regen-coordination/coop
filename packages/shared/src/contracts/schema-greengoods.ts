@@ -257,7 +257,10 @@ export const greenGoodsHypercertAttestationSchema = z.object({
   metrics: z.record(z.string(), greenGoodsHypercertMetricValueSchema).optional(),
   createdAt: z.number().int().nonnegative(),
   approvedAt: z.number().int().nonnegative(),
-  approvedBy: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+  approvedBy: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .optional(),
   feedback: z.string().optional(),
   actionType: z.string().min(1).optional(),
 });
@@ -337,7 +340,6 @@ const greenGoodsHypercertMintRequestBaseSchema = z.object({
   }),
   allowlist: z.array(greenGoodsHypercertAllowlistEntrySchema).min(1),
   attestations: z.array(greenGoodsHypercertAttestationSchema).min(1),
-  gapProjectUid: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional(),
   rationale: z.string().min(1),
 });
 

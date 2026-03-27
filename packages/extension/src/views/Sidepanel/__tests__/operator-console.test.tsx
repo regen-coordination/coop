@@ -241,9 +241,15 @@ describe('operator console', () => {
     );
 
     await expandSection(user, 'Garden Requests');
-    await user.type(screen.getAllByLabelText(/^Title$/i)[1]!, 'Season one stewardship package');
+    const [, hypercertTitleInput] = screen.getAllByLabelText(/^Title$/i);
+    const [, hypercertDescriptionInput] = screen.getAllByLabelText(/^Description$/i);
+    if (!hypercertTitleInput || !hypercertDescriptionInput) {
+      throw new Error('Expected the Hypercert mint form fields to render.');
+    }
+
+    await user.type(hypercertTitleInput, 'Season one stewardship package');
     await user.type(
-      screen.getAllByLabelText(/^Description$/i)[1]!,
+      hypercertDescriptionInput,
       'Approved Green Goods work bundled into a Hypercert.',
     );
     fireEvent.change(screen.getByLabelText(/^Allowlist JSON$/i), {

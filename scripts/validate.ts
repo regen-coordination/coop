@@ -308,10 +308,14 @@ const suites: Record<string, Suite> = {
   },
   'production-readiness': {
     description:
-      'Final pre-demo production slice: lint, build, targeted agent/onchain/session tests, extension and receiver E2E, plus mobile app coverage.',
+      'Expanded pre-release slice: lint, build, popup and sidepanel action coverage, sync checks, targeted agent/onchain/session tests, extension/receiver E2E, and mobile app coverage.',
     includes: [
       'lint',
       'build',
+      'popup-slice',
+      'unit:sidepanel-actions',
+      'sync-hardening',
+      'onchain-ui',
       'unit:agent-loop',
       'unit:onchain-config',
       'unit:session-key',
@@ -322,13 +326,20 @@ const suites: Record<string, Suite> = {
       'e2e:app:mobile',
     ],
   },
+  'production-live-readiness': {
+    description:
+      'Production-readiness plus opt-in live probes for shared-wallet, session-key, and archive rails.',
+    includes: ['production-readiness', 'arbitrum-safe-live', 'session-key-live', 'archive-live'],
+  },
   full: {
-    description: 'Full local validation pass used before demos or bigger merges.',
+    description:
+      'Full local validation pass used before demos or bigger merges, including popup browser coverage.',
     includes: [
       'lint',
       'unit',
       'build',
       'landing',
+      'popup-slice',
       'e2e:extension',
       'e2e:receiver-sync',
       'e2e:agent-loop',

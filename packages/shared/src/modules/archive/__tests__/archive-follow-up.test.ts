@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import * as DataSegment from '@web3-storage/data-segment';
+import { describe, expect, it } from 'vitest';
 import { createCoop } from '../../coop/flows';
 import {
   applyArchiveOnChainSealWitnesses,
@@ -165,7 +165,9 @@ describe('archive follow-up helpers', () => {
     expect(sealed.filecoinStatus).toBe('sealed');
     expect(sealed.followUp?.refreshCount).toBe(2);
     expect(updatedState.archiveReceipts[0]?.filecoinInfo?.deals[0]?.dealId).toBe('44');
-    expect(updatedState.archiveReceipts[0]?.filecoinInfo?.deals[0]?.dataAggregationProof).toBeDefined();
+    expect(
+      updatedState.archiveReceipts[0]?.filecoinInfo?.deals[0]?.dataAggregationProof,
+    ).toBeDefined();
     expect(
       updatedState.archiveReceipts[0]?.filecoinInfo?.deals[0]?.dataAggregationProofCid,
     ).toBeDefined();

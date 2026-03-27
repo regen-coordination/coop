@@ -26,7 +26,7 @@ import {
 export const GREEN_GOODS_HYPERCERT_TOTAL_UNITS = 100_000_000n;
 export const GREEN_GOODS_HYPERCERT_PROTOCOL_VERSION = '1.0.0' as const;
 
-type GreenGoodsHypercertAllowlistDump = ReturnType<StandardMerkleTree<any[]>['dump']>;
+type GreenGoodsHypercertAllowlistDump = ReturnType<StandardMerkleTree<[string, string]>['dump']>;
 type GreenGoodsLiveReceipt = NonNullable<Awaited<ReturnType<GreenGoodsLiveExecutor>>['receipt']>;
 
 const greenGoodsHypercertsModuleAbi = [
@@ -221,15 +221,23 @@ export function buildGreenGoodsHypercertMetadata(input: {
   const derivedTimeframe = deriveWorkTimeframe(request.attestations);
   const contributorAddresses = request.allowlist.map((entry) => getAddress(entry.address));
   const contributors = unique(contributorAddresses);
-  const derivedWorkScopes = unique(request.attestations.flatMap((attestation) => attestation.workScope));
+  const derivedWorkScopes = unique(
+    request.attestations.flatMap((attestation) => attestation.workScope),
+  );
   const workScopes = request.workScopes.length > 0 ? request.workScopes : derivedWorkScopes;
   const normalizedWorkScopes = workScopes.length > 0 ? workScopes : ['all'];
   const impactScopes = request.impactScopes.length > 0 ? request.impactScopes : ['all'];
   const workTimeframeStart = request.workTimeframeStart ?? derivedTimeframe.start ?? 0;
   const workTimeframeEnd =
-    request.workTimeframeEnd ?? derivedTimeframe.end ?? request.workTimeframeStart ?? workTimeframeStart;
+    request.workTimeframeEnd ??
+    derivedTimeframe.end ??
+    request.workTimeframeStart ??
+    workTimeframeStart;
   const impactTimeframeStart =
-    request.impactTimeframeStart ?? request.workTimeframeStart ?? derivedTimeframe.start ?? workTimeframeStart;
+    request.impactTimeframeStart ??
+    request.workTimeframeStart ??
+    derivedTimeframe.start ??
+    workTimeframeStart;
   const impactTimeframeEnd = request.impactTimeframeEnd ?? 0;
   const normalizedDomain =
     request.domain ??
@@ -288,7 +296,6 @@ export function buildGreenGoodsHypercertMetadata(input: {
         ? request.outcomes
         : aggregateOutcomeMetrics(request.attestations),
       domain: normalizeGreenGoodsHypercertDomain(normalizedDomain),
-      ...(request.gapProjectUid ? { karmaGapProjectId: request.gapProjectUid } : {}),
       protocolVersion: GREEN_GOODS_HYPERCERT_PROTOCOL_VERSION,
     },
   } satisfies Record<string, unknown>;
@@ -298,13 +305,14 @@ export function buildGreenGoodsHypercertAllowlistTree(input: {
   request: GreenGoodsHypercertMintRequest;
 }) {
   const request = greenGoodsHypercertMintRequestSchema.parse(input.request);
-  const values = request.allowlist.map(
-    (entry) => [getAddress(entry.address), String(entry.units)] as [Address, string],
-  );
-  const tree = StandardMerkleTree.of(values, ['address', 'uint256']);
+  const values: [string, string][] = request.allowlist.map((entry) => [
+    getAddress(entry.address),
+    String(entry.units),
+  ]);
+  const tree = StandardMerkleTree.of<[string, string]>(values, ['address', 'uint256']);
   return {
     root: tree.root as `0x${string}`,
-    dump: tree.dump(),
+    dump: tree.dump() as GreenGoodsHypercertAllowlistDump,
   };
 }
 

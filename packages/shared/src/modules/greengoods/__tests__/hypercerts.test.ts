@@ -1,10 +1,10 @@
 import {
+  type Address,
   decodeFunctionData,
   encodeAbiParameters,
   encodeEventTopics,
   parseAbi,
   parseAbiParameters,
-  type Address,
 } from 'viem';
 import { describe, expect, it } from 'vitest';
 import type { GreenGoodsHypercertMintRequest } from '../../../contracts/schema';
@@ -90,7 +90,6 @@ const baseRequest: GreenGoodsHypercertMintRequest = {
       actionType: 'maintenance',
     },
   ],
-  gapProjectUid: `0x${'44'.repeat(32)}`,
   rationale: 'Mint a season-one Green Goods Hypercert package.',
 };
 
@@ -108,7 +107,7 @@ const liveExecutionInput = {
 };
 
 describe('Green Goods Hypercert packaging', () => {
-  it('derives Green Goods Hypercert metadata from approved work and GAP context', () => {
+  it('derives Green Goods Hypercert metadata from approved work and assessment context', () => {
     const metadata = buildGreenGoodsHypercertMetadata({
       request: baseRequest,
     });
@@ -120,7 +119,6 @@ describe('Green Goods Hypercert packaging', () => {
     expect(metadata.hypercert.work_scope.value).toEqual(['planting', 'maintenance']);
     expect(metadata.hypercert.impact_scope.value).toEqual(['ecosystem restoration']);
     expect(metadata.hidden_properties?.domain).toBe('agroforestry');
-    expect(metadata.hidden_properties?.karmaGapProjectId).toBe(baseRequest.gapProjectUid);
     expect(metadata.hidden_properties?.protocolVersion).toBe(
       GREEN_GOODS_HYPERCERT_PROTOCOL_VERSION,
     );
