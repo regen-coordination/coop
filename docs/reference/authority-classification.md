@@ -15,6 +15,7 @@ Each authority class has distinct responsibilities and should not be collapsed i
 - Treasury and shared fund movements
 - Protocol-level admin actions (garden ownership, GAP admin sync)
 - Work approval and assessment attestations (proposal-first execution)
+- Hypercert packaging after approvals and assessments
 - Safe owner management (add/remove/swap owner, change threshold)
 
 **What it is NOT:**
@@ -48,7 +49,7 @@ Each authority class has distinct responsibilities and should not be collapsed i
 **What it controls:**
 - Gardener lifecycle actions (add/remove self)
 - Work evidence submission
-- Future member-scoped Green Goods artifact flows once Hypercert/Karma GAP packaging is wired in Coop
+- Individual garden participation without shared treasury control
 - Receiving individual allocations or funds
 
 **Why it's separate from Safe ownership:**
@@ -88,6 +89,7 @@ Each authority class has distinct responsibilities and should not be collapsed i
 | `green-goods-submit-work-approval` | Safe Owner | Proposal-first execution |
 | `green-goods-create-assessment` | Safe Owner | Proposal-first execution |
 | `green-goods-sync-gap-admins` | Safe Owner | Auto-detectable, owner execution |
+| `green-goods-mint-hypercert` | Safe Owner | Packages approved work and assessments |
 | `green-goods-add-gardener` | Member Account | Individual member action |
 | `green-goods-remove-gardener` | Member Account | Individual member action |
 | `green-goods-submit-work-submission` | Member Account | Individual member action |

@@ -41,6 +41,13 @@ Those surfaces make it easier to understand:
 - what should be reviewed next
 - which items carry durable archive receipts
 
+In the current extension, the normal movement is:
+
+- `Popup` and `Chickens` for capture, working drafts, and publish prep
+- `Coops` for the shared result after publish
+- `Nest` for protected admin and operator follow-up
+- `Roost` only when a linked Green Goods garden needs member work submission
+
 ## What Stays Local
 
 A lot of useful material should stay local until someone makes a deliberate choice:
@@ -67,4 +74,6 @@ Communities do better when they can tell the difference between:
 - shared memory
 - durable archive
 
-Coop is designed to keep those stages distinct while still making it easy to move work forward.
+They also do better when they can tell the difference between ordinary member work and protected
+operator work. Green Goods follows that split: members submit work, while trusted operators handle
+approvals, assessments, admin sync, and later Hypercert or Karma GAP packaging.

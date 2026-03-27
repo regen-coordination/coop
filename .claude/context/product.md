@@ -24,7 +24,7 @@ The problem is not lack of information. It is fragmentation:
 2. A trusted member creates a coop (with real Safe address)
 3. Members join via invite codes (passkey-first, no wallet needed)
 4. The extension rounds up relevant tabs locally
-5. Members review drafts in the Roost and explicitly push them into shared coop memory
+5. Members review drafts in the popup and Chickens and explicitly push them into shared coop memory
 6. The coop leaves with live shared context, archive receipts, and clearer next actions
 
 ## User Personas
@@ -52,7 +52,7 @@ Invited with elevated trust. They:
 Community participant. They:
 - Join via a member invite code (7-day expiry)
 - Browse normally while Coop notices relevant context locally
-- Review drafts in the Roost and decide what to push
+- Review drafts in the popup and Chickens and decide what to push
 - Contribute to the shared feed
 - Can archive artifacts to Storacha/Filecoin
 
@@ -71,10 +71,10 @@ Someone using the paired mobile web app:
 | Metaphor | Product Concept |
 |----------|----------------|
 | Loose Chickens | Open browser tabs that contain potentially useful context |
-| Roost | The review queue where drafts wait for human judgment |
-| Chickens Tab | Candidate list in popup and sidepanel (captured tabs awaiting review) |
-| Coops Tab | Coop management and published artifact feed surface |
-| Nest | Settings and admin tab in sidepanel (agent, receiver, invites, archive, settings) |
+| Roost | The human-review metaphor in the product story; the current `Roost` tab is the Green Goods member workspace |
+| Chickens Tab | Working queue for candidates, drafts, and publish prep |
+| Coops Tab | Shared coop state, published artifact feed, archive, and proof surface |
+| Nest | Members, operator controls, receiver, and settings in the sidepanel |
 | Coop Feed | The shared feed of published artifacts across members |
 | Launching the Coop | Creating a new coop (with Safe deployment) |
 | Rooster Call | Success sound on coop creation |
@@ -152,6 +152,7 @@ The hackathon demo (PL Genesis) must prove:
 ### V1 Includes
 
 - Extension as primary product surface (popup is a full multi-screen app with Home/Chickens/Feed nav; sidepanel is the full workspace with Roost/Chickens/Coops/Nest tabs)
+- Current sidepanel map: `Roost` = Green Goods member actions, `Chickens` = review and publish prep, `Coops` = shared state and archive, `Nest` = trusted controls
 - Landing page (responsive, mobile-friendly)
 - Passkey-first identity (no wallet extension required)
 - Real Safe creation via Pimlico/ERC-4337
@@ -172,10 +173,10 @@ The hackathon demo (PL Genesis) must prove:
 - Full React Flow editing (read-only snapshots only)
 - Automatic archival of raw browsing exhaust
 - Encrypted archive workflows
-- Full Green Goods garden binding
+- Direct Green Goods impact-report attestation
 - Built-in cloud LLM integrations
 - Autonomous agent execution
-- Session-key transactions
+- Open-ended session-key transactions beyond bounded garden maintenance
 - End-user skill management UI
 
 ### System Principles

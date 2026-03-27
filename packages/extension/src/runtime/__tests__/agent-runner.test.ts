@@ -1446,7 +1446,7 @@ describe('agent-runner', () => {
       warn.mockRestore();
     });
 
-    it('rejects outputs that fall below a skill quality threshold before applying them', async () => {
+    it('falls back to a deterministic capital-formation brief when model output is below the quality threshold', async () => {
       mockSettings.set('agent-cycle-state', { running: false });
       setupAuthorizedCoop();
       setupExtractsForObservation(['extract-1']);
@@ -1480,6 +1480,90 @@ describe('agent-runner', () => {
         },
         durationMs: 90,
       });
+      mockComputeOutputConfidence.mockReturnValueOnce(0.5).mockReturnValueOnce(0.82);
+
+      mockApplySkillOutput.mockResolvedValueOnce({
+        output: {
+          title: 'Potential capital formation opportunity',
+          summary:
+            'This deterministic brief keeps the capital formation loop moving when browser models return weak output.',
+          whyItMatters:
+            'It preserves a reviewable funding brief for the coop instead of dropping the observation on a low-quality pass.',
+          suggestedNextStep:
+            'Review the signal, tighten the thesis, and route the funding brief into coop review.',
+          tags: ['funding', 'opportunity'],
+          targetCoopIds: ['coop-auth'],
+          supportingCandidateIds: [],
+        },
+        plan: mockCreateAgentPlan({
+          observationId: 'obs-quality',
+          provider: 'heuristic',
+          confidence: 0.82,
+          goal: 'test',
+          rationale: 'test',
+        }),
+        createdDraftIds: ['draft-heuristic'],
+        autoExecutedActionCount: 0,
+        errors: [],
+      });
+
+      await runAgentCycle({ force: true });
+
+      expect(mockCompleteSkillOutput).toHaveBeenCalled();
+      expect(mockApplySkillOutput).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'heuristic',
+          output: expect.objectContaining({
+            suggestedNextStep: expect.stringMatching(/funding brief/i),
+            supportingCandidateIds: expect.any(Array),
+          }),
+        }),
+      );
+    });
+
+    it('rejects outputs that fall below a skill quality threshold before applying them', async () => {
+      mockSettings.set('agent-cycle-state', { running: false });
+      setupAuthorizedCoop();
+      setupExtractsForObservation(['extract-1']);
+
+      const obs = makeObservation({
+        id: 'obs-quality-fail',
+        payload: { extractIds: ['extract-1'] },
+      });
+      mockListAgentObservationsByStatus.mockResolvedValue([obs]);
+      mockListAgentPlansByObservationId.mockResolvedValue([]);
+
+      const registered = makeRegisteredSkill({
+        id: 'opportunity-extractor',
+        outputSchemaRef: 'opportunity-extractor-output',
+        model: 'transformers',
+        qualityThreshold: 0.8,
+        triggers: ['roundup-batch-ready'],
+      });
+      mockSelectSkillIdsForObservation.mockReturnValue(['opportunity-extractor']);
+      mockGetRegisteredSkill.mockReturnValue(registered);
+      mockListRegisteredSkills.mockReturnValue([registered]);
+
+      mockCompleteSkillOutput.mockResolvedValueOnce({
+        provider: 'transformers',
+        model: 'test-model',
+        output: {
+          candidates: [
+            {
+              id: 'c1',
+              title: 'Thin candidate',
+              summary: 'Weak summary.',
+              rationale: 'Not enough detail.',
+              regionTags: [],
+              ecologyTags: [],
+              fundingSignals: [],
+              priority: 0.3,
+              recommendedNextStep: 'Review it.',
+            },
+          ],
+        },
+        durationMs: 90,
+      });
       mockComputeOutputConfidence.mockReturnValueOnce(0.5);
 
       await runAgentCycle({ force: true });
@@ -1492,7 +1576,7 @@ describe('agent-runner', () => {
         error: expect.stringMatching(/quality threshold/i),
       });
       expect(mockLogSkillFailed).toHaveBeenCalledWith(
-        expect.objectContaining({ skillId: 'capital-formation-brief' }),
+        expect.objectContaining({ skillId: 'opportunity-extractor' }),
       );
     });
 

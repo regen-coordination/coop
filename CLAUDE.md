@@ -10,6 +10,8 @@ bun dev                      # Start app + extension (concurrent)
 bun dev:app                  # Start app only
 bun dev:extension            # Start extension only (WXT dev + Chromium)
 bun dev:api                  # Start API server (signaling + routes)
+cd packages/app && bun run build        # Build app only
+cd packages/extension && bun run build  # Build extension only
 bun format && bun lint       # Format (Biome) and lint workspace
 bun run test                 # Run all unit tests (vitest)
 bun run test:e2e             # Run all Playwright E2E tests
@@ -31,8 +33,15 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 ### Product Loop
 1. **Capture**: Browser tabs (extension) + audio, photos, files, links (companion PWA)
 2. **Refine**: In-browser agent with 16-skill pipeline (WebGPU/WASM, no cloud)
-3. **Review**: Drafts land in the Roost for human triage
+3. **Review**: Members review candidates and drafts in the popup and Chickens before anything becomes shared
 4. **Share**: Publish to a coop (Safe multisig on Arbitrum, P2P sync via Yjs + y-webrtc, archived to Filecoin via Storacha)
+
+### Extension Surface Map
+- `Popup`: quick capture and quick review
+- `Chickens`: candidates, drafts, and publish prep
+- `Coops`: shared coop state, archive, and proof
+- `Roost`: Green Goods member workspace
+- `Nest`: members, operator controls, and settings
 
 ### Key Principles
 1. **Browser-First**: Extension is the primary product surface
@@ -61,7 +70,7 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 - `policy`: Action approval workflows, typed action bundles
 - `session`: Scoped execution permissions, time-bounded capabilities
 - `permit`: Execution permits with replay protection
-- `greengoods`: Green Goods garden bootstrap and sync
+- `greengoods`: Green Goods garden maintenance, member work submission, operator approvals, and Hypercert packaging
 - `erc8004`: ERC-8004 on-chain agent registry integration
 - `app`: App shell logic
 
@@ -97,9 +106,11 @@ import { createCoop, joinCoop } from '@coop/shared'; // correct
 - Use ranges for dev deps: vitest `^`, typescript `~`, @types/* `^`
 - Install in the correct package, never root for package-specific needs
 
-**Brand Metaphors**: Tabs = "Loose Chickens", review queue = "Roost", shared feed = "Coop Feed", creating a coop = "Launching the Coop", success sound = "Rooster Call".
+**Brand Metaphors**: Tabs = "Loose Chickens", the human review step is still called the "Roost" in product language, the current sidepanel `Roost` tab is the Green Goods member workspace, the shared feed = "Coop Feed", creating a coop = "Launching the Coop", success sound = "Rooster Call".
 
 **Build and Verify**: After making changes, choose the appropriate verification tier and verify the result before reporting the task is done. Never tell the user a change is ready without verifying first. UI/CSS changes are invisible until the Vite build runs and the extension or app is reloaded.
+
+**Build Scope**: Default to the smallest build that matches the change. Use `cd packages/extension && bun run build` for extension-only work and `cd packages/app && bun run build` for app-only work. Reserve root `bun build` for shared exports, shared styles/tokens, other cross-package changes, and pre-commit verification.
 
 **Verification Tiers**: Not every change needs a full build. Choose the lightest tier that covers your change:
 

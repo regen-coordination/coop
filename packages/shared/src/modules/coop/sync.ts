@@ -90,6 +90,7 @@ const sharedKeys = [
   'memoryProfile',
   'syncRoom',
   'onchainState',
+  'memberAccounts',
   'greenGoods',
   'archiveConfig',
   'memberCommitments',

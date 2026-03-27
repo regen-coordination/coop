@@ -17,12 +17,12 @@ import {
   listPageExtracts,
   nowIso,
   resolveDraftTargetCoopIdsForUi,
+  sanitizeTextForInference,
   saveCoopBlob,
   savePageExtract,
   saveReceiverCapture,
   saveReviewDraft,
   saveTabCandidate,
-  sanitizeTextForInference,
   transcribeAudio,
   updateReceiverCapture,
 } from '@coop/shared';
@@ -272,8 +272,24 @@ export async function runCaptureCycle() {
   return runCaptureForTabs(await chrome.tabs.query({}), { drainAgent: true });
 }
 
+async function resolveMostRecentStandardActiveTab() {
+  const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (currentTab?.url && isSupportedUrl(currentTab.url)) {
+    return currentTab;
+  }
+
+  const activeTabs = await chrome.tabs.query({ active: true });
+  return (
+    activeTabs
+      .filter((tab): tab is chrome.tabs.Tab & { url: string } =>
+        Boolean(tab.url && isSupportedUrl(tab.url)),
+      )
+      .sort((left, right) => (right.lastAccessed ?? 0) - (left.lastAccessed ?? 0))[0] ?? null
+  );
+}
+
 export async function captureActiveTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = await resolveMostRecentStandardActiveTab();
   if (!tab) {
     return 0;
   }
@@ -402,7 +418,7 @@ async function startAudioTranscription(
 }
 
 export async function prepareVisibleScreenshot(): Promise<PopupPreparedCapture> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = await resolveMostRecentStandardActiveTab();
   if (tab?.windowId == null || !tab.url || !isSupportedUrl(tab.url)) {
     throw new Error('Open a standard web page before capturing a screenshot.');
   }

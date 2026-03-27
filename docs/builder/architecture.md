@@ -90,6 +90,19 @@ Coop deliberately uses different storage layers for different jobs:
 4. Sync propagates that state across peers.
 5. Optional archive actions attach durable receipts to artifacts and snapshots.
 
+## Current Extension Surface Ownership
+
+The current extension action model is split like this:
+
+- `Popup` handles quick capture and quick review
+- `Chickens` handles candidates, drafts, and publish prep
+- `Coops` handles shared coop state, archive, proof, and board access
+- `Roost` handles Green Goods member actions
+- `Nest` handles members, operator controls, and settings
+
+Use [Action Domain Map](/reference/action-domain-map) as the canonical current-state view when a doc
+needs to answer "where does this action happen?" or "what authority does it require?"
+
 ## Major Shared Modules
 
 Some of the most important shared modules are:
@@ -105,7 +118,7 @@ Some of the most important shared modules are:
 - `privacy` for Semaphore ZK membership proofs and anonymous publishing
 - `stealth` for ERC-5564 stealth addresses (secp256k1)
 - `erc8004` for on-chain agent registry integration
-- `greengoods` for Green Goods garden bootstrap and sync
+- `greengoods` for Green Goods garden maintenance, member work submission, operator approvals, GAP admin sync, and Hypercert packaging
 - `onchain` for Safe creation, ERC-4337, Kernel member accounts, and Safe co-signers
 - `fvm` for Filecoin VM interactions
 - `transcribe` for audio transcription

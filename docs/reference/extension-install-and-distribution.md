@@ -5,7 +5,7 @@ slug: /reference/extension-install-and-distribution
 
 # Coop Extension Install And Distribution
 
-Date: March 13, 2026
+Date: March 27, 2026
 
 This document covers extension-specific install and rollout. The full local demo, peer pairing, and
 production deployment flow lives in [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
@@ -49,13 +49,13 @@ Then in Chrome:
 
 ## Local Extension + Production PWA
 
-This is the preferred peer-demo mode when the extension is still under active development.
+This is the preferred peer-demo mode when the extension is under active development.
 
 Set:
 
 ```bash
-VITE_COOP_RECEIVER_APP_URL=https://<vercel-prod-domain>
-VITE_COOP_SIGNALING_URLS=wss://<temporary-public-yjs-signal>
+VITE_COOP_RECEIVER_APP_URL=https://coop.town
+VITE_COOP_SIGNALING_URLS=wss://api.coop.town
 ```
 
 Then rebuild the extension and reload it in Chrome. The receiver bridge content script is patched at
@@ -98,18 +98,26 @@ Release checklist:
 1. Set `VITE_COOP_RECEIVER_APP_URL` to the exact production HTTPS receiver origin for the release candidate.
 2. Run `bun run validate:store-readiness`.
 3. Run `bun run validate:production-readiness`.
-4. Build `packages/extension/.output/chrome-mv3`.
-5. Record the first-run local-AI network trace for reviewer notes.
-6. Zip the extension with files at the archive root.
-7. Upload to the Chrome Web Store dashboard.
-8. Add reviewer notes for:
-   - sidepanel entry
-   - passkey setup
-   - receiver pairing and private intake
-   - mock vs live modes
-   - Smart Session limits for Green Goods actions
-   - opt-in scheduled capture
-   - local-first data handling and encrypted local payloads
+4. If the build enables live Safe, session-key, or archive rails, run `bun run validate:production-live-readiness`.
+5. Build `packages/extension/.output/chrome-mv3`.
+6. Record the first-run local-AI network trace for reviewer notes.
+7. Zip the extension with files at the archive root.
+8. Upload to the Chrome Web Store dashboard.
+9. Add reviewer notes for sidepanel entry, passkey setup, receiver pairing and private intake,
+   mock vs live modes, Smart Session limits for Green Goods actions, opt-in scheduled capture, and
+   local-first data handling.
+
+Release note for manual verification:
+
+- Automation now covers popup roundup, popup manual-gate errors, file review/save, audio retry,
+  publish/archive handoff, receiver sync, and mock-path sidepanel member-account plus garden-pass
+  flows.
+- Successful popup `Capture Tab` and `Screenshot` saves still need a real-click manual check in
+  Chrome because the popup `activeTab` grant is not reproducible under Playwright.
+
+Do not ship `VITE_COOP_FVM_OPERATOR_KEY` in a public Chrome Web Store build. The current Filecoin
+registry registration path is suitable only for operator-controlled builds because `VITE_` env vars
+are baked into the extension bundle.
 
 ## Coop-Specific Review Notes
 

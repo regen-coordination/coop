@@ -1,7 +1,7 @@
 import {
-  greenGoodsHypercertMintActionPayloadSchema,
   type DelegatedActionClass,
   type PolicyActionClass,
+  greenGoodsHypercertMintActionPayloadSchema,
 } from '../../contracts/schema';
 
 export type ScopedActionClass = PolicyActionClass | DelegatedActionClass;

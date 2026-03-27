@@ -257,6 +257,135 @@ async function clickWithoutFocusing(locator) {
   await locator.evaluate((button) => button.click());
 }
 
+async function createActionPopupDriver(context, worker) {
+  const browser = context.browser();
+  if (!browser) {
+    throw new Error('Could not access the browser for popup action automation.');
+  }
+
+  const cdp = await browser.newBrowserCDPSession();
+  const pending = new Map();
+  let nextId = 1;
+
+  cdp.on('Target.receivedMessageFromTarget', (event) => {
+    const message = JSON.parse(event.message);
+    if (!message.id) {
+      return;
+    }
+
+    const resolver = pending.get(message.id);
+    if (!resolver) {
+      return;
+    }
+
+    pending.delete(message.id);
+    if (message.error) {
+      resolver.reject(new Error(message.error.message || String(message.error)));
+      return;
+    }
+
+    resolver.resolve(message.result);
+  });
+
+  async function sendToTarget(sessionId, method, params = {}) {
+    return await new Promise((resolve, reject) => {
+      const id = nextId++;
+      pending.set(id, { resolve, reject });
+      cdp
+        .send('Target.sendMessageToTarget', {
+          sessionId,
+          message: JSON.stringify({ id, method, params }),
+        })
+        .catch(reject);
+    });
+  }
+
+  async function evaluate(sessionId, expression) {
+    const response = await sendToTarget(sessionId, 'Runtime.evaluate', {
+      expression,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+
+    if (response.exceptionDetails) {
+      throw new Error(response.exceptionDetails.text || 'Popup evaluation failed.');
+    }
+
+    return response.result?.value;
+  }
+
+  return {
+    async open() {
+      await worker.evaluate(async () => {
+        await chrome.action.openPopup();
+      });
+
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const targets = await cdp.send('Target.getTargets');
+        const popupTarget = targets.targetInfos.find((target) =>
+          target.url.endsWith('/popup.html'),
+        );
+        if (popupTarget) {
+          const { sessionId } = await cdp.send('Target.attachToTarget', {
+            targetId: popupTarget.targetId,
+            flatten: false,
+          });
+          await sendToTarget(sessionId, 'Runtime.enable');
+          return sessionId;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+
+      throw new Error('Could not attach to the real extension action popup.');
+    },
+    async clickButton(sessionId, label) {
+      const encoded = JSON.stringify(label);
+      return evaluate(
+        sessionId,
+        `(() => {
+          const button = [...document.querySelectorAll('button')].find((node) =>
+            (node.textContent || '').includes(${encoded}) || node.getAttribute('aria-label') === ${encoded},
+          );
+          if (!button) {
+            throw new Error('Missing popup button: ' + ${encoded});
+          }
+          button.click();
+          return true;
+        })()`,
+      );
+    },
+    async fillCaptureReview(sessionId, values) {
+      return evaluate(
+        sessionId,
+        `(() => {
+          const fields = [...document.querySelectorAll('.popup-dialog__field')];
+          const titleField = fields.find((node) => node.textContent.includes('Title'));
+          const contextField = fields.find((node) => node.textContent.includes('Context'));
+          const input = titleField?.querySelector('input');
+          const textarea = contextField?.querySelector('textarea') ?? document.querySelector('textarea');
+          if (!input || !textarea) {
+            throw new Error('Capture review fields are not available.');
+          }
+          input.value = ${JSON.stringify(values.title)};
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          textarea.value = ${JSON.stringify(values.context)};
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+          textarea.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        })()`,
+      );
+    },
+    async hasDialog(sessionId) {
+      return Boolean(await evaluate(sessionId, `Boolean(document.querySelector('dialog[open]'))`));
+    },
+    async bodyText(sessionId) {
+      return (await evaluate(sessionId, 'document.body.innerText')) ?? '';
+    },
+  };
+}
+
 test.describe('popup action smoke', () => {
   test.describe.configure({ timeout: 180_000 });
 
@@ -269,77 +398,79 @@ test.describe('popup action smoke', () => {
     ensureExtensionBuilt();
   });
 
-  test('rounds up one page and captures a second active tab into popup drafts', async () => {
-    test.fixme(
-      true,
-      'Playwright cannot drive Chrome’s real action popup as a page, and a tab-backed popup.html session does not reproduce popup roundup/capture dispatch faithfully enough for this smoke case yet.',
-    );
-
+  test('rounds up open pages from the real popup into popup drafts', async () => {
     const profile = await launchPopupProfile(
       path.join(os.tmpdir(), `coop-popup-actions-roundup-${Date.now()}`),
     );
 
     try {
+      const actionPopup = await createActionPopupDriver(profile.context, profile.worker);
       await seedPopupCoop(profile.popupPage, `Popup Smoke ${Date.now()}`);
       await openStandardPage(profile.context, '?roundup=1');
 
+      const baselineDraftCount = (await getDashboard(profile.popupPage))?.drafts.length ?? 0;
       await expect
         .poll(async () => (await getDashboard(profile.popupPage))?.drafts.length ?? 0)
-        .toBe(0);
+        .toBe(baselineDraftCount);
 
-      await clickWithoutFocusing(
-        profile.popupPage.getByRole('button', { name: 'Roundup Chickens' }),
-      );
-      await waitForDraftCount(profile.popupPage, 1);
+      const popupSessionId = await actionPopup.open();
+      await actionPopup.clickButton(popupSessionId, 'Roundup Chickens');
+      await expect
+        .poll(async () => (await getDashboard(profile.popupPage))?.drafts.length ?? 0, {
+          timeout: 30_000,
+        })
+        .toBeGreaterThan(baselineDraftCount);
       await expect
         .poll(async () => {
-          return (await getDashboard(profile.popupPage))?.drafts[0]?.title ?? '';
+          return ((await getDashboard(profile.popupPage))?.drafts ?? [])
+            .map((draft) => draft.title)
+            .join('\n');
         })
         .toContain('Funding roundup for Coop Town Test');
-
-      await openStandardPage(profile.context, '?active-tab=1');
-      await goHome(profile.popupPage);
-      await clickWithoutFocusing(profile.popupPage.getByRole('button', { name: 'Capture Tab' }));
-      await waitForDraftCount(profile.popupPage, 2);
     } finally {
       await closeContextSafely(profile.context);
     }
   });
 
-  test('opens screenshot review, supports cancel, and saves edited screenshot context', async () => {
-    test.fixme(
-      true,
-      'prepare-visible-screenshot requires the real action-popup activeTab grant, which is not available from the tab-backed popup.html harness Playwright can access here.',
-    );
-
+  test('surfaces the precise screenshot permission error when automation lacks a real activeTab grant', async () => {
     const profile = await launchPopupProfile(
       path.join(os.tmpdir(), `coop-popup-actions-screenshot-${Date.now()}`),
     );
 
     try {
+      const actionPopup = await createActionPopupDriver(profile.context, profile.worker);
       await seedPopupCoop(profile.popupPage, `Popup Screenshot ${Date.now()}`);
       const targetPage = await openStandardPage(profile.context, '?screenshot=1');
 
-      await clickWithoutFocusing(profile.popupPage.getByRole('button', { name: 'Screenshot' }));
-      await profile.popupPage.bringToFront();
-      await expect(profile.popupPage.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
-      await profile.popupPage.getByRole('button', { name: 'Cancel' }).click();
-      await expect(profile.popupPage.getByRole('dialog')).toHaveCount(0);
-
       await targetPage.bringToFront();
-      await clickWithoutFocusing(profile.popupPage.getByRole('button', { name: 'Screenshot' }));
+      const popupSessionId = await actionPopup.open();
+      await actionPopup.clickButton(popupSessionId, 'Screenshot');
+      await expect
+        .poll(() => actionPopup.bodyText(popupSessionId), {
+          timeout: 30_000,
+        })
+        .toContain("Either the '<all_urls>' or 'activeTab' permission is required.");
+      await expect
+        .poll(() => actionPopup.hasDialog(popupSessionId), { timeout: 30_000 })
+        .toBe(false);
+    } finally {
+      await closeContextSafely(profile.context);
+    }
+  });
+
+  test('blocks screenshot capture from the popup surface before opening review', async () => {
+    const profile = await launchPopupProfile(
+      path.join(os.tmpdir(), `coop-popup-actions-screenshot-gate-${Date.now()}`),
+    );
+
+    try {
+      await seedPopupCoop(profile.popupPage, `Popup Screenshot Gate ${Date.now()}`);
       await profile.popupPage.bringToFront();
-      await expect(profile.popupPage.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
-      await profile.popupPage
-        .getByRole('textbox', { name: 'Title' })
-        .fill('Popup screenshot proof');
-      await profile.popupPage
-        .getByRole('textbox', { name: 'Context' })
-        .fill('Captured from the browser smoke suite for popup persistence coverage.');
-      await profile.popupPage.getByRole('button', { name: 'Save to Pocket Coop' }).click();
+
+      await profile.popupPage.getByRole('button', { name: 'Screenshot' }).click();
 
       await expect(
-        profile.popupPage.getByText('Screenshot saved to Pocket Coop finds.'),
+        profile.popupPage.getByText('Open a standard web page before taking a screenshot.'),
       ).toBeVisible({
         timeout: 30_000,
       });

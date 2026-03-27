@@ -43,6 +43,18 @@ to establish:
 
 That gives new members something concrete to join, rather than a blank container.
 
+## Who Does What After Launch
+
+After a coop exists, the action split is:
+
+- regular members capture, review, draft, publish, and archive through the popup, `Chickens`, and
+  `Coops`
+- trusted members and operators manage invites, receiver pairing and intake, policies, queueing,
+  and other protected controls in `Nest`
+- if Green Goods is enabled, members use `Roost` for their own garden access and work submission,
+  while trusted operators handle approvals, assessments, admin sync, and Hypercert or Karma GAP
+  packaging
+
 ## Passkeys, Safe Creation, And Trust
 
 Coop is designed to be passkey-first. The user-facing mental model is not "install a wallet before
@@ -56,6 +68,12 @@ review. The coop can grow without making every member an operator.
 
 During setup, a creator can choose whether the coop should prepare for a Green Goods garden. That is
 an optional extension of the coop's coordination surface, not a requirement for using Coop itself.
+
+That option does not turn every member into an onchain operator. It prepares the coop for:
+
+- bounded garden bootstrap and maintenance
+- member work submission once garden access is linked
+- trusted-operator approvals, assessments, and impact packaging later
 
 ## Good First Expectations
 

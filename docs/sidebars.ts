@@ -100,6 +100,7 @@ const sidebars: SidebarsConfig = {
           label: 'Product',
           collapsed: true,
           items: [
+            'reference/action-domain-map',
             'reference/product-requirements',
             'reference/original-introduction',
             'reference/scoped-roadmap-2026-03-11',

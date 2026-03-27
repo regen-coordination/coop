@@ -1,5 +1,8 @@
 # Extension UI Redesign Plan
 
+> Current-state note: this is a redesign plan, not the canonical current surface map. Use
+> [Action Domain Map](/reference/action-domain-map) for the live extension action model.
+
 > **Implementation Status (2026-03-22)**: Phase 1 implemented with significant naming changes. Planned tabs (Chickens | Feed | Contrib | Manage) shipped as **Roost | Chickens | Coops | Nest**. The Nest tab absorbs planned Contribute + Manage + Settings functionality.
 
 > Date: 2026-03-21
@@ -310,8 +313,8 @@ Documented 2026-03-22 after Phase 1 implementation.
 | Area | Planned | Shipped |
 |------|---------|---------|
 | **Sidepanel tab names** | Chickens \| Feed \| Contrib \| Manage | Roost \| Chickens \| Coops \| Nest |
-| **Roost tab** | Merged into unified Chickens tab | Kept as a separate tab — review queue remains distinct from loose chickens |
-| **Contribute tab** | Standalone tab (receiver pairing, impact reporting, garden) | Absorbed into NestTab as sections: `NestReceiverSection`, `NestInviteSection` |
+| **Roost tab** | Merged into unified Chickens tab | Kept as a separate tab, but now used for Green Goods member access and work submission |
+| **Contribute tab** | Standalone tab (receiver pairing, Green Goods, garden controls) | Absorbed into NestTab as sections: `NestReceiverSection`, `NestInviteSection` |
 | **Manage tab** | Standalone tab (members, invites, operator console, data ops) | Absorbed into NestTab as sections: `NestAgentSection`, `NestArchiveSection`, `NestSettingsSection` |
 | **Feed tab** | Sidepanel tab showing published artifacts | Feed moved to popup footer nav; sidepanel equivalent is CoopsTab showing feed content |
 | **Coop filter** | "Filter pill" in sidepanel header | Implemented as `TabCoopSelector` (pill strip) and `FilterPopover` components usable per-tab |

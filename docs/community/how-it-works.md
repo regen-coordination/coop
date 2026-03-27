@@ -11,8 +11,8 @@ humans, and then share only what should become part of a group's memory.
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#5a7d10', 'primaryTextColor': '#4f2e1f', 'primaryBorderColor': '#6b4a36', 'lineColor': '#6b4a36', 'secondaryColor': '#fcf5ef', 'tertiaryColor': '#fff8f2'}}}%%
 flowchart LR
-    Capture["Capture\nTabs, audio, photos,\nfiles, links"] --> Refine["Refine\nLocal AI analysis\nin the browser"]
-    Refine --> Review["Review\nHuman triage\nin the Roost"]
+    Capture["Capture\nTabs, audio, photos,\nfiles"] --> Refine["Refine\nLocal analysis\nin the browser"]
+    Refine --> Review["Review\nHuman triage\nin Popup + Chickens"]
     Review --> Share["Share\nPublish to Feed,\nsync to peers,\narchive"]
     Share -.->|"new context"| Capture
 ```
@@ -22,7 +22,7 @@ flowchart LR
 Capture starts from the places communities already work:
 
 - browser tabs — your Loose Chickens — rounded up from the extension
-- audio, photos, files, and links captured from the receiver (the companion app)
+- audio, photos, files, and links captured from the receiver
 - member notes and seed contributions added during coop setup or join flows
 
 The point is not to create more input chores. It is to make useful fragments easier to catch before
@@ -41,7 +41,8 @@ This happens before publish. It is meant to reduce noise, not to make irreversib
 
 ## 3. Review
 
-Drafts land in the Roost, which is the review queue. This is where members decide:
+Drafts and candidates are reviewed in the extension's working surfaces, especially the popup and the
+`Chickens` workspace. This is where members decide:
 
 - what is actually worth keeping
 - what needs editing or re-framing
@@ -50,6 +51,9 @@ Drafts land in the Roost, which is the review queue. This is where members decid
 
 Review is a product boundary, not a decorative step. Coop is opinionated that a group's memory
 should pass through human judgment.
+
+The product story still uses **the Roost** as the metaphor for this judgment step. In the current
+sidepanel UI, however, the `Roost` tab is used for Green Goods member access and work submission.
 
 ## 4. Share
 
@@ -62,10 +66,14 @@ When a member publishes a draft, it becomes shared coop state. That shared state
 
 ## Where Each Surface Fits
 
-The extension is the primary workspace. It is where people create coops, join them, review drafts,
-and manage the Coop Feed. Within the extension, the popup handles quick actions like draft review,
-feed browsing, coop creation and joining, and profile management, while the sidepanel handles deeper
-editorial and admin work.
+The extension is the primary workspace. Within it:
+
+- the `Popup` handles quick capture, quick review, feed browsing, coop creation and joining, and
+  profile management
+- `Chickens` handles working candidates, drafts, and publish prep
+- `Coops` handles shared coop state, archive, proof, and board access
+- `Roost` handles Green Goods member access and work submission
+- `Nest` handles members, receiver pairing and intake, operator controls, and settings
 
 The app exists to make mobile and secondary-device capture practical. It is especially useful when a
 piece of context starts as a voice memo, photo, or quick link rather than a browser tab.

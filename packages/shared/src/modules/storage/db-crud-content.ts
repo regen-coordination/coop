@@ -11,6 +11,7 @@ import {
   tabCandidateSchema,
 } from '../../contracts/schema';
 import { nowIso } from '../../utils';
+import { arePageExtractsNearDuplicates } from '../coop/pipeline';
 import { encodeCoopDoc, hydrateCoopDoc, readCoopState, writeCoopState } from '../coop/sync';
 import {
   buildEncryptedLocalPayloadId,
@@ -24,7 +25,6 @@ import {
   resolvePageExtractPayloadExpiry,
   resolveTabCandidatePayloadExpiry,
 } from './db-encryption';
-import { arePageExtractsNearDuplicates } from '../coop/pipeline';
 import type { CoopDexie } from './db-schema';
 
 export async function saveCoopState(db: CoopDexie, state: CoopSharedState) {

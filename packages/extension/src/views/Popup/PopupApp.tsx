@@ -68,7 +68,8 @@ export function PopupApp() {
     />
   ) : null;
 
-  const hasFooter = state.currentScreen !== 'no-coop' && state.currentScreen !== 'profile';
+  const footerScreens = ['home', 'drafts', 'draft-detail', 'feed'];
+  const hasFooter = state.hasCoops && footerScreens.includes(state.currentScreen);
   const footer = hasFooter ? (
     <PopupFooterNav
       activeTab={state.activeFooterTab}

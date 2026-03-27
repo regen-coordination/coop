@@ -5,154 +5,117 @@ slug: /reference/green-goods-integration-spec
 
 # Green Goods Integration Spec
 
-## Scope
+This document describes the current Green Goods integration in Coop.
 
-This spec adds Green Goods as the main non-financial onchain substrate for Coop's trusted-node agent loop.
+## Current Scope
 
-Phase 1 is intentionally narrow:
-- bootstrap a Green Goods garden owned by the coop Safe
-- sync bounded garden metadata and domain configuration
-- ensure Gardens V2 signal pools exist
-- keep all execution inside the existing Coop action bundle, policy, and replay-protection path
+Coop uses Green Goods as a bounded onchain coordination layer, not as an open-ended execution
+surface.
 
-Phase 1 explicitly excludes:
-- token transfers
-- approvals and allowances
-- cookie jar funding or withdrawals
-- marketplace actions
-- vault deposits or withdrawals
+The current integration supports:
+
+- coop-owned garden bootstrap
+- garden profile, domain, and pool maintenance
+- member-account provisioning for garden participation
+- direct member work submission
+- trusted-operator work approvals and assessments
+- GAP admin reconciliation through the Karma GAP module
+- Hypercert and Karma GAP packaging after work has already been approved and assessed
+
+The current integration explicitly does **not** support:
+
+- open-ended treasury execution
 - arbitrary contract calls
+- a direct Coop-managed member impact-report attestation path
+
+## Current Surfaces
+
+- `Roost` is the Green Goods member workspace. It shows member access state, account provisioning,
+  and direct work submission.
+- `Nest` is where trusted members and operators queue or execute protected Green Goods work such as
+  assessments, approvals, GAP admin sync, and garden maintenance.
 
 ## Coop State
 
 Each coop may optionally carry a `greenGoods` state block with:
+
 - enablement and lifecycle status
 - requested, provisioning, linked, and error timestamps
 - linked `gardenAddress` and `tokenId`
-- desired profile fields: name, description, location, banner image, metadata
-- desired governance fields: `openJoining`, `maxGardeners`, `weightScheme`
-- inferred Green Goods domains and computed `domainMask`
-- last sync timestamps for profile, domains, and pools
+- desired profile fields such as name, description, location, banner image, and metadata
+- desired governance fields such as `openJoining`, `maxGardeners`, and `weightScheme`
+- inferred domains and computed `domainMask`
+- member bindings and gardener reconciliation state
+- last sync timestamps for profile, domains, pools, GAP admins, and member bindings
 - last transaction hash and last error
 
-The state is included in:
-- live coop state
-- coop bootstrap snapshot
-- invite bootstrap snapshot
+## Action Groups
 
-## Action Classes
+### Session-Capable Safe Actions
 
-Phase 1 introduces these bounded Green Goods action classes:
+These are bounded maintenance actions authorized through Smart Sessions:
+
 - `green-goods-create-garden`
 - `green-goods-sync-garden-profile`
 - `green-goods-set-garden-domains`
 - `green-goods-create-garden-pools`
 
-All four are non-financial. They still flow through:
-- action bundle creation
-- approval policies
-- digest verification
-- replay protection
-- trusted-node execution
-- action log and operator log
+### Member-Account Actions
 
-## Agent Triggers
+These are individualized actions executed through a member account:
 
-Two Green Goods-specific observation triggers are added:
-- `green-goods-garden-requested`
-- `green-goods-sync-needed`
+- `green-goods-submit-work-submission`
+- `green-goods-add-gardener`
+- `green-goods-remove-gardener`
 
-Trigger sources:
-- coop creation with Green Goods enabled emits `green-goods-garden-requested`
-- a linked garden missing profile/domain/pool sync emits `green-goods-sync-needed`
+### Proposal-First Safe Owner Or Trusted Operator Actions
 
-## Skills
+These remain protected actions in the approval and action-bundle path:
 
-Phase 1 ships two bundled skills:
-
-### `green-goods-garden-bootstrap`
-- Trigger: `green-goods-garden-requested`
-- Role: prepare a deterministic garden bootstrap payload from coop state
-- Output: `green-goods-garden-bootstrap-output`
-- Allowed action: `green-goods-create-garden`
-
-### `green-goods-garden-sync`
-- Trigger: `green-goods-sync-needed`
-- Role: prepare deterministic sync data for profile, domains, and pools
-- Output: `green-goods-garden-sync-output`
-- Allowed actions:
-  - `green-goods-sync-garden-profile`
-  - `green-goods-set-garden-domains`
-  - `green-goods-create-garden-pools`
-
-These skills are marked `auto-run-eligible`, but they still depend on:
-- anchor mode being active
-- the action policy allowing execution without approval
-- a trusted member context being available
-
-## Execution Model
-
-Green Goods uses the same trusted-node split as the rest of the agent harness:
-- background detects and persists observations
-- offscreen runtime runs the agent loop
-- background executes approved action bundles
-
-Execution mode rules:
-- `mock`: use deterministic local results so demos and tests keep working offline
-- `live`: reconstruct the existing coop Safe via passkey + Pimlico and submit bounded transactions
-
-Live transaction targets:
-- `GardenToken.mintGarden`
-- `GardenAccount.updateName`
-- `GardenAccount.updateDescription`
-- `GardenAccount.updateLocation`
-- `GardenAccount.updateBannerImage`
-- `GardenAccount.updateMetadata`
-- `GardenAccount.setOpenJoining`
-- `GardenAccount.setMaxGardeners`
-- `ActionRegistry.setGardenDomains`
-- `GardensModule.createGardenPools`
-
-## WebLLM And Determinism
-
-Phase 1 uses deterministic and heuristic outputs for garden management. This is deliberate.
-
-Reason:
-- low-risk onchain execution should compile from constrained state, not free-form model output
-- WebLLM remains appropriate for planning and richer synthesis work
-- hardcoded Green Goods skills are safer for garden lifecycle actions than open-ended prompt execution
-
-Planned next use of WebLLM:
-- garden metadata drafting
-- assessment drafting
-- work approval routing
-- structured non-financial attestations that compile into fixed EAS builders
-
-## Policy Matrix
-
-Recommended default policy posture:
-- `green-goods-create-garden`: approval required by default
-- `green-goods-sync-garden-profile`: approval required by default
-- `green-goods-set-garden-domains`: approval required by default
-- `green-goods-create-garden-pools`: approval required by default
-
-Trusted operators can selectively relax these in the Operator Console for bounded autonomous execution.
-
-## Phase 2
-
-Phase 2 extends the Green Goods slice with deterministic, non-financial protocol actions:
 - `green-goods-submit-work-approval`
 - `green-goods-create-assessment`
 - `green-goods-sync-gap-admins`
+- `green-goods-mint-hypercert`
 
-Execution model:
-- work approvals and assessments enter Coop as explicit structured requests
-- the agent harness turns those requests into validated observations and deterministic skill outputs
-- GAP admin sync is both auto-detected from coop membership drift and manually queueable
-- all three still compile into the existing action bundle, policy, approval, and replay-protection path
+### Legacy Or Unsupported Path
 
-Safety posture:
-- `green-goods-sync-gap-admins` is auto-run-eligible when anchor mode and policy allow it
-- `green-goods-submit-work-approval` and `green-goods-create-assessment` remain proposal-first by default
-- no IPFS upload, token movement, approvals, or arbitrary contract calls are introduced in Coop phase 2
-- assessment requests require a precomputed `assessmentConfigCid`; Coop does not synthesize that JSON onchain payload itself in this phase
+`green-goods-submit-impact-report` still exists as a legacy action class in the policy schema, but
+it is not the current supported Green Goods model in Coop. Impact packaging now happens through
+Hypercert and Karma GAP workflows instead.
+
+## Schemas And Packaging
+
+The Green Goods attestation model currently relies on three EAS schemas:
+
+- `work`
+- `work approval`
+- `assessment`
+
+Coop does not treat impact as a fourth direct Green Goods EAS schema. Instead:
+
+- members submit work
+- trusted operators approve work and create assessments
+- approved work and assessments are bundled into Hypercert and Karma GAP packaging flows
+
+## Execution Model
+
+Green Goods uses the same bounded execution stack as the rest of Coop's privileged work:
+
+- background runtime detects or queues action candidates
+- shared modules build deterministic payloads
+- policies decide whether approval is required
+- action bundles, replay protection, permits, and session checks enforce scope
+- approved executions target the appropriate Green Goods, EAS, Hypercert, or GAP contracts
+
+## Safety Posture
+
+The integration stays narrow for a reason:
+
+- member actions are individualized and bounded
+- trusted operator actions stay proposal-first unless policy intentionally relaxes them
+- session capabilities are restricted to garden bootstrap and maintenance only
+- Hypercert and Karma GAP packaging happens after earlier Green Goods work has already been reviewed
+  and approved
+
+That posture keeps Coop aligned with explicit human approval, bounded automation, and auditable
+execution.

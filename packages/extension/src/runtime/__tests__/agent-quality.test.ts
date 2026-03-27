@@ -142,6 +142,26 @@ describe('computeOutputConfidence', () => {
     expect(confidence).toBe(0.35);
   });
 
+  it('scores heuristic capital-formation briefs with the synthesis rubric', () => {
+    const confidence = computeOutputConfidence(
+      'capital-formation-brief-output',
+      {
+        title: 'River restoration capital formation brief',
+        summary:
+          'A heuristic summary that still captures the watershed funding signal, the coop fit, and the core opportunity.',
+        whyItMatters:
+          'It aligns with the coop purpose, recent funding themes, and the strongest candidate rationale.',
+        suggestedNextStep:
+          'Review the signal, tighten the thesis, and prepare the funding brief for coop review.',
+        tags: ['funding', 'watershed', 'restoration'],
+        targetCoopIds: ['coop-river'],
+        supportingCandidateIds: ['candidate-1'],
+      },
+      'heuristic',
+    );
+    expect(confidence).toBeGreaterThanOrEqual(0.72);
+  });
+
   it('clamps all outputs between 0.2 and 0.95', () => {
     const empty = computeOutputConfidence('theme-clusterer-output', { themes: [] }, 'transformers');
     expect(empty).toBeGreaterThanOrEqual(0.2);

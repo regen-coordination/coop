@@ -102,8 +102,14 @@ vi.mock('@coop/shared', async (importOriginal) => {
   };
 });
 
-const { captureActiveTab, captureAudio, captureFile, createNoteDraft, runCaptureCycle } =
-  await import('../capture');
+const {
+  captureActiveTab,
+  captureAudio,
+  captureFile,
+  createNoteDraft,
+  prepareVisibleScreenshot,
+  runCaptureCycle,
+} = await import('../capture');
 
 describe('capture handlers', () => {
   it('returns 0 when no active tab is found', async () => {
@@ -141,6 +147,56 @@ describe('capture handlers', () => {
     expect(count).toBe(1);
   });
 
+  it('falls back to the most recently focused standard tab when the popup steals current-window focus', async () => {
+    chromeTabsMock.query
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          url: 'chrome-extension://coop/popup.html',
+          title: 'Coop Popup',
+          windowId: 2,
+          lastAccessed: 10,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          url: 'chrome-extension://coop/popup.html',
+          title: 'Coop Popup',
+          windowId: 2,
+          lastAccessed: 10,
+        },
+        {
+          id: 11,
+          url: 'https://example.com/funding',
+          title: 'Funding',
+          windowId: 1,
+          lastAccessed: 100,
+        },
+      ]);
+    chromeScrMock.executeScript.mockResolvedValue([
+      {
+        result: {
+          title: 'Funding Page',
+          metaDescription: 'Recent grants.',
+          headings: ['Funding'],
+          paragraphs: ['Grant updates'],
+          previewImageUrl: undefined,
+        },
+      },
+    ]);
+
+    const count = await captureActiveTab();
+
+    expect(count).toBe(1);
+    expect(chromeTabsMock.query).toHaveBeenNthCalledWith(1, { active: true, currentWindow: true });
+    expect(chromeTabsMock.query).toHaveBeenNthCalledWith(2, { active: true });
+    expect(chromeScrMock.executeScript).toHaveBeenCalledWith({
+      target: { tabId: 11 },
+      func: expect.any(Function),
+    });
+  });
+
   it('records a failed capture run when scripting throws', async () => {
     chromeTabsMock.query.mockResolvedValue([
       { id: 20, url: 'https://restricted.com', windowId: 1, title: 'Restricted' },
@@ -153,6 +209,47 @@ describe('capture handlers', () => {
     expect(vi.mocked(setRuntimeHealth)).toHaveBeenCalledWith(
       expect.objectContaining({ syncError: true }),
     );
+  });
+
+  it('captures screenshots from the most recently focused standard tab when current-window focus is the popup', async () => {
+    chromeTabsMock.query
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          url: 'chrome-extension://coop/popup.html',
+          title: 'Coop Popup',
+          windowId: 2,
+          lastAccessed: 10,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          url: 'chrome-extension://coop/popup.html',
+          title: 'Coop Popup',
+          windowId: 2,
+          lastAccessed: 10,
+        },
+        {
+          id: 12,
+          url: 'https://example.com/screenshot',
+          title: 'Screenshot Target',
+          windowId: 3,
+          lastAccessed: 200,
+        },
+      ]);
+    chromeTabsMock.captureVisibleTab.mockResolvedValue(
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9oNbyz8AAAAASUVORK5CYII=',
+    );
+
+    const capture = await prepareVisibleScreenshot();
+
+    expect(capture.kind).toBe('photo');
+    expect(capture.sourceUrl).toBe('https://example.com/screenshot');
+    expect(capture.title).toContain('Screenshot Target');
+    expect(chromeTabsMock.captureVisibleTab).toHaveBeenCalledWith(3, {
+      format: 'png',
+    });
   });
 });
 

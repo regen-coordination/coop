@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
+import * as DataSegment from '@web3-storage/data-segment';
 import Dexie from 'dexie';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
-import * as DataSegment from '@web3-storage/data-segment';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TrustedNodeArchiveConfig } from '../../../contracts/schema';
 import { createCoop } from '../../coop/flows';
@@ -10,12 +10,12 @@ import { createArchiveBundle, createMockArchiveReceipt } from '../archive';
 import { encryptArchivePayloadEnvelope } from '../crypto';
 import { exportCoopSnapshotJson } from '../export';
 import { createArchiveOnChainSealWitnessArtifact } from '../filecoin-witness';
-import { computeStorachaFileRootCid, serializeArchiveInclusionProof } from '../verification';
 import {
   restoreFromArchive,
   restoreFromExportedSnapshot,
   validateArchivePayload,
 } from '../restore';
+import { computeStorachaFileRootCid, serializeArchiveInclusionProof } from '../verification';
 
 Dexie.dependencies.indexedDB = indexedDB;
 Dexie.dependencies.IDBKeyRange = IDBKeyRange;

@@ -111,6 +111,9 @@ describe('shared contracts and sync hydration', () => {
     expect(state.greenGoods?.enabled).toBe(true);
     expect(state.greenGoods?.status).toBe('requested');
     expect(state.greenGoods?.domains.length).toBeGreaterThan(0);
+    expect(state.memberAccounts).toHaveLength(created.state.memberAccounts.length);
+    expect(state.memberAccounts[0]?.memberId).toBe(created.state.memberAccounts[0]?.memberId);
+    expect(state.memberAccounts[0]?.status).toBe(created.state.memberAccounts[0]?.status);
   });
 
   it('surfaces degraded sync health when signaling is unavailable', () => {

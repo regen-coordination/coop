@@ -55,11 +55,13 @@ const suites: Record<string, Suite> = {
     steps: [{ label: 'e2e:app:mobile', command: ['bun', 'run', 'test:e2e:app:mobile'] }],
   },
   'e2e:popup': {
-    description: 'Focused popup browser smoke coverage for popup capture and review flows.',
+    description:
+      'Focused popup browser smoke coverage for roundup, screenshot gating, file/audio review, and post-failure recovery.',
     steps: [{ label: 'e2e:popup', command: ['bun', 'run', 'test:e2e:popup'] }],
   },
   'e2e:extension': {
-    description: 'Two-profile extension core-loop Playwright flow in mock onchain/archive mode.',
+    description:
+      'Extension browser workflows for member join, board/archive handoff, trusted-helper runs, and mock-path sidepanel onchain actions.',
     steps: [
       {
         label: 'e2e:extension',
@@ -113,9 +115,16 @@ const suites: Record<string, Suite> = {
       { label: 'unit:sidepanel-actions', command: ['bun', 'run', 'test:unit:sidepanel-actions'] },
     ],
   },
+  'unit:archive-hardening': {
+    description:
+      'Archive persistence coverage for receipt recovery, blob upload reconciliation, and coop archive config UI state.',
+    steps: [
+      { label: 'unit:archive-hardening', command: ['bun', 'run', 'test:unit:archive-hardening'] },
+    ],
+  },
   'unit:sync-hardening': {
     description:
-      'Deterministic sync coverage for shared transport health, receiver replication, popup sync semantics, and dashboard hook summaries.',
+      'Deterministic sync coverage for shared transport health, receiver replication, receiver invite persistence, popup sync semantics, and dashboard hook summaries.',
     steps: [{ label: 'unit:sync-hardening', command: ['bun', 'run', 'test:unit:sync-hardening'] }],
   },
   'unit:onchain-ui': {
@@ -308,12 +317,13 @@ const suites: Record<string, Suite> = {
   },
   'production-readiness': {
     description:
-      'Expanded pre-release slice: lint, build, popup and sidepanel action coverage, sync checks, targeted agent/onchain/session tests, extension/receiver E2E, and mobile app coverage.',
+      'Expanded pre-release slice: lint, build, popup and sidepanel action coverage, archive and sync hardening, targeted agent/onchain/session tests, extension/receiver E2E, and mobile app coverage.',
     includes: [
       'lint',
       'build',
       'popup-slice',
       'unit:sidepanel-actions',
+      'unit:archive-hardening',
       'sync-hardening',
       'onchain-ui',
       'unit:agent-loop',

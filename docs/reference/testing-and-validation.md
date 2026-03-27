@@ -5,14 +5,15 @@ slug: /reference/testing-and-validation
 
 # Coop Testing And Validation
 
-Date: March 13, 2026
+Date: March 27, 2026
 
-This document tracks the validation entrypoints. The full operator flow, demo setup, and deploy
-steps live in [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
+This document maps the release-facing validation commands to the actual suite graph in
+`scripts/validate.ts`. The demo flow and deployment steps live in
+[Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
 
 ## Core Commands
 
-List all suites:
+List all named suites:
 
 ```bash
 bun run validate list
@@ -30,52 +31,98 @@ Main extension workflow:
 bun run validate core-loop
 ```
 
-Receiver slice:
+Chrome Web Store release gate:
 
 ```bash
-bun run validate receiver-slice
+bun run validate:store-readiness
 ```
 
-Final pre-demo production slice:
+Full pre-release extension gate:
 
 ```bash
-bun run validate production-readiness
+bun run validate:production-readiness
 ```
 
-Opt-in live Smart Session rehearsal:
+Opt-in live-rails gate:
 
 ```bash
-bun run validate session-key-live
+bun run validate:production-live-readiness
 ```
 
-## What The Named Suites Cover
+## Canonical Suite Graph
 
-- `smoke`: unit tests plus workspace build
-- `core-loop`: unit tests, build, then the two-profile extension flow
-- `receiver-slice`: unit tests, build, app shell checks, then pair + sync into extension intake
-- `receiver-hardening`: lint, unit tests, build, then receiver sync with the sidepanel closed
-- `flow-board`: targeted board/archive tests plus focused Playwright checks
-- `agent-loop`: trusted-node agent tests plus focused operator-console E2E
-- `production-readiness`: lint, build, targeted agent/onchain/session-key tests, extension E2E,
-  receiver sync E2E, agent-loop E2E, and mobile app coverage
-- `session-key-live`: lint, targeted onchain/session-key tests, build, then an opt-in live Smart
-  Session probe
+### Release Gates
 
-## Visual E2E Tests
+- `store-readiness`
+  Runs `build`, `unit:store-readiness`, `unit:extension-dist`, and `audit:store-readiness`.
+- `production-readiness`
+  Runs `lint`, `build`, `popup-slice`, `unit:sidepanel-actions`, `unit:archive-hardening`,
+  `sync-hardening`, `onchain-ui`, `unit:agent-loop`, `unit:onchain-config`, `unit:session-key`,
+  `store-readiness`, `e2e:extension`, `e2e:receiver-sync`, `e2e:agent-loop`, and
+  `e2e:app:mobile`.
+- `production-live-readiness`
+  Runs `production-readiness`, `arbitrum-safe-live`, `session-key-live`, and `archive-live`.
 
-Playwright-based visual regression tests for the extension UI:
+### Supporting Composites
 
-- `e2e/visual-popup.spec.cjs` -- Captures and compares popup view snapshots across changes.
-- `e2e/visual-sidepanel.spec.cjs` -- Captures and compares sidepanel view snapshots across changes.
+- `popup-slice`
+  Runs `unit:popup-actions` and `e2e:popup`.
+- `sync-hardening`
+  Runs `unit:sync-hardening` and `e2e:sync`.
+- `onchain-ui`
+  Runs `unit:onchain-ui`.
+- `core-loop`
+  Runs `unit`, `build`, and `e2e:extension`.
+- `receiver-hardening`
+  Runs `lint`, `unit`, `build`, and `e2e:receiver-sync`.
 
-These run as part of the E2E suite and catch unintended visual regressions in the popup and sidepanel.
+## What The Browser Suites Actually Cover
+
+- `bun run test:e2e:popup`
+  Covers real popup roundup into drafts, the exact screenshot permission error when automation does
+  not get a genuine popup `activeTab` grant, screenshot manual-gate copy before review opens, file
+  review cancel/save, microphone denial and retry, and post-failure popup recovery.
+- `bun run test:e2e:extension`
+  Covers create/join coop flow, publish plus board/archive handoff, the focused trusted-helper run
+  loop, and mock-path sidepanel member-account plus garden-pass actions.
+- `bun run test:e2e:receiver-sync`
+  Covers receiver pair, private intake sync, sidepanel-closed receiver runtime, and multi-coop
+  publish from extension review.
+- `bun run test:e2e:sync`
+  Covers degraded and recovered sync runtime-health persisted across popup reopen. It does not do
+  full network fault injection.
+- `bun run test:e2e:agent-loop`
+  Runs the `@agent-loop` slice from `e2e/extension.spec.cjs` as a focused trusted-helper browser
+  rehearsal.
+
+## Visual E2E
+
+Playwright visual regression tests remain separate from the release suites:
+
+```bash
+bun run test:visual
+```
+
+That command runs:
+
+- `e2e/visual-popup.spec.cjs`
+- `e2e/visual-sidepanel.spec.cjs`
+
+`test:visual` is not included in `store-readiness` or `production-readiness`.
 
 ## Targeted Test Entry Points
 
 ```bash
+bun run test:unit:popup-actions
+bun run test:unit:sidepanel-actions
+bun run test:unit:archive-hardening
+bun run test:unit:sync-hardening
+bun run test:unit:onchain-ui
 bun run test:unit:onchain-config
 bun run test:unit:agent-loop
 bun run test:unit:session-key
+bun run test:e2e:popup
+bun run test:e2e:sync
 bun run test:e2e:extension
 bun run test:e2e:receiver-sync
 bun run test:e2e:agent-loop
@@ -93,8 +140,8 @@ VITE_COOP_ARCHIVE_MODE=mock
 VITE_COOP_SESSION_MODE=off
 ```
 
-Local validation and demo env guidance should come from the repo-root `.env.local` and the
-runbook, not package-local env files.
+Local validation and demo env guidance should come from the repo-root `.env.local`, not
+package-local env files.
 
 ## Live Validation
 
@@ -103,7 +150,7 @@ runbook, not package-local env files.
 Use this when validating Safe deployment without live archive or session-key execution:
 
 ```bash
-bun run validate arbitrum-safe-live
+bun run validate:arbitrum-safe-live
 ```
 
 Required env:
@@ -120,7 +167,7 @@ Optional:
 Use this when validating bounded Smart Session execution onchain:
 
 ```bash
-bun run validate session-key-live
+bun run validate:session-key-live
 ```
 
 Required env:
@@ -131,61 +178,72 @@ Required env:
 Optional:
 
 - `COOP_SESSION_PROBE_CHAIN=arbitrum`
+- `COOP_SESSION_PROBE_SAFE_ADDRESS=0x...`
 
 This probe:
 
 - deploys or reuses a probe Safe
-- enables a bounded Smart Session
-- executes one allowed `green-goods-create-garden` action
+- validates the local garden-pass rule set before any live send
+- executes one allowed `green-goods-create-garden` action when the Safe supports the required
+  session modules
 - confirms a disallowed action is rejected before send
 - revokes the session and confirms subsequent rejection
 
-## Manual Adversarial Gates
+### Archive Probe
 
-Mirror these checks from the runbook before demos or production pushes.
+Use this when validating trusted-node archive delegation material:
 
-### Create A Coop
+```bash
+bun run validate:archive-live
+```
 
-- Preset-specific copy renders correctly.
-- Friends, family, and personal never leak back to generic `community` language.
-- State badges and extension icon states match the real runtime state.
-- Onchain, archive, and session modes are visible in Settings.
+Required env for a real delegation:
 
-### Pair And Sync
+- `VITE_COOP_TRUSTED_NODE_ARCHIVE_SPACE_DID`
+- `VITE_COOP_TRUSTED_NODE_ARCHIVE_DELEGATION_ISSUER`
+- `VITE_COOP_TRUSTED_NODE_ARCHIVE_SPACE_DELEGATION`
+
+Commonly needed:
+
+- `VITE_COOP_TRUSTED_NODE_ARCHIVE_AGENT_PRIVATE_KEY`
+- `VITE_COOP_TRUSTED_NODE_ARCHIVE_PROOFS`
+- `VITE_COOP_TRUSTED_NODE_ARCHIVE_ALLOWS_FILECOIN_INFO=true`
+
+### Full Live-Rails Gate
+
+Use this only when the release candidate enables live Safe, session-key, or archive behavior:
+
+```bash
+bun run validate:production-live-readiness
+```
+
+## Manual Release Checks That Still Matter
+
+### Popup Capture
+
+- Automation already proves real popup roundup, popup manual-gate errors, file review/save, audio
+  retry, and post-failure recovery.
+- Manually confirm successful popup `Capture Tab` and `Screenshot` saves in Chrome with a real
+  user click because Playwright cannot reliably reproduce the popup `activeTab` grant.
+
+### Sidepanel And Receiver
 
 - A second profile can join and see published state.
-- Expired or inactive pairing fails clearly.
-- Missing signaling and sidepanel-closed sync fail safely.
-- Local-only fallback remains usable.
+- Receiver pairing works on the intended origin and private intake sync still lands in the correct
+  coop.
+- Publish reaches the **Coops** feed and the board route.
+- Archive receipts remain legible and export still works.
 
-### Receiver Capture
+### Green Goods And Session Rails
 
-- `/pair`, `/receiver`, and `/inbox` work on local and production origins.
-- QR, share, notifications, badges, and file export degrade gracefully.
-- Receiver bridge injection works on local and Vercel origins.
-- Wrong-member and expired-pairing envelopes are rejected.
-
-### Agent Loop
-
-- Manual round-up, observation capture, plan generation, and draft creation stay legible.
-- Auto-run never bypasses action policy.
-
-### Green Goods Session Keys
-
-- Allowed session-key action succeeds.
-- Disallowed action is blocked before send.
-- Replay stays blocked.
-- Revoked, expired, or exhausted sessions are blocked.
-- Missing Safe, missing Pimlico, wrong chain, and missing session material surface actionable
-  errors.
-
-### Publish, Archive, And Export
-
-- Publish reaches Feed and the board route.
-- Archive receipts stay legible.
-- Export works with file picker or download fallback.
+- `production-readiness` now covers mock-path member-account provisioning and garden-pass issuance
+  in the real sidepanel.
+- Live Safe and Smart Session execution still require the opt-in live probes.
+- Full live garden-pass execution may still skip if the probe Safe lacks ERC-7579 support.
 
 ## Related Docs
 
 - [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook)
 - [Extension Install & Distribution](/reference/extension-install-and-distribution)
+- [Chrome Web Store Checklist](/reference/chrome-web-store-checklist)
+- [UI Action Coverage Map](/testing/ui-action-coverage)

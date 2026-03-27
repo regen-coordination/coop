@@ -5,6 +5,9 @@ slug: /reference/original-introduction
 
 # Coop
 
+> Historical note: this introduction is preserved for origin-story context. For the current surface
+> map and Green Goods scope, use [Action Domain Map](/reference/action-domain-map).
+
 > No more chickens loose.
 
 **A browser extension and companion PWA that captures scattered knowledge, refines it into clear opportunities, and gives groups a shared space to act on what matters.**
@@ -17,10 +20,10 @@ Coop captures knowledge from wherever it lives (browser tabs, audio recordings, 
 
 1. **Capture**: Round up browser tabs with a shortcut. Record audio, snap photos, attach files, or share links from your phone via the companion PWA.
 2. **Refine**: An in-browser AI agent analyzes captures through a 16-skill pipeline, extracting opportunities, scoring grant fit, clustering themes, and drafting briefs. All inference runs locally via WebGPU/WASM. Nothing leaves the browser.
-3. **Review**: Drafts land in the Roost. You decide what's signal and what's noise.
+3. **Review**: Members review candidates and drafts in the popup and Chickens before anything becomes shared.
 4. **Share**: Publish to a coop, a shared space backed by a Safe multisig on Arbitrum, syncing peer-to-peer over WebRTC. Shared artifacts are permanently archived to Filecoin via Storacha with full cryptographic provenance. Passkey identity, no wallet required.
 
-Through its Green Goods integration, coops can also bootstrap on-chain gardens for governance, impact reporting, and capital formation, turning shared knowledge into coordinated action with verifiable outcomes.
+Through its Green Goods integration, coops can also bootstrap on-chain gardens, submit member work, run operator-side approvals and assessments, and package approved work into Hypercert and Karma GAP workflows.
 
 ## Key Principles
 

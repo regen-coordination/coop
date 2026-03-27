@@ -257,12 +257,18 @@ Beyond the core flows, sync, and pipeline:
 `greengoods/` integrates with the Green Goods garden token contract:
 
 - Garden lifecycle: `createGreenGoodsGarden()`, `syncGreenGoodsGardenProfile()`, `setGreenGoodsGardenDomains()`, `createGreenGoodsGardenPools()`
-- Work submissions: `submitGreenGoodsWorkSubmission()`, `submitGreenGoodsWorkApproval()`, `submitGreenGoodsImpactReport()`, `createGreenGoodsAssessment()`
+- Member and operator flows: `submitGreenGoodsWorkSubmission()`, `submitGreenGoodsWorkApproval()`, `createGreenGoodsAssessment()`, `mintGreenGoodsHypercert()`
 - Gardener management: `addGreenGoodsGardener()`, `removeGreenGoodsGardener()`
 - GAP admin sync: `syncGreenGoodsGapAdmins()` for trusted member co-signing
 - Member binding: `syncGreenGoodsMemberBindings()`, `resolveGreenGoodsGardenerBindingActions()`
 - Domain mask helpers: `toGreenGoodsDomainMask()`, `fromGreenGoodsDomainMask()`
 - Deployments per chain with `getGreenGoodsDeployment(chainKey)`
+
+Current boundary:
+- three EAS schemas only: work, work approval, assessment
+- direct member work submission is supported
+- Hypercert and Karma GAP packaging is operator-side
+- `submitGreenGoodsImpactReport()` remains legacy and is not the current direct Coop path
 
 ### ERC-8004 Module
 

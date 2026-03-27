@@ -1096,6 +1096,7 @@ export function App({
               {journeyChickens.map((chicken) => (
                 <div
                   className={`scene-chicken scene-chicken-${chicken.id}`}
+                  data-facing={chicken.facing ?? 'right'}
                   key={chicken.id}
                   ref={setStoryChickenRef(chicken.id)}
                 >

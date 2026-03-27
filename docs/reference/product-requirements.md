@@ -6,10 +6,14 @@ slug: /reference/product-requirements
 # Coop - Product Requirements Document
 
 **Version**: 0.0 (Pre-Release)
-**Last Updated**: 2026-03-13
-**Status**: Living document derived from codebase audit
+**Last Updated**: 2026-03-27
+**Status**: Historical audit draft; use [Action Domain Map](/reference/action-domain-map) for current surface ownership and authority mapping
 
 ---
+
+> Historical note: this document preserves a broad audit draft of the product, but it predates the
+> current extension action map. Treat [Action Domain Map](/reference/action-domain-map) and the
+> current surface docs as canonical when a detail here conflicts with the live UI.
 
 ## 1. Product Vision
 
@@ -30,8 +34,8 @@ Coop implements the Ethereum Foundation's March 2026 Mandate (CROPS: Censorship 
 | Persona | Description | Primary Surface |
 |---------|-------------|-----------------|
 | **Coop Creator** | Community leader who establishes a coop, defines its purpose and lenses, manages members | Extension Sidepanel |
-| **Trusted Member** | Elevated member with operator access (agent skills, permits, policies, archive) | Extension Sidepanel (Feed tab) |
-| **Member** | Participant who captures tabs, reviews drafts, publishes artifacts | Extension Sidepanel |
+| **Trusted Member** | Elevated member with operator access (agent skills, permits, policies, archive, Green Goods oversight) | Extension Sidepanel (`Nest`, `Coops`) |
+| **Member** | Participant who captures tabs, reviews drafts, publishes artifacts, and may submit Green Goods work | Extension Popup + Sidepanel (`Chickens`, `Coops`, `Roost`) |
 | **Receiver User** | Mobile/secondary-device user who captures audio, photos, files, links | Receiver PWA (App) |
 | **Board Viewer** | Anyone viewing a read-only coop snapshot (shared via deep link) | Board View (App) |
 | **Landing Visitor** | Prospective user learning about Coop | Landing Page (App) |
@@ -46,8 +50,8 @@ Coop implements the Ethereum Foundation's March 2026 Mandate (CROPS: Censorship 
 
 | Surface | Purpose | Entry |
 |---------|---------|-------|
-| **Sidepanel** | Full coop workspace (4 tabs) | `Cmd+Shift+Y` or click extension icon |
-| **Popup** | Quick status + actions | Click extension icon |
+| **Sidepanel** | Full coop workspace (`Roost`, `Chickens`, `Coops`, `Nest`) | `Cmd+Shift+Y` or click extension icon |
+| **Popup** | Quick capture and quick review | Click extension icon |
 | **Offscreen** | Background sync (WebRTC) | Automatic, keeps sync alive when sidepanel closed |
 
 **Keyboard Shortcuts**:
@@ -100,7 +104,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
    - Generates sync room config (WebRTC room ID + secrets)
    - Creates initial artifacts (setup insights, soul, rituals, seed contribution)
    - Persists to IndexedDB
-5. Success: Sound event ("Rooster Call"), redirect to Roost tab
+5. Success: Sound event ("Rooster Call"), redirect to the main sidepanel workspace
 
 **Acceptance Criteria**:
 - Coop appears in coop selector dropdown
@@ -318,7 +322,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 **So that** shared artifacts are accurate and well-structured.
 
 **Flow**:
-1. Roost tab → List of review drafts
+1. Review workspace → List of review drafts
 2. Each draft shows:
    - Title (editable)
    - Summary (editable textarea)
@@ -384,7 +388,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 
 **Flow**:
 1. Receiver captures sync into extension as "private intake"
-2. Roost tab shows private intake section (receiver captures)
+2. Nest shows private intake section (receiver captures)
 3. Click "Convert to draft" on an intake item
 4. Creates ReviewDraft linked to original capture
 5. Draft enters normal review workflow (edit → ready → publish)
@@ -407,7 +411,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 **So that** my group can see and act on the content.
 
 **Flow**:
-1. Roost tab → Draft with `workflowStage: 'ready'`
+1. Review workspace → Draft with `workflowStage: 'ready'`
 2. Click "Publish"
 3. Validation:
    - Draft must be in `ready` stage
@@ -1022,7 +1026,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 | Concept | Metaphor | Used In |
 |---------|----------|---------|
 | Browser tabs / scattered context | "Loose Chickens" | Extension tab, landing page |
-| Local review queue | "The Roost" | Extension tab, landing page |
+| Human review step | "The Roost" | Product language, landing page |
 | Shared feed / coop memory | "Coop Feed" / "The Feed" | Extension tab, landing page |
 | Creating a coop | "Launching the Coop" | Landing page |
 | Capturing content | "Rounding up" (extension) / "Hatching" (receiver) | Both surfaces |

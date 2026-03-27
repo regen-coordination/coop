@@ -1,6 +1,6 @@
 import type {
-  ArchiveRecoveryRecord,
   AnchorCapability,
+  ArchiveRecoveryRecord,
   AuthSession,
   CoopArchiveSecrets,
   HapticPreferences,
@@ -11,8 +11,8 @@ import type {
   UiPreferences,
 } from '../../contracts/schema';
 import {
-  archiveRecoveryRecordSchema,
   anchorCapabilitySchema,
+  archiveRecoveryRecordSchema,
   authSessionSchema,
   coopArchiveSecretsSchema,
   hapticPreferencesSchema,
@@ -21,13 +21,13 @@ import {
   trustedNodeArchiveConfigSchema,
   uiPreferencesSchema,
 } from '../../contracts/schema';
-import type { CoopDexie } from './db-schema';
 import {
   buildEncryptedLocalPayloadId,
   buildEncryptedLocalPayloadRecord,
   decryptEncryptedLocalPayloadRecord,
   getEncryptedLocalPayloadRecord,
 } from './db-encryption';
+import type { CoopDexie } from './db-schema';
 
 const ARCHIVE_SECRETS_SETTING_PREFIX = 'archive-secrets:';
 const ARCHIVE_RECOVERY_SETTING_PREFIX = 'archive-recovery:';

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { canonicalizeUrl, hashText } from '../../../utils';
 import { createCoop } from '../flows';
 import {
   arePageExtractsNearDuplicates,
+  buildReadablePageExtract,
   createLocalEnhancementAdapter,
   detectLocalEnhancementAvailability,
-  buildReadablePageExtract,
   inferFromTranscript,
   runPassivePipeline,
 } from '../pipeline';
-import { canonicalizeUrl, hashText } from '../../../utils';
 
 function buildSetupInsights() {
   return {

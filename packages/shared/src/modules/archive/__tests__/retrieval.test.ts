@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as DataSegment from '@web3-storage/data-segment';
-import { createCoop } from '../../coop/flows';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TrustedNodeArchiveConfig } from '../../../contracts/schema';
+import { createCoop } from '../../coop/flows';
 import {
   createArchiveBundle,
   createArchiveReceiptFromUpload,

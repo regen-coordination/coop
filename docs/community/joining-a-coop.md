@@ -37,6 +37,17 @@ work.
 That split is part of the product's trust design. It keeps the common path simple without pretending
 every action carries the same risk.
 
+In the current extension:
+
+- regular review work lives in the popup and `Chickens`
+- shared coop history and archive views live in `Coops`
+- trusted-member controls live in `Nest`
+- if the coop uses Green Goods, the `Roost` tab is where a member sees Green Goods access and can
+  submit work once their account and garden link are ready
+
+Trusted operators, not ordinary members, handle Green Goods approvals, assessments, admin sync, and
+Hypercert or Karma GAP packaging.
+
 ## Pairing The Receiver
 
 After joining, a member can pair the receiver — the companion app for mobile and secondary-device

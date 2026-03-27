@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import * as DataSegment from '@web3-storage/data-segment';
+import { describe, expect, it } from 'vitest';
 import { archiveReceiptSchema } from '../../../contracts/schema';
 import { summarizeArchiveFilecoinInfo } from '../archive';
 import {

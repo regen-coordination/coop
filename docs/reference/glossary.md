@@ -21,7 +21,8 @@ The working metaphor for browser tabs and other scattered context that has not b
 
 ### Roost
 
-The review queue where drafts are edited, evaluated, and prepared before publish.
+The product metaphor for human judgment before publish. In the current sidepanel UI, the `Roost`
+tab is the Green Goods member workspace rather than the main general draft-review surface.
 
 ### Coop Feed
 
@@ -51,18 +52,23 @@ visible.
 
 ### Chickens Tab
 
-The tab in both popup footer nav and sidepanel showing captured tab candidates — browsed and
-bookmarked tabs awaiting review.
+The popup and sidepanel workspace for captured candidates, working drafts, and publish prep.
 
 ### Coops Tab
 
-The sidepanel tab for coop feed, archive stories/receipts, and coop management (create, join,
-member views).
+The sidepanel tab for shared coop state, published artifacts, archive stories and receipts, board
+links, and coop switching.
 
 ### Nest
 
-The sidepanel administration tab containing agent controls, receiver management, invite generation,
-archive settings, and general extension settings.
+The sidepanel administration tab for membership, receiver pairing and intake, operator controls,
+delegation tools, and extension settings.
+
+### Green Goods
+
+Coop's bounded onchain coordination integration. In the current model it covers garden bootstrap and
+maintenance, member work submission, operator approvals and assessments, GAP admin sync, and
+Hypercert or Karma GAP packaging.
 
 ### Seed Contribution
 
@@ -125,7 +131,8 @@ with exponential backoff when connectivity returns.
 
 ### Permit
 
-Scoped off-chain authorization used for bounded delegated actions such as archive-related work.
+Scoped off-chain authorization used for bounded delegated actions such as archive and publish work.
+Permits do not authorize Green Goods onchain execution.
 
 ### Safe
 
@@ -133,8 +140,9 @@ The smart-account structure Coop uses for group identity and bounded onchain exe
 
 ### Session
 
-A time-bounded capability for constrained onchain execution, usually paired with allowlists and
-limits.
+A time-bounded capability for constrained onchain execution, paired with allowlists and limits. In
+current Coop, session capabilities are limited to bounded Green Goods garden bootstrap and
+maintenance actions.
 
 ### Signaling Relay
 

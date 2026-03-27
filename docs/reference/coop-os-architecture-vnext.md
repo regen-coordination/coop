@@ -5,6 +5,9 @@ slug: /reference/coop-os-architecture-vnext
 
 # Coop V1 Build Plan
 
+> Current-state note: this long-form build plan predates the current surface ownership model. Use
+> [Action Domain Map](/reference/action-domain-map) when you need the live extension action map.
+
 **Status**: Canonical v1 plan
 **Updated**: 2026-03-15
 **Build Context**: PL Genesis hackathon prototype
@@ -75,7 +78,7 @@ The tone should be:
 Chicken metaphors should make the product easier to understand:
 
 - tabs are `Loose Chickens`
-- the review queue is the `Roost`
+- the human review step is called the `Roost`
 - the shared feed is the `Coop Feed`
 - creating a coop is `Launching the Coop`
 - a success sound is the `Rooster Call`

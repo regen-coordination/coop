@@ -1,9 +1,9 @@
 import {
+  type CoopSharedState,
   buildReadablePageExtract,
   createAgentObservation,
   createCoop,
   nowIso,
-  type CoopSharedState,
 } from '@coop/shared';
 import { describe, expect, it } from 'vitest';
 import { computeGrantFitScores, inferTabRoutingsHeuristically } from '../agent-runner-inference';

@@ -5,6 +5,7 @@ import type {
   GrantFitScorerOutput,
   MemoryInsightOutput,
   OpportunityExtractorOutput,
+  PublishReadinessCheckOutput,
   ReviewDigestOutput,
   SkillOutputSchemaRef,
   TabRouterOutput,
@@ -64,6 +65,18 @@ function computeHeuristicBaseConfidence(schemaRef: SkillOutputSchemaRef, output:
       const typed = output as GrantFitScorerOutput;
       return typed.scores?.length > 0 ? 0.4 : 0.15;
     }
+    case 'capital-formation-brief-output':
+      return scoreCapitalFormationBrief(output as CapitalFormationBriefOutput);
+    case 'review-digest-output':
+      return scoreReviewDigest(output as ReviewDigestOutput);
+    case 'theme-clusterer-output':
+      return scoreThemeClusterer(output as ThemeClustererOutput);
+    case 'ecosystem-entity-extractor-output':
+      return scoreEcosystemEntityExtractor(output as EcosystemEntityExtractorOutput);
+    case 'memory-insight-output':
+      return scoreMemoryInsight(output as MemoryInsightOutput);
+    case 'publish-readiness-check-output':
+      return scorePublishReadinessCheck(output as PublishReadinessCheckOutput);
     default:
       return 0.35;
   }
@@ -188,4 +201,23 @@ function scoreMemoryInsight(output: MemoryInsightOutput): number {
   }
 
   return clamp(score, 0.2, 0.95);
+}
+
+function scorePublishReadinessCheck(output: PublishReadinessCheckOutput): number {
+  let score = 0.4;
+
+  if (output.draftId && output.draftId !== 'unknown') score += 0.15;
+  const suggestionCount = Math.min(output.suggestions?.length ?? 0, 3);
+  score += suggestionCount * 0.08;
+
+  const patchFieldCount = Object.keys(output.proposedPatch ?? {}).length;
+  score += Math.min(patchFieldCount * 0.07, 0.21);
+
+  if (output.ready) {
+    score += 0.08;
+  } else if (suggestionCount > 0) {
+    score += 0.05;
+  }
+
+  return clamp(score, 0.3, 0.92);
 }

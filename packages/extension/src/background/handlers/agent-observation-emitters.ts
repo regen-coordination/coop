@@ -3,8 +3,8 @@ import {
   type ReviewDraft,
   createAgentObservation,
   findAgentObservationByFingerprint,
-  saveAgentObservation,
   sanitizeTextForInference,
+  saveAgentObservation,
 } from '@coop/shared';
 import { AGENT_HIGH_CONFIDENCE_THRESHOLD } from '../../runtime/agent-config';
 import { db } from '../context';

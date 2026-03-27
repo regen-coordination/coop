@@ -85,7 +85,7 @@ packages/extension/
         PopupHeader.tsx        # Header bar (back, brand, create/join, profile, theme, workspace)
         PopupFooterNav.tsx     # Bottom nav: Home, Chickens, Feed (with badges)
         PopupHomeScreen.tsx    # Home: capture actions, status, yard visualization
-        PopupDraftListScreen.tsx  # Chickens list with filter tags
+        PopupDraftListScreen.tsx  # Quick-review draft list with filter tags
         PopupDraftDetailScreen.tsx # Draft edit/share detail view
         PopupFeedScreen.tsx    # Published artifact feed with filters
         PopupCreateCoopScreen.tsx # Inline coop creation form
@@ -136,10 +136,10 @@ packages/extension/
           useTabCapture.ts     # Tab capture actions and state
         tabs/
           index.ts             # Barrel export for tab components
-          RoostTab.tsx         # Review queue: action queue, member accounts, Green Goods
-          ChickensTab.tsx      # Captured candidates with filtering and inference state
-          CoopsTab.tsx         # Coop management, feed, archive, board link
-          NestTab.tsx          # Admin tab: sub-tabs for members, agent, settings
+          RoostTab.tsx         # Green Goods member access, member accounts, work submission
+          ChickensTab.tsx      # Captured candidates, working drafts, filtering, publish prep
+          CoopsTab.tsx         # Shared coop state, feed, archive, board link
+          NestTab.tsx          # Trusted workspace: members, agent, settings
           NestAgentSection.tsx # Agent cycle, plans, skill runs
           NestArchiveSection.tsx # Archive config, receipts, Storacha setup
           NestInviteSection.tsx # Invite code generation and management
@@ -265,18 +265,20 @@ The response includes an optional `soundEvent` that the view plays via audio fil
 | `profile` | Auth identity, coop list, sound/theme/agent preferences |
 | `no-coop` | Empty state with create/join prompts (shown when no coops exist) |
 
-Footer nav tabs: **Home**, **Chickens** (drafts), **Feed** -- with badge counts.
+Footer nav tabs: **Home**, **Chickens** (quick review), **Feed** -- with badge counts.
 
 **Sidepanel** (`SidepanelApp.tsx`, ~174 lines): The full Coop workspace. A thin shell that delegates state to `useSidepanelOrchestration`. Tabs are routed via `SidepanelTabRouter`.
 
 | Tab | Icon | Purpose |
 |-----|------|---------|
-| Roost | Rooster head | Review queue: Green Goods action cards, member account provisioning |
-| Chickens | Two eggs | Captured candidates with filter popover, inference state, draft editing |
-| Coops | Barn | Coop management, published artifact feed, archive, board link, coop switching |
-| Nest | Bird nest | Admin/settings: sub-tabs for members/invites, agent, receiver, archive, settings |
+| Roost | Rooster head | Green Goods member workspace: access state, member account provisioning, work submission |
+| Chickens | Two eggs | Captured candidates, working drafts, filter popover, inference state, publish prep |
+| Coops | Barn | Shared coop state, published artifact feed, archive, board link, coop switching |
+| Nest | Bird nest | Trusted workspace: members, receiver, operator controls, delegation tools, settings |
 
-The Nest tab is conditionally visible (only shown to users with trusted-node access). It contains five sections: `NestAgentSection`, `NestArchiveSection`, `NestInviteSection`, `NestReceiverSection`, `NestSettingsSection`.
+The Nest tab is conditionally visible (only shown to users with trusted-node access). It groups the
+member, receiver, agent, operator, archive, and settings controls behind three sub-tabs:
+`members`, `agent`, and `settings`.
 
 The sidepanel header includes actions for: pair device, toggle theme, open profile (via popup), close panel.
 

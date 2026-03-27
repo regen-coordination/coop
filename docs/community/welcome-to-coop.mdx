@@ -17,19 +17,32 @@ signal, shape it into something legible, and decide together what should become 
 
 The product is intentionally split across two surfaces:
 
-- the browser extension, which is where members launch coops, review drafts, and publish
-- the companion app (the receiver), which lets people capture audio, photos, files, and links from a
-  phone or secondary device
+- the browser extension, which is where members launch coops, review drafts, publish, and handle
+  bounded operator work
+- the companion app (the receiver), which lets people capture audio, photos, files, and links from
+  a phone or secondary device
+
+Within the extension, the current roles are:
+
+- `Popup` for quick capture and quick review
+- `Chickens` for working candidates and drafts
+- `Coops` for shared coop state, archive, and proof
+- `Roost` for Green Goods member actions
+- `Nest` for membership, operator controls, and settings
 
 ## The Core Loop
 
 1. **Capture** context from wherever it already exists — round up your Loose Chickens.
 2. **Refine** it locally in the browser before anyone else sees it.
-3. **Review** what matters in the Roost.
+3. **Review** what matters in the popup and Chickens before anything becomes shared.
 4. **Share** selected knowledge into the Coop Feed and archive what should last.
 
 That loop is the center of the product. Coop is not trying to replace every tool a community uses.
 It is trying to give scattered context a durable path into shared understanding.
+
+The older product story still uses **the Roost** as the metaphor for human judgment. In the current
+sidepanel UI, though, the `Roost` tab is the Green Goods member workspace rather than the main draft
+review queue.
 
 ## What Makes It Different
 
@@ -41,6 +54,8 @@ It is trying to give scattered context a durable path into shared understanding.
   coop.
 - Shared memory has a durable path. Published artifacts can be synced peer-to-peer and archived
   with verifiable receipts.
+- Green Goods is bounded. Members can submit work when a coop uses it, while trusted operators
+  handle approvals, assessments, and Hypercert or Karma GAP packaging later.
 
 ## Start Here
 
@@ -48,3 +63,4 @@ It is trying to give scattered context a durable path into shared understanding.
 - Read [Creating A Coop](/creating-a-coop) when you are ready for Launching the Coop.
 - Read [Joining A Coop](/joining-a-coop) if someone already invited you.
 - Read [Privacy & Security](/privacy-security) for the publish boundary and trust model.
+- Read [Action Domain Map](/reference/action-domain-map) for the current surface and authority map.

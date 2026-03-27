@@ -12,6 +12,8 @@ bun dev                      # Start app + extension (concurrent)
 bun dev:app                  # Start app only
 bun dev:extension            # Start extension only (WXT dev + Chromium)
 bun dev:api                  # Start API server (signaling + routes)
+cd packages/app && bun run build        # Build app only
+cd packages/extension && bun run build  # Build extension only
 bun format && bun lint       # Format (Biome) and lint workspace
 bun run test                 # Run all unit tests (vitest)
 bun run test:e2e             # Run all Playwright E2E tests
@@ -31,8 +33,16 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 
 1. **Capture**: Browser tabs (extension) + audio, photos, files, links (companion PWA)
 2. **Refine**: In-browser agent with 16-skill pipeline (WebGPU/WASM, no cloud)
-3. **Review**: Drafts land in the Roost for human triage
+3. **Review**: Members review candidates and drafts in the popup and Chickens before anything becomes shared
 4. **Share**: Publish to a coop (Safe multisig on Arbitrum, P2P sync via Yjs + y-webrtc, archived to Filecoin via Storacha)
+
+### Extension Surface Map
+
+- `Popup` -- quick capture and quick review
+- `Chickens` -- candidates, drafts, and publish prep
+- `Coops` -- shared coop state, archive, and proof
+- `Roost` -- Green Goods member workspace
+- `Nest` -- members, operator controls, and settings
 
 ### Key Principles
 
@@ -51,7 +61,7 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 
 ### Shared Modules
 
-`auth` (passkey identity), `coop` (flow board/review/publish), `storage` (Dexie + Yjs), `archive` (Storacha/Filecoin), `onchain` (Safe/ERC-4337), `receiver` (PWA sync), `privacy` (Semaphore ZK), `stealth` (ERC-5564), `agent` (harness/skills/inference), `operator` (trusted-node), `policy` (action approval), `session` (scoped permissions), `permit` (execution permits), `greengoods` (garden bootstrap), `erc8004` (agent registry), `app` (shell logic).
+`auth` (passkey identity), `coop` (flow board/review/publish), `storage` (Dexie + Yjs), `archive` (Storacha/Filecoin), `onchain` (Safe/ERC-4337), `receiver` (PWA sync), `privacy` (Semaphore ZK), `stealth` (ERC-5564), `agent` (harness/skills/inference), `operator` (trusted-node), `policy` (action approval), `session` (scoped permissions), `permit` (execution permits), `greengoods` (garden, member, and operator coordination), `erc8004` (agent registry), `app` (shell logic).
 
 ## Key Patterns
 
@@ -66,6 +76,7 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 - Surface all errors to the user -- never swallow errors
 - Check existing components before creating new ones (see UI Component Reuse below)
 - Read code before answering questions about it
+- Prefer isolated package builds during iteration (`cd packages/extension && bun run build`, `cd packages/app && bun run build`) and only escalate to `bun build` for cross-package verification
 - Verify changes build before reporting done
 
 ### Never Do
@@ -91,6 +102,13 @@ Not every change needs a full build. Choose the lightest tier that covers your c
 | smoke | `bun run validate smoke` | Cross-package changes, shared module edits |
 | build | `bun build` | CSS tokens, new shared exports, pre-commit |
 | core-loop | `bun run validate core-loop` | UI workflow changes needing E2E |
+
+### Build Scope
+
+- Default to the smallest build that matches the change.
+- Extension-only changes: `cd packages/extension && bun run build`
+- App-only changes: `cd packages/app && bun run build`
+- Use root `bun build` only when shared exports, shared styles/tokens, or other cross-package changes need downstream verification.
 
 ### UI Component Reuse
 

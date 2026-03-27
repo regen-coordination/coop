@@ -272,6 +272,7 @@ pre {
   position: relative;
   z-index: 4;
   padding: 0;
+  margin-top: clamp(-3.5rem, -7vh, -1.5rem);
 }
 
 .hero-logo {
@@ -2110,12 +2111,15 @@ pre {
 /* ── Cloud thought bubble ── */
 
 .thought-bubble {
+  --thought-bubble-offset-x: 0rem;
+  --thought-bubble-tail-large-x: 50%;
+  --thought-bubble-tail-small-x: 50%;
   position: absolute;
-  bottom: calc(100% + 1.6rem);
+  bottom: calc(100% + 0.9rem);
   left: 50%;
-  transform: translateX(-50%) scale(0.85);
+  transform: translateX(calc(-50% + var(--thought-bubble-offset-x))) scale(0.85);
   width: max-content;
-  max-width: 11rem;
+  max-width: min(11rem, calc(100vw - 2rem));
   padding: 0.55rem 0.75rem 0.5rem;
   border-radius: 1rem 1rem 1rem 0.3rem;
   background: rgba(255, 252, 246, 1);
@@ -2134,43 +2138,70 @@ pre {
 .thought-bubble::before {
   content: "";
   position: absolute;
-  bottom: -8px;
-  left: 18%;
+  bottom: -9px;
+  left: var(--thought-bubble-tail-large-x);
   width: 8px;
   height: 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 1px 4px rgba(79, 46, 31, 0.08);
+  transform: translateX(-50%);
 }
 
 .thought-bubble::after {
   content: "";
   position: absolute;
-  bottom: -14px;
-  left: 12%;
+  bottom: -18px;
+  left: var(--thought-bubble-tail-small-x);
   width: 5px;
   height: 5px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.85);
   box-shadow: 0 1px 3px rgba(79, 46, 31, 0.06);
+  transform: translateX(-50%);
+}
+
+.scene-chicken[data-facing="left"] .thought-bubble {
+  --thought-bubble-offset-x: -2.35rem;
+  --thought-bubble-tail-large-x: 72%;
+  --thought-bubble-tail-small-x: 82%;
+}
+
+.scene-chicken[data-facing="right"] .thought-bubble {
+  --thought-bubble-offset-x: 2.35rem;
+  --thought-bubble-tail-large-x: 28%;
+  --thought-bubble-tail-small-x: 18%;
+}
+
+.journey-scene-story .scene-chicken-ideas .thought-bubble,
+.journey-scene-story .scene-chicken-signals .thought-bubble {
+  --thought-bubble-offset-x: -3.1rem;
+  --thought-bubble-tail-large-x: 78%;
+  --thought-bubble-tail-small-x: 88%;
+}
+
+.journey-scene-story .scene-chicken-signals .thought-bubble {
+  --thought-bubble-offset-x: -4.4rem;
+  --thought-bubble-tail-large-x: 84%;
+  --thought-bubble-tail-small-x: 92%;
 }
 
 /* Show 2 thought bubbles by default — far-right chickens that are well
    separated and clear of the hero copy. Others reveal on hover. */
 .journey-scene-story .scene-chicken-ideas .thought-bubble {
   opacity: 1;
-  transform: translateX(-50%) scale(1);
+  transform: translateX(calc(-50% + var(--thought-bubble-offset-x))) scale(1);
 }
 
 .journey-scene-story .scene-chicken-signals .thought-bubble {
   opacity: 1;
-  transform: translateX(-50%) scale(1);
+  transform: translateX(calc(-50% + var(--thought-bubble-offset-x))) scale(1);
 }
 
 .scene-chicken:hover .thought-bubble,
 .scene-chicken:focus-within .thought-bubble {
   opacity: 1;
-  transform: translateX(-50%) scale(1);
+  transform: translateX(calc(-50% + var(--thought-bubble-offset-x))) scale(1);
 }
 
 .thought-kicker {
@@ -3079,6 +3110,7 @@ pre {
 
   .hero-copy {
     max-width: 100%;
+    margin-top: 0;
   }
 
   .hero-title-line-bottom {

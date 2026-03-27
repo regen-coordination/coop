@@ -12,10 +12,12 @@ Coop captures knowledge from wherever it lives -- browser tabs, audio recordings
 
 1. **Capture** -- Round up browser tabs with a shortcut. Record audio, snap photos, attach files, or share links from your phone via the companion PWA.
 2. **Refine** -- An in-browser AI agent analyzes captures through a 16-skill pipeline, extracting opportunities, scoring grant fit, clustering themes, and drafting briefs. All inference runs locally via WebGPU/WASM. Nothing leaves the browser.
-3. **Review** -- Drafts land in the Roost. You decide what's signal and what's noise.
+3. **Review** -- Members review candidates and drafts in the popup and Chickens before anything becomes shared.
 4. **Share** -- Publish to a coop -- a shared space backed by a Safe multisig on Arbitrum, syncing peer-to-peer over WebRTC. Shared artifacts are permanently archived to Filecoin via Storacha with full cryptographic provenance. Passkey identity, no wallet required.
 
-Through its Green Goods integration, coops can also bootstrap on-chain gardens for governance, impact reporting, and capital formation -- turning shared knowledge into coordinated action with verifiable outcomes.
+In the current extension, the `Popup` handles quick capture and quick review, `Chickens` handles working candidates and drafts, `Coops` handles shared state plus archive and proof, `Roost` handles Green Goods member access and work submission, and `Nest` handles members, operator controls, and settings.
+
+Through its Green Goods integration, coops can also bootstrap on-chain gardens, submit member work, run operator-side approvals and assessments, and package approved work into Hypercert and Karma GAP workflows.
 
 ## Use Cases
 
@@ -49,7 +51,7 @@ Storacha/Filecoin permanent storage with verifiable receipt chains. Every archiv
 Operator console for anchor node management. Policy engine with typed action bundles and approval workflows. Session permits with scoped execution permissions, time-bounded capabilities, and replay protection.
 
 ### Green Goods
-Garden bootstrap and sync. Work approvals, impact reporting, and capital formation workflows. On-chain gardens as the substrate for governance and collective treasury flows.
+Garden bootstrap and sync, member work submission, operator approvals and assessments, GAP admin reconciliation, and Hypercert or Karma GAP packaging. On-chain gardens are a bounded coordination substrate rather than an open-ended treasury surface.
 
 ### On-chain Agent
 ERC-8004 agent registry integration for on-chain agent identity, capability advertisement, and reputation feedback.
@@ -146,6 +148,9 @@ The goal is to make it easier for communities to move from context to coordinati
 
 ## Brand
 
-Coop uses chicken metaphors throughout. Open browser tabs are **Loose Chickens**. The review queue is the **Roost**. The shared feed is the **Coop Feed**. Creating a new shared space is **Launching the Coop**. The success chime is the **Rooster Call**.
+Coop uses chicken metaphors throughout. Open browser tabs are **Loose Chickens**. The human review
+step is still called the **Roost** in the product story, even though the current sidepanel `Roost`
+tab is the Green Goods member workspace. The shared feed is the **Coop Feed**. Creating a new
+shared space is **Launching the Coop**. The success chime is the **Rooster Call**.
 
 ![Coop Logo](https://media.discordapp.net/attachments/1334366927094677575/1483276397873987786/signal-2026-03-11-143552.png?ex=69ba004b&is=69b8aecb&hm=e2bcc8442bb7287a93a879c5e7e7336f028564053b6cfaa58ffc135383ae0d5e&=&format=webp&quality=lossless&width=1080&height=1080)

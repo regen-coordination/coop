@@ -1,5 +1,5 @@
+import { type ReceiverCapture, createAgentObservation } from '@coop/shared';
 import { describe, expect, it } from 'vitest';
-import { createAgentObservation, type ReceiverCapture } from '@coop/shared';
 
 import {
   isRitualReviewDue,

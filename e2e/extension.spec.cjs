@@ -608,4 +608,161 @@ test.describe('extension workflow', () => {
       await closeContextSafely(creatorProfile.context);
     }
   });
+
+  test('provisions a member garden account and hatches a sidepanel garden pass in mock-path modes', async () => {
+    ensureExtensionBuilt();
+
+    const creatorUserDataDir = path.join(os.tmpdir(), `coop-sidepanel-onchain-${Date.now()}`);
+    const creatorProfile = await launchExtensionProfile(creatorUserDataDir);
+
+    try {
+      await creatorProfile.page.fill('#coop-name', 'Garden Pass Coop');
+      await creatorProfile.page.fill(
+        '#coop-purpose',
+        'Exercise sidepanel member-account and garden-pass actions before release.',
+      );
+      await creatorProfile.page.fill('#creator-name', 'Ari');
+      await creatorProfile.page.fill(
+        '#summary',
+        'We need stable browser coverage for member provisioning and bounded garden passes.',
+      );
+      await creatorProfile.page.fill(
+        '#seed-contribution',
+        'I bring the first Green Goods operator rehearsal for this browser profile.',
+      );
+      await openOptionalSetup(creatorProfile.page);
+      await creatorProfile.page.check('#green-goods-garden');
+      await creatorProfile.page.fill(
+        '#capitalCurrent',
+        'Operator readiness is mostly verified in unit tests.',
+      );
+      await creatorProfile.page.fill(
+        '#capitalPain',
+        'Release regressions can still hide in Chrome.',
+      );
+      await creatorProfile.page.fill(
+        '#capitalImprove',
+        'Exercise member-account and garden-pass flows in the real sidepanel.',
+      );
+      await creatorProfile.page.fill(
+        '#impactCurrent',
+        'Garden work is rehearsed outside the browser.',
+      );
+      await creatorProfile.page.fill(
+        '#impactPain',
+        'Provisioning and pass issuance need browser-backed validation.',
+      );
+      await creatorProfile.page.fill(
+        '#impactImprove',
+        'Keep the operator path legible in the release slice.',
+      );
+      await creatorProfile.page.fill(
+        '#governanceCurrent',
+        'Trusted members issue capabilities manually.',
+      );
+      await creatorProfile.page.fill(
+        '#governancePain',
+        'Session controls can drift without end-to-end browser checks.',
+      );
+      await creatorProfile.page.fill(
+        '#governanceImprove',
+        'Confirm garden-pass issuance from the sidepanel itself.',
+      );
+      await creatorProfile.page.fill('#knowledgeCurrent', 'Green Goods setup notes live in docs.');
+      await creatorProfile.page.fill(
+        '#knowledgePain',
+        'The real sidepanel path is easy to under-test.',
+      );
+      await creatorProfile.page.fill(
+        '#knowledgeImprove',
+        'Capture the browser path in automated release checks.',
+      );
+      await creatorProfile.page
+        .getByRole('button', { name: /(launch the coop|start this coop)/i })
+        .click();
+
+      await expect(creatorProfile.page.getByText(/coop created\./i)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(
+        creatorProfile.page.getByRole('heading', { name: 'Garden Pass Coop' }),
+      ).toBeVisible();
+
+      await openFooterTab(creatorProfile.page, 'Roost');
+      await expect(
+        creatorProfile.page.getByRole('heading', { name: 'Green Goods Access' }),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+      await creatorProfile.page
+        .getByRole('button', { name: /provision my garden account/i })
+        .click();
+      await expect(
+        creatorProfile.page.getByText(/member smart account predicted and stored on this browser/i),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(
+        creatorProfile.page.getByRole('button', { name: /refresh local garden account/i }),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+
+      await openFooterTab(creatorProfile.page, 'Nest');
+      await openNestSubTab(creatorProfile.page, 'Agent');
+
+      const gardenPassSection = creatorProfile.page
+        .locator('details.collapsible-card')
+        .filter({
+          has: creatorProfile.page.getByRole('heading', { name: 'Garden Passes' }),
+        })
+        .first();
+      const gardenPassSectionOpen = await gardenPassSection.evaluate((element) =>
+        element.hasAttribute('open'),
+      );
+      if (!gardenPassSectionOpen) {
+        await gardenPassSection.locator('summary').click();
+      }
+
+      const hatchGardenPassButton = gardenPassSection.getByRole('button', {
+        name: /hatch (setup|garden) pass/i,
+      });
+      await expect(hatchGardenPassButton).toBeVisible({
+        timeout: 30_000,
+      });
+      await hatchGardenPassButton.click();
+
+      await expect
+        .poll(
+          async () =>
+            (await getDashboard(creatorProfile.page))?.operator?.sessionCapabilities.length ?? 0,
+          {
+            timeout: 30_000,
+          },
+        )
+        .toBeGreaterThan(0);
+      await expect
+        .poll(
+          async () =>
+            (await getDashboard(creatorProfile.page))?.operator?.sessionCapabilities[0]?.scope
+              .allowedActions.length ?? 0,
+          {
+            timeout: 30_000,
+          },
+        )
+        .toBeGreaterThan(0);
+      await expect
+        .poll(
+          async () =>
+            (await getDashboard(creatorProfile.page))?.operator?.sessionCapabilityLog[0]?.detail ??
+            null,
+          {
+            timeout: 30_000,
+          },
+        )
+        .toContain('Issued session key');
+    } finally {
+      await closeContextSafely(creatorProfile.context);
+    }
+  });
 });

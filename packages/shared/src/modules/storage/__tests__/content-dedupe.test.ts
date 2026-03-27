@@ -2,11 +2,11 @@ import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { afterEach, describe, expect, it } from 'vitest';
-import { type TabCandidate } from '../../../contracts/schema';
-import { buildReadablePageExtract } from '../../coop/pipeline';
+import type { TabCandidate } from '../../../contracts/schema';
 import { canonicalizeUrl, hashText } from '../../../utils';
-import { type CoopDexie, createCoopDb } from '../db-schema';
+import { buildReadablePageExtract } from '../../coop/pipeline';
 import { findDuplicatePageExtract, savePageExtract } from '../db-crud-content';
+import { type CoopDexie, createCoopDb } from '../db-schema';
 
 Dexie.dependencies.indexedDB = indexedDB;
 Dexie.dependencies.IDBKeyRange = IDBKeyRange;

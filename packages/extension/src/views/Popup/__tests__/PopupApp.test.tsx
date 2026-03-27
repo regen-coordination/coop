@@ -120,12 +120,14 @@ describe('PopupApp', () => {
     render(<PopupApp />);
 
     expect(await screen.findByText('Ready to round up your loose chickens?')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Popup navigation' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open sidepanel' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Create a Coop' }));
 
     expect(await screen.findByRole('heading', { name: 'Start your coop.' })).toBeInTheDocument();
     expect(screen.getByLabelText('Coop name')).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Popup navigation' })).not.toBeInTheDocument();
   });
 
   it('routes into the simplified join flow', async () => {
@@ -156,6 +158,7 @@ describe('PopupApp', () => {
 
     expect(await screen.findByRole('heading', { name: 'Find your coop.' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Paste invite code' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Popup navigation' })).not.toBeInTheDocument();
   });
 
   it('shows the aggregate Home layout with capture actions, notes, handoffs, and new footer tabs', async () => {

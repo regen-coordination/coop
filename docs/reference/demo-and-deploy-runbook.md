@@ -5,10 +5,10 @@ slug: /reference/demo-and-deploy-runbook
 
 # Coop Demo And Deploy Runbook
 
-Date: March 13, 2026
+Date: March 27, 2026
 
 This is the canonical runbook for local demos, peer pairing, and production deployment. Keep the
-other docs aligned to this one.
+other readiness docs aligned to this one.
 
 ## Shared Rules
 
@@ -44,30 +44,25 @@ Other defaults are safe: sepolia, mock onchain/archive, session off.
 
 ```bash
 bun install
-bun dev          # starts app + extension + api + tunnel (if configured)
+bun dev
 ```
 
 Expected surfaces:
 
-- App / receiver PWA: `http://127.0.0.1:3001` (local) or `https://local.coop.town` (tunnel)
-- Signaling: `ws://127.0.0.1:4444` (local) or `wss://dev-api.coop.town` (tunnel)
-- Production fallback signaling: `wss://api.coop.town` (always available)
+- App / receiver PWA: `http://127.0.0.1:3001` or `https://local.coop.town`
+- Signaling: `ws://127.0.0.1:4444` or `wss://dev-api.coop.town`
+- Production fallback signaling: `wss://api.coop.town`
 - Extension bundle: `packages/extension/.output/chrome-mv3`
-
-The extension is built with both local and production signaling URLs. If the local API is down,
-it falls back to production automatically.
 
 To run services individually instead of `bun dev`:
 
 ```bash
-bun run dev:app        # port 3001
-bun run dev:extension  # WXT dev + Chromium
-bun run dev:api        # port 4444
+bun run dev:app
+bun run dev:extension
+bun run dev:api
 ```
 
 ### Chrome Setup
-
-Each developer should:
 
 1. Open `chrome://extensions`.
 2. Turn on `Developer mode`.
@@ -79,12 +74,12 @@ Each developer should:
 ### Two-Person Local Demo
 
 1. Dev A opens the extension sidepanel and creates a coop.
-2. Dev A generates a receiver pairing from the `Coops` tab.
+2. Dev A opens **Nest** and generates a receiver pairing.
 3. Dev B opens `http://127.0.0.1:3001/pair` and accepts the pairing payload or QR.
-4. Dev B goes to `http://127.0.0.1:3001/receiver`, captures a voice note, photo, or link.
-5. Dev A confirms the item lands in the **Nest** tab (Receiver section).
-6. Dev A converts it into the Roost, edits it, and publishes it.
-7. Both devs verify the published artifact in the **Coops** tab feed and on the board route.
+4. Dev B goes to `http://127.0.0.1:3001/receiver` and captures a voice note, photo, or link.
+5. Dev A confirms the item lands in **Nest** under Pocket Coop Finds.
+6. Dev A converts it into a draft, edits it in **Chickens**, and publishes it.
+7. Both devs verify the published artifact in the **Coops** feed and on the board route.
 8. Dev A archives the snapshot and exports the latest receipt.
 
 ## Environment 2: Local Extension + Production PWA
@@ -102,8 +97,7 @@ Notes:
 
 - Both developers still run `bun run dev:extension`.
 - Running `bun run dev:app` is optional unless testing the local landing page or board shell.
-- The extension build must be reloaded in Chrome after changing env vars (Vite bakes them at
-  build time).
+- Reload the extension after env changes because Vite bakes them into the bundle.
 
 ### Demo Flow
 
@@ -114,10 +108,7 @@ Notes:
 5. Dev B opens `https://coop.town/pair`.
 6. Dev B accepts the pairing and captures from `https://coop.town/receiver`.
 7. Dev A verifies sync into the local extension intake.
-8. Dev A publishes to the **Coops** tab feed and opens the board on the production PWA.
-
-Use this mode when you want the extension under active development while validating the deployed
-receiver origin and passkey scope.
+8. Dev A publishes from **Chickens** and opens the board from **Coops**.
 
 ## Environment 3: Production
 
@@ -137,15 +128,14 @@ This is the release target.
   1. `Unlisted`
   2. `Public`
 - Build from `packages/extension/.output/chrome-mv3`.
-- Zip the contents of `dist` at the archive root before upload.
+- Zip the contents of `packages/extension/.output/chrome-mv3` with files at the archive root.
 
 ### Signaling
 
-- Production signaling server: `wss://api.coop.town` (Fly.io, app `coop`, region `iad`)
+- Production signaling server: `wss://api.coop.town`
 - Yjs document sync: `wss://api.coop.town/yws`
-- Deploy with: `flyctl deploy -a coop` from `packages/api/`
+- Deploy with `flyctl deploy -a coop` from `packages/api/`
 - Health check: `https://api.coop.town/health`
-- Machines auto-suspend when idle and auto-start on request.
 
 ### Live Modes
 
@@ -176,6 +166,49 @@ Human-confirmed only:
 - `green-goods-sync-gap-admins`
 - treasury movement, approvals, and arbitrary calls
 
+### Filecoin / FVM Registry
+
+The Filecoin registry contract currently lives in
+[CoopRegistry.sol](/Users/afo/Code/greenpill/coop/packages/contracts/src/CoopRegistry.sol) and is
+published with Foundry from
+[DeployRegistry.s.sol](/Users/afo/Code/greenpill/coop/packages/contracts/script/DeployRegistry.s.sol).
+
+Preferred deployment path using a Foundry keystore account:
+
+```bash
+cd packages/contracts
+forge script script/DeployRegistry.s.sol:DeployRegistry \
+  --rpc-url filecoin_calibration \
+  --broadcast \
+  --account "GreenGoods deployer"
+```
+
+Alternative deployment path using a raw private key:
+
+```bash
+cd packages/contracts
+DEPLOYER_PRIVATE_KEY=0x... \
+forge script script/DeployRegistry.s.sol:DeployRegistry \
+  --rpc-url filecoin_calibration \
+  --broadcast
+```
+
+After deployment:
+
+1. Record the deployed registry address.
+2. Set `VITE_COOP_FVM_CHAIN` to `filecoin-calibration` or `filecoin`.
+3. Set `VITE_COOP_FVM_REGISTRY_ADDRESS` to the deployed contract address.
+4. Update the deployment map in
+   [fvm.ts](/Users/afo/Code/greenpill/coop/packages/shared/src/modules/fvm/fvm.ts).
+
+Current implementation note:
+
+- Deployment can use a Foundry keystore account.
+- Runtime archive registration in the extension still expects `VITE_COOP_FVM_OPERATOR_KEY`.
+- Because `VITE_` variables are baked into the extension bundle, that key should only exist in
+  operator-controlled builds, not public Chrome Web Store releases, until signing moves out of the
+  bundle.
+
 ## Local Demo Script
 
 Use this for a clean two-person rehearsal.
@@ -183,15 +216,13 @@ Use this for a clean two-person rehearsal.
 ### Person A: Extension Operator
 
 1. Open the extension sidepanel.
-2. Open the **Nest** tab and confirm chain, modes, receiver origin, and signaling in the Runtime section.
-3. Create a coop with the right preset: `friends`, `family`, `personal`, `project`, or
-   `community`.
+2. Open **Nest** and confirm chain, modes, receiver origin, and signaling in the Runtime section.
+3. Create a coop with the intended preset.
 4. If needed, enable `Green Goods garden` during setup.
-5. Generate a receiver pairing in the `Coops` tab.
-6. Watch the **Coops** tab after sync.
-7. Run `Manual round-up`, review the Roost, and publish.
-8. If live session mode is enabled, open the **Nest** tab Operator Console and go to `Session Keys`
-   to issue or inspect the bounded session.
+5. Generate a receiver pairing in **Nest**.
+6. Watch **Nest** for Pocket Coop Finds and **Chickens** for working drafts.
+7. Run `Manual round-up`, review in **Chickens**, and publish.
+8. If session mode is on, open **Nest** -> `Agent` and inspect the bounded garden-pass controls.
 
 ### Person B: Receiver
 
@@ -203,8 +234,8 @@ Use this for a clean two-person rehearsal.
 
 ### Demo Close
 
-1. Person A confirms the private intake item arrived.
-2. Person A converts it into the Roost and publishes it.
+1. Person A confirms the private intake item arrived in **Nest**.
+2. Person A converts it into a draft, finishes the review flow in **Chickens**, and publishes it.
 3. Open the board route.
 4. Archive the coop snapshot.
 5. Export the latest receipt.
@@ -218,7 +249,7 @@ Use this before demos and before production launch.
 - Preset-specific copy renders correctly.
 - Friends, family, and personal never fall back to generic `community` language.
 - State badges and extension icon states match the actual coop state.
-- Onchain mode, archive mode, and session mode are visible in the **Nest** tab Runtime section.
+- Onchain mode, archive mode, and session mode are visible in the **Nest** Runtime section.
 
 ### Join And Sync With A Peer
 
@@ -231,19 +262,29 @@ Use this before demos and before production launch.
 
 - `/pair`, `/receiver`, and `/inbox` work on local and production origins.
 - QR, share, notifications, badges, and file export degrade gracefully when unsupported.
-- Bridge injection works on `http://127.0.0.1:3001` and on the production Vercel domain.
+- Bridge injection works on `http://127.0.0.1:3001` and `https://coop.town`.
 - Wrong-member and expired-pairing envelopes are rejected.
+
+### Popup Capture
+
+- Automation already proves real popup roundup, manual-gate errors, file review/save, audio retry,
+  and post-failure recovery.
+- Manually verify successful popup `Capture Tab` and `Screenshot` saves with a real click in
+  Chrome because popup `activeTab` grants are not reproducible under automation.
 
 ### Run The Agent Loop
 
-- Manual round-up, observation capture, plan generation, and Roost draft creation work without
+- Manual round-up, observation capture, plan generation, and Chickens draft creation work without
   duplicate or conflicting states.
 - Auto-run never bypasses action policy.
 - Operator logs stay readable enough to narrate during a live demo.
 
 ### Execute Green Goods Actions
 
-- An allowed session-key action succeeds in `VITE_COOP_SESSION_MODE=live`.
+- `production-readiness` now covers mock-path member-account provisioning and garden-pass issuance
+  in the real sidepanel.
+- An allowed session-key action succeeds in `VITE_COOP_SESSION_MODE=live` when the live probes are
+  enabled.
 - A disallowed action is rejected before send.
 - Replay protection still blocks re-use.
 - Revoked, expired, or exhausted sessions are blocked.
@@ -252,7 +293,7 @@ Use this before demos and before production launch.
 
 ### Publish, Archive, And Export
 
-- Publish reaches the **Coops** tab feed and the board route.
+- Publish reaches the **Coops** feed and the board route.
 - Archive receipts remain legible.
 - Export works with file picker or download fallback.
 - The latest snapshot and receipt are easy to find during the demo.
@@ -264,37 +305,33 @@ Use this before demos and before production launch.
 1. Set the project Root Directory to `packages/app`.
 2. Keep the SPA rewrites in `packages/app/vercel.json`.
 3. Set production environment variables in the Vercel dashboard.
-4. Deploy and verify:
-   - `/`
-   - `/pair`
-   - `/receiver`
-   - `/inbox`
-   - `/board/<coop-id>`
-   - `/manifest.webmanifest`
-   - `/sw.js`
+4. Deploy and verify `/`, `/pair`, `/receiver`, `/inbox`, `/board/<coop-id>`,
+   `/manifest.webmanifest`, and `/sw.js`.
 
 ### Extension To Chrome Web Store
 
-1. Run `bun run --filter @coop/extension build`.
-2. Zip the contents of `packages/extension/.output/chrome-mv3`.
-3. Upload to the Chrome Web Store dashboard.
-4. Start as `Unlisted`.
-5. Add clear reviewer notes for:
-   - sidepanel entry
-   - passkey flows
-   - mock vs live modes
-   - receiver pairing and private intake behavior
+1. Set `VITE_COOP_RECEIVER_APP_URL` to the exact production HTTPS receiver origin.
+2. Run `bun run validate:store-readiness`.
+3. Run `bun run validate:production-readiness`.
+4. If live Safe, session-key, or archive rails are enabled, run
+   `bun run validate:production-live-readiness`.
+5. Build the extension.
+6. Zip the contents of `packages/extension/.output/chrome-mv3` at the archive root.
+7. Upload to the Chrome Web Store dashboard.
+8. Start as `Unlisted`.
+9. Add clear reviewer notes for sidepanel entry, passkey flows, mock vs live modes, receiver
+   pairing, private intake behavior, and the local-first data model.
 
 ## Validation Commands
 
-Use these before demo day:
+Use this before demo day and before packaging a normal release candidate:
 
 ```bash
-bun run validate production-readiness
+bun run validate:production-readiness
 ```
 
-Use this only when the live Smart Session env vars are present:
+Use this only when the release candidate enables live Safe, session-key, or archive behavior:
 
 ```bash
-bun run validate session-key-live
+bun run validate:production-live-readiness
 ```

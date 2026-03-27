@@ -50,19 +50,19 @@ import {
   getTabRoutingByExtractAndCoop,
   greenGoodsAssessmentRequestSchema,
   greenGoodsWorkApprovalRequestSchema,
-  listReviewDrafts,
   listAgentObservations,
+  listReviewDrafts,
   listTabRoutings,
   nowIso,
   pruneExpiredMemories,
   queryMemoriesForSkill,
+  sanitizeTextForInference,
+  sanitizeValueForInference,
   saveAgentObservation,
   saveAgentPlan,
   saveReviewDraft,
   saveSkillRun,
   saveTabRouting,
-  sanitizeTextForInference,
-  sanitizeValueForInference,
   shapeReviewDraft,
   truncateWords,
   updateAgentObservation,
@@ -292,6 +292,64 @@ export async function buildSkillPrompt(input: {
   };
 }
 
+function createHeuristicCapitalFormationBrief(input: {
+  observation: AgentObservation;
+  coop?: CoopSharedState;
+  candidates: OpportunityCandidate[];
+  scores: GrantFitScore[];
+}): CapitalFormationBriefOutput {
+  const topScore = input.scores.reduce<GrantFitScore | null>((best, score) => {
+    if (!best) {
+      return score;
+    }
+    return score.score > best.score ? score : best;
+  }, null);
+  const topCandidate =
+    input.candidates.find((candidate) => candidate.id === topScore?.candidateId) ??
+    input.candidates[0] ??
+    null;
+  const coopName = input.coop?.profile.name ?? 'this coop';
+  const title =
+    topCandidate?.title?.trim() ||
+    input.observation.title.trim() ||
+    'Potential capital formation opportunity';
+  const summary =
+    topCandidate?.summary?.trim() ||
+    input.observation.summary.trim() ||
+    'This source may inform a capital formation opportunity for the coop.';
+  const scoreReasons = topScore?.reasons.filter((reason) => reason.trim().length > 0) ?? [];
+  const whyItMatters =
+    scoreReasons.length > 0
+      ? `This signal aligns with ${coopName} because ${scoreReasons.slice(0, 2).join(' and ')}.`
+      : topCandidate?.rationale?.trim() ||
+        `This signal appears relevant to ${coopName} and could support funding readiness.`;
+  const suggestedNextStep =
+    topCandidate?.recommendedNextStep?.trim() ||
+    'Review the signal, tighten the thesis, and decide whether to route it into a funding brief.';
+  const tags = Array.from(
+    new Set(
+      [
+        'funding',
+        'opportunity',
+        ...(topCandidate?.ecologyTags ?? []),
+        ...(topCandidate?.regionTags ?? []),
+      ]
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0),
+    ),
+  ).slice(0, 5);
+
+  return {
+    title,
+    summary,
+    whyItMatters,
+    suggestedNextStep,
+    tags: tags.length >= 2 ? tags : ['funding', 'opportunity'],
+    targetCoopIds: input.coop ? [input.coop.profile.id] : [],
+    supportingCandidateIds: topCandidate?.id ? [topCandidate.id] : [],
+  };
+}
+
 export async function completeSkill<T>(input: {
   skill: RegisteredSkill;
   observation: AgentObservation;
@@ -376,6 +434,30 @@ export async function completeSkill<T>(input: {
         observation: input.observation,
       }) as T,
     };
+  }
+
+  if (
+    manifest.outputSchemaRef === 'capital-formation-brief-output' &&
+    typeof manifest.qualityThreshold === 'number'
+  ) {
+    const confidence = computeOutputConfidence(
+      manifest.outputSchemaRef,
+      result.output,
+      result.provider,
+    );
+    if (confidence < manifest.qualityThreshold) {
+      return {
+        provider: 'heuristic',
+        model: result.model,
+        durationMs: result.durationMs,
+        output: createHeuristicCapitalFormationBrief({
+          observation: input.observation,
+          coop: input.coop,
+          candidates: input.candidates,
+          scores: input.scores,
+        }) as T,
+      };
+    }
   }
 
   if (
@@ -625,7 +707,9 @@ export async function persistTabRouterOutput(input: {
 
   for (const [extractId, extractRoutings] of Object.entries(
     relevantRoutings.reduce<Record<string, TabRouterOutput['routings']>>((acc, routing) => {
-      (acc[routing.extractId] ??= []).push(routing);
+      const existingRoutings = acc[routing.extractId] ?? [];
+      existingRoutings.push(routing);
+      acc[routing.extractId] = existingRoutings;
       return acc;
     }, {}),
   )) {

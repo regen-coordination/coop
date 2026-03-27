@@ -59,9 +59,14 @@ The `PolicyActionClass` enum defines the complete set of governed actions:
 | `green-goods-sync-garden-profile` | Green Goods | Update garden metadata on-chain |
 | `green-goods-set-garden-domains` | Green Goods | Set garden domain categories |
 | `green-goods-create-garden-pools` | Green Goods | Create assessment pools for a garden |
+| `green-goods-submit-work-submission` | Green Goods | Submit member work evidence |
 | `green-goods-submit-work-approval` | Green Goods | Approve or reject submitted work |
 | `green-goods-create-assessment` | Green Goods | Create a new assessment round |
 | `green-goods-sync-gap-admins` | Green Goods | Add/remove GAP administrators |
+| `green-goods-mint-hypercert` | Green Goods | Package approved work and assessments into Hypercert flows |
+| `green-goods-add-gardener` | Green Goods | Add a member as a gardener |
+| `green-goods-remove-gardener` | Green Goods | Remove a member as a gardener |
+| `green-goods-submit-impact-report` | Green Goods | Legacy action class retained for policy compatibility, not current Coop flow |
 | `erc8004-register-agent` | ERC-8004 | Register an agent on-chain |
 | `erc8004-give-feedback` | ERC-8004 | Submit feedback for an on-chain agent |
 
@@ -316,7 +321,8 @@ The session module provides scoped on-chain execution through ERC-4337 smart ses
 
 ### Session-Capable Action Classes
 
-Not all action classes support session-key execution. Phase 1 is scoped to Green Goods on-chain operations:
+Not all action classes support session-key execution. The current bounded set is scoped to Green
+Goods garden bootstrap and maintenance only:
 
 ```typescript
 const SESSION_CAPABLE_ACTION_CLASSES = [
@@ -335,6 +341,10 @@ Each session-capable action maps to specific Solidity function selectors that th
 | `green-goods-sync-garden-profile` | `updateName`, `updateDescription`, `updateLocation`, `updateBannerImage`, `updateMetadata`, `setOpenJoining`, `setMaxGardeners` |
 | `green-goods-set-garden-domains` | `setGardenDomains(address,uint8)` |
 | `green-goods-create-garden-pools` | `createGardenPools(address)` |
+
+Session keys do **not** cover member work submission, work approvals, assessments, GAP admin sync,
+gardener lifecycle actions, or Hypercert packaging. Those stay on the member-account or
+proposal-first Safe-owner paths.
 
 ### SessionCapability Schema
 

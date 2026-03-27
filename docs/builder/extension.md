@@ -8,6 +8,8 @@ slug: /builder/extension
 The extension is the primary Coop runtime. It is where most creation, review, publish, and operator
 actions happen.
 
+For the canonical current-state action grouping, see [Action Domain Map](/reference/action-domain-map).
+
 ## Main Surfaces
 
 The MV3 package is split across three user-facing or runtime-facing surfaces:
@@ -55,14 +57,19 @@ The popup is a self-contained multi-screen application orchestrated by the `useP
 draft detail, no-coop, and profile. A footer nav bar provides three primary tabs: Home, Chickens, and
 Feed. Supporting UI includes the share menu, onboarding hero, artifact dialog, and theme picker.
 
+Plain-language role: quick capture and quick review.
+
 ### Sidepanel
 
 The sidepanel is the primary workspace surface, organized into four tabs via `SidepanelTabRouter`:
 
-- **Roost** for the review queue and draft triage
-- **Chickens** for browsing and filtering captured tabs
-- **Coops** for managing coop membership and switching active coops
-- **Nest** for settings, receiver pairing, agent controls, archive, and invites
+- **Roost** for Green Goods member access, member-account provisioning, and work submission
+- **Chickens** for candidates, working drafts, and publish prep
+- **Coops** for shared coop state, archive, board, and proof views
+- **Nest** for members, receiver pairing and intake, operator controls, and settings
+
+The older product story still uses **Roost** as the metaphor for the human review step. The current
+UI no longer uses the sidepanel `Roost` tab as the main general draft-review queue.
 
 ### UI Catalog
 
@@ -74,11 +81,12 @@ development environment for building and reviewing extension components outside 
 The extension is the home for:
 
 - tab round-up capture
-- the Roost review queue
+- popup and Chickens review workflows
 - coop creation and join flows
 - feed and board publishing actions
 - sync bindings and signaling configuration
 - operator, policy, permit, and session controls
+- Green Goods member and operator workflows
 - agent harness and inference worker runtime
 - receiver pairing and cross-device sync
 
