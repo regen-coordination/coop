@@ -1,8 +1,7 @@
 import { ErrorBoundary } from '../ErrorBoundary';
 import type { SidepanelOrchestration } from './hooks/useSidepanelOrchestration';
+import type { SidepanelTab } from './sidepanel-tabs';
 import { ChickensTab, CoopsTab, NestTab, RoostTab } from './tabs/index';
-
-type SidepanelTab = 'roost' | 'chickens' | 'coops' | 'nest';
 
 export interface SidepanelTabRouterProps {
   panelTab: SidepanelTab;
@@ -39,7 +38,6 @@ export function SidepanelTabRouter({ panelTab, orchestration }: SidepanelTabRout
     tabCapture,
     handleProvisionMemberOnchainAccount,
     handleSubmitGreenGoodsWorkSubmission,
-    handleSubmitGreenGoodsImpactReport,
     createInvite,
     revokeInvite,
     updateCoopProfile,
@@ -100,7 +98,6 @@ export function SidepanelTabRouter({ panelTab, orchestration }: SidepanelTabRout
             greenGoodsActionQueue={dashboard?.operator.policyActionQueue ?? []}
             onProvisionMemberOnchainAccount={handleProvisionMemberOnchainAccount}
             onSubmitGreenGoodsWorkSubmission={handleSubmitGreenGoodsWorkSubmission}
-            onSubmitGreenGoodsImpactReport={handleSubmitGreenGoodsImpactReport}
           />
         </ErrorBoundary>
       );

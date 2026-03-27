@@ -3,9 +3,11 @@ import { parse as parseProof } from '@storacha/client/proof';
 import * as Ed25519 from '@ucanto/principal/ed25519';
 import { CID } from 'multiformats/cid';
 import {
+  type ArchiveBlobEncryption,
   type ArchiveBundle,
   type ArchiveDelegationMaterial,
   type ArchiveDelegationRequestInput,
+  type ArchivePayloadEncryption,
   type ArchiveReceipt,
   type TrustedNodeArchiveConfig,
   archiveDelegationMaterialSchema,
@@ -13,7 +15,13 @@ import {
   trustedNodeArchiveConfigSchema,
 } from '../../contracts/schema';
 import { bytesToBase64 } from '../../utils';
-import { summarizeArchiveFilecoinInfo } from './archive';
+import { applyArchiveBlobCidsToPayload, summarizeArchiveFilecoinInfo } from './archive';
+import {
+  ARCHIVE_ENCRYPTION_ALGORITHM,
+  ARCHIVE_KEY_DERIVATION,
+  encryptArchiveBlobBytes,
+  encryptArchivePayloadEnvelope,
+} from './crypto';
 
 export interface ArchiveUploadResult {
   audienceDid: string;
@@ -22,6 +30,9 @@ export interface ArchiveUploadResult {
   pieceCids: string[];
   gatewayUrl: string;
   blobCids?: Record<string, string>;
+  blobUploads?: Record<string, { archiveCid: string; archiveEncryption?: ArchiveBlobEncryption }>;
+  contentEncoding?: ArchiveReceipt['contentEncoding'];
+  encryption?: ArchivePayloadEncryption;
 }
 
 export type StorachaArchiveClient = Awaited<ReturnType<typeof StorachaClient.create>>;
@@ -203,28 +214,66 @@ export async function uploadArchiveBundleToStoracha(input: {
   delegation: ArchiveDelegationMaterial;
   client?: StorachaArchiveClient;
   blobBytes?: Map<string, Uint8Array>;
+  archiveConfig?: TrustedNodeArchiveConfig;
 }): Promise<ArchiveUploadResult> {
   const client = input.client ?? (await createStorachaArchiveClient());
   const audienceDid = client.did();
   await applyArchiveDelegationToClient(client, input.delegation);
 
-  const blobCids = new Map<string, string>();
+  const blobUploads = new Map<
+    string,
+    { archiveCid: string; archiveEncryption?: ArchiveBlobEncryption }
+  >();
   if (input.blobBytes) {
     for (const [blobId, bytes] of input.blobBytes) {
-      const blobFile = new Blob([bytes as BlobPart]);
+      let blobFile: Blob;
+      let archiveEncryption: ArchiveBlobEncryption | undefined;
+
+      if (input.archiveConfig) {
+        const encrypted = await encryptArchiveBlobBytes({
+          bytes,
+          targetCoopId: input.bundle.targetCoopId,
+          blobId,
+          config: input.archiveConfig,
+        });
+        blobFile = new Blob([encrypted.ciphertext as BlobPart], {
+          type: 'application/octet-stream',
+        });
+        archiveEncryption = encrypted.encryption;
+      } else {
+        blobFile = new Blob([bytes as BlobPart]);
+      }
+
       const blobCid = await client.uploadFile(blobFile);
-      blobCids.set(blobId, blobCid.toString());
+      blobUploads.set(blobId, {
+        archiveCid: blobCid.toString(),
+        archiveEncryption,
+      });
     }
   }
 
-  const enrichedPayload = {
-    ...input.bundle.payload,
-    ...(blobCids.size > 0 ? { blobCids: Object.fromEntries(blobCids) } : {}),
-  };
+  const enrichedPayload =
+    blobUploads.size > 0
+      ? applyArchiveBlobCidsToPayload(input.bundle.payload, Object.fromEntries(blobUploads))
+      : input.bundle.payload;
 
   const shardCids: string[] = [];
   const pieceCids = new Set<string>();
-  const blob = new Blob([JSON.stringify(enrichedPayload, null, 2)], {
+  const contentEncoding = input.archiveConfig ? 'encrypted-envelope' : 'plain-json';
+  const encryption = input.archiveConfig
+    ? {
+        algorithm: ARCHIVE_ENCRYPTION_ALGORITHM,
+        keyDerivation: ARCHIVE_KEY_DERIVATION,
+      }
+    : undefined;
+  const encodedPayload = input.archiveConfig
+    ? await encryptArchivePayloadEnvelope({
+        bundle: input.bundle,
+        payload: enrichedPayload,
+        config: input.archiveConfig,
+      })
+    : enrichedPayload;
+  const blob = new Blob([JSON.stringify(encodedPayload, null, 2)], {
     type: 'application/json',
   });
 
@@ -243,7 +292,19 @@ export async function uploadArchiveBundleToStoracha(input: {
     shardCids,
     pieceCids: [...pieceCids],
     gatewayUrl: `${input.delegation.gatewayBaseUrl}/ipfs/${root}`,
-    ...(blobCids.size > 0 ? { blobCids: Object.fromEntries(blobCids) } : {}),
+    contentEncoding,
+    encryption,
+    ...(blobUploads.size > 0
+      ? {
+          blobCids: Object.fromEntries(
+            Array.from(blobUploads.entries()).map(([blobId, upload]) => [
+              blobId,
+              upload.archiveCid,
+            ]),
+          ),
+          blobUploads: Object.fromEntries(blobUploads),
+        }
+      : {}),
   };
 }
 

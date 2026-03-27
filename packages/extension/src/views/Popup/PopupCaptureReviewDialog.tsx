@@ -63,7 +63,11 @@ export function PopupCaptureReviewDialog(props: {
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click-to-dismiss is supplementary to the close button
-    <div className="popup-dialog-backdrop" onClick={saving ? undefined : onClose} role="presentation">
+    <div
+      className="popup-dialog-backdrop"
+      onClick={saving ? undefined : onClose}
+      role="presentation"
+    >
       <dialog
         aria-labelledby="popup-capture-review-title"
         aria-modal="true"

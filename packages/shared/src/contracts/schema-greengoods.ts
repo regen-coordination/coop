@@ -15,6 +15,32 @@ export const greenGoodsMemberRoleSchema = z.enum([
   'assessor',
   'impact-reporter',
 ]);
+export const greenGoodsHypercertDomainSchema = z.enum([
+  'solar',
+  'waste',
+  'agroforestry',
+  'education',
+  'mutual_credit',
+]);
+export const greenGoodsHypercertDomainInputSchema = z.enum([
+  'solar',
+  'waste',
+  'agro',
+  'agroforestry',
+  'edu',
+  'education',
+  'mutual_credit',
+]);
+export const greenGoodsHypercertCapitalSchema = z.enum([
+  'living',
+  'social',
+  'material',
+  'financial',
+  'intellectual',
+  'experiential',
+  'spiritual',
+  'cultural',
+]);
 export const greenGoodsMemberBindingStatusSchema = z.enum([
   'pending-account',
   'pending-sync',
@@ -52,6 +78,7 @@ export const greenGoodsGardenStateSchema = z.object({
   lastWorkSubmissionAt: z.string().datetime().optional(),
   lastWorkApprovalAt: z.string().datetime().optional(),
   lastAssessmentAt: z.string().datetime().optional(),
+  lastHypercertMintAt: z.string().datetime().optional(),
   lastImpactReportAt: z.string().datetime().optional(),
   gardenAddress: z
     .string()
@@ -81,6 +108,9 @@ export const greenGoodsGardenStateSchema = z.object({
     .string()
     .regex(/^0x[a-fA-F0-9]+$/)
     .optional(),
+  lastHypercertId: z.string().min(1).optional(),
+  lastHypercertMetadataUri: z.string().min(1).optional(),
+  lastHypercertAllowlistUri: z.string().min(1).optional(),
   lastUserOperationHash: z
     .string()
     .regex(/^0x[a-fA-F0-9]+$/)
@@ -186,6 +216,142 @@ export const greenGoodsWorkSubmissionOutputSchema = z.object({
   mediaCids: z.array(z.string().min(1)).default([]),
 });
 
+export const greenGoodsHypercertMetricValueSchema = z.object({
+  value: z.number(),
+  unit: z.string().min(1),
+});
+
+export const greenGoodsHypercertPredefinedMetricSchema = z.object({
+  value: z.number(),
+  unit: z.string().min(1),
+  aggregation: z.enum(['sum', 'count', 'average', 'max']),
+  label: z.string().min(1),
+});
+
+export const greenGoodsHypercertCustomMetricSchema = z.object({
+  value: z.number(),
+  unit: z.string().min(1),
+  label: z.string().min(1),
+});
+
+export const greenGoodsHypercertOutcomeMetricsSchema = z.object({
+  predefined: z.record(z.string(), greenGoodsHypercertPredefinedMetricSchema).default({}),
+  custom: z.record(z.string(), greenGoodsHypercertCustomMetricSchema).default({}),
+});
+
+export const greenGoodsHypercertAllowlistEntrySchema = z.object({
+  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  units: z.number().int().positive(),
+  label: z.string().min(1).optional(),
+});
+
+export const greenGoodsHypercertAttestationSchema = z.object({
+  uid: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  workUid: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  title: z.string().min(1),
+  domain: greenGoodsHypercertDomainInputSchema.optional(),
+  workScope: z.array(z.string().min(1)).default([]),
+  gardenerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  gardenerName: z.string().min(1).optional(),
+  mediaUrls: z.array(z.string().min(1)).default([]),
+  metrics: z.record(z.string(), greenGoodsHypercertMetricValueSchema).optional(),
+  createdAt: z.number().int().nonnegative(),
+  approvedAt: z.number().int().nonnegative(),
+  approvedBy: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+  feedback: z.string().optional(),
+  actionType: z.string().min(1).optional(),
+});
+
+function refineGreenGoodsHypercertTimeframes(
+  value: {
+    workTimeframeStart?: number;
+    workTimeframeEnd?: number;
+    impactTimeframeStart?: number;
+    impactTimeframeEnd?: number | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (
+    typeof value.workTimeframeStart === 'number' &&
+    typeof value.workTimeframeEnd === 'number' &&
+    value.workTimeframeEnd < value.workTimeframeStart
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['workTimeframeEnd'],
+      message: 'workTimeframeEnd must be greater than or equal to workTimeframeStart.',
+    });
+  }
+
+  if (
+    typeof value.impactTimeframeStart === 'number' &&
+    typeof value.impactTimeframeEnd === 'number' &&
+    value.impactTimeframeEnd !== 0 &&
+    value.impactTimeframeEnd < value.impactTimeframeStart
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['impactTimeframeEnd'],
+      message: 'impactTimeframeEnd must be greater than or equal to impactTimeframeStart.',
+    });
+  }
+}
+
+function refineGreenGoodsHypercertAllowlist(
+  value: {
+    allowlist: Array<{
+      address: string;
+      units: number;
+    }>;
+  },
+  ctx: z.RefinementCtx,
+) {
+  const totalUnits = value.allowlist.reduce((sum, entry) => sum + entry.units, 0);
+  if (totalUnits !== 100_000_000) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['allowlist'],
+      message: 'Green Goods Hypercert allowlists must total exactly 100000000 units.',
+    });
+  }
+}
+
+const greenGoodsHypercertMintRequestBaseSchema = z.object({
+  gardenAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  workScopes: z.array(z.string().min(1)).default([]),
+  impactScopes: z.array(z.string().min(1)).default(['all']),
+  workTimeframeStart: z.number().int().nonnegative().optional(),
+  workTimeframeEnd: z.number().int().nonnegative().optional(),
+  impactTimeframeStart: z.number().int().nonnegative().optional(),
+  impactTimeframeEnd: z.number().int().nonnegative().nullable().optional(),
+  externalUrl: z.string().min(1).optional(),
+  imageUri: z.string().min(1).optional(),
+  domain: greenGoodsHypercertDomainInputSchema.optional(),
+  sdgs: z.array(z.number().int().min(1).max(17)).default([]),
+  capitals: z.array(greenGoodsHypercertCapitalSchema).default([]),
+  outcomes: greenGoodsHypercertOutcomeMetricsSchema.default({
+    predefined: {},
+    custom: {},
+  }),
+  allowlist: z.array(greenGoodsHypercertAllowlistEntrySchema).min(1),
+  attestations: z.array(greenGoodsHypercertAttestationSchema).min(1),
+  gapProjectUid: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional(),
+  rationale: z.string().min(1),
+});
+
+export const greenGoodsHypercertMintRequestSchema = greenGoodsHypercertMintRequestBaseSchema
+  .superRefine(refineGreenGoodsHypercertTimeframes)
+  .superRefine(refineGreenGoodsHypercertAllowlist);
+
+export const greenGoodsHypercertMintActionPayloadSchema = greenGoodsHypercertMintRequestBaseSchema
+  .extend({
+    coopId: z.string().min(1),
+  })
+  .superRefine(refineGreenGoodsHypercertTimeframes)
+  .superRefine(refineGreenGoodsHypercertAllowlist);
+
 export const greenGoodsImpactReportOutputSchema = z
   .object({
     gardenAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
@@ -222,5 +388,20 @@ export type GreenGoodsWorkApprovalOutput = z.infer<typeof greenGoodsWorkApproval
 export type GreenGoodsAssessmentOutput = z.infer<typeof greenGoodsAssessmentOutputSchema>;
 export type GreenGoodsGapAdminSyncOutput = z.infer<typeof greenGoodsGapAdminSyncOutputSchema>;
 export type GreenGoodsWorkSubmissionOutput = z.infer<typeof greenGoodsWorkSubmissionOutputSchema>;
+export type GreenGoodsHypercertDomain = z.infer<typeof greenGoodsHypercertDomainSchema>;
+export type GreenGoodsHypercertDomainInput = z.infer<typeof greenGoodsHypercertDomainInputSchema>;
+export type GreenGoodsHypercertCapital = z.infer<typeof greenGoodsHypercertCapitalSchema>;
+export type GreenGoodsHypercertMetricValue = z.infer<typeof greenGoodsHypercertMetricValueSchema>;
+export type GreenGoodsHypercertOutcomeMetrics = z.infer<
+  typeof greenGoodsHypercertOutcomeMetricsSchema
+>;
+export type GreenGoodsHypercertAllowlistEntry = z.infer<
+  typeof greenGoodsHypercertAllowlistEntrySchema
+>;
+export type GreenGoodsHypercertAttestation = z.infer<typeof greenGoodsHypercertAttestationSchema>;
+export type GreenGoodsHypercertMintRequest = z.infer<typeof greenGoodsHypercertMintRequestSchema>;
+export type GreenGoodsHypercertMintActionPayload = z.infer<
+  typeof greenGoodsHypercertMintActionPayloadSchema
+>;
 export type GreenGoodsImpactReportOutput = z.infer<typeof greenGoodsImpactReportOutputSchema>;
 export type GreenGoodsWeightScheme = z.infer<typeof greenGoodsWeightSchemeSchema>;

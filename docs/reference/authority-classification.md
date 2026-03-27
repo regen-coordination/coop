@@ -48,7 +48,7 @@ Each authority class has distinct responsibilities and should not be collapsed i
 **What it controls:**
 - Gardener lifecycle actions (add/remove self)
 - Work evidence submission
-- Impact report submission
+- Future member-scoped Green Goods artifact flows once Hypercert/Karma GAP packaging is wired in Coop
 - Receiving individual allocations or funds
 
 **Why it's separate from Safe ownership:**
@@ -91,7 +91,8 @@ Each authority class has distinct responsibilities and should not be collapsed i
 | `green-goods-add-gardener` | Member Account | Individual member action |
 | `green-goods-remove-gardener` | Member Account | Individual member action |
 | `green-goods-submit-work-submission` | Member Account | Individual member action |
-| `green-goods-submit-impact-report` | Member Account | Individual member action |
+
+Impact reporting is intentionally omitted from the direct on-chain action matrix here. Green Goods packages impact through Hypercert and Karma GAP workflows, not a standalone Coop EAS member attestation.
 
 ## Design Principles
 

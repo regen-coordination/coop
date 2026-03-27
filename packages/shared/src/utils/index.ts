@@ -76,26 +76,178 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
+const TRACKING_QUERY_PARAM_NAMES = new Set([
+  'dclid',
+  'fbclid',
+  'gclid',
+  'hsctatracking',
+  'igshid',
+  'mc_cid',
+  'mc_eid',
+  'mkt_tok',
+  'msclkid',
+  'oly_anon_id',
+  'oly_enc_id',
+  'rb_clickid',
+  'ref',
+  'ref_src',
+  'si',
+  'source',
+  'spm',
+  'src',
+  'trk',
+  'vero_conv',
+  'vero_id',
+  '_hsenc',
+  '_hsmi',
+]);
+
+const SENSITIVE_QUERY_PARAM_NAMES = new Set([
+  'access_token',
+  'api_key',
+  'apikey',
+  'auth',
+  'auth_token',
+  'credential',
+  'id_token',
+  'oauth_token',
+  'password',
+  'refresh_token',
+  'secret',
+  'session',
+  'session_id',
+  'sessionid',
+  'sig',
+  'signature',
+  'token',
+]);
+
+const SENSITIVE_OBJECT_KEY_NAMES = new Set([
+  'access_token',
+  'api_key',
+  'apikey',
+  'auth',
+  'auth_token',
+  'credential',
+  'id_token',
+  'oauth_token',
+  'password',
+  'refresh_token',
+  'secret',
+  'session',
+  'session_id',
+  'sessionid',
+  'sig',
+  'signature',
+  'token',
+]);
+
+const INLINE_URL_PATTERN = /https?:\/\/\S+/gi;
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const PHONE_PATTERN = /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?){2}\d{4}\b/g;
+const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9\-._~+/]+=*\b/gi;
+const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+\b/g;
+const HEX_SECRET_PATTERN = /\b0x[a-fA-F0-9]{64}\b/g;
+const KEY_VALUE_SECRET_PATTERN =
+  /\b(access_token|api_key|apikey|auth_token|id_token|oauth_token|password|refresh_token|secret|session(?:_id|id)?|sig(?:nature)?|token)\b\s*[:=]\s*([^\s,;]+)/gi;
+
+function shouldStripCanonicalQueryParam(key: string) {
+  const normalized = key.trim().toLowerCase();
+  return (
+    normalized.startsWith('utm_') ||
+    TRACKING_QUERY_PARAM_NAMES.has(normalized) ||
+    SENSITIVE_QUERY_PARAM_NAMES.has(normalized)
+  );
+}
+
 export function canonicalizeUrl(rawUrl: string) {
   try {
     const url = new URL(rawUrl);
+    url.username = '';
+    url.password = '';
     url.hash = '';
-    const trackingParams = [
-      'utm_source',
-      'utm_medium',
-      'utm_campaign',
-      'utm_term',
-      'utm_content',
-      'gclid',
-      'fbclid',
-    ];
-    for (const key of trackingParams) {
-      url.searchParams.delete(key);
+    for (const key of [...url.searchParams.keys()]) {
+      if (shouldStripCanonicalQueryParam(key)) {
+        url.searchParams.delete(key);
+      }
+    }
+    if ([...url.searchParams.keys()].length === 0) {
+      url.search = '';
     }
     return url.toString();
   } catch {
     return rawUrl;
   }
+}
+
+function splitTrailingUrlPunctuation(value: string) {
+  const match = value.match(/[),.;!?]+$/);
+  if (!match) {
+    return {
+      core: value,
+      suffix: '',
+    };
+  }
+  return {
+    core: value.slice(0, -match[0].length),
+    suffix: match[0],
+  };
+}
+
+function isSensitiveObjectKey(key: string) {
+  const normalized = key.trim().toLowerCase();
+  return (
+    SENSITIVE_OBJECT_KEY_NAMES.has(normalized) ||
+    normalized.endsWith('_token') ||
+    normalized.endsWith('_secret')
+  );
+}
+
+export function sanitizeTextForInference(value: string) {
+  let sanitized = value.replace(INLINE_URL_PATTERN, (match) => {
+    const { core, suffix } = splitTrailingUrlPunctuation(match);
+    return `${canonicalizeUrl(core)}${suffix}`;
+  });
+
+  sanitized = sanitized.replace(BEARER_TOKEN_PATTERN, 'Bearer [redacted-token]');
+  sanitized = sanitized.replace(JWT_PATTERN, '[redacted-token]');
+  sanitized = sanitized.replace(HEX_SECRET_PATTERN, '[redacted-secret]');
+  sanitized = sanitized.replace(KEY_VALUE_SECRET_PATTERN, (_, key: string) => `${key}=[redacted]`);
+  sanitized = sanitized.replace(EMAIL_PATTERN, '[redacted-email]');
+  sanitized = sanitized.replace(PHONE_PATTERN, '[redacted-phone]');
+
+  return sanitized;
+}
+
+export function sanitizeValueForInference(
+  value: unknown,
+  options?: {
+    maxStringWords?: number;
+  },
+): unknown {
+  const maxStringWords = options?.maxStringWords ?? 80;
+
+  if (typeof value === 'string') {
+    return truncateWords(sanitizeTextForInference(value), maxStringWords);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeValueForInference(entry, options));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => {
+        if (isSensitiveObjectKey(key)) {
+          return [key, '[redacted]'];
+        }
+
+        return [key, sanitizeValueForInference(entry, options)];
+      }),
+    );
+  }
+
+  return value;
 }
 
 export function extractDomain(rawUrl: string) {

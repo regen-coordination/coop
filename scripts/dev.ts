@@ -183,7 +183,6 @@ async function waitForHttpReady(url: string, timeoutMs: number) {
 
 function createWaiter(description: string, timeoutMs: number) {
   let settled = false;
-  let timeout: ReturnType<typeof setTimeout> | undefined;
   let resolvePromise!: () => void;
   let rejectPromise!: (error: Error) => void;
 
@@ -211,7 +210,7 @@ function createWaiter(description: string, timeoutMs: number) {
     };
   });
 
-  timeout = setTimeout(() => {
+  const timeout = setTimeout(() => {
     rejectPromise(new Error(`Timed out waiting for ${description}.`));
   }, timeoutMs);
 
@@ -678,7 +677,10 @@ async function main() {
     }
   }
 
-  const extensionReady = createWaiter('the extension watcher to finish its initial WXT build', 240_000);
+  const extensionReady = createWaiter(
+    'the extension watcher to finish its initial WXT build',
+    240_000,
+  );
 
   const extensionProcess = spawnManagedProcess('extension', ['bun', 'run', 'dev:extension'], {
     env: {
@@ -700,7 +702,9 @@ async function main() {
   trackManagedProcess(extensionProcess);
   extensionProcess.child.once('exit', (code, signal) => {
     extensionReady.reject(
-      new Error(`Extension dev exited before readiness (code=${code ?? 'null'} signal=${signal ?? 'null'}).`),
+      new Error(
+        `Extension dev exited before readiness (code=${code ?? 'null'} signal=${signal ?? 'null'}).`,
+      ),
     );
   });
   await extensionReady.promise;

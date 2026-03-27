@@ -340,6 +340,7 @@ describe('log', () => {
       ['green-goods-submit-work-approval', 'Green Goods submit work approval'],
       ['green-goods-create-assessment', 'Green Goods create assessment'],
       ['green-goods-sync-gap-admins', 'Green Goods sync GAP admins'],
+      ['green-goods-mint-hypercert', 'Green Goods mint hypercert'],
     ] as const)('maps %s to %s', (actionClass, expected) => {
       expect(formatActionClassLabel(actionClass)).toBe(expected);
     });

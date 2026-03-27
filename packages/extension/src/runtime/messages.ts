@@ -17,7 +17,6 @@ import type {
   ExecutionPermit,
   ExtensionIconState,
   GreenGoodsAssessmentRequest,
-  GreenGoodsDomain,
   GreenGoodsWorkApprovalRequest,
   GreenGoodsWorkSubmissionOutput,
   IntegrationMode,
@@ -329,22 +328,6 @@ export type RuntimeRequest =
       };
     }
   | {
-      type: 'submit-green-goods-impact-report';
-      payload: {
-        coopId: string;
-        memberId: string;
-        report: {
-          title: string;
-          description: string;
-          domain: GreenGoodsDomain;
-          reportCid: string;
-          metricsSummary: string;
-          reportingPeriodStart: number;
-          reportingPeriodEnd: number;
-        };
-      };
-    }
-  | {
       type: 'submit-green-goods-work-submission';
       payload: {
         coopId: string;
@@ -407,7 +390,7 @@ export type RuntimeRequest =
   | { type: 'set-anchor-mode'; payload: { enabled: boolean } }
   | { type: 'set-capture-mode'; payload: { captureMode: CaptureMode } }
   | { type: 'set-active-coop'; payload: { coopId: string } }
-  | { type: 'persist-coop-state'; payload: { state: CoopSharedState } }
+  | { type: 'persist-coop-state'; payload: { coopId: string; docUpdate: Uint8Array } }
   | { type: 'report-sync-health'; payload: { syncError: boolean; note?: string } }
   | {
       type: 'resolve-onchain-state';
@@ -546,6 +529,8 @@ export type RuntimeRequest =
           agentPrivateKey?: string;
           spaceDelegation: string;
           proofs?: string[];
+          filecoinWitnessRpcUrl?: string;
+          filecoinWitnessRpcToken?: string;
         };
       };
     }

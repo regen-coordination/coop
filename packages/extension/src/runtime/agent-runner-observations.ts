@@ -8,6 +8,25 @@ import { AGENT_HIGH_CONFIDENCE_THRESHOLD } from './agent-config';
 import { compact, findAuthenticatedCoopMember } from './agent-runner-state';
 import type { SkillExecutionContext } from './agent-runner-state';
 
+function hasActiveTranscriptObservation(
+  observation: AgentObservation,
+  captureId: string | undefined,
+  observations: AgentObservation[] | undefined,
+) {
+  if (!captureId || !observations?.length) {
+    return false;
+  }
+
+  return observations.some(
+    (candidate) =>
+      candidate.id !== observation.id &&
+      candidate.trigger === 'audio-transcript-ready' &&
+      candidate.captureId === captureId &&
+      candidate.status !== 'dismissed' &&
+      candidate.status !== 'completed',
+  );
+}
+
 export function isObservationRunnableForAuthorizedCoops(input: {
   observation: AgentObservation;
   authorizedCoopIds: Set<string>;
@@ -27,6 +46,7 @@ export function observationPriority(trigger: AgentObservation['trigger']) {
     case 'roundup-batch-ready':
       return 0;
     case 'high-confidence-draft':
+    case 'audio-transcript-ready':
     case 'receiver-backlog':
       return 1;
     case 'memory-insight-due':
@@ -61,6 +81,7 @@ export function prioritizeObservations(observations: AgentObservation[]) {
 export function getObservationDismissReason(input: {
   observation: AgentObservation;
   context: SkillExecutionContext;
+  observations?: AgentObservation[];
 }) {
   const coopId = input.context.coop?.profile.id;
   const memberId = input.context.coop
@@ -93,8 +114,38 @@ export function getObservationDismissReason(input: {
       ) {
         return 'Receiver capture no longer needs backlog handling.';
       }
+      if (
+        input.context.capture.kind === 'audio' &&
+        hasActiveTranscriptObservation(
+          input.observation,
+          input.context.capture.id,
+          input.observations,
+        )
+      ) {
+        return 'Audio transcript observation supersedes generic receiver backlog handling.';
+      }
       if (!isReceiverCaptureVisibleForMemberContext(input.context.capture, coopId, memberId)) {
         return 'Receiver capture is private to another member.';
+      }
+      return null;
+    case 'audio-transcript-ready':
+      if (!input.context.capture) {
+        return 'Audio capture no longer exists.';
+      }
+      if (input.context.capture.kind !== 'audio') {
+        return 'Transcript observation no longer points to an audio capture.';
+      }
+      if (
+        input.context.capture.intakeStatus === 'archived' ||
+        input.context.capture.intakeStatus === 'published'
+      ) {
+        return 'Audio capture no longer needs transcript follow-up.';
+      }
+      if (!input.context.observation.payload?.transcriptText) {
+        return 'Transcript text is no longer available for inference.';
+      }
+      if (!isReceiverCaptureVisibleForMemberContext(input.context.capture, coopId, memberId)) {
+        return 'Audio capture is private to another member.';
       }
       return null;
     case 'stale-archive-receipt':

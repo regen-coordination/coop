@@ -225,6 +225,49 @@ describe('Yjs per-artifact map migration', () => {
     expect(JSON.parse((fieldMap as Y.Map<string>).get('title') ?? '')).toBe('Test');
   });
 
+  it('omits undefined artifact fields so published artifacts stay readable', () => {
+    const state = buildTestState([
+      {
+        id: 'a1',
+        title: 'Published draft artifact',
+        previewImageUrl: undefined,
+        archiveWorthiness: undefined,
+      },
+    ]);
+    const doc = new Y.Doc();
+
+    writeCoopState(doc, state);
+
+    const result = readCoopState(doc);
+    expect(result.artifacts).toHaveLength(1);
+    expect(result.artifacts[0]?.title).toBe('Published draft artifact');
+  });
+
+  it('clears stale undefinedable fields from the v2 artifact map on rewrite', () => {
+    const state = buildTestState([
+      {
+        id: 'a1',
+        title: 'Artifact with preview',
+        previewImageUrl: 'https://example.com/preview.png',
+      },
+    ]);
+    const doc = new Y.Doc();
+
+    writeCoopState(doc, state);
+    writeCoopState(doc, {
+      ...state,
+      artifacts: state.artifacts.map((artifact) => ({
+        ...artifact,
+        previewImageUrl: undefined,
+      })),
+    });
+
+    const artifactsV2 = doc.getMap<Y.Map<string>>('coop-artifacts-v2');
+    const fieldMap = artifactsV2.get('a1');
+    expect(fieldMap?.has('previewImageUrl')).toBe(false);
+    expect(readCoopState(doc).artifacts[0]?.previewImageUrl).toBeUndefined();
+  });
+
   it('createCoopDoc initialises both old and new format', () => {
     const state = buildTestState([{ id: 'a1' }]);
     const doc = createCoopDoc(state);

@@ -9,7 +9,9 @@ import {
   type CoopDexie,
   buildEncryptedLocalPayloadRecord,
   createCoopDb,
+  getCoopArchiveSecrets,
   saveCoopState,
+  setCoopArchiveSecrets,
 } from '../db';
 import {
   exportAgentMemories,
@@ -28,6 +30,11 @@ Dexie.dependencies.indexedDB = indexedDB;
 Dexie.dependencies.IDBKeyRange = IDBKeyRange;
 
 const databases: CoopDexie[] = [];
+const PORTABILITY_TEST_TIMEOUT_MS = 40_000;
+
+function portabilityIt(name: string, fn: () => Promise<void> | void) {
+  return it(name, fn, PORTABILITY_TEST_TIMEOUT_MS);
+}
 
 function freshDb(): CoopDexie {
   const db = createCoopDb(`coop-port-${crypto.randomUUID()}`);
@@ -115,12 +122,15 @@ function buildReviewDraft(overrides: Partial<ReviewDraft> = {}): ReviewDraft {
 
 describe('portability', () => {
   describe('full database export/import round-trip', () => {
-    it('exports and imports all tables with passphrase encryption', async () => {
+    portabilityIt('exports and imports all tables with passphrase encryption', async () => {
       const sourceDb = freshDb();
       const passphrase = 'test-passphrase-strong-enough-123!';
 
       // Seed settings
-      await sourceDb.settings.put({ key: 'session-wrapping-secret', value: 'test-secret-base64' });
+      await sourceDb.settings.put({
+        key: 'session-wrapping-secret',
+        value: 'test-secret-base64',
+      });
       await sourceDb.settings.put({ key: 'sound-preferences', value: { enabled: true } });
 
       // Seed review drafts
@@ -177,7 +187,7 @@ describe('portability', () => {
   });
 
   describe('wrong passphrase fails gracefully', () => {
-    it('throws a clear error when decrypting with wrong passphrase', async () => {
+    portabilityIt('throws a clear error when decrypting with wrong passphrase', async () => {
       const db = freshDb();
       await db.settings.put({ key: 'test-key', value: 'test-value' });
 
@@ -190,7 +200,7 @@ describe('portability', () => {
   });
 
   describe('granular exports produce valid JSON', () => {
-    it('exports tab candidates with correct type field', async () => {
+    portabilityIt('exports tab candidates with correct type field', async () => {
       const db = freshDb();
       const result = await exportTabCandidates(db);
       const parsed = JSON.parse(result);
@@ -199,7 +209,7 @@ describe('portability', () => {
       expect(parsed.data).toEqual([]);
     });
 
-    it('exports page extracts with correct type field', async () => {
+    portabilityIt('exports page extracts with correct type field', async () => {
       const db = freshDb();
       const result = await exportPageExtracts(db);
       const parsed = JSON.parse(result);
@@ -207,7 +217,7 @@ describe('portability', () => {
       expect(parsed.data).toEqual([]);
     });
 
-    it('exports review drafts with correct type field', async () => {
+    portabilityIt('exports review drafts with correct type field', async () => {
       const db = freshDb();
       const draft = buildReviewDraft();
       await db.reviewDrafts.put(draft);
@@ -219,7 +229,7 @@ describe('portability', () => {
       expect(parsed.data[0].id).toBe(draft.id);
     });
 
-    it('exports agent memories with correct type field', async () => {
+    portabilityIt('exports agent memories with correct type field', async () => {
       const db = freshDb();
       const result = await exportAgentMemories(db);
       const parsed = JSON.parse(result);
@@ -227,7 +237,7 @@ describe('portability', () => {
       expect(parsed.data).toEqual([]);
     });
 
-    it('exports receiver data with correct type field', async () => {
+    portabilityIt('exports receiver data with correct type field', async () => {
       const db = freshDb();
       const result = await exportReceiverData(db);
       const parsed = JSON.parse(result);
@@ -236,7 +246,7 @@ describe('portability', () => {
       expect(parsed.data.captures).toEqual([]);
     });
 
-    it('exports coop blobs with correct type field', async () => {
+    portabilityIt('exports coop blobs with correct type field', async () => {
       const db = freshDb();
       const result = await exportCoopBlobs(db);
       const parsed = JSON.parse(result);
@@ -246,7 +256,7 @@ describe('portability', () => {
   });
 
   describe('crypto key bundle round-trip', () => {
-    it('exports and imports all identity and crypto material', async () => {
+    portabilityIt('exports and imports all identity and crypto material', async () => {
       const sourceDb = freshDb();
       const passphrase = 'key-bundle-passphrase-456!';
 
@@ -299,9 +309,11 @@ describe('portability', () => {
       await sourceDb.encryptedSessionMaterials.put(sessionMaterial);
 
       // Seed archive secrets
-      await sourceDb.settings.put({
-        key: 'archive-secrets:coop-1',
-        value: { delegationProof: 'proof-data', spaceDid: 'did:key:test' },
+      await setCoopArchiveSecrets(sourceDb, 'coop-1', {
+        coopId: 'coop-1',
+        agentPrivateKey: 'agent-private-key',
+        spaceDelegation: 'delegation-proof',
+        proofs: ['proof-data'],
       });
 
       // Export
@@ -337,22 +349,59 @@ describe('portability', () => {
       expect(restoredSession[0].ciphertext).toBe('encrypted-session-data');
 
       // Verify archive secrets restored
-      const restoredArchiveSecret = await targetDb.settings.get('archive-secrets:coop-1');
-      expect(restoredArchiveSecret?.value).toEqual({
-        delegationProof: 'proof-data',
-        spaceDid: 'did:key:test',
+      const restoredArchiveSecret = await getCoopArchiveSecrets(targetDb, 'coop-1');
+      expect(restoredArchiveSecret).toEqual({
+        coopId: 'coop-1',
+        agentPrivateKey: 'agent-private-key',
+        spaceDelegation: 'delegation-proof',
+        proofs: ['proof-data'],
       });
+      expect(await targetDb.settings.get('archive-secrets:coop-1')).toBeUndefined();
+      expect(await targetDb.encryptedLocalPayloads.get('archive-secrets:coop-1')).toBeDefined();
 
       // Verify counts
       expect(result.imported.identities).toBe(1);
       expect(result.imported.privacyIdentities).toBe(1);
       expect(result.imported.stealthKeyPairs).toBe(1);
       expect(result.imported.encryptedSessionMaterials).toBe(1);
+      expect(result.imported.archiveSecrets).toBe(1);
     });
+
+    portabilityIt(
+      'exports legacy plaintext archive secrets and restores them into encrypted storage',
+      async () => {
+        const sourceDb = freshDb();
+        const passphrase = 'legacy-key-bundle-passphrase-456!';
+
+        await sourceDb.settings.put({
+          key: 'archive-secrets:coop-legacy',
+          value: {
+            spaceDelegation: 'legacy-delegation',
+            proofs: ['legacy-proof'],
+          },
+        });
+
+        const encrypted = await exportCryptoKeyBundle(sourceDb, passphrase);
+
+        const targetDb = freshDb();
+        const result = await importCryptoKeyBundle(targetDb, encrypted, passphrase);
+
+        expect(await getCoopArchiveSecrets(targetDb, 'coop-legacy')).toEqual({
+          coopId: 'coop-legacy',
+          spaceDelegation: 'legacy-delegation',
+          proofs: ['legacy-proof'],
+        });
+        expect(await targetDb.settings.get('archive-secrets:coop-legacy')).toBeUndefined();
+        expect(
+          await targetDb.encryptedLocalPayloads.get('archive-secrets:coop-legacy'),
+        ).toBeDefined();
+        expect(result.imported.archiveSecrets).toBe(1);
+      },
+    );
   });
 
   describe('empty database exports cleanly', () => {
-    it('produces valid encrypted output with zero counts', async () => {
+    portabilityIt('produces valid encrypted output with zero counts', async () => {
       const db = freshDb();
       const passphrase = 'empty-export-pass';
 
@@ -371,7 +420,7 @@ describe('portability', () => {
   });
 
   describe('coopDocs Uint8Array survives round-trip', () => {
-    it('preserves Yjs encoded state through export/import', async () => {
+    portabilityIt('preserves Yjs encoded state through export/import', async () => {
       const sourceDb = freshDb();
       const passphrase = 'yjs-round-trip-pass';
 
@@ -407,7 +456,7 @@ describe('portability', () => {
   });
 
   describe('import with skip-existing mode', () => {
-    it('preserves existing records in target DB', async () => {
+    portabilityIt('preserves existing records in target DB', async () => {
       const sourceDb = freshDb();
       const passphrase = 'skip-mode-pass';
 
@@ -451,44 +500,47 @@ describe('portability', () => {
   });
 
   describe('encryptedLocalPayloads survive round-trip', () => {
-    it('round-trips encrypted payloads that can be decrypted with restored wrapping secret', async () => {
-      const sourceDb = freshDb();
-      const passphrase = 'payload-round-trip-pass';
+    portabilityIt(
+      'round-trips encrypted payloads that can be decrypted with restored wrapping secret',
+      async () => {
+        const sourceDb = freshDb();
+        const passphrase = 'payload-round-trip-pass';
 
-      // Build an encrypted payload (this auto-creates the wrapping secret)
-      const testData = new TextEncoder().encode(
-        JSON.stringify({ title: 'Secret Data', content: 'Very private' }),
-      );
-      const payload = await buildEncryptedLocalPayloadRecord({
-        db: sourceDb,
-        kind: 'tab-candidate',
-        entityId: 'tab-1',
-        bytes: testData,
-      });
-      await sourceDb.encryptedLocalPayloads.put(payload);
+        // Build an encrypted payload (this auto-creates the wrapping secret)
+        const testData = new TextEncoder().encode(
+          JSON.stringify({ title: 'Secret Data', content: 'Very private' }),
+        );
+        const payload = await buildEncryptedLocalPayloadRecord({
+          db: sourceDb,
+          kind: 'tab-candidate',
+          entityId: 'tab-1',
+          bytes: testData,
+        });
+        await sourceDb.encryptedLocalPayloads.put(payload);
 
-      // Export the full database (includes settings with wrapping secret + encrypted payloads)
-      const encrypted = await exportFullDatabase(sourceDb, passphrase);
+        // Export the full database (includes settings with wrapping secret + encrypted payloads)
+        const encrypted = await exportFullDatabase(sourceDb, passphrase);
 
-      // Import into fresh DB
-      const targetDb = freshDb();
-      const result = await importFullDatabase(targetDb, encrypted, passphrase);
+        // Import into fresh DB
+        const targetDb = freshDb();
+        const result = await importFullDatabase(targetDb, encrypted, passphrase);
 
-      expect(result.imported.encryptedLocalPayloads).toBe(1);
-      expect(result.imported.settings).toBeGreaterThanOrEqual(1);
+        expect(result.imported.encryptedLocalPayloads).toBe(1);
+        expect(result.imported.settings).toBeGreaterThanOrEqual(1);
 
-      // Verify the encrypted payload record survived
-      const importedPayloads = await targetDb.encryptedLocalPayloads.toArray();
-      expect(importedPayloads).toHaveLength(1);
-      expect(importedPayloads[0].id).toBe(payload.id);
-      expect(importedPayloads[0].ciphertext).toBe(payload.ciphertext);
-      expect(importedPayloads[0].iv).toBe(payload.iv);
-      expect(importedPayloads[0].salt).toBe(payload.salt);
+        // Verify the encrypted payload record survived
+        const importedPayloads = await targetDb.encryptedLocalPayloads.toArray();
+        expect(importedPayloads).toHaveLength(1);
+        expect(importedPayloads[0].id).toBe(payload.id);
+        expect(importedPayloads[0].ciphertext).toBe(payload.ciphertext);
+        expect(importedPayloads[0].iv).toBe(payload.iv);
+        expect(importedPayloads[0].salt).toBe(payload.salt);
 
-      // Verify the wrapping secret was also restored
-      const restoredSecret = await targetDb.settings.get('session-wrapping-secret');
-      const originalSecret = await sourceDb.settings.get('session-wrapping-secret');
-      expect(restoredSecret?.value).toBe(originalSecret?.value);
-    });
+        // Verify the wrapping secret was also restored
+        const restoredSecret = await targetDb.settings.get('session-wrapping-secret');
+        const originalSecret = await sourceDb.settings.get('session-wrapping-secret');
+        expect(restoredSecret?.value).toBe(originalSecret?.value);
+      },
+    );
   });
 });

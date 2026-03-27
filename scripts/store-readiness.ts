@@ -32,10 +32,14 @@ const bundleBudgets = [
   { label: 'background.js', matcher: /^background\.js$/u, limitBytes: 700_000 },
   {
     label: 'transformers chunk',
-    matcher: /^assets\/transformers-[^/]+\.js$/u,
+    matcher: /^(?:assets|chunks)\/transformers-[^/]+\.js$/u,
     limitBytes: 1_000_000,
   },
-  { label: 'webllm chunk', matcher: /^assets\/webllm-[^/]+\.js$/u, limitBytes: 6_500_000 },
+  {
+    label: 'webllm chunk',
+    matcher: /^(?:assets|chunks)\/webllm-[^/]+\.js$/u,
+    limitBytes: 6_500_000,
+  },
   {
     label: 'packaged ONNX wasm',
     matcher: /^assets\/ort-wasm-simd-threaded\.jsep\.wasm$/u,

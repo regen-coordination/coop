@@ -78,6 +78,10 @@ describe('resolveAuthorityClass', () => {
     expect(resolveAuthorityClass('green-goods-add-gardener')).toBe('member-account');
   });
 
+  it('returns undefined for green-goods-submit-impact-report', () => {
+    expect(resolveAuthorityClass('green-goods-submit-impact-report')).toBeUndefined();
+  });
+
   it('returns undefined for unknown action class', () => {
     expect(resolveAuthorityClass('unknown-action')).toBeUndefined();
   });
@@ -98,6 +102,7 @@ describe('getActionsForAuthority', () => {
     expect(actions).toContain('green-goods-submit-work-approval');
     expect(actions).toContain('green-goods-create-assessment');
     expect(actions).toContain('green-goods-sync-gap-admins');
+    expect(actions).toContain('green-goods-mint-hypercert');
   });
 
   it('returns session-executor actions', () => {
@@ -113,7 +118,7 @@ describe('getActionsForAuthority', () => {
     expect(actions).toContain('green-goods-add-gardener');
     expect(actions).toContain('green-goods-remove-gardener');
     expect(actions).toContain('green-goods-submit-work-submission');
-    expect(actions).toContain('green-goods-submit-impact-report');
+    expect(actions).not.toContain('green-goods-submit-impact-report');
   });
 
   it('returns empty array for semaphore-identity', () => {
@@ -128,6 +133,10 @@ describe('requiresSafeOwner', () => {
 
   it('returns true for green-goods-submit-work-approval', () => {
     expect(requiresSafeOwner('green-goods-submit-work-approval')).toBe(true);
+  });
+
+  it('returns true for green-goods-mint-hypercert', () => {
+    expect(requiresSafeOwner('green-goods-mint-hypercert')).toBe(true);
   });
 
   it('returns false for session-executor action', () => {
@@ -164,6 +173,10 @@ describe('requiresMemberAccount', () => {
 
   it('returns true for green-goods-submit-work-submission', () => {
     expect(requiresMemberAccount('green-goods-submit-work-submission')).toBe(true);
+  });
+
+  it('returns false for green-goods-submit-impact-report', () => {
+    expect(requiresMemberAccount('green-goods-submit-impact-report')).toBe(false);
   });
 
   it('returns false for safe-owner action', () => {

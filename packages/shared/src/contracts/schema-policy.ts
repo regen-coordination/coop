@@ -31,6 +31,7 @@ export const policyActionClassSchema = z.enum([
   'green-goods-submit-work-approval',
   'green-goods-create-assessment',
   'green-goods-sync-gap-admins',
+  'green-goods-mint-hypercert',
   'green-goods-add-gardener',
   'green-goods-remove-gardener',
   'green-goods-submit-work-submission',

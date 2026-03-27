@@ -1,4 +1,9 @@
-import type { GreenGoodsAssessmentRequest, GreenGoodsWorkApprovalRequest } from '@coop/shared';
+import {
+  buildGreenGoodsMintHypercertPayload,
+  type GreenGoodsAssessmentRequest,
+  type GreenGoodsHypercertMintRequest,
+  type GreenGoodsWorkApprovalRequest,
+} from '@coop/shared';
 import { sendRuntimeMessage } from '../../../runtime/messages';
 import type { useDashboard } from './useDashboard';
 
@@ -12,36 +17,6 @@ export interface SidepanelGreenGoodsDeps {
 
 export function useSidepanelGreenGoods(deps: SidepanelGreenGoodsDeps) {
   const { activeCoop, activeMember, setMessage, loadDashboard, loadAgentDashboard } = deps;
-
-  async function handleSubmitGreenGoodsImpactReport(input: {
-    title: string;
-    description: string;
-    domain: 'solar' | 'agro' | 'edu' | 'waste';
-    reportCid: string;
-    metricsSummary: string;
-    reportingPeriodStart: number;
-    reportingPeriodEnd: number;
-  }) {
-    if (!activeCoop || !activeMember) {
-      setMessage('Open the coop as the member who should submit this report first.');
-      return;
-    }
-
-    const response = await sendRuntimeMessage({
-      type: 'submit-green-goods-impact-report',
-      payload: {
-        coopId: activeCoop.profile.id,
-        memberId: activeMember.id,
-        report: input,
-      },
-    });
-    if (!response.ok) {
-      setMessage(response.error ?? 'Could not submit the Green Goods impact report.');
-      return;
-    }
-    setMessage('Green Goods impact report submitted from your member smart account.');
-    await loadDashboard();
-  }
 
   async function handleSubmitGreenGoodsWorkSubmission(input: {
     actionUid: number;
@@ -119,6 +94,52 @@ export function useSidepanelGreenGoods(deps: SidepanelGreenGoodsDeps) {
     await loadDashboard();
   }
 
+  async function handleQueueGreenGoodsHypercertMint(
+    coopId: string,
+    request: GreenGoodsHypercertMintRequest,
+  ) {
+    if (!activeCoop || !activeMember || activeCoop.profile.id !== coopId) {
+      setMessage('Open the coop as the trusted operator who should queue this Hypercert first.');
+      return;
+    }
+
+    const response = await sendRuntimeMessage({
+      type: 'propose-action',
+      payload: {
+        actionClass: 'green-goods-mint-hypercert',
+        coopId,
+        memberId: activeMember.id,
+        payload: buildGreenGoodsMintHypercertPayload({
+          coopId,
+          gardenAddress: request.gardenAddress,
+          title: request.title,
+          description: request.description,
+          workScopes: request.workScopes,
+          impactScopes: request.impactScopes,
+          workTimeframeStart: request.workTimeframeStart,
+          workTimeframeEnd: request.workTimeframeEnd,
+          impactTimeframeStart: request.impactTimeframeStart,
+          impactTimeframeEnd: request.impactTimeframeEnd,
+          externalUrl: request.externalUrl,
+          imageUri: request.imageUri,
+          domain: request.domain,
+          sdgs: request.sdgs,
+          capitals: request.capitals,
+          outcomes: request.outcomes,
+          allowlist: request.allowlist,
+          attestations: request.attestations,
+          gapProjectUid: request.gapProjectUid,
+        }),
+      },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not queue the Green Goods Hypercert mint.');
+      return;
+    }
+    setMessage('Green Goods Hypercert mint queued for approval.');
+    await loadDashboard();
+  }
+
   async function handleQueueGreenGoodsMemberSync(coopId: string) {
     const response = await sendRuntimeMessage<{
       proposed: number;
@@ -149,11 +170,11 @@ export function useSidepanelGreenGoods(deps: SidepanelGreenGoodsDeps) {
   }
 
   return {
-    handleSubmitGreenGoodsImpactReport,
     handleSubmitGreenGoodsWorkSubmission,
     handleQueueGreenGoodsWorkApproval,
     handleQueueGreenGoodsAssessment,
     handleQueueGreenGoodsGapAdminSync,
+    handleQueueGreenGoodsHypercertMint,
     handleQueueGreenGoodsMemberSync,
   };
 }

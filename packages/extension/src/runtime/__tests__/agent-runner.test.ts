@@ -17,6 +17,80 @@ afterEach(() => {
 
 // --- Mocks for @coop/shared ---
 
+function testSanitizeTextForInference(value: string) {
+  let sanitized = value.replace(/https?:\/\/\S+/gi, (match) => {
+    try {
+      const url = new URL(match);
+      for (const key of [...url.searchParams.keys()]) {
+        const normalized = key.toLowerCase();
+        if (
+          normalized.startsWith('utm_') ||
+          normalized === 'access_token' ||
+          normalized === 'token'
+        ) {
+          url.searchParams.delete(key);
+        }
+      }
+      if ([...url.searchParams.keys()].length === 0) {
+        url.search = '';
+      }
+      return url.toString();
+    } catch {
+      return match;
+    }
+  });
+
+  sanitized = sanitized.replace(/\bBearer\s+\S+\b/gi, 'Bearer [redacted-token]');
+  sanitized = sanitized.replace(
+    /\beyJ[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+\.[A-Za-z0-9._-]+\b/g,
+    '[redacted-token]',
+  );
+  sanitized = sanitized.replace(
+    /\b(access_token|token|secret|password)\b\s*[:=]\s*([^\s,;]+)/gi,
+    (_match, key: string) => `${key}=[redacted]`,
+  );
+  sanitized = sanitized.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[redacted-email]');
+  sanitized = sanitized.replace(
+    /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?){2}\d{4}\b/g,
+    '[redacted-phone]',
+  );
+  return sanitized;
+}
+
+function testSanitizeValueForInference(
+  value: unknown,
+  options?: {
+    maxStringWords?: number;
+  },
+): unknown {
+  const maxStringWords = options?.maxStringWords ?? 80;
+
+  if (typeof value === 'string') {
+    return testSanitizeTextForInference(value).split(/\s+/u).slice(0, maxStringWords).join(' ');
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => testSanitizeValueForInference(entry, options));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => {
+        if (
+          ['access_token', 'api_key', 'auth_token', 'password', 'secret', 'token'].includes(
+            key.toLowerCase(),
+          )
+        ) {
+          return [key, '[redacted]'];
+        }
+        return [key, testSanitizeValueForInference(entry, options)];
+      }),
+    );
+  }
+
+  return value;
+}
+
 const mockSettings = new Map<string, unknown>();
 const mockDbSettings = {
   get: vi.fn(async (key: string) => {
@@ -44,6 +118,7 @@ const mockCreateCoopDb = vi.fn(() => ({
 }));
 
 const mockListAgentObservationsByStatus = vi.fn().mockResolvedValue([]);
+const mockListAgentObservations = vi.fn().mockResolvedValue([]);
 const mockListAgentPlansByObservationId = vi.fn().mockResolvedValue([]);
 const mockSaveAgentObservation = vi.fn().mockResolvedValue(undefined);
 const mockSaveAgentPlan = vi.fn().mockResolvedValue(undefined);
@@ -156,6 +231,7 @@ vi.mock('@coop/shared', () => ({
   readCoopState: vi.fn((doc: unknown) => doc),
   hydrateCoopDoc: vi.fn((encoded: unknown) => encoded),
   listAgentObservationsByStatus: mockListAgentObservationsByStatus,
+  listAgentObservations: mockListAgentObservations,
   listAgentPlansByObservationId: mockListAgentPlansByObservationId,
   saveAgentObservation: mockSaveAgentObservation,
   saveAgentPlan: mockSaveAgentPlan,
@@ -196,6 +272,8 @@ vi.mock('@coop/shared', () => ({
   createActionProposal: mockCreateActionProposal,
   nowIso: vi.fn(() => '2026-03-22T00:00:00.000Z'),
   truncateWords: vi.fn((text: string, _limit: number) => text.slice(0, 120)),
+  sanitizeTextForInference: testSanitizeTextForInference,
+  sanitizeValueForInference: testSanitizeValueForInference,
   isReviewDraftVisibleForMemberContext: vi.fn(() => true),
   isReceiverCaptureVisibleForMemberContext: vi.fn(() => true),
   isArchiveReceiptRefreshable: vi.fn(() => false),
@@ -465,6 +543,7 @@ describe('agent-runner', () => {
     mockDbAgentObservations.get.mockResolvedValue(undefined);
     mockGetAuthSession.mockResolvedValue(null);
     mockListAgentObservationsByStatus.mockResolvedValue([]);
+    mockListAgentObservations.mockResolvedValue([]);
     mockListAgentPlansByObservationId.mockResolvedValue([]);
     mockSaveAgentObservation.mockResolvedValue(undefined);
     mockSaveAgentPlan.mockResolvedValue(undefined);
@@ -1315,6 +1394,252 @@ describe('agent-runner', () => {
       expect(mockLogSkillComplete).toHaveBeenCalledWith(
         expect.objectContaining({ skillId: 'opportunity-extractor' }),
       );
+    });
+
+    it('does not warn when partial opportunity outputs are converted into memories', async () => {
+      mockSettings.set('agent-cycle-state', { running: false });
+      setupAuthorizedCoop();
+      setupExtractsForObservation(['extract-1']);
+
+      const obs = makeObservation({ id: 'obs-memory', payload: { extractIds: ['extract-1'] } });
+      mockListAgentObservationsByStatus.mockResolvedValue([obs]);
+      mockListAgentPlansByObservationId.mockResolvedValue([]);
+
+      const registered = makeRegisteredSkill({
+        id: 'opportunity-extractor',
+        outputSchemaRef: 'opportunity-extractor-output',
+        triggers: ['roundup-batch-ready'],
+      });
+      mockSelectSkillIdsForObservation.mockReturnValue(['opportunity-extractor']);
+      mockGetRegisteredSkill.mockReturnValue(registered);
+      mockListRegisteredSkills.mockReturnValue([registered]);
+
+      mockCompleteSkillOutput.mockResolvedValueOnce({
+        provider: 'transformers',
+        model: 'test-model',
+        output: { candidates: [{ id: 'c1', title: 'Test' }] },
+        durationMs: 150,
+      });
+
+      mockApplySkillOutput.mockResolvedValueOnce({
+        output: { candidates: [{ id: 'c1', title: 'Test' }] },
+        plan: mockCreateAgentPlan({
+          observationId: 'obs-memory',
+          provider: 'transformers',
+          confidence: 0.7,
+          goal: 'test',
+          rationale: 'test',
+        }),
+        createdDraftIds: [],
+        autoExecutedActionCount: 0,
+        errors: [],
+      });
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await runAgentCycle({ force: true });
+
+      const memoryWarning = warn.mock.calls.find(([message]) =>
+        String(message).includes('[agent-memory] Failed to write skill memories:'),
+      );
+      expect(memoryWarning).toBeUndefined();
+      warn.mockRestore();
+    });
+
+    it('rejects outputs that fall below a skill quality threshold before applying them', async () => {
+      mockSettings.set('agent-cycle-state', { running: false });
+      setupAuthorizedCoop();
+      setupExtractsForObservation(['extract-1']);
+
+      const obs = makeObservation({ id: 'obs-quality', payload: { extractIds: ['extract-1'] } });
+      mockListAgentObservationsByStatus.mockResolvedValue([obs]);
+      mockListAgentPlansByObservationId.mockResolvedValue([]);
+
+      const registered = makeRegisteredSkill({
+        id: 'capital-formation-brief',
+        outputSchemaRef: 'capital-formation-brief-output',
+        model: 'webllm',
+        qualityThreshold: 0.8,
+        triggers: ['roundup-batch-ready'],
+      });
+      mockSelectSkillIdsForObservation.mockReturnValue(['capital-formation-brief']);
+      mockGetRegisteredSkill.mockReturnValue(registered);
+      mockListRegisteredSkills.mockReturnValue([registered]);
+
+      mockCompleteSkillOutput.mockResolvedValueOnce({
+        provider: 'webllm',
+        model: 'test-model',
+        output: {
+          title: 'Weak brief',
+          summary: 'Thin summary.',
+          whyItMatters: 'Not enough detail.',
+          suggestedNextStep: 'Review it.',
+          tags: ['funding'],
+          targetCoopIds: [],
+          supportingCandidateIds: [],
+        },
+        durationMs: 90,
+      });
+      mockComputeOutputConfidence.mockReturnValueOnce(0.5);
+
+      await runAgentCycle({ force: true });
+
+      expect(mockCompleteSkillOutput).toHaveBeenCalled();
+      expect(mockApplySkillOutput).not.toHaveBeenCalled();
+      const lastSavedRun = mockSaveSkillRun.mock.calls.at(-1)?.[1];
+      expect(lastSavedRun).toMatchObject({
+        status: 'failed',
+        error: expect.stringMatching(/quality threshold/i),
+      });
+      expect(mockLogSkillFailed).toHaveBeenCalledWith(
+        expect.objectContaining({ skillId: 'capital-formation-brief' }),
+      );
+    });
+
+    it('dismisses generic audio backlog observations when a transcript observation is already active', async () => {
+      mockSettings.set('agent-cycle-state', { running: false });
+      setupAuthorizedCoop();
+
+      const receiverBacklog = makeObservation({
+        id: 'obs-audio-backlog',
+        trigger: 'receiver-backlog',
+        captureId: 'capture-audio-1',
+        title: 'Receiver backlog: voice note',
+        summary: 'Pending voice note',
+        payload: {
+          intakeStatus: 'private-intake',
+          receiverKind: 'audio',
+        },
+      });
+      const transcriptObservation = makeObservation({
+        id: 'obs-audio-transcript',
+        trigger: 'audio-transcript-ready',
+        captureId: 'capture-audio-1',
+        title: 'Voice note transcribed',
+        summary: 'Transcript ready',
+        payload: {
+          transcriptText: 'EPA grant requires a 20% local match.',
+        },
+      });
+
+      mockListAgentObservationsByStatus.mockResolvedValue([receiverBacklog]);
+      mockListAgentObservations.mockResolvedValue([receiverBacklog, transcriptObservation]);
+      mockListAgentPlansByObservationId.mockResolvedValue([]);
+      mockGetReceiverCapture.mockResolvedValue({
+        id: 'capture-audio-1',
+        coopId: 'coop-1',
+        memberId: 'member-1',
+        kind: 'audio',
+        title: 'Voice note',
+        note: 'Grant follow-up',
+        intakeStatus: 'private-intake',
+      });
+
+      await runAgentCycle({ force: true });
+
+      expect(mockCompleteSkillOutput).not.toHaveBeenCalled();
+      expect(mockSaveAgentObservation).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          id: 'obs-audio-backlog',
+          status: 'dismissed',
+          blockedReason: expect.stringMatching(/transcript observation supersedes/i),
+        }),
+      );
+    });
+
+    it('redacts sensitive observation, capture, extract, and memory content before inference', async () => {
+      mockSettings.set('agent-cycle-state', { running: false });
+      setupAuthorizedCoop({
+        profile: {
+          id: 'coop-1',
+          name: 'Test Coop',
+          purpose: 'Fund climate work without leaking member contact info.',
+        },
+      });
+
+      const obs = makeObservation({
+        id: 'obs-redaction',
+        trigger: 'audio-transcript-ready',
+        title: 'Voice note from jane@example.com',
+        summary: 'Call 415-555-0199 about token=secret',
+        captureId: 'capture-1',
+        payload: {
+          transcriptText:
+            'Reach jane@example.com at 415-555-0199. token=secret https://example.com/grants?id=42&utm_source=newsletter&access_token=abc',
+        },
+      });
+      mockListAgentObservationsByStatus.mockResolvedValue([obs]);
+      mockListAgentObservations.mockResolvedValue([obs]);
+      mockListAgentPlansByObservationId.mockResolvedValue([]);
+      mockGetReceiverCapture.mockResolvedValue({
+        id: 'capture-1',
+        coopId: 'coop-1',
+        memberId: 'member-1',
+        kind: 'audio',
+        title: 'Voice note',
+        note: 'Follow up with jane@example.com and Bearer abc123',
+        intakeStatus: 'private-intake',
+      });
+      mockGetPageExtract.mockResolvedValue(
+        makePageExtract({
+          metaDescription:
+            'Grant page contact jane@example.com phone 415-555-0199 https://example.com/contact?token=secret&utm_medium=email',
+        }),
+      );
+      mockQueryMemoriesForSkill.mockResolvedValue([
+        {
+          id: 'memory-1',
+          scope: 'coop',
+          type: 'decision-context',
+          content: 'Old note: email jane@example.com and use token=secret',
+          confidence: 0.7,
+          createdAt: '2026-03-20T00:00:00.000Z',
+          coopId: 'coop-1',
+          domain: 'general',
+        },
+      ]);
+
+      const registered = makeRegisteredSkill({
+        id: 'opportunity-extractor',
+        outputSchemaRef: 'opportunity-extractor-output',
+        triggers: ['audio-transcript-ready'],
+      });
+      mockSelectSkillIdsForObservation.mockReturnValue(['opportunity-extractor']);
+      mockGetRegisteredSkill.mockReturnValue(registered);
+      mockListRegisteredSkills.mockReturnValue([registered]);
+
+      mockCompleteSkillOutput.mockResolvedValueOnce({
+        provider: 'transformers',
+        model: 'test-model',
+        output: { candidates: [{ id: 'c1', title: 'Test' }] },
+        durationMs: 80,
+      });
+      mockApplySkillOutput.mockResolvedValueOnce({
+        output: { candidates: [{ id: 'c1', title: 'Test' }] },
+        plan: mockCreateAgentPlan({
+          observationId: 'obs-redaction',
+          provider: 'transformers',
+          confidence: 0.7,
+          goal: 'test',
+          rationale: 'test',
+        }),
+        createdDraftIds: [],
+        autoExecutedActionCount: 0,
+        errors: [],
+      });
+
+      await runAgentCycle({ force: true });
+
+      const prompt = mockCompleteSkillOutput.mock.calls[0]?.[0]?.prompt as string;
+      expect(prompt).toContain('[redacted-email]');
+      expect(prompt).toContain('[redacted-phone]');
+      expect(prompt).toContain('token=[redacted]');
+      expect(prompt).toContain('https://example.com/grants?id=42');
+      expect(prompt).not.toContain('jane@example.com');
+      expect(prompt).not.toContain('415-555-0199');
+      expect(prompt).not.toContain('access_token=abc');
+      expect(prompt).not.toContain('utm_source=newsletter');
     });
   });
 });

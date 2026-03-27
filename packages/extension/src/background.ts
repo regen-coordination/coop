@@ -5,13 +5,13 @@ import {
   buildAgentLogExport,
   buildAgentManifest,
   clearSensitiveLocalData,
-  coopSharedStateSchema,
   getAuthSession,
   getPrivacyIdentitiesForCoop,
   getPrivacyIdentity,
   getSoundPreferences,
   getStealthKeyPair,
   listReceiverPairings,
+  mergeCoopStateUpdate,
   migrateLegacySensitiveRecords,
   pruneSensitiveLocalData,
   purgeQuarantinedKnowledgeSkills,
@@ -61,12 +61,12 @@ import {
 } from './background/context';
 
 import { handleAlarmEvent } from './background/alarm-dispatch';
+// ---- Operator ----
+import { getActiveReviewContextForSession } from './background/operator';
 import {
   dispatchCaptureRuntimeMessage,
   isCaptureRuntimeMessage,
 } from './background/runtime-capture-dispatch';
-// ---- Operator ----
-import { getActiveReviewContextForSession } from './background/operator';
 
 // ---- Dashboard ----
 import { getDashboard, refreshBadge } from './background/dashboard';
@@ -148,7 +148,6 @@ import {
 } from './background/handlers/coop';
 import {
   handleProvisionMemberOnchainAccount,
-  handleSubmitGreenGoodsImpactReport,
   handleSubmitGreenGoodsWorkSubmission,
 } from './background/handlers/member-account';
 import {
@@ -451,9 +450,6 @@ export function startBackground() {
         case 'provision-member-onchain-account':
           sendResponse(await handleProvisionMemberOnchainAccount(message));
           return;
-        case 'submit-green-goods-impact-report':
-          sendResponse(await handleSubmitGreenGoodsImpactReport(message));
-          return;
         case 'submit-green-goods-work-submission':
           sendResponse(await handleSubmitGreenGoodsWorkSubmission(message));
           return;
@@ -537,16 +533,16 @@ export function startBackground() {
           sendResponse({ ok: true } satisfies RuntimeActionResponse);
           return;
         case 'persist-coop-state': {
-          const parsed = coopSharedStateSchema.safeParse(message.payload.state);
-          if (!parsed.success) {
-            console.warn('persist-coop-state validation failed:', parsed.error.issues);
+          try {
+            await mergeCoopStateUpdate(db, message.payload.coopId, message.payload.docUpdate);
+          } catch (error) {
+            console.warn('persist-coop-state validation failed:', error);
             sendResponse({
               ok: false,
               error: 'Invalid coop state',
             } satisfies RuntimeActionResponse);
             return;
           }
-          await saveState(parsed.data);
           await refreshBadge();
           sendResponse({ ok: true } satisfies RuntimeActionResponse);
           return;

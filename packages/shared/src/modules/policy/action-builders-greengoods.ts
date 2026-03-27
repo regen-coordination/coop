@@ -138,6 +138,95 @@ export function buildGreenGoodsSyncGapAdminsPayload(input: {
   };
 }
 
+export function buildGreenGoodsMintHypercertPayload(input: {
+  coopId: string;
+  gardenAddress: string;
+  title: string;
+  description: string;
+  workScopes?: string[];
+  impactScopes?: string[];
+  workTimeframeStart?: number;
+  workTimeframeEnd?: number;
+  impactTimeframeStart?: number;
+  impactTimeframeEnd?: number | null;
+  externalUrl?: string;
+  imageUri?: string;
+  domain?: 'solar' | 'waste' | 'agro' | 'agroforestry' | 'edu' | 'education' | 'mutual_credit';
+  sdgs?: number[];
+  capitals?: Array<
+    | 'living'
+    | 'social'
+    | 'material'
+    | 'financial'
+    | 'intellectual'
+    | 'experiential'
+    | 'spiritual'
+    | 'cultural'
+  >;
+  outcomes?: Record<string, unknown>;
+  allowlist: Array<{
+    address: string;
+    units: number;
+    label?: string;
+  }>;
+  attestations: Array<{
+    uid: string;
+    workUid: string;
+    title: string;
+    domain?: string;
+    workScope?: string[];
+    gardenerAddress: string;
+    gardenerName?: string;
+    mediaUrls?: string[];
+    metrics?: Record<string, { value: number; unit: string }>;
+    createdAt: number;
+    approvedAt: number;
+    approvedBy?: string;
+    feedback?: string;
+    actionType?: string;
+  }>;
+  gapProjectUid?: string;
+  rationale?: string;
+}): Record<string, unknown> {
+  return {
+    coopId: input.coopId,
+    gardenAddress: input.gardenAddress,
+    title: input.title,
+    description: input.description,
+    workScopes: input.workScopes ?? [],
+    impactScopes: input.impactScopes ?? ['all'],
+    workTimeframeStart: input.workTimeframeStart,
+    workTimeframeEnd: input.workTimeframeEnd,
+    impactTimeframeStart: input.impactTimeframeStart,
+    impactTimeframeEnd: input.impactTimeframeEnd,
+    externalUrl: input.externalUrl,
+    imageUri: input.imageUri,
+    domain: input.domain,
+    sdgs: input.sdgs ?? [],
+    capitals: input.capitals ?? [],
+    outcomes: input.outcomes ?? { predefined: {}, custom: {} },
+    allowlist: input.allowlist,
+    attestations: input.attestations.map((attestation) => ({
+      uid: attestation.uid,
+      workUid: attestation.workUid,
+      title: attestation.title,
+      domain: attestation.domain,
+      workScope: attestation.workScope ?? [],
+      gardenerAddress: attestation.gardenerAddress,
+      gardenerName: attestation.gardenerName,
+      mediaUrls: attestation.mediaUrls ?? [],
+      metrics: attestation.metrics,
+      createdAt: attestation.createdAt,
+      approvedAt: attestation.approvedAt,
+      approvedBy: attestation.approvedBy,
+      feedback: attestation.feedback,
+      actionType: attestation.actionType,
+    })),
+    gapProjectUid: input.gapProjectUid,
+    rationale: input.rationale ?? 'Mint a Green Goods Hypercert package.',
+  };
+}
+
 export function buildGreenGoodsAddGardenerPayload(input: {
   coopId: string;
   memberId: string;

@@ -70,14 +70,13 @@ describe('landing page', () => {
     expect(screen.getByText(/^No more$/)).toBeInTheDocument();
     expect(screen.getByText(/^chickens loose\.$/)).toBeInTheDocument();
     expect(screen.getByText(/turning knowledge into opportunity/i)).toBeInTheDocument();
-    expect(container.querySelector('.hero-signal-cluster')).not.toBeNull();
+    expect(container.querySelector('.thought-bubble')).not.toBeNull();
     expect(screen.getByRole('heading', { name: /^how coop works$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^curate your coop$/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /^why we build$/i })).toBeInTheDocument();
+    expect(container.querySelector('.why-build-heading-card h2')).not.toBeNull();
     expect(screen.getByText(/your data stays yours/i)).toBeInTheDocument();
     expect(container.querySelectorAll('.how-works-index')).toHaveLength(4);
-    expect(container.querySelector('.why-build-intro')).not.toBeNull();
-    expect(container.querySelector('.why-build-proof')).not.toBeNull();
+    expect(container.querySelector('.why-build-heading-card')).not.toBeNull();
     expect(screen.queryByText(/^get started$/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reset ritual/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /github/i })).toBeInTheDocument();
@@ -318,8 +317,9 @@ describe('landing page', () => {
       });
     });
 
+    // Click "Stop recording" so the intentional-stop flag is set before onend fires
     act(() => {
-      activeRecognition?.onend?.();
+      fireEvent.click(screen.getByRole('button', { name: /^stop recording$/i }));
     });
 
     expect(screen.getByRole('textbox', { name: /collective intelligence notes/i })).toHaveValue(

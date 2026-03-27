@@ -88,7 +88,7 @@ The `authority` module defines four authority classes that map actions to the ap
 | --- | --- | --- |
 | `safe-owner` | Safe multisig | Safe deployment, owner changes, work approvals |
 | `session-executor` | Session key | Garden creation, profile sync, domain config |
-| `member-account` | Kernel account | Add/remove gardeners, submit work, impact reports |
+| `member-account` | Kernel account | Add/remove gardeners, submit work |
 | `semaphore-identity` | ZK proof | Anonymous membership proofs (not a signer) |
 
 This separation matters. Collapsing session-executor actions into safe-owner would require full

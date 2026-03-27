@@ -6,6 +6,7 @@ import {
   createBlobRelayTransport,
   createCoopDoc,
   hashJson,
+  mergeCoopDocUpdates,
   readCoopState,
   summarizeSyncTransportHealth,
   writeCoopState,
@@ -20,6 +21,7 @@ type SyncBinding = {
   healthTimer?: number;
   timer?: number;
   blobRelay?: BlobRelayTransport;
+  pendingUpdates: Uint8Array[];
 };
 
 export function useSyncBindings(deps: {
@@ -65,6 +67,7 @@ export function useSyncBindings(deps: {
         const binding: SyncBinding = {
           doc,
           lastHash: nextHash,
+          pendingUpdates: [],
           disconnect() {
             if (binding.timer) {
               window.clearTimeout(binding.timer);
@@ -168,20 +171,26 @@ export function useSyncBindings(deps: {
           void reportSyncHealth();
         }
 
-        const onDocUpdate = () => {
+        const onDocUpdate = (update: Uint8Array) => {
+          binding.pendingUpdates.push(update);
           if (binding.timer) {
             window.clearTimeout(binding.timer);
           }
           binding.timer = window.setTimeout(async () => {
             const nextState = readCoopState(doc);
             const remoteHash = hashJson(nextState);
+            const docUpdate = mergeCoopDocUpdates(binding.pendingUpdates);
+            binding.pendingUpdates = [];
             if (remoteHash === binding.lastHash) {
               return;
             }
             binding.lastHash = remoteHash;
             const persist = await sendRuntimeMessage({
               type: 'persist-coop-state',
-              payload: { state: nextState },
+              payload: {
+                coopId: coop.profile.id,
+                docUpdate,
+              },
             });
             if (!persist.ok) {
               await sendRuntimeMessage({

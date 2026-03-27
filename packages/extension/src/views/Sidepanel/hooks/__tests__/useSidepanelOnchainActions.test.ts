@@ -189,53 +189,6 @@ describe('sidepanel onchain actions', () => {
     expect(loadDashboard).not.toHaveBeenCalled();
   });
 
-  it('submits impact reports from the active member smart account and refreshes dashboard state', async () => {
-    const setMessage = vi.fn();
-    const loadDashboard = vi.fn(async () => undefined);
-    const { result } = renderHook(() =>
-      useSidepanelGreenGoods({
-        activeCoop: makeActiveCoop(),
-        activeMember: makeActiveMember(),
-        setMessage,
-        loadDashboard,
-        loadAgentDashboard: vi.fn(async () => undefined),
-      }),
-    );
-
-    await act(async () => {
-      await result.current.handleSubmitGreenGoodsImpactReport({
-        title: 'Watershed update',
-        description: 'Quarterly impact pulse.',
-        domain: 'agro',
-        reportCid: 'bafy-impact',
-        metricsSummary: '{"soil":0.7}',
-        reportingPeriodStart: 1_700_000_000,
-        reportingPeriodEnd: 1_700_086_400,
-      });
-    });
-
-    expect(sendRuntimeMessageMock).toHaveBeenCalledWith({
-      type: 'submit-green-goods-impact-report',
-      payload: {
-        coopId: 'coop-1',
-        memberId: 'member-1',
-        report: {
-          title: 'Watershed update',
-          description: 'Quarterly impact pulse.',
-          domain: 'agro',
-          reportCid: 'bafy-impact',
-          metricsSummary: '{"soil":0.7}',
-          reportingPeriodStart: 1_700_000_000,
-          reportingPeriodEnd: 1_700_086_400,
-        },
-      },
-    });
-    expect(setMessage).toHaveBeenCalledWith(
-      'Green Goods impact report submitted from your member smart account.',
-    );
-    expect(loadDashboard).toHaveBeenCalledTimes(1);
-  });
-
   it('keeps work-submission failures visible to the user', async () => {
     sendRuntimeMessageMock.mockResolvedValueOnce({
       ok: false,

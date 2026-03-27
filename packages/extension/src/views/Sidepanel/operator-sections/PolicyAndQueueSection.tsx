@@ -1,5 +1,9 @@
 import type { ActionBundle, ActionLogEntry, ActionPolicy, PolicyActionClass } from '@coop/shared';
-import { formatActionClassLabel, formatActionLogEventLabel } from '@coop/shared';
+import {
+  formatActionClassLabel,
+  formatActionLogEventLabel,
+  isDeprecatedPolicyActionClass,
+} from '@coop/shared';
 
 export type PolicyAndQueueSectionProps = {
   policies: ActionPolicy[];
@@ -16,6 +20,10 @@ export type PolicyAndQueueSectionProps = {
 };
 
 export function PolicyAndQueueSection(props: PolicyAndQueueSectionProps) {
+  const visiblePolicies = props.policies.filter(
+    (policy) => !isDeprecatedPolicyActionClass(policy.actionClass),
+  );
+
   return (
     <>
       <details className="panel-card collapsible-card">
@@ -26,7 +34,7 @@ export function PolicyAndQueueSection(props: PolicyAndQueueSectionProps) {
           <p className="helper-text">
             Choose which actions always need a human yes before they run.
           </p>
-          {props.policies.map((policy) => (
+          {visiblePolicies.map((policy) => (
             <div className="action-row" key={policy.id}>
               <label>
                 <input

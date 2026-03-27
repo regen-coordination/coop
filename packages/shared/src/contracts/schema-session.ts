@@ -122,6 +122,7 @@ export const encryptedLocalPayloadKindSchema = z.enum([
   'receiver-blob',
   'agent-memory',
   'coop-blob',
+  'archive-secrets',
 ]);
 
 export const encryptedLocalPayloadSchema = z.object({

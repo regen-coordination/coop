@@ -1,7 +1,5 @@
 import { toKernelSmartAccount, toSafeSmartAccount } from 'permissionless/accounts';
-import { createSmartAccountClient } from 'permissionless/clients';
-import { createPimlicoClient } from 'permissionless/clients/pimlico';
-import { http, type Address } from 'viem';
+import type { Address } from 'viem';
 import { entryPoint07Address } from 'viem/account-abstraction';
 import type {
   AuthSession,
@@ -15,7 +13,11 @@ import type {
 import { localMemberSignerBindingSchema } from '../../contracts/schema';
 import { createId, nowIso } from '../../utils';
 import { restorePasskeyAccount } from '../auth/auth';
-import { buildPimlicoRpcUrl, createCoopSaltNonce, getCoopChainConfig } from '../onchain/onchain';
+import {
+  createCoopSaltNonce,
+  createCoopSmartAccountClient,
+  sendSmartAccountTransactionWithCoopGasFallback,
+} from '../onchain/onchain';
 import { createCoopPublicClient } from '../onchain/provider';
 
 // ── Account Creation ─────────────────────────────────────────────────
@@ -331,32 +333,24 @@ export async function sendTransactionViaMemberAccount(input: {
           },
         });
 
-  const chainConfig = getCoopChainConfig(input.chainKey);
-  const bundlerUrl = buildPimlicoRpcUrl(input.chainKey, input.pimlicoApiKey);
-  const pimlicoClient = createPimlicoClient({
-    chain: chainConfig.chain,
-    transport: http(bundlerUrl),
-  });
-  const smartClient = createSmartAccountClient({
+  const { smartClient } = createCoopSmartAccountClient({
     account,
-    chain: chainConfig.chain,
-    bundlerTransport: http(bundlerUrl),
-    paymaster: pimlicoClient,
-    userOperation: {
-      estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
-    },
+    chainKey: input.chainKey,
+    pimlicoApiKey: input.pimlicoApiKey,
+    accountTypeHint: accountType === 'safe' ? 'safe' : 'kernel',
   });
 
-  const txHash = await smartClient.sendTransaction({
+  const result = await sendSmartAccountTransactionWithCoopGasFallback({
+    smartClient,
+    accountTypeHint: accountType === 'safe' ? 'safe' : 'kernel',
     to: input.to,
     data: input.data,
     value: input.value ?? 0n,
   });
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
   return {
-    txHash,
-    receipt,
+    txHash: result.txHash,
+    receipt: result.receipt,
     accountAddress: account.address,
   };
 }

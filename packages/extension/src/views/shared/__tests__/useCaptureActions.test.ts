@@ -72,7 +72,7 @@ describe('useCaptureActions', () => {
 
   describe('runManualCapture', () => {
     it('sets isCapturing while the runtime call is in flight', async () => {
-      let resolveCapture: (value: unknown) => void;
+      let resolveCapture: ((value: unknown) => void) | undefined;
       mockSendRuntimeMessage.mockReturnValue(
         new Promise((resolve) => {
           resolveCapture = resolve;
@@ -81,7 +81,7 @@ describe('useCaptureActions', () => {
 
       const { result } = renderCaptureActions();
 
-      let capturePromise: Promise<void>;
+      let capturePromise: Promise<void> | undefined;
       await act(async () => {
         capturePromise = result.current.runManualCapture();
         await Promise.resolve();
@@ -89,9 +89,13 @@ describe('useCaptureActions', () => {
 
       expect(result.current.isCapturing).toBe(true);
 
+      if (!capturePromise) {
+        throw new Error('Expected manual capture promise to be created.');
+      }
+
       await act(async () => {
-        resolveCapture!({ ok: true, data: 3 });
-        await capturePromise!;
+        resolveCapture?.({ ok: true, data: 3 });
+        await capturePromise;
       });
 
       expect(result.current.isCapturing).toBe(false);
@@ -307,7 +311,10 @@ describe('useCaptureActions', () => {
         fileName: 'capture.png',
       });
       expect(screenshotCapture.previewUrl).toBeDefined();
-      expect(screenshotCapture.previewUrl!).toContain('data:image/png;base64,');
+      if (!screenshotCapture.previewUrl) {
+        throw new Error('Expected screenshot preview URL to be defined.');
+      }
+      expect(screenshotCapture.previewUrl).toContain('data:image/png;base64,');
     });
 
     it('surfaces precise runtime screenshot errors without creating a pending capture', async () => {
@@ -334,7 +341,9 @@ describe('useCaptureActions', () => {
         tabs: {
           query: vi
             .fn()
-            .mockResolvedValue([{ id: 7, windowId: 1, url: 'chrome://settings', title: 'Settings' }]),
+            .mockResolvedValue([
+              { id: 7, windowId: 1, url: 'chrome://settings', title: 'Settings' },
+            ]),
         },
       });
 
@@ -408,7 +417,7 @@ describe('useCaptureActions', () => {
 
       const { result } = renderCaptureActions();
 
-      let capturePromise: Promise<void>;
+      let capturePromise: Promise<void> | undefined;
       await act(async () => {
         capturePromise = result.current.runManualCapture();
         await Promise.resolve();
@@ -420,9 +429,13 @@ describe('useCaptureActions', () => {
 
       expect(mockSendRuntimeMessage).toHaveBeenCalledTimes(1);
 
+      if (!capturePromise) {
+        throw new Error('Expected manual capture promise to be created.');
+      }
+
       await act(async () => {
         resolveCapture?.({ ok: true, data: 1 });
-        await capturePromise!;
+        await capturePromise;
       });
     });
   });

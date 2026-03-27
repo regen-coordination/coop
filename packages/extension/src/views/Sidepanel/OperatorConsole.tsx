@@ -9,6 +9,7 @@ import type {
   DelegatedActionClass,
   ExecutionPermit,
   GreenGoodsAssessmentRequest,
+  GreenGoodsHypercertMintRequest,
   GreenGoodsMemberBinding,
   GreenGoodsWorkApprovalRequest,
   IntegrationMode,
@@ -111,6 +112,10 @@ type OperatorConsoleProps = {
     request: GreenGoodsAssessmentRequest,
   ): void | Promise<void>;
   onQueueGreenGoodsGapAdminSync?(coopId: string): void | Promise<void>;
+  onQueueGreenGoodsHypercertMint?(
+    coopId: string,
+    request: GreenGoodsHypercertMintRequest,
+  ): void | Promise<void>;
   onQueueGreenGoodsMemberSync?(coopId: string): void | Promise<void>;
   memories?: AgentMemory[];
 };
@@ -133,6 +138,7 @@ export function OperatorConsole(props: OperatorConsoleProps) {
           onQueueGreenGoodsWorkApproval={props.onQueueGreenGoodsWorkApproval}
           onQueueGreenGoodsAssessment={props.onQueueGreenGoodsAssessment}
           onQueueGreenGoodsGapAdminSync={props.onQueueGreenGoodsGapAdminSync}
+          onQueueGreenGoodsHypercertMint={props.onQueueGreenGoodsHypercertMint}
           onQueueGreenGoodsMemberSync={props.onQueueGreenGoodsMemberSync}
         />
       ) : null}

@@ -1,3 +1,4 @@
+import * as Y from 'yjs';
 import type {
   CoopSharedState,
   ReadablePageExtract,
@@ -10,7 +11,7 @@ import {
   tabCandidateSchema,
 } from '../../contracts/schema';
 import { nowIso } from '../../utils';
-import { createCoopDoc, encodeCoopDoc, hydrateCoopDoc, readCoopState } from '../coop/sync';
+import { encodeCoopDoc, hydrateCoopDoc, readCoopState, writeCoopState } from '../coop/sync';
 import {
   buildEncryptedLocalPayloadId,
   buildEncryptedLocalPayloadRecord,
@@ -23,15 +24,51 @@ import {
   resolvePageExtractPayloadExpiry,
   resolveTabCandidatePayloadExpiry,
 } from './db-encryption';
+import { arePageExtractsNearDuplicates } from '../coop/pipeline';
 import type { CoopDexie } from './db-schema';
 
 export async function saveCoopState(db: CoopDexie, state: CoopSharedState) {
-  const doc = createCoopDoc(state);
-  await db.coopDocs.put({
-    id: state.profile.id,
-    encodedState: encodeCoopDoc(doc),
-    updatedAt: nowIso(),
-  });
+  const existing = await db.coopDocs.get(state.profile.id);
+  const doc = hydrateCoopDoc(existing?.encodedState);
+
+  try {
+    writeCoopState(doc, state);
+    await db.coopDocs.put({
+      id: state.profile.id,
+      encodedState: encodeCoopDoc(doc),
+      updatedAt: nowIso(),
+    });
+  } finally {
+    doc.destroy();
+  }
+}
+
+export async function mergeCoopStateUpdate(
+  db: CoopDexie,
+  coopId: string,
+  encodedState: Uint8Array,
+) {
+  const existing = await db.coopDocs.get(coopId);
+  const doc = hydrateCoopDoc(existing?.encodedState);
+
+  try {
+    Y.applyUpdate(doc, encodedState);
+    const merged = readCoopState(doc);
+
+    if (merged.profile.id !== coopId) {
+      throw new Error(`Persisted coop update target mismatch for ${coopId}.`);
+    }
+
+    await db.coopDocs.put({
+      id: coopId,
+      encodedState: encodeCoopDoc(doc),
+      updatedAt: nowIso(),
+    });
+
+    return merged;
+  } finally {
+    doc.destroy();
+  }
 }
 
 export async function saveTabCandidate(db: CoopDexie, candidate: TabCandidate) {
@@ -108,6 +145,49 @@ export async function findExistingExtractByTextHash(
 ): Promise<string | undefined> {
   const existing = await db.pageExtracts.where('textHash').equals(textHash).first();
   return existing?.id;
+}
+
+const NEAR_DUPLICATE_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+const NEAR_DUPLICATE_SCAN_LIMIT = 24;
+
+/**
+ * Finds an existing extract that should be treated as the same captured signal.
+ * Keeps exact textHash dedupe fast, then falls back to a bounded same-domain
+ * near-duplicate scan to catch print views, alternate article paths, and small
+ * boilerplate variations without collapsing older or unrelated content.
+ */
+export async function findDuplicatePageExtract(
+  db: CoopDexie,
+  extract: ReadablePageExtract,
+): Promise<string | undefined> {
+  const exactMatchId = await findExistingExtractByTextHash(db, extract.textHash);
+  if (exactMatchId) {
+    return exactMatchId;
+  }
+
+  const recentCutoff = Date.now() - NEAR_DUPLICATE_LOOKBACK_MS;
+  const candidates = (await db.pageExtracts.where('domain').equals(extract.domain).toArray())
+    .filter((record) => {
+      if (record.id === extract.id) {
+        return false;
+      }
+      const createdAt = Date.parse(record.createdAt);
+      return Number.isNaN(createdAt) || createdAt >= recentCutoff;
+    })
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, NEAR_DUPLICATE_SCAN_LIMIT);
+
+  for (const record of candidates) {
+    const existing = await hydratePageExtractRecord(db, record);
+    if (!existing) {
+      continue;
+    }
+    if (arePageExtractsNearDuplicates(existing, extract)) {
+      return existing.id;
+    }
+  }
+
+  return undefined;
 }
 
 export async function getPageExtract(db: CoopDexie, extractId: string) {

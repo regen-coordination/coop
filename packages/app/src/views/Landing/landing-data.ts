@@ -30,6 +30,10 @@ export const journeyChickens: JourneyChicken[] = [
   { id: 'drafts', label: 'Drafts', variant: 'chick', facing: 'right' },
   { id: 'threads', label: 'Threads', variant: 'young', facing: 'left' },
   { id: 'clips', label: 'Clips', variant: 'chick', facing: 'left' },
+  { id: 'bookmarks', label: 'Bookmarks', facing: 'right', color: 'russet' },
+  { id: 'photos', label: 'Photos', variant: 'young', facing: 'left', color: 'golden' },
+  { id: 'voice-memos', label: 'Voice Memos', variant: 'chick', facing: 'right', color: 'plum' },
+  { id: 'receipts', label: 'Receipts', variant: 'young', facing: 'left', color: 'slate' },
 ];
 
 export const audienceOptions: AudienceOption[] = [
@@ -107,6 +111,15 @@ export const partnerMarks = [
   'Green Goods',
 ];
 
+/** Map community labels to specific arrival chickens */
+export const arrivalChickenCommunities: Record<string, string> = {
+  tabs: 'Regen Coordination',
+  notes: 'Greenpill',
+  ideas: 'Greenpill Dev Guild',
+  signals: 'ReFi DAO',
+  links: 'Green Goods',
+};
+
 export const heroSignalFragments = [
   {
     id: 'call-clip',
@@ -158,67 +171,94 @@ export const storyFlightPaths: Record<
   Array<{ x: string; y: string; rotate: number; scale?: number }>
 > = {
   tabs: [
-    { x: '0.5vw', y: '0vh', rotate: -4, scale: 1.0 },
-    { x: '2vw', y: '-0.5vh', rotate: 3, scale: 0.99 },
-    { x: '3vw', y: '0.75vh', rotate: -2, scale: 0.985 },
-    { x: '4vw', y: '0vh', rotate: 2, scale: 0.975 },
-    { x: '4.5vw', y: '-1vh', rotate: 0, scale: 0.965 },
+    { x: '1vw', y: '0vh', rotate: -6, scale: 1.0 },
+    { x: '4vw', y: '-1.5vh', rotate: 5, scale: 1.02 },
+    { x: '7vw', y: '2vh', rotate: -4, scale: 0.98 },
+    { x: '9vw', y: '-1vh', rotate: 3, scale: 0.96 },
+    { x: '11vw', y: '-3vh', rotate: 0, scale: 0.94 },
   ],
   notes: [
-    { x: '0.5vw', y: '1vh', rotate: 4, scale: 1.0 },
-    { x: '1.75vw', y: '2.4vh', rotate: -3, scale: 0.99 },
-    { x: '2.75vw', y: '1.8vh', rotate: 2, scale: 0.985 },
-    { x: '3.5vw', y: '3vh', rotate: -1, scale: 0.975 },
-    { x: '4vw', y: '3.8vh', rotate: 0, scale: 0.965 },
+    { x: '1vw', y: '1vh', rotate: 6, scale: 1.0 },
+    { x: '3.5vw', y: '4vh', rotate: -5, scale: 1.01 },
+    { x: '6vw', y: '2.5vh', rotate: 4, scale: 0.98 },
+    { x: '8vw', y: '5vh', rotate: -2, scale: 0.96 },
+    { x: '10vw', y: '4vh', rotate: 0, scale: 0.94 },
   ],
   ideas: [
-    { x: '-0.5vw', y: '1vh', rotate: -4, scale: 1.0 },
-    { x: '-1.75vw', y: '2.4vh', rotate: 3, scale: 0.99 },
-    { x: '-2.75vw', y: '1.8vh', rotate: -2, scale: 0.985 },
-    { x: '-3.5vw', y: '3vh', rotate: 1, scale: 0.975 },
-    { x: '-4vw', y: '3.8vh', rotate: 0, scale: 0.965 },
+    { x: '-1vw', y: '1vh', rotate: -6, scale: 1.0 },
+    { x: '-3.5vw', y: '4vh', rotate: 5, scale: 1.01 },
+    { x: '-6vw', y: '2.5vh', rotate: -4, scale: 0.98 },
+    { x: '-8vw', y: '5vh', rotate: 2, scale: 0.96 },
+    { x: '-10vw', y: '4vh', rotate: 0, scale: 0.94 },
   ],
   signals: [
-    { x: '-0.5vw', y: '0vh', rotate: 4, scale: 1.0 },
-    { x: '-2vw', y: '-0.5vh', rotate: -3, scale: 0.99 },
-    { x: '-3vw', y: '0.75vh', rotate: 2, scale: 0.985 },
-    { x: '-4vw', y: '0vh', rotate: -1, scale: 0.975 },
-    { x: '-4.5vw', y: '-1vh', rotate: 0, scale: 0.965 },
+    { x: '-1vw', y: '0vh', rotate: 6, scale: 1.0 },
+    { x: '-4vw', y: '-1.5vh', rotate: -5, scale: 1.02 },
+    { x: '-7vw', y: '2vh', rotate: 4, scale: 0.98 },
+    { x: '-9vw', y: '-1vh', rotate: -3, scale: 0.96 },
+    { x: '-11vw', y: '-3vh', rotate: 0, scale: 0.94 },
   ],
   links: [
-    { x: '1vw', y: '0vh', rotate: -3, scale: 1.0 },
-    { x: '2.5vw', y: '-0.75vh', rotate: 2, scale: 0.985 },
-    { x: '3.75vw', y: '-2vh', rotate: -1, scale: 0.97 },
-    { x: '4.5vw', y: '-3.4vh', rotate: 1, scale: 0.955 },
-    { x: '5vw', y: '-4.2vh', rotate: 0, scale: 0.945 },
+    { x: '2vw', y: '0vh', rotate: -5, scale: 1.0 },
+    { x: '5vw', y: '-2vh', rotate: 4, scale: 0.98 },
+    { x: '8vw', y: '-4vh', rotate: -3, scale: 0.96 },
+    { x: '10vw', y: '-6vh', rotate: 2, scale: 0.94 },
+    { x: '12vw', y: '-5vh', rotate: 0, scale: 0.92 },
   ],
   drafts: [
-    { x: '0vw', y: '-0.75vh', rotate: 4, scale: 1.0 },
-    { x: '0.8vw', y: '-1.75vh', rotate: -2, scale: 0.985 },
-    { x: '1.6vw', y: '-3vh', rotate: 2, scale: 0.97 },
-    { x: '2.3vw', y: '-4.1vh', rotate: -1, scale: 0.955 },
-    { x: '2.9vw', y: '-4.9vh', rotate: 0, scale: 0.945 },
+    { x: '0vw', y: '-1vh', rotate: 5, scale: 1.0 },
+    { x: '2vw', y: '-3vh', rotate: -4, scale: 0.98 },
+    { x: '4vw', y: '-5vh', rotate: 3, scale: 0.96 },
+    { x: '6vw', y: '-4vh', rotate: -2, scale: 0.94 },
+    { x: '7vw', y: '-6vh', rotate: 0, scale: 0.92 },
   ],
   threads: [
-    { x: '-1vw', y: '0vh', rotate: -3, scale: 1.0 },
-    { x: '-2.5vw', y: '-0.75vh', rotate: 2, scale: 0.985 },
-    { x: '-3.75vw', y: '-2vh', rotate: -1, scale: 0.97 },
-    { x: '-4.5vw', y: '-3.4vh', rotate: 1, scale: 0.955 },
-    { x: '-5vw', y: '-4.2vh', rotate: 0, scale: 0.945 },
+    { x: '-2vw', y: '0vh', rotate: -5, scale: 1.0 },
+    { x: '-5vw', y: '-2vh', rotate: 4, scale: 0.98 },
+    { x: '-8vw', y: '-4vh', rotate: -3, scale: 0.96 },
+    { x: '-10vw', y: '-6vh', rotate: 2, scale: 0.94 },
+    { x: '-12vw', y: '-5vh', rotate: 0, scale: 0.92 },
   ],
   clips: [
-    { x: '0vw', y: '-0.75vh', rotate: 4, scale: 1.0 },
-    { x: '-0.8vw', y: '-1.75vh', rotate: -2, scale: 0.985 },
-    { x: '-1.6vw', y: '-3vh', rotate: 2, scale: 0.97 },
-    { x: '-2.3vw', y: '-4.1vh', rotate: -1, scale: 0.955 },
-    { x: '-2.9vw', y: '-4.9vh', rotate: 0, scale: 0.945 },
+    { x: '0vw', y: '-1vh', rotate: 5, scale: 1.0 },
+    { x: '-2vw', y: '-3vh', rotate: -4, scale: 0.98 },
+    { x: '-4vw', y: '-5vh', rotate: 3, scale: 0.96 },
+    { x: '-6vw', y: '-4vh', rotate: -2, scale: 0.94 },
+    { x: '-7vw', y: '-6vh', rotate: 0, scale: 0.92 },
+  ],
+  bookmarks: [
+    { x: '-1vw', y: '0vh', rotate: -4, scale: 1.0 },
+    { x: '-3vw', y: '2vh', rotate: 3, scale: 1.01 },
+    { x: '-5vw', y: '1vh', rotate: -3, scale: 0.98 },
+    { x: '-7vw', y: '3vh', rotate: 2, scale: 0.96 },
+    { x: '-9vw', y: '2vh', rotate: 0, scale: 0.94 },
+  ],
+  photos: [
+    { x: '1vw', y: '0vh', rotate: 4, scale: 1.0 },
+    { x: '3vw', y: '-2vh', rotate: -3, scale: 0.99 },
+    { x: '5vw', y: '1vh', rotate: 3, scale: 0.97 },
+    { x: '7vw', y: '-1vh', rotate: -2, scale: 0.95 },
+    { x: '9vw', y: '0vh', rotate: 0, scale: 0.93 },
+  ],
+  'voice-memos': [
+    { x: '-1vw', y: '1vh', rotate: -3, scale: 1.0 },
+    { x: '-2vw', y: '-1vh', rotate: 3, scale: 0.99 },
+    { x: '-4vw', y: '2vh', rotate: -2, scale: 0.97 },
+    { x: '-5vw', y: '0vh', rotate: 2, scale: 0.95 },
+    { x: '-6vw', y: '-2vh', rotate: 0, scale: 0.93 },
+  ],
+  receipts: [
+    { x: '0vw', y: '-1vh', rotate: 4, scale: 1.0 },
+    { x: '2vw', y: '1vh', rotate: -3, scale: 0.99 },
+    { x: '4vw', y: '-2vh', rotate: 3, scale: 0.97 },
+    { x: '6vw', y: '0vh', rotate: -2, scale: 0.95 },
+    { x: '8vw', y: '1vh', rotate: 0, scale: 0.93 },
   ],
 };
 
-// Chickens waddle toward the coop door (center-bottom) then shrink/fade as they enter.
-// Each path has 5 keyframes for fluid motion with alternating rotation (waddle).
-// The door is roughly at (50%, 72%) of the scene — chickens from the left move
-// rightward and chickens from the right move leftward, all converging on the door.
+// Chickens waddle toward the coop door (center-bottom) then pause at the door
+// before shrinking/fading as they enter. 6 keyframes per path: approach → door → enter.
+// The door is roughly at (50%, 72%) of the scene — chickens converge from both sides.
 export const arrivalFlightPaths: Record<
   JourneyChicken['id'],
   Array<{ x: string; y: string; rotate: number; scale?: number; opacity?: number }>
@@ -227,72 +267,116 @@ export const arrivalFlightPaths: Record<
     { x: '5vw', y: '-1vh', rotate: -5, scale: 0.98, opacity: 1 },
     { x: '12vw', y: '-2vh', rotate: 4, scale: 0.9, opacity: 1 },
     { x: '19vw', y: '-3vh', rotate: -3, scale: 0.72, opacity: 0.94 },
-    { x: '24vw', y: '-2vh', rotate: 2, scale: 0.4, opacity: 0.42 },
-    { x: '27vw', y: '-1vh', rotate: 0, scale: 0.08, opacity: 0 },
+    { x: '24vw', y: '-2vh', rotate: 2, scale: 0.42, opacity: 0.7 },
+    { x: '26vw', y: '-1.5vh', rotate: 0, scale: 0.34, opacity: 0.5 },
+    { x: '27vw', y: '-1vh', rotate: 0, scale: 0.06, opacity: 0 },
   ],
   notes: [
     { x: '3vw', y: '0vh', rotate: 5, scale: 0.97, opacity: 1 },
     { x: '8vw', y: '-1vh', rotate: -4, scale: 0.88, opacity: 1 },
     { x: '13vw', y: '-2vh', rotate: 3, scale: 0.68, opacity: 0.92 },
-    { x: '17vw', y: '-1vh', rotate: -2, scale: 0.38, opacity: 0.38 },
-    { x: '19vw', y: '0vh', rotate: 0, scale: 0.08, opacity: 0 },
+    { x: '17vw', y: '-1vh', rotate: -2, scale: 0.4, opacity: 0.66 },
+    { x: '18.5vw', y: '-0.5vh', rotate: 0, scale: 0.32, opacity: 0.44 },
+    { x: '19vw', y: '0vh', rotate: 0, scale: 0.06, opacity: 0 },
   ],
   ideas: [
     { x: '-3vw', y: '0vh', rotate: -5, scale: 0.97, opacity: 1 },
     { x: '-8vw', y: '-1vh', rotate: 4, scale: 0.88, opacity: 1 },
     { x: '-13vw', y: '-2vh', rotate: -3, scale: 0.68, opacity: 0.92 },
-    { x: '-17vw', y: '-1vh', rotate: 2, scale: 0.38, opacity: 0.38 },
-    { x: '-19vw', y: '0vh', rotate: 0, scale: 0.08, opacity: 0 },
+    { x: '-17vw', y: '-1vh', rotate: 2, scale: 0.4, opacity: 0.66 },
+    { x: '-18.5vw', y: '-0.5vh', rotate: 0, scale: 0.32, opacity: 0.44 },
+    { x: '-19vw', y: '0vh', rotate: 0, scale: 0.06, opacity: 0 },
   ],
   signals: [
     { x: '-5vw', y: '-1vh', rotate: 5, scale: 0.98, opacity: 1 },
     { x: '-12vw', y: '-2vh', rotate: -4, scale: 0.9, opacity: 1 },
     { x: '-19vw', y: '-3vh', rotate: 3, scale: 0.72, opacity: 0.94 },
-    { x: '-24vw', y: '-2vh', rotate: -2, scale: 0.4, opacity: 0.42 },
-    { x: '-27vw', y: '-1vh', rotate: 0, scale: 0.08, opacity: 0 },
+    { x: '-24vw', y: '-2vh', rotate: -2, scale: 0.42, opacity: 0.7 },
+    { x: '-26vw', y: '-1.5vh', rotate: 0, scale: 0.34, opacity: 0.5 },
+    { x: '-27vw', y: '-1vh', rotate: 0, scale: 0.06, opacity: 0 },
   ],
   links: [
     { x: '2vw', y: '0vh', rotate: -4, scale: 0.95, opacity: 1 },
     { x: '7vw', y: '-1vh', rotate: 3, scale: 0.86, opacity: 1 },
     { x: '12vw', y: '-2vh', rotate: -2, scale: 0.64, opacity: 0.9 },
-    { x: '16vw', y: '-1vh', rotate: 1, scale: 0.34, opacity: 0.34 },
-    { x: '18vw', y: '0vh', rotate: 0, scale: 0.07, opacity: 0 },
+    { x: '16vw', y: '-1vh', rotate: 1, scale: 0.36, opacity: 0.62 },
+    { x: '17.5vw', y: '-0.5vh', rotate: 0, scale: 0.28, opacity: 0.38 },
+    { x: '18vw', y: '0vh', rotate: 0, scale: 0.05, opacity: 0 },
   ],
   drafts: [
     { x: '2vw', y: '1vh', rotate: 3, scale: 0.93, opacity: 1 },
     { x: '5vw', y: '0vh', rotate: -3, scale: 0.82, opacity: 1 },
     { x: '9vw', y: '-1vh', rotate: 2, scale: 0.58, opacity: 0.88 },
-    { x: '12vw', y: '0vh', rotate: -1, scale: 0.3, opacity: 0.3 },
-    { x: '13vw', y: '1vh', rotate: 0, scale: 0.06, opacity: 0 },
+    { x: '12vw', y: '0vh', rotate: -1, scale: 0.32, opacity: 0.58 },
+    { x: '12.8vw', y: '0.5vh', rotate: 0, scale: 0.24, opacity: 0.32 },
+    { x: '13vw', y: '1vh', rotate: 0, scale: 0.05, opacity: 0 },
   ],
   threads: [
     { x: '-2vw', y: '0vh', rotate: 4, scale: 0.95, opacity: 1 },
     { x: '-7vw', y: '-1vh', rotate: -3, scale: 0.86, opacity: 1 },
     { x: '-12vw', y: '-2vh', rotate: 2, scale: 0.64, opacity: 0.9 },
-    { x: '-16vw', y: '-1vh', rotate: -1, scale: 0.34, opacity: 0.34 },
-    { x: '-18vw', y: '0vh', rotate: 0, scale: 0.07, opacity: 0 },
+    { x: '-16vw', y: '-1vh', rotate: -1, scale: 0.36, opacity: 0.62 },
+    { x: '-17.5vw', y: '-0.5vh', rotate: 0, scale: 0.28, opacity: 0.38 },
+    { x: '-18vw', y: '0vh', rotate: 0, scale: 0.05, opacity: 0 },
   ],
   clips: [
     { x: '-2vw', y: '1vh', rotate: -3, scale: 0.93, opacity: 1 },
     { x: '-5vw', y: '0vh', rotate: 3, scale: 0.82, opacity: 1 },
     { x: '-9vw', y: '-1vh', rotate: -2, scale: 0.58, opacity: 0.88 },
-    { x: '-12vw', y: '0vh', rotate: 1, scale: 0.3, opacity: 0.3 },
-    { x: '-13vw', y: '1vh', rotate: 0, scale: 0.06, opacity: 0 },
+    { x: '-12vw', y: '0vh', rotate: 1, scale: 0.32, opacity: 0.58 },
+    { x: '-12.8vw', y: '0.5vh', rotate: 0, scale: 0.24, opacity: 0.32 },
+    { x: '-13vw', y: '1vh', rotate: 0, scale: 0.05, opacity: 0 },
+  ],
+  bookmarks: [
+    { x: '4vw', y: '0vh', rotate: -4, scale: 0.96, opacity: 1 },
+    { x: '10vw', y: '-1vh', rotate: 3, scale: 0.87, opacity: 1 },
+    { x: '15vw', y: '-2vh', rotate: -3, scale: 0.66, opacity: 0.92 },
+    { x: '19vw', y: '-1vh', rotate: 2, scale: 0.38, opacity: 0.64 },
+    { x: '20.5vw', y: '-0.5vh', rotate: 0, scale: 0.3, opacity: 0.42 },
+    { x: '21vw', y: '0vh', rotate: 0, scale: 0.06, opacity: 0 },
+  ],
+  photos: [
+    { x: '-4vw', y: '0vh', rotate: 4, scale: 0.96, opacity: 1 },
+    { x: '-9vw', y: '-1vh', rotate: -3, scale: 0.87, opacity: 1 },
+    { x: '-14vw', y: '-2vh', rotate: 3, scale: 0.66, opacity: 0.92 },
+    { x: '-18vw', y: '-1vh', rotate: -2, scale: 0.38, opacity: 0.64 },
+    { x: '-19.5vw', y: '-0.5vh', rotate: 0, scale: 0.3, opacity: 0.42 },
+    { x: '-20vw', y: '0vh', rotate: 0, scale: 0.06, opacity: 0 },
+  ],
+  'voice-memos': [
+    { x: '3vw', y: '1vh', rotate: 3, scale: 0.92, opacity: 1 },
+    { x: '6vw', y: '0vh', rotate: -3, scale: 0.8, opacity: 1 },
+    { x: '10vw', y: '-1vh', rotate: 2, scale: 0.56, opacity: 0.86 },
+    { x: '13vw', y: '0vh', rotate: -1, scale: 0.3, opacity: 0.56 },
+    { x: '13.8vw', y: '0.5vh', rotate: 0, scale: 0.22, opacity: 0.3 },
+    { x: '14vw', y: '1vh', rotate: 0, scale: 0.05, opacity: 0 },
+  ],
+  receipts: [
+    { x: '-3vw', y: '1vh', rotate: -4, scale: 0.94, opacity: 1 },
+    { x: '-8vw', y: '0vh', rotate: 3, scale: 0.84, opacity: 1 },
+    { x: '-13vw', y: '-1vh', rotate: -2, scale: 0.62, opacity: 0.9 },
+    { x: '-17vw', y: '0vh', rotate: 1, scale: 0.35, opacity: 0.6 },
+    { x: '-18.5vw', y: '0.5vh', rotate: 0, scale: 0.26, opacity: 0.36 },
+    { x: '-19vw', y: '1vh', rotate: 0, scale: 0.05, opacity: 0 },
   ],
 };
 
-export const chickenThoughts: Record<JourneyChicken['id'], string> = {
-  tabs: 'Open browser tabs',
-  notes: 'Meeting notes & memos',
-  ideas: 'Sparks worth exploring',
-  signals: 'Trends & opportunities',
-  links: 'Saved references',
-  drafts: 'Work in progress',
-  threads: 'Conversation fragments',
-  clips: 'Audio & video moments',
+export const chickenThoughts: Record<JourneyChicken['id'], { kicker: string; text: string }> = {
+  tabs: { kicker: 'Browser tab', text: 'This grant lead is worth the follow-up.' },
+  notes: { kicker: 'Field note', text: 'Member energy is shifting this week.' },
+  ideas: { kicker: 'Loose thread', text: 'Reconnect this after the meeting.' },
+  signals: { kicker: 'Call clip', text: 'Save the key moment before it drifts.' },
+  links: { kicker: 'Saved link', text: 'This keeps coming back up in conversations.' },
+  drafts: { kicker: 'Draft', text: 'Half-finished but worth keeping close.' },
+  threads: { kicker: 'Thread', text: 'Conversation fragments from last week.' },
+  clips: { kicker: 'Clip', text: 'Audio moment worth revisiting.' },
+  bookmarks: { kicker: 'Bookmark', text: 'This link keeps coming back up.' },
+  photos: { kicker: 'Photo', text: 'Captured in the field last Tuesday.' },
+  'voice-memos': { kicker: 'Voice memo', text: 'Quick capture from the walk home.' },
+  receipts: { kicker: 'Receipt', text: 'Proof of the contribution last month.' },
 };
 
-export const STAR_COUNT = 14;
+export const STAR_COUNT = 24;
 
 export const emptyLandingTranscripts: TranscriptMap = {
   capital: '',

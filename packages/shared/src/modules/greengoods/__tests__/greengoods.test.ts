@@ -1,15 +1,37 @@
+import {
+  encodeAbiParameters,
+  encodeFunctionData,
+  keccak256,
+  padHex,
+  stringToHex,
+  toHex,
+} from 'viem';
 import { describe, expect, it } from 'vitest';
 import type { SetupInsights } from '../../../contracts/schema';
 import {
   applyGreenGoodsGardenerActionSuccess,
+  assertGreenGoodsGardenNameAvailable,
+  assertGreenGoodsSafeBalanceCoversMintValue,
+  assertGreenGoodsSlugAvailable,
+  buildGreenGoodsLiveMintConfig,
   createGreenGoodsBootstrapOutput,
   createGreenGoodsGapAdminSyncOutput,
+  createGreenGoodsGardenPools,
   createGreenGoodsSyncOutput,
   createInitialGreenGoodsState,
+  deriveGreenGoodsGardenDraft,
+  estimateGreenGoodsGardenRegistrationFee,
   fromGreenGoodsDomainMask,
+  getGreenGoodsDeployment,
+  greenGoodsActionRegistryAbi,
+  greenGoodsGardenAccountAbi,
+  greenGoodsGardenTokenAbi,
+  greenGoodsGardensModuleAbi,
   inspectGreenGoodsGardenMintAuthorization,
   resolveGreenGoodsGapAdminChanges,
   resolveGreenGoodsGardenerBindingActions,
+  setGreenGoodsGardenDomains,
+  syncGreenGoodsGardenProfile,
   toGreenGoodsDomainMask,
   updateGreenGoodsState,
 } from '../greengoods';
@@ -139,6 +161,34 @@ describe('Green Goods helpers', () => {
     expect(state.domainMask).toBeGreaterThan(0);
   });
 
+  it('derives canonical garden draft fields from Coop signals', () => {
+    const draft = deriveGreenGoodsGardenDraft({
+      coopName: 'Watershed Knowledge and Stewardship Coop',
+      purpose: 'Coordinate watershed regeneration and ecological funding.',
+      setupInsights: buildSetupInsights(),
+    });
+
+    expect(draft.name).toBe('Watershed Knowledge and Stewardship Coop');
+    expect(draft.slug).toBe('watershed-knowledge-and-stewardship-coop');
+    expect(draft.description).toBe(
+      'Coordinate watershed regeneration and ecological funding. This coop coordinates ecological research, watershed stewardship, and knowledge sharing.',
+    );
+    expect(draft.domains).toEqual(['agro', 'edu']);
+    expect(draft.domainMask).toBe(0b0110);
+  });
+
+  it('falls back to setup insights when deriving a garden description without purpose text', () => {
+    const draft = deriveGreenGoodsGardenDraft({
+      coopName: 'Pocket Flock',
+      purpose: '   ',
+      setupInsights: buildSetupInsights(),
+    });
+
+    expect(draft.description).toBe(
+      'This coop coordinates ecological research, watershed stewardship, and knowledge sharing.',
+    );
+  });
+
   it('round-trips Green Goods domain masks', () => {
     const mask = toGreenGoodsDomainMask(['agro', 'edu']);
     expect(mask).toBe(0b0110);
@@ -185,6 +235,119 @@ describe('Green Goods helpers', () => {
     expect(bootstrap.weightScheme).toBe('linear');
     expect(sync.ensurePools).toBe(true);
     expect(sync.domains).toContain('agro');
+  });
+
+  it('builds the canonical live mint config for Coop Safe Green Goods creation', () => {
+    const state = createInitialGreenGoodsState({
+      coopName: 'Live Garden Coop',
+      purpose: 'Coordinate live Green Goods garden operations.',
+      setupInsights: buildSetupInsights(),
+      requestedAt: '2026-03-13T00:00:00.000Z',
+    });
+    const updated = updateGreenGoodsState(state, {
+      description: 'Coordinate live Green Goods garden operations.',
+      slug: 'live-garden-coop',
+      location: 'Arbitrum',
+      metadata: 'ipfs://example',
+      bannerImage: 'ipfs://banner',
+      domains: ['agro', 'edu'],
+    });
+
+    const config = buildGreenGoodsLiveMintConfig({
+      garden: updated,
+      operatorAddresses: ['0x1111111111111111111111111111111111111111'],
+      gardenerAddresses: ['0x2222222222222222222222222222222222222222'],
+    });
+
+    expect(config.name).toBe('Live Garden Coop');
+    expect(config.slug).toBe('live-garden-coop');
+    expect(config.description).toBe('Coordinate live Green Goods garden operations.');
+    expect(config.location).toBe('Arbitrum');
+    expect(config.bannerImage).toBe('ipfs://banner');
+    expect(config.metadata).toBe('ipfs://example');
+    expect(config.domainMask).toBe(0b0110);
+    expect(config.operators).toEqual(['0x1111111111111111111111111111111111111111']);
+    expect(config.gardeners).toEqual(['0x2222222222222222222222222222222222222222']);
+  });
+
+  it('rejects duplicate Green Goods garden names before send', async () => {
+    const encoded = {
+      topics: [
+        keccak256(stringToHex('GardenMinted(uint256,address,string,string,string,string,bool)')),
+        toHex(1n, { size: 32 }),
+        padHex('0x1111111111111111111111111111111111111111', { size: 32 }),
+      ] as const,
+      data: encodeAbiParameters(
+        [
+          { type: 'string' },
+          { type: 'string' },
+          { type: 'string' },
+          { type: 'string' },
+          { type: 'bool' },
+        ],
+        ['Live Garden Coop', 'Existing garden', 'Arbitrum', '', false],
+      ),
+    };
+
+    await expect(
+      assertGreenGoodsGardenNameAvailable({
+        chainKey: 'arbitrum',
+        name: 'live garden coop',
+        client: {
+          getLogs: async () => [
+            {
+              data: encoded.data,
+              topics: encoded.topics,
+            },
+          ],
+        },
+      }),
+    ).rejects.toThrow(/already in use/i);
+  });
+
+  it('requires Safe balance when ENS registration value is needed', async () => {
+    await expect(
+      assertGreenGoodsSafeBalanceCoversMintValue({
+        safeAddress: '0x1111111111111111111111111111111111111111',
+        requiredValue: 10n,
+        client: {
+          getBalance: async () => 0n,
+        },
+      }),
+    ).rejects.toThrow(/fund the Safe/i);
+  });
+
+  it('checks Green Goods slug availability and estimates ENS registration fees', async () => {
+    const readCalls: string[] = [];
+    const client = {
+      readContract: async ({ functionName }: { functionName: string }) => {
+        readCalls.push(functionName);
+        if (functionName === 'available') {
+          return true;
+        }
+        if (functionName === 'getRegistrationFee') {
+          return 123n;
+        }
+        throw new Error(`Unexpected read ${functionName}`);
+      },
+    };
+
+    await expect(
+      assertGreenGoodsSlugAvailable({
+        chainKey: 'arbitrum',
+        slug: 'live-garden-coop',
+        client,
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      estimateGreenGoodsGardenRegistrationFee({
+        chainKey: 'arbitrum',
+        safeAddress: '0x1111111111111111111111111111111111111111',
+        slug: 'live-garden-coop',
+        client,
+      }),
+    ).resolves.toBe(123n);
+    expect(readCalls).toEqual(['available', 'getRegistrationFee']);
   });
 
   it('computes deterministic GAP admin sync changes', () => {
@@ -354,5 +517,172 @@ describe('Green Goods helpers', () => {
       status: 'synced',
       lastSyncedAt: '2026-03-20T10:05:00.000Z',
     });
+  });
+
+  it('sends canonical garden profile sync writes through the live executor in order', async () => {
+    const calls: Array<{ to: string; data: `0x${string}`; value?: bigint }> = [];
+
+    const result = await syncGreenGoodsGardenProfile({
+      mode: 'live',
+      authSession: { passkey: { id: 'test-passkey' } } as never,
+      pimlicoApiKey: 'test-pimlico-key',
+      onchainState: {
+        chainId: 11155111,
+        chainKey: 'sepolia',
+        safeAddress: '0x5555555555555555555555555555555555555555',
+        safeCapability: 'executed',
+        statusNote: 'Safe executed.',
+      },
+      gardenAddress: '0x1111111111111111111111111111111111111111',
+      output: {
+        name: 'Watershed Coop',
+        description: 'Canonical profile sync.',
+        location: 'Arbitrum',
+        bannerImage: 'ipfs://banner',
+        metadata: 'ipfs://metadata',
+        openJoining: true,
+        maxGardeners: 12,
+        domains: ['agro', 'edu'],
+        ensurePools: true,
+        rationale: 'Keep Green Goods in sync.',
+      },
+      liveExecutor: async (input) => {
+        calls.push(input);
+        return {
+          txHash: `0x${String(calls.length).padStart(64, '0')}` as `0x${string}`,
+          safeAddress: '0x5555555555555555555555555555555555555555',
+        };
+      },
+    });
+
+    expect(result.txHash).toBe(`0x${'7'.padStart(64, '0')}`);
+    expect(calls).toEqual([
+      {
+        to: '0x1111111111111111111111111111111111111111',
+        data: encodeFunctionData({
+          abi: greenGoodsGardenAccountAbi,
+          functionName: 'updateName',
+          args: ['Watershed Coop'],
+        }),
+      },
+      {
+        to: '0x1111111111111111111111111111111111111111',
+        data: encodeFunctionData({
+          abi: greenGoodsGardenAccountAbi,
+          functionName: 'updateDescription',
+          args: ['Canonical profile sync.'],
+        }),
+      },
+      {
+        to: '0x1111111111111111111111111111111111111111',
+        data: encodeFunctionData({
+          abi: greenGoodsGardenAccountAbi,
+          functionName: 'updateLocation',
+          args: ['Arbitrum'],
+        }),
+      },
+      {
+        to: '0x1111111111111111111111111111111111111111',
+        data: encodeFunctionData({
+          abi: greenGoodsGardenAccountAbi,
+          functionName: 'updateBannerImage',
+          args: ['ipfs://banner'],
+        }),
+      },
+      {
+        to: '0x1111111111111111111111111111111111111111',
+        data: encodeFunctionData({
+          abi: greenGoodsGardenAccountAbi,
+          functionName: 'updateMetadata',
+          args: ['ipfs://metadata'],
+        }),
+      },
+      {
+        to: '0x1111111111111111111111111111111111111111',
+        data: encodeFunctionData({
+          abi: greenGoodsGardenAccountAbi,
+          functionName: 'setOpenJoining',
+          args: [true],
+        }),
+      },
+      {
+        to: '0x1111111111111111111111111111111111111111',
+        data: encodeFunctionData({
+          abi: greenGoodsGardenAccountAbi,
+          functionName: 'setMaxGardeners',
+          args: [12n],
+        }),
+      },
+    ]);
+  });
+
+  it('routes domain and pool writes to the Green Goods deployment contracts', async () => {
+    const deployment = getGreenGoodsDeployment('sepolia');
+    const domainCalls: Array<{ to: string; data: `0x${string}`; value?: bigint }> = [];
+    const poolCalls: Array<{ to: string; data: `0x${string}`; value?: bigint }> = [];
+
+    await setGreenGoodsGardenDomains({
+      mode: 'live',
+      authSession: { passkey: { id: 'test-passkey' } } as never,
+      pimlicoApiKey: 'test-pimlico-key',
+      onchainState: {
+        chainId: 11155111,
+        chainKey: 'sepolia',
+        safeAddress: '0x5555555555555555555555555555555555555555',
+        safeCapability: 'executed',
+        statusNote: 'Safe executed.',
+      },
+      gardenAddress: '0x1111111111111111111111111111111111111111',
+      domains: ['agro', 'edu'],
+      liveExecutor: async (input) => {
+        domainCalls.push(input);
+        return {
+          txHash: `0x${'a'.repeat(64)}`,
+          safeAddress: '0x5555555555555555555555555555555555555555',
+        };
+      },
+    });
+
+    await createGreenGoodsGardenPools({
+      mode: 'live',
+      authSession: { passkey: { id: 'test-passkey' } } as never,
+      pimlicoApiKey: 'test-pimlico-key',
+      onchainState: {
+        chainId: 11155111,
+        chainKey: 'sepolia',
+        safeAddress: '0x5555555555555555555555555555555555555555',
+        safeCapability: 'executed',
+        statusNote: 'Safe executed.',
+      },
+      gardenAddress: '0x1111111111111111111111111111111111111111',
+      liveExecutor: async (input) => {
+        poolCalls.push(input);
+        return {
+          txHash: `0x${'b'.repeat(64)}`,
+          safeAddress: '0x5555555555555555555555555555555555555555',
+        };
+      },
+    });
+
+    expect(domainCalls).toEqual([
+      {
+        to: deployment.actionRegistry,
+        data: encodeFunctionData({
+          abi: greenGoodsActionRegistryAbi,
+          functionName: 'setGardenDomains',
+          args: ['0x1111111111111111111111111111111111111111', 0b0110],
+        }),
+      },
+    ]);
+    expect(poolCalls).toEqual([
+      {
+        to: deployment.gardensModule,
+        data: encodeFunctionData({
+          abi: greenGoodsGardensModuleAbi,
+          functionName: 'createGardenPools',
+          args: ['0x1111111111111111111111111111111111111111'],
+        }),
+      },
+    ]);
   });
 });

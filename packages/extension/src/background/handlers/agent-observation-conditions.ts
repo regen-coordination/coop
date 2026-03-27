@@ -31,6 +31,15 @@ export function isRitualReviewDue(input: { coop: CoopSharedState; drafts: Review
     return false;
   }
 
+  const reviewableDrafts = input.drafts.filter(
+    (draft) =>
+      draft.suggestedTargetCoopIds.includes(input.coop.profile.id) &&
+      (draft.status === 'accepted' || draft.status === 'published'),
+  );
+  if (reviewableDrafts.length === 0) {
+    return false;
+  }
+
   const latest = getLatestReviewDigestDraft(input);
   if (!latest) {
     return true;
@@ -103,12 +112,32 @@ export function isGreenGoodsGapAdminSyncNeeded(coop: CoopSharedState) {
   return changes.addAdmins.length > 0 || changes.removeAdmins.length > 0;
 }
 
+function hasActiveTranscriptObservation(
+  observation: AgentObservation,
+  captureId: string | undefined,
+  observations: AgentObservation[],
+) {
+  if (!captureId) {
+    return false;
+  }
+
+  return observations.some(
+    (candidate) =>
+      candidate.id !== observation.id &&
+      candidate.trigger === 'audio-transcript-ready' &&
+      candidate.captureId === captureId &&
+      candidate.status !== 'dismissed' &&
+      candidate.status !== 'completed',
+  );
+}
+
 export function resolveObservationInactiveReason(input: {
   observation: AgentObservation;
   coopsById: Map<string, CoopSharedState>;
   draftsById: Map<string, ReviewDraft>;
   capturesById: Map<string, ReceiverCapture>;
   drafts: ReviewDraft[];
+  observations: AgentObservation[];
 }) {
   const { observation } = input;
 
@@ -158,6 +187,12 @@ export function resolveObservationInactiveReason(input: {
       if (capture.intakeStatus === 'archived' || capture.intakeStatus === 'published') {
         return 'Receiver capture no longer needs backlog handling.';
       }
+      if (
+        capture.kind === 'audio' &&
+        hasActiveTranscriptObservation(observation, capture.id, input.observations)
+      ) {
+        return 'Audio transcript observation supersedes generic receiver backlog handling.';
+      }
       const nextFingerprint = buildAgentObservationFingerprint({
         trigger: observation.trigger,
         coopId: capture.coopId,
@@ -169,6 +204,27 @@ export function resolveObservationInactiveReason(input: {
       });
       if (nextFingerprint !== observation.fingerprint) {
         return 'Observation has been superseded by the latest receiver intake state.';
+      }
+      return null;
+    }
+    case 'audio-transcript-ready': {
+      const capture = observation.captureId
+        ? input.capturesById.get(observation.captureId)
+        : undefined;
+      if (!capture) {
+        return 'Audio capture no longer exists.';
+      }
+      if (capture.kind !== 'audio') {
+        return 'Transcript observation no longer points to an audio capture.';
+      }
+      if (capture.intakeStatus === 'archived' || capture.intakeStatus === 'published') {
+        return 'Audio capture no longer needs transcript follow-up.';
+      }
+      if (
+        typeof observation.payload?.transcriptText !== 'string' ||
+        !observation.payload.transcriptText
+      ) {
+        return 'Transcript text is no longer available for inference.';
       }
       return null;
     }

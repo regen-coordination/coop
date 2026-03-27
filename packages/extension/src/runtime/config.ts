@@ -101,6 +101,8 @@ export function resolveTrustedNodeArchiveBootstrapConfig(env: {
   VITE_COOP_TRUSTED_NODE_ARCHIVE_GATEWAY_URL?: string;
   VITE_COOP_TRUSTED_NODE_ARCHIVE_ALLOWS_FILECOIN_INFO?: string;
   VITE_COOP_TRUSTED_NODE_ARCHIVE_EXPIRATION_SECONDS?: string;
+  VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_URL?: string;
+  VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_TOKEN?: string;
 }): TrustedNodeArchiveConfig | null {
   const hasAnyValue = [
     env.VITE_COOP_TRUSTED_NODE_ARCHIVE_AGENT_PRIVATE_KEY,
@@ -111,6 +113,8 @@ export function resolveTrustedNodeArchiveBootstrapConfig(env: {
     env.VITE_COOP_TRUSTED_NODE_ARCHIVE_GATEWAY_URL,
     env.VITE_COOP_TRUSTED_NODE_ARCHIVE_ALLOWS_FILECOIN_INFO,
     env.VITE_COOP_TRUSTED_NODE_ARCHIVE_EXPIRATION_SECONDS,
+    env.VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_URL,
+    env.VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_TOKEN,
   ].some((value) => Boolean(value));
 
   if (!hasAnyValue) {
@@ -130,5 +134,8 @@ export function resolveTrustedNodeArchiveBootstrapConfig(env: {
     expirationSeconds: parseConfiguredPositiveInt(
       env.VITE_COOP_TRUSTED_NODE_ARCHIVE_EXPIRATION_SECONDS,
     ),
+    filecoinWitnessRpcUrl: env.VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_URL,
+    filecoinWitnessRpcToken:
+      env.VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_TOKEN || undefined,
   });
 }

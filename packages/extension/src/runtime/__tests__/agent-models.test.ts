@@ -1,13 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { webLlmComplete, transformersPipeline } = vi.hoisted(() => ({
+const { webLlmComplete, webLlmPrewarm, webLlmStatus, transformersPipeline } = vi.hoisted(() => ({
   webLlmComplete: vi.fn(),
+  webLlmPrewarm: vi.fn(),
+  webLlmStatus: {
+    ready: false,
+    initProgress: 0,
+    initMessage: '',
+    error: undefined,
+    model: 'Qwen2-0.5B-Instruct-q4f16_1-MLC',
+  },
   transformersPipeline: vi.fn(),
 }));
 
 vi.mock('../agent-webllm-bridge', () => ({
   AgentWebLlmBridge: class {
     complete = webLlmComplete;
+    prewarm = webLlmPrewarm;
+    get status() {
+      return webLlmStatus;
+    }
     teardown() {}
   },
 }));
@@ -134,7 +146,12 @@ describe('extractJsonBlock + repairJson pipeline', () => {
 describe('agent model provider fallback', () => {
   beforeEach(() => {
     webLlmComplete.mockReset();
+    webLlmPrewarm.mockReset();
     transformersPipeline.mockReset();
+    webLlmStatus.ready = false;
+    webLlmStatus.error = undefined;
+    webLlmStatus.initProgress = 0;
+    webLlmStatus.initMessage = '';
   });
 
   afterEach(() => {
@@ -143,6 +160,7 @@ describe('agent model provider fallback', () => {
   });
 
   it('uses WebLLM when available', async () => {
+    webLlmStatus.ready = true;
     webLlmComplete.mockResolvedValue({
       provider: 'webllm',
       model: 'qwen-webllm',
@@ -176,6 +194,7 @@ describe('agent model provider fallback', () => {
   });
 
   it('falls back from WebLLM to transformers', async () => {
+    webLlmStatus.ready = true;
     webLlmComplete.mockRejectedValue(new Error('WebLLM unavailable'));
     transformersPipeline.mockResolvedValue([
       {
@@ -205,6 +224,7 @@ describe('agent model provider fallback', () => {
 
   it('falls back from a hung WebLLM call to transformers after the skill timeout', async () => {
     vi.useFakeTimers();
+    webLlmStatus.ready = true;
     webLlmComplete.mockImplementation(() => new Promise(() => {}));
     transformersPipeline.mockResolvedValue([
       {
@@ -237,6 +257,7 @@ describe('agent model provider fallback', () => {
   });
 
   it('falls back to heuristics when model providers fail', async () => {
+    webLlmStatus.ready = true;
     webLlmComplete.mockRejectedValue(new Error('WebLLM unavailable'));
     transformersPipeline.mockRejectedValue(new Error('Transformers unavailable'));
 
@@ -252,7 +273,30 @@ describe('agent model provider fallback', () => {
     expect((result.output as Record<string, unknown>).summary).toContain('Recent activity');
   });
 
+  it('falls back to heuristics when warmed transformers completion hangs past the skill timeout', async () => {
+    vi.useFakeTimers();
+    transformersPipeline.mockImplementation(() => new Promise(() => {}));
+
+    const resultPromise = completeSkillOutput({
+      preferredProvider: 'transformers',
+      schemaRef: 'capital-formation-brief-output',
+      system: 'Return JSON only.',
+      prompt: 'Write a funding brief.',
+      heuristicContext: 'A local ecological funding lead with strong community fit.',
+    });
+
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await resultPromise;
+
+    expect(result.provider).toBe('heuristic');
+    expect((result.output as Record<string, unknown>).title).toBe(
+      'Potential capital formation opportunity',
+    );
+    expect(transformersPipeline).toHaveBeenCalledTimes(2);
+  });
+
   it('retries once with error context on parse failure then succeeds', async () => {
+    webLlmStatus.ready = true;
     // First call returns malformed JSON, second call returns valid JSON
     webLlmComplete
       .mockResolvedValueOnce({
@@ -292,6 +336,7 @@ describe('agent model provider fallback', () => {
   });
 
   it('falls through to next provider when retry also fails', async () => {
+    webLlmStatus.ready = true;
     // Both WebLLM attempts return garbage
     webLlmComplete
       .mockResolvedValueOnce({
@@ -366,6 +411,88 @@ describe('agent model provider fallback', () => {
 
     expect(result.provider).toBe('heuristic');
     expect(result.output).toEqual({ routings: [] });
+  });
+
+  it('uses heuristic capital briefs on WebLLM cold start while warming the engine', async () => {
+    const result = await completeSkillOutput({
+      preferredProvider: 'webllm',
+      schemaRef: 'capital-formation-brief-output',
+      system: 'Return JSON only.',
+      prompt: 'Write a funding brief.',
+      heuristicContext: 'Potential funding opportunity.',
+    });
+
+    expect(result.provider).toBe('heuristic');
+    expect((result.output as Record<string, unknown>).title).toBe(
+      'Potential capital formation opportunity',
+    );
+    expect(webLlmPrewarm).toHaveBeenCalledTimes(1);
+    expect(webLlmComplete).not.toHaveBeenCalled();
+  });
+
+  it('uses heuristic opportunity extraction on transformers cold start while warming the pipeline', async () => {
+    transformersPipeline.mockResolvedValue([
+      {
+        generated_text: JSON.stringify({
+          candidates: [
+            {
+              id: 'candidate-1',
+              title: 'Community watershed grant',
+              summary: 'A strong watershed funding lead.',
+              rationale: 'It overlaps with the coop purpose.',
+              regionTags: ['ca'],
+              ecologyTags: ['watershed'],
+              fundingSignals: ['grant'],
+              priority: 0.9,
+              recommendedNextStep: 'Review it.',
+            },
+          ],
+        }),
+      },
+    ]);
+
+    const result = await completeSkillOutput({
+      preferredProvider: 'transformers',
+      schemaRef: 'opportunity-extractor-output',
+      system: 'Return JSON only.',
+      prompt: 'Extract ecological opportunities.',
+      heuristicContext: 'Watershed funding lead for local climate work.',
+    });
+
+    expect(result.provider).toBe('heuristic');
+    expect((result.output as Record<string, unknown>).candidates).toEqual([
+      expect.objectContaining({
+        title: 'Watershed funding lead for local climate work.',
+      }),
+    ]);
+  });
+
+  it('keeps using heuristic opportunity extraction while transformers are still warming', async () => {
+    transformersPipeline.mockImplementation(() => new Promise(() => {}));
+
+    const warmingResult = await completeSkillOutput({
+      preferredProvider: 'transformers',
+      schemaRef: 'tab-router-output',
+      system: 'Return JSON only.',
+      prompt: 'Route this extract.',
+      heuristicContext: 'Funding roundup for Coop Town Test.',
+    });
+
+    const result = await completeSkillOutput({
+      preferredProvider: 'transformers',
+      schemaRef: 'opportunity-extractor-output',
+      system: 'Return JSON only.',
+      prompt: 'Extract ecological opportunities.',
+      heuristicContext: 'Watershed funding lead for local climate work.',
+    });
+
+    expect(warmingResult.provider).toBe('heuristic');
+    expect(result.provider).toBe('heuristic');
+    expect((result.output as Record<string, unknown>).candidates).toEqual([
+      expect.objectContaining({
+        title: 'Watershed funding lead for local climate work.',
+      }),
+    ]);
   });
 
   it('passes manifest maxTokens through to transformers', async () => {

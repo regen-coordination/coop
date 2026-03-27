@@ -1,4 +1,5 @@
 import type {
+  ArchiveRecoveryRecord,
   AnchorCapability,
   AuthSession,
   CoopArchiveSecrets,
@@ -10,6 +11,7 @@ import type {
   UiPreferences,
 } from '../../contracts/schema';
 import {
+  archiveRecoveryRecordSchema,
   anchorCapabilitySchema,
   authSessionSchema,
   coopArchiveSecretsSchema,
@@ -20,6 +22,39 @@ import {
   uiPreferencesSchema,
 } from '../../contracts/schema';
 import type { CoopDexie } from './db-schema';
+import {
+  buildEncryptedLocalPayloadId,
+  buildEncryptedLocalPayloadRecord,
+  decryptEncryptedLocalPayloadRecord,
+  getEncryptedLocalPayloadRecord,
+} from './db-encryption';
+
+const ARCHIVE_SECRETS_SETTING_PREFIX = 'archive-secrets:';
+const ARCHIVE_RECOVERY_SETTING_PREFIX = 'archive-recovery:';
+
+function buildArchiveSecretsSettingKey(coopId: string) {
+  return `${ARCHIVE_SECRETS_SETTING_PREFIX}${coopId}`;
+}
+
+function buildArchiveRecoverySettingKey(recoveryId: string) {
+  return `${ARCHIVE_RECOVERY_SETTING_PREFIX}${recoveryId}`;
+}
+
+function normalizeCoopArchiveSecrets(value: unknown, coopId: string) {
+  const direct = coopArchiveSecretsSchema.safeParse(value);
+  if (direct.success) {
+    return direct.data;
+  }
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const withCoopId = coopArchiveSecretsSchema.safeParse({ ...value, coopId });
+    if (withCoopId.success) {
+      return withCoopId.data;
+    }
+  }
+
+  return null;
+}
 
 export async function setSoundPreferences(db: CoopDexie, value: SoundPreferences) {
   await db.settings.put({
@@ -137,9 +172,17 @@ export async function setCoopArchiveSecrets(
   coopId: string,
   secrets: CoopArchiveSecrets,
 ) {
-  await db.settings.put({
-    key: `archive-secrets:${coopId}`,
-    value: coopArchiveSecretsSchema.parse({ ...secrets, coopId }),
+  const parsed = coopArchiveSecretsSchema.parse({ ...secrets, coopId });
+  const payload = await buildEncryptedLocalPayloadRecord({
+    db,
+    kind: 'archive-secrets',
+    entityId: coopId,
+    bytes: new TextEncoder().encode(JSON.stringify(parsed)),
+  });
+
+  await db.transaction('rw', db.settings, db.encryptedLocalPayloads, async () => {
+    await db.encryptedLocalPayloads.put(payload);
+    await db.settings.delete(buildArchiveSecretsSettingKey(coopId));
   });
 }
 
@@ -147,14 +190,116 @@ export async function getCoopArchiveSecrets(
   db: CoopDexie,
   coopId: string,
 ): Promise<CoopArchiveSecrets | null> {
-  const record = await db.settings.get(`archive-secrets:${coopId}`);
-  if (!record?.value) return null;
-  const result = coopArchiveSecretsSchema.safeParse(record.value);
-  return result.success ? result.data : null;
+  const encryptedRecord = await getEncryptedLocalPayloadRecord(db, 'archive-secrets', coopId);
+  if (encryptedRecord) {
+    try {
+      const bytes = await decryptEncryptedLocalPayloadRecord(db, encryptedRecord);
+      return normalizeCoopArchiveSecrets(JSON.parse(new TextDecoder().decode(bytes)), coopId);
+    } catch (error) {
+      console.warn(
+        `[storage] Failed to decrypt archive secrets payload for ${coopId}. Returning null.`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  const legacyRecord = await db.settings.get(buildArchiveSecretsSettingKey(coopId));
+  if (!legacyRecord?.value) return null;
+
+  const normalized = normalizeCoopArchiveSecrets(legacyRecord.value, coopId);
+  if (!normalized) return null;
+
+  await setCoopArchiveSecrets(db, coopId, normalized);
+  return normalized;
 }
 
 export async function removeCoopArchiveSecrets(db: CoopDexie, coopId: string) {
-  await db.settings.delete(`archive-secrets:${coopId}`);
+  await db.transaction('rw', db.settings, db.encryptedLocalPayloads, async () => {
+    await db.encryptedLocalPayloads.delete(buildEncryptedLocalPayloadId('archive-secrets', coopId));
+    await db.settings.delete(buildArchiveSecretsSettingKey(coopId));
+  });
+}
+
+export async function listCoopArchiveSecrets(
+  db: CoopDexie,
+): Promise<Array<{ key: string; value: CoopArchiveSecrets }>> {
+  const encryptedRecords = await db.encryptedLocalPayloads
+    .where('kind')
+    .equals('archive-secrets')
+    .toArray();
+  const encryptedSecrets = new Map<string, CoopArchiveSecrets>();
+
+  for (const record of encryptedRecords) {
+    const bytes = await decryptEncryptedLocalPayloadRecord(db, record);
+    const parsed = normalizeCoopArchiveSecrets(
+      JSON.parse(new TextDecoder().decode(bytes)),
+      record.entityId,
+    );
+    if (!parsed) {
+      throw new Error(`Invalid encrypted archive secrets payload for coop ${record.entityId}`);
+    }
+    encryptedSecrets.set(parsed.coopId, parsed);
+  }
+
+  const legacyRecords = await db.settings
+    .filter((record) => record.key.startsWith(ARCHIVE_SECRETS_SETTING_PREFIX))
+    .toArray();
+
+  for (const record of legacyRecords) {
+    const coopId = record.key.slice(ARCHIVE_SECRETS_SETTING_PREFIX.length);
+    if (!coopId || encryptedSecrets.has(coopId)) {
+      continue;
+    }
+
+    const parsed = normalizeCoopArchiveSecrets(record.value, coopId);
+    if (!parsed) {
+      throw new Error(`Invalid legacy archive secrets setting for coop ${coopId}`);
+    }
+    encryptedSecrets.set(parsed.coopId, parsed);
+  }
+
+  return Array.from(encryptedSecrets.values()).map((value) => ({
+    key: buildArchiveSecretsSettingKey(value.coopId),
+    value,
+  }));
+}
+
+export async function setArchiveRecoveryRecord(db: CoopDexie, recovery: ArchiveRecoveryRecord) {
+  await db.settings.put({
+    key: buildArchiveRecoverySettingKey(recovery.id),
+    value: archiveRecoveryRecordSchema.parse(recovery),
+  });
+}
+
+export async function listArchiveRecoveryRecords(
+  db: CoopDexie,
+  coopId?: string,
+): Promise<ArchiveRecoveryRecord[]> {
+  const records = await db.settings
+    .filter((record) => record.key.startsWith(ARCHIVE_RECOVERY_SETTING_PREFIX))
+    .toArray();
+
+  return records.flatMap((record) => {
+    const parsed = archiveRecoveryRecordSchema.safeParse(record.value);
+    if (!parsed.success) {
+      console.warn(
+        `[storage] Ignoring invalid archive recovery record ${record.key}.`,
+        parsed.error,
+      );
+      return [];
+    }
+
+    if (coopId && parsed.data.coopId !== coopId) {
+      return [];
+    }
+
+    return [parsed.data];
+  });
+}
+
+export async function removeArchiveRecoveryRecord(db: CoopDexie, recoveryId: string) {
+  await db.settings.delete(buildArchiveRecoverySettingKey(recoveryId));
 }
 
 export async function upsertLocalIdentity(db: CoopDexie, identity: LocalPasskeyIdentity) {

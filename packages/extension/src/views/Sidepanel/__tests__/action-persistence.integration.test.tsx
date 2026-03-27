@@ -5,7 +5,11 @@ import type {
   SoundPreferences,
   UiPreferences,
 } from '@coop/shared';
-import { createArchiveBundle, createMockArchiveReceipt, createMockOnchainState } from '@coop/shared';
+import {
+  createArchiveBundle,
+  createMockArchiveReceipt,
+  createMockOnchainState,
+} from '@coop/shared';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRef, useState } from 'react';
@@ -76,20 +80,18 @@ function makeActiveCoop(overrides: CoopOverrides = {}): CoopSharedState {
       active: true,
       ...overrides?.profile,
     },
-    members:
-      overrides?.members ??
-      [
-        {
-          id: 'member-1',
-          displayName: 'Ava',
-          role: 'creator',
-          address: PASSKEY_SESSION.primaryAddress,
-          joinedAt: '2026-03-20T00:00:00.000Z',
-          authMode: 'passkey',
-          passkeyCredentialId: PASSKEY_SESSION.passkey.id,
-          identityWarning: PASSKEY_SESSION.identityWarning,
-        },
-      ],
+    members: overrides?.members ?? [
+      {
+        id: 'member-1',
+        displayName: 'Ava',
+        role: 'creator',
+        address: PASSKEY_SESSION.primaryAddress,
+        joinedAt: '2026-03-20T00:00:00.000Z',
+        authMode: 'passkey',
+        passkeyCredentialId: PASSKEY_SESSION.passkey.id,
+        identityWarning: PASSKEY_SESSION.identityWarning,
+      },
+    ],
     rituals: [],
     artifacts: [],
     reviewBoard: [],
@@ -326,238 +328,240 @@ function createRuntimeHarness(initialDashboard = makeDashboard()) {
     });
   }
 
-  runtimeSendMessageMock.mockImplementation(async (message: { type: string; payload?: unknown }) => {
-    switch (message.type) {
-      case 'get-dashboard':
-        return { ok: true, data: getDashboard() };
-      case 'get-auth-session':
-        return { ok: true, data: currentDashboard.authSession ?? null };
-      case 'set-auth-session':
-        setDashboard({
-          ...currentDashboard,
-          authSession: message.payload as DashboardResponse['authSession'],
-        });
-        return { ok: true };
-      case 'resolve-onchain-state':
-        return {
-          ok: true,
-          data: createMockOnchainState({
-            seed: String((message.payload as { coopSeed: string }).coopSeed),
-            senderAddress: PASSKEY_SESSION.primaryAddress,
-            chainKey: 'sepolia',
-          }),
-        };
-      case 'create-coop': {
-        const payload = message.payload as {
-          coopName: string;
-          purpose: string;
-          creator: CoopSharedState['members'][number];
-          captureMode: CoopSharedState['profile']['captureMode'];
-          onchainState: CoopSharedState['onchainState'];
-        };
-        const coopId = `coop-${coopIndex}`;
-        coopIndex += 1;
-        const nextCoop = makeActiveCoop({
-          profile: {
-            id: coopId,
-            name: payload.coopName,
-            purpose: payload.purpose,
-            captureMode: payload.captureMode,
-            createdBy: payload.creator.id,
-          },
-          members: [payload.creator],
-          onchainState: payload.onchainState,
-        });
-        setDashboard({
-          ...currentDashboard,
-          coops: [...currentDashboard.coops, nextCoop],
-          activeCoopId: coopId,
-        });
-        return { ok: true, data: nextCoop };
-      }
-      case 'join-coop': {
-        const payload = message.payload as {
-          inviteCode: string;
-          member: CoopSharedState['members'][number];
-        };
-        const targetCoop = currentDashboard.coops.find((coop: CoopSharedState) =>
-          coop.invites.some((invite) => invite.code === payload.inviteCode),
-        );
-        if (!targetCoop) {
-          return { ok: false, error: 'Invite not found.' };
-        }
-
-        updateCoop(targetCoop.profile.id, (coop) => ({
-          ...coop,
-          members: [...coop.members, payload.member],
-          invites: coop.invites.map((invite) =>
-            invite.code === payload.inviteCode
-              ? {
-                  ...invite,
-                  usedByMemberIds: [...invite.usedByMemberIds, payload.member.id],
-                }
-              : invite,
-          ),
-        }));
-        setDashboard({
-          ...currentDashboard,
-          activeCoopId: targetCoop.profile.id,
-        });
-        return { ok: true };
-      }
-      case 'create-invite': {
-        const payload = message.payload as {
-          coopId: string;
-          createdBy: string;
-          inviteType: InviteCode['type'];
-        };
-        const coop = currentDashboard.coops.find(
-          (item: CoopSharedState) => item.profile.id === payload.coopId,
-        );
-        if (!coop) {
-          return { ok: false, error: 'Coop not found.' };
-        }
-
-        const nextInvite = makeInvite(coop, {
-          id: `invite-${inviteIndex}`,
-          code: `COOP-INVITE-${inviteIndex}`,
-          type: payload.inviteType,
-          createdBy: payload.createdBy,
-          bootstrap: { inviteId: `invite-${inviteIndex}` },
-        });
-        inviteIndex += 1;
-        updateCoop(payload.coopId, (item) => ({
-          ...item,
-          invites: [...item.invites, nextInvite],
-        }));
-        return { ok: true, data: nextInvite };
-      }
-      case 'revoke-invite': {
-        const payload = message.payload as {
-          coopId: string;
-          inviteId: string;
-          revokedBy: string;
-        };
-        updateCoop(payload.coopId, (coop) => ({
-          ...coop,
-          invites: coop.invites.map((invite) =>
-            invite.id === payload.inviteId
-              ? {
-                  ...invite,
-                  status: 'revoked',
-                  revokedBy: payload.revokedBy,
-                  revokedAt: '2026-03-21T00:00:00.000Z',
-                }
-              : invite,
-          ),
-        }));
-        return { ok: true };
-      }
-      case 'create-receiver-pairing': {
-        const payload = message.payload as { coopId: string; memberId: string };
-        const coop = currentDashboard.coops.find(
-          (item: CoopSharedState) => item.profile.id === payload.coopId,
-        );
-        const member = coop?.members.find(
-          (item: CoopSharedState['members'][number]) => item.id === payload.memberId,
-        );
-        if (!coop || !member) {
-          return { ok: false, error: 'Receiver pairing context is unavailable.' };
-        }
-
-        const pairing = makePairing({
-          pairingId: `pairing-${pairingIndex}`,
-          coopId: coop.profile.id,
-          coopDisplayName: coop.profile.name,
-          memberId: member.id,
-          memberDisplayName: member.displayName,
-          active: true,
-        });
-        pairingIndex += 1;
-        setDashboard({
-          ...currentDashboard,
-          receiverPairings: [
-            ...currentDashboard.receiverPairings.map((item: ReceiverPairingRecord) => ({
-              ...item,
-              active: false,
-            })),
-            pairing,
-          ],
-        });
-        return { ok: true, data: pairing };
-      }
-      case 'set-active-receiver-pairing': {
-        const payload = message.payload as { pairingId: string };
-        setDashboard({
-          ...currentDashboard,
-          receiverPairings: currentDashboard.receiverPairings.map((pairing) => ({
-            ...pairing,
-            active: pairing.pairingId === payload.pairingId,
-          })),
-        });
-        return { ok: true };
-      }
-      case 'publish-draft': {
-        const payload = message.payload as {
-          draft: ReturnType<typeof makeDraft>;
-          targetCoopIds: string[];
-        };
-        const artifact = makeArtifact({
-          id: `artifact-${payload.draft.id}`,
-          title: payload.draft.title,
-          targetCoopId: payload.targetCoopIds[0] ?? currentDashboard.activeCoopId,
-        }) as unknown as CoopSharedState['artifacts'][number];
-        setDashboard({
-          ...currentDashboard,
-          drafts: currentDashboard.drafts.filter((draft) => draft.id !== payload.draft.id),
-          coops: currentDashboard.coops.map((coop: CoopSharedState) =>
-            payload.targetCoopIds.includes(coop.profile.id)
-              ? { ...coop, artifacts: [...coop.artifacts, artifact] }
-              : coop,
-          ),
-        });
-        return { ok: true, data: [artifact] };
-      }
-      case 'archive-snapshot': {
-        const payload = message.payload as { coopId: string };
-        updateCoop(payload.coopId, (coop) => {
-          const receipt = createMockArchiveReceipt({
-            bundle: createArchiveBundle({
-              scope: 'snapshot',
-              state: coop,
-            }),
-            delegationIssuer: 'sidepanel-action-persistence-test',
+  runtimeSendMessageMock.mockImplementation(
+    async (message: { type: string; payload?: unknown }) => {
+      switch (message.type) {
+        case 'get-dashboard':
+          return { ok: true, data: getDashboard() };
+        case 'get-auth-session':
+          return { ok: true, data: currentDashboard.authSession ?? null };
+        case 'set-auth-session':
+          setDashboard({
+            ...currentDashboard,
+            authSession: message.payload as DashboardResponse['authSession'],
           });
-
+          return { ok: true };
+        case 'resolve-onchain-state':
           return {
-            ...coop,
-            archiveReceipts: [
-              ...coop.archiveReceipts,
-              {
-                ...receipt,
-                id: `receipt-${receiptIndex}`,
-                uploadedAt: '2026-03-21T00:00:00.000Z',
-              },
-            ],
+            ok: true,
+            data: createMockOnchainState({
+              seed: String((message.payload as { coopSeed: string }).coopSeed),
+              senderAddress: PASSKEY_SESSION.primaryAddress,
+              chainKey: 'sepolia',
+            }),
           };
-        });
-        receiptIndex += 1;
-        return { ok: true };
+        case 'create-coop': {
+          const payload = message.payload as {
+            coopName: string;
+            purpose: string;
+            creator: CoopSharedState['members'][number];
+            captureMode: CoopSharedState['profile']['captureMode'];
+            onchainState: CoopSharedState['onchainState'];
+          };
+          const coopId = `coop-${coopIndex}`;
+          coopIndex += 1;
+          const nextCoop = makeActiveCoop({
+            profile: {
+              id: coopId,
+              name: payload.coopName,
+              purpose: payload.purpose,
+              captureMode: payload.captureMode,
+              createdBy: payload.creator.id,
+            },
+            members: [payload.creator],
+            onchainState: payload.onchainState,
+          });
+          setDashboard({
+            ...currentDashboard,
+            coops: [...currentDashboard.coops, nextCoop],
+            activeCoopId: coopId,
+          });
+          return { ok: true, data: nextCoop };
+        }
+        case 'join-coop': {
+          const payload = message.payload as {
+            inviteCode: string;
+            member: CoopSharedState['members'][number];
+          };
+          const targetCoop = currentDashboard.coops.find((coop: CoopSharedState) =>
+            coop.invites.some((invite) => invite.code === payload.inviteCode),
+          );
+          if (!targetCoop) {
+            return { ok: false, error: 'Invite not found.' };
+          }
+
+          updateCoop(targetCoop.profile.id, (coop) => ({
+            ...coop,
+            members: [...coop.members, payload.member],
+            invites: coop.invites.map((invite) =>
+              invite.code === payload.inviteCode
+                ? {
+                    ...invite,
+                    usedByMemberIds: [...invite.usedByMemberIds, payload.member.id],
+                  }
+                : invite,
+            ),
+          }));
+          setDashboard({
+            ...currentDashboard,
+            activeCoopId: targetCoop.profile.id,
+          });
+          return { ok: true };
+        }
+        case 'create-invite': {
+          const payload = message.payload as {
+            coopId: string;
+            createdBy: string;
+            inviteType: InviteCode['type'];
+          };
+          const coop = currentDashboard.coops.find(
+            (item: CoopSharedState) => item.profile.id === payload.coopId,
+          );
+          if (!coop) {
+            return { ok: false, error: 'Coop not found.' };
+          }
+
+          const nextInvite = makeInvite(coop, {
+            id: `invite-${inviteIndex}`,
+            code: `COOP-INVITE-${inviteIndex}`,
+            type: payload.inviteType,
+            createdBy: payload.createdBy,
+            bootstrap: { inviteId: `invite-${inviteIndex}` },
+          });
+          inviteIndex += 1;
+          updateCoop(payload.coopId, (item) => ({
+            ...item,
+            invites: [...item.invites, nextInvite],
+          }));
+          return { ok: true, data: nextInvite };
+        }
+        case 'revoke-invite': {
+          const payload = message.payload as {
+            coopId: string;
+            inviteId: string;
+            revokedBy: string;
+          };
+          updateCoop(payload.coopId, (coop) => ({
+            ...coop,
+            invites: coop.invites.map((invite) =>
+              invite.id === payload.inviteId
+                ? {
+                    ...invite,
+                    status: 'revoked',
+                    revokedBy: payload.revokedBy,
+                    revokedAt: '2026-03-21T00:00:00.000Z',
+                  }
+                : invite,
+            ),
+          }));
+          return { ok: true };
+        }
+        case 'create-receiver-pairing': {
+          const payload = message.payload as { coopId: string; memberId: string };
+          const coop = currentDashboard.coops.find(
+            (item: CoopSharedState) => item.profile.id === payload.coopId,
+          );
+          const member = coop?.members.find(
+            (item: CoopSharedState['members'][number]) => item.id === payload.memberId,
+          );
+          if (!coop || !member) {
+            return { ok: false, error: 'Receiver pairing context is unavailable.' };
+          }
+
+          const pairing = makePairing({
+            pairingId: `pairing-${pairingIndex}`,
+            coopId: coop.profile.id,
+            coopDisplayName: coop.profile.name,
+            memberId: member.id,
+            memberDisplayName: member.displayName,
+            active: true,
+          });
+          pairingIndex += 1;
+          setDashboard({
+            ...currentDashboard,
+            receiverPairings: [
+              ...currentDashboard.receiverPairings.map((item: ReceiverPairingRecord) => ({
+                ...item,
+                active: false,
+              })),
+              pairing,
+            ],
+          });
+          return { ok: true, data: pairing };
+        }
+        case 'set-active-receiver-pairing': {
+          const payload = message.payload as { pairingId: string };
+          setDashboard({
+            ...currentDashboard,
+            receiverPairings: currentDashboard.receiverPairings.map((pairing) => ({
+              ...pairing,
+              active: pairing.pairingId === payload.pairingId,
+            })),
+          });
+          return { ok: true };
+        }
+        case 'publish-draft': {
+          const payload = message.payload as {
+            draft: ReturnType<typeof makeDraft>;
+            targetCoopIds: string[];
+          };
+          const artifact = makeArtifact({
+            id: `artifact-${payload.draft.id}`,
+            title: payload.draft.title,
+            targetCoopId: payload.targetCoopIds[0] ?? currentDashboard.activeCoopId,
+          }) as unknown as CoopSharedState['artifacts'][number];
+          setDashboard({
+            ...currentDashboard,
+            drafts: currentDashboard.drafts.filter((draft) => draft.id !== payload.draft.id),
+            coops: currentDashboard.coops.map((coop: CoopSharedState) =>
+              payload.targetCoopIds.includes(coop.profile.id)
+                ? { ...coop, artifacts: [...coop.artifacts, artifact] }
+                : coop,
+            ),
+          });
+          return { ok: true, data: [artifact] };
+        }
+        case 'archive-snapshot': {
+          const payload = message.payload as { coopId: string };
+          updateCoop(payload.coopId, (coop) => {
+            const receipt = createMockArchiveReceipt({
+              bundle: createArchiveBundle({
+                scope: 'snapshot',
+                state: coop,
+              }),
+              delegationIssuer: 'sidepanel-action-persistence-test',
+            });
+
+            return {
+              ...coop,
+              archiveReceipts: [
+                ...coop.archiveReceipts,
+                {
+                  ...receipt,
+                  id: `receipt-${receiptIndex}`,
+                  uploadedAt: '2026-03-21T00:00:00.000Z',
+                },
+              ],
+            };
+          });
+          receiptIndex += 1;
+          return { ok: true };
+        }
+        case 'get-ui-preferences':
+          return { ok: true, data: cloneDashboard(currentDashboard.uiPreferences) };
+        case 'set-ui-preferences': {
+          const nextUiPreferences = message.payload as UiPreferences;
+          setDashboard({
+            ...currentDashboard,
+            uiPreferences: cloneDashboard(nextUiPreferences),
+          });
+          return { ok: true, data: cloneDashboard(nextUiPreferences) };
+        }
+        default:
+          return { ok: true };
       }
-      case 'get-ui-preferences':
-        return { ok: true, data: cloneDashboard(currentDashboard.uiPreferences) };
-      case 'set-ui-preferences': {
-        const nextUiPreferences = message.payload as UiPreferences;
-        setDashboard({
-          ...currentDashboard,
-          uiPreferences: cloneDashboard(nextUiPreferences),
-        });
-        return { ok: true, data: cloneDashboard(nextUiPreferences) };
-      }
-      default:
-        return { ok: true };
-    }
-  });
+    },
+  );
 
   return {
     getDashboard,
@@ -672,7 +676,7 @@ function ActionPersistenceHarness(props: {
       <div data-testid="artifact-count">{activeCoop?.artifacts.length ?? 0}</div>
       <div data-testid="invite-count">{activeCoop?.invites.length ?? 0}</div>
       <div data-testid="invite-status">
-        {activeCoop?.invites.at(-1)?.status ?? activeCoop?.invites.at(-1)?.revokedBy
+        {(activeCoop?.invites.at(-1)?.status ?? activeCoop?.invites.at(-1)?.revokedBy)
           ? 'revoked'
           : activeCoop?.invites.at(-1)
             ? 'active'

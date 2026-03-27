@@ -4,7 +4,12 @@
   "description": "Identify organizations, places, watersheds, bioregions, networks, and programs from local knowledge.",
   "runtime": "extension-offscreen",
   "model": "transformers",
-  "triggers": ["high-confidence-draft", "receiver-backlog", "ritual-review-due"],
+  "triggers": [
+    "high-confidence-draft",
+    "receiver-backlog",
+    "audio-transcript-ready",
+    "ritual-review-due"
+  ],
   "inputSchemaRef": "agent-observation",
   "outputSchemaRef": "ecosystem-entity-extractor-output",
   "allowedTools": ["read-observation-context", "read-coop-context"],

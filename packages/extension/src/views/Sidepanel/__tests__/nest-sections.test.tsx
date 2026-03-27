@@ -1022,6 +1022,7 @@ describe('NestTab', () => {
       handleQueueGreenGoodsWorkApproval: vi.fn(),
       handleQueueGreenGoodsAssessment: vi.fn(),
       handleQueueGreenGoodsGapAdminSync: vi.fn(),
+      handleQueueGreenGoodsHypercertMint: vi.fn(),
       handleQueueGreenGoodsMemberSync: vi.fn(),
       updateSound: vi.fn(),
       testSound: vi.fn(),

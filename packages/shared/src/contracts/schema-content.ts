@@ -1,5 +1,6 @@
 import z from 'zod';
 import { archiveWorthinessSchema } from './schema-agent';
+import { archiveBlobEncryptionSchema } from './schema-archive';
 import { membershipProofSchema } from './schema-crypto';
 import {
   archiveStatusSchema,
@@ -142,6 +143,7 @@ export const artifactAttachmentSchema = z.object({
   byteSize: z.number().int().nonnegative(),
   kind: blobKindSchema,
   archiveCid: z.string().min(1).optional(),
+  archiveEncryption: archiveBlobEncryptionSchema.optional(),
   thumbnailDataUrl: z.string().optional(),
 });
 
@@ -185,6 +187,7 @@ export const coopBlobRecordSchema = z.object({
   kind: blobKindSchema,
   origin: blobOriginSchema,
   archiveCid: z.string().min(1).optional(),
+  archiveEncryption: archiveBlobEncryptionSchema.optional(),
   createdAt: z.string().datetime(),
   accessedAt: z.string().datetime(),
 });

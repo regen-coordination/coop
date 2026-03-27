@@ -1,6 +1,7 @@
 import {
   type ArchiveReceipt,
   type CoopSharedState,
+  type TrustedNodeArchiveConfig,
   artifactSchema,
   coopSharedStateSchema,
 } from '../../contracts/schema';
@@ -10,6 +11,21 @@ import { createCoopDoc, createSyncRoomConfig, encodeCoopDoc } from '../coop/sync
 import { createUnavailableOnchainState } from '../onchain/onchain';
 import type { CoopDexie } from '../storage/db';
 import { retrieveArchiveBundle } from './archive';
+
+function assertArchiveRestoreVerification(input: {
+  receipt: ArchiveReceipt;
+  retrieval: Awaited<ReturnType<typeof retrieveArchiveBundle>>;
+}) {
+  const issues = [...input.retrieval.verification.receiptIssues];
+
+  if (input.receipt.delegation?.mode === 'live' && !input.retrieval.verified) {
+    issues.unshift('Archive payload could not be verified against the stored receipt.');
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`Archive restore verification failed: ${issues.join(' ')}`);
+  }
+}
 
 /**
  * Write a validated CoopSharedState into Dexie as an encoded Yjs document.
@@ -31,6 +47,11 @@ async function writeStateToDexie(state: CoopSharedState, db: CoopDexie): Promise
  * defaults for fields that may be missing in older snapshots.
  */
 function reconstructStateFromSnapshotPayload(payload: Record<string, unknown>): CoopSharedState {
+  const fullState = coopSharedStateSchema.safeParse(payload);
+  if (fullState.success) {
+    return fullState.data;
+  }
+
   const coopProfile = payload.coop as Record<string, unknown> | undefined;
   const coopId = (coopProfile?.id as string) ?? createId('coop');
 
@@ -108,8 +129,11 @@ function reconstructStateFromSnapshotPayload(payload: Record<string, unknown>): 
 export async function restoreFromArchive(
   receipt: ArchiveReceipt,
   db: CoopDexie,
+  archiveConfig?: TrustedNodeArchiveConfig,
 ): Promise<{ state: CoopSharedState; coopId: string }> {
-  const { payload } = await retrieveArchiveBundle(receipt);
+  const retrieval = await retrieveArchiveBundle(receipt, archiveConfig);
+  assertArchiveRestoreVerification({ receipt, retrieval });
+  const { payload } = retrieval;
 
   // The bundle wraps the actual data in a `payload` property
   const innerPayload = (payload.payload as Record<string, unknown>) ?? payload;

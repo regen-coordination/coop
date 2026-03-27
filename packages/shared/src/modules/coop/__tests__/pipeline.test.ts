@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createCoop } from '../flows';
 import {
+  arePageExtractsNearDuplicates,
   createLocalEnhancementAdapter,
   detectLocalEnhancementAvailability,
+  buildReadablePageExtract,
   inferFromTranscript,
   runPassivePipeline,
 } from '../pipeline';
+import { canonicalizeUrl, hashText } from '../../../utils';
 
 function buildSetupInsights() {
   return {
@@ -40,6 +43,26 @@ function buildSetupInsights() {
       },
     ],
   } as const;
+}
+
+function buildCandidate(input: {
+  id: string;
+  url: string;
+  title: string;
+  capturedAt?: string;
+}) {
+  const canonicalUrl = canonicalizeUrl(input.url);
+  return {
+    id: input.id,
+    tabId: Number.parseInt(input.id.replace(/\D+/g, ''), 10) || 1,
+    windowId: 1,
+    url: input.url,
+    canonicalUrl,
+    canonicalUrlHash: hashText(canonicalUrl),
+    title: input.title,
+    domain: new URL(input.url).hostname.replace(/^www\./, ''),
+    capturedAt: input.capturedAt ?? '2026-03-27T12:00:00.000Z',
+  };
 }
 
 describe('pipeline', () => {
@@ -142,6 +165,74 @@ describe('pipeline', () => {
     expect(pipeline.drafts[0]?.rationale).toContain('Local classifier');
     expect(pipeline.drafts[0]?.suggestedNextStep).toContain('push or archive');
     expect(pipeline.drafts[0]?.confidence).toBeGreaterThan(0.18);
+  });
+
+  it('treats high-overlap same-domain extracts as near duplicates', () => {
+    const original = buildReadablePageExtract({
+      candidate: buildCandidate({
+        id: 'candidate-1',
+        url: 'https://funding.example.org/grants/watershed-roundup',
+        title: 'Watershed restoration grant roundup for 2026',
+      }),
+      metaDescription:
+        'A funding brief covering watershed restoration grants, local match requirements, and proposal timing.',
+      headings: ['Funding brief', 'Application timeline'],
+      paragraphs: [
+        'This grant roundup tracks watershed restoration funding deadlines, local match requirements, and proposal milestones for river alliances.',
+        'Teams can use the brief to gather eligibility evidence, confirm deadlines, and coordinate the proposal packet before submission.',
+        'Subscribe for updates and share this article with your network.',
+      ],
+    });
+    const printView = buildReadablePageExtract({
+      candidate: buildCandidate({
+        id: 'candidate-2',
+        url: 'https://funding.example.org/news/watershed-roundup-print',
+        title: '2026 watershed restoration grant round-up',
+      }),
+      metaDescription:
+        'Funding brief for watershed restoration collaboratives with local match guidance and submission timing.',
+      headings: ['Application timeline', 'Funding brief'],
+      paragraphs: [
+        'River alliances can use this funding brief to gather eligibility evidence, confirm proposal timing, and prepare the submission packet.',
+        'This watershed restoration grant roundup tracks funding deadlines and local match requirements for collaborative projects.',
+        'Print this page or share it with a colleague.',
+      ],
+    });
+
+    expect(arePageExtractsNearDuplicates(original, printView)).toBe(true);
+  });
+
+  it('keeps distinct same-domain articles when overlap stays topical but not duplicative', () => {
+    const fundingLead = buildReadablePageExtract({
+      candidate: buildCandidate({
+        id: 'candidate-3',
+        url: 'https://funding.example.org/grants/watershed-roundup',
+        title: 'Watershed restoration grant roundup for 2026',
+      }),
+      metaDescription:
+        'A funding brief covering watershed restoration grants, local match requirements, and proposal timing.',
+      headings: ['Funding brief', 'Application timeline'],
+      paragraphs: [
+        'This grant roundup tracks watershed restoration funding deadlines, local match requirements, and proposal milestones for river alliances.',
+        'Teams can use the brief to gather eligibility evidence, confirm deadlines, and coordinate the proposal packet before submission.',
+      ],
+    });
+    const reportingGuide = buildReadablePageExtract({
+      candidate: buildCandidate({
+        id: 'candidate-4',
+        url: 'https://funding.example.org/guides/reporting-checklist',
+        title: 'Post-award reporting checklist for watershed grants',
+      }),
+      metaDescription:
+        'A guide to quarterly reporting, invoice backup, and evidence retention after a watershed grant is awarded.',
+      headings: ['Reporting checklist', 'Evidence retention'],
+      paragraphs: [
+        'This guide covers post-award reporting deadlines, invoice backup, evidence retention, and quarterly narrative updates for active grants.',
+        'Use it after a grant is awarded to keep compliance materials ready for reimbursement and audit review.',
+      ],
+    });
+
+    expect(arePageExtractsNearDuplicates(fundingLead, reportingGuide)).toBe(false);
   });
 });
 

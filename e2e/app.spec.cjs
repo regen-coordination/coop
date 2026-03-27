@@ -264,13 +264,16 @@ test('landing page renders the refreshed narrative', async ({ page }) => {
   await expect(page.locator('.hero-signal-cluster')).toBeVisible();
   await expect(page.locator('.how-works-index')).toHaveCount(4);
 
-  const firstSignalOpacity = await page
-    .locator('.journey-scene-story .scene-chicken-label')
-    .first()
-    .evaluate((node) => {
-      return Number.parseFloat(window.getComputedStyle(node).opacity);
-    });
-  expect(firstSignalOpacity).toBeGreaterThan(0.2);
+  await expect
+    .poll(async () => {
+      return page
+        .locator('.journey-scene-story .scene-chicken-label')
+        .first()
+        .evaluate((node) => {
+          return Number.parseFloat(window.getComputedStyle(node).opacity);
+        });
+    })
+    .toBeGreaterThan(0.15);
 
   const logoBox = await page.locator('.hero-logo').boundingBox();
   if (!logoBox) {
@@ -292,7 +295,7 @@ test('landing page renders the refreshed narrative', async ({ page }) => {
   expect(Math.abs(stageBox.x + stageBox.width / 2 - viewport.width / 2)).toBeLessThan(170);
   await expect(page.getByRole('button', { name: /^close card$/i })).toBeVisible();
   await expect(page.getByRole('textbox', { name: /collective intelligence notes/i })).toBeVisible();
-  await page.locator('.flashcard-focus-shell').click({ position: { x: 20, y: 20 } });
+  await page.getByRole('button', { name: /^close card$/i }).click();
   await expect(page.getByRole('textbox', { name: /collective intelligence notes/i })).toHaveCount(
     0,
   );

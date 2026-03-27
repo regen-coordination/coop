@@ -116,9 +116,7 @@ const suites: Record<string, Suite> = {
   'unit:sync-hardening': {
     description:
       'Deterministic sync coverage for shared transport health, receiver replication, popup sync semantics, and dashboard hook summaries.',
-    steps: [
-      { label: 'unit:sync-hardening', command: ['bun', 'run', 'test:unit:sync-hardening'] },
-    ],
+    steps: [{ label: 'unit:sync-hardening', command: ['bun', 'run', 'test:unit:sync-hardening'] }],
   },
   'unit:onchain-ui': {
     description:
@@ -155,7 +153,8 @@ const suites: Record<string, Suite> = {
     includes: ['typecheck', 'lint'],
   },
   'popup-slice': {
-    description: 'Popup validation slice: popup action unit coverage plus popup browser smoke coverage.',
+    description:
+      'Popup validation slice: popup action unit coverage plus popup browser smoke coverage.',
     includes: ['unit:popup-actions', 'e2e:popup'],
   },
   smoke: {

@@ -16,6 +16,37 @@ afterEach(() => {
   Reflect.deleteProperty(globalThis, 'chrome');
 });
 
+function testSanitizeTextForInference(value: string) {
+  let sanitized = value.replace(/https?:\/\/\S+/gi, (match) => {
+    try {
+      const url = new URL(match);
+      for (const key of [...url.searchParams.keys()]) {
+        if (key.toLowerCase().startsWith('utm_') || ['access_token', 'token'].includes(key)) {
+          url.searchParams.delete(key);
+        }
+      }
+      if ([...url.searchParams.keys()].length === 0) {
+        url.search = '';
+      }
+      return url.toString();
+    } catch {
+      return match;
+    }
+  });
+
+  sanitized = sanitized.replace(/\bBearer\s+\S+\b/gi, 'Bearer [redacted-token]');
+  sanitized = sanitized.replace(
+    /\b(access_token|token|secret|password)\b\s*[:=]\s*([^\s,;]+)/gi,
+    (_match, key: string) => `${key}=[redacted]`,
+  );
+  sanitized = sanitized.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[redacted-email]');
+  sanitized = sanitized.replace(
+    /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?){2}\d{4}\b/g,
+    '[redacted-phone]',
+  );
+  return sanitized;
+}
+
 // --- Mocks for @coop/shared ---
 
 const mockGetAgentPlan = vi.fn();
@@ -102,6 +133,7 @@ vi.mock('@coop/shared', () => ({
   isArchiveReceiptRefreshable: vi.fn(() => false),
   pendingBundles: vi.fn(() => []),
   resolveGreenGoodsGapAdminChanges: vi.fn(() => ({ addAdmins: [], removeAdmins: [] })),
+  sanitizeTextForInference: testSanitizeTextForInference,
 }));
 
 // --- Mocks for context ---
@@ -240,7 +272,16 @@ function makeObservation(overrides: Record<string, unknown> = {}) {
 describe('agent handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetLocalSetting.mockResolvedValue(undefined);
+    mockGetLocalSetting.mockImplementation(async (key, fallbackValue) => {
+      if (key === 'agent-cycle-state') {
+        return {
+          running: false,
+          lastRequestId: 'id-mock',
+          lastCompletedAt: '2026-03-22T01:00:00.000Z',
+        };
+      }
+      return fallbackValue;
+    });
     mockGetTrustedNodeContext.mockResolvedValue(TRUSTED_NODE_OK);
   });
 
@@ -647,6 +688,41 @@ describe('agent handlers', () => {
       );
       expect(insightCalls).toHaveLength(0);
     });
+
+    it('does not emit receiver backlog for audio captures with an active transcript observation', async () => {
+      const coop = makeCoop();
+      mockGetCoops.mockResolvedValue([coop]);
+      mockListAgentMemories.mockResolvedValue([]);
+      mockListReviewDrafts.mockResolvedValue([]);
+      mockListReceiverCaptures.mockResolvedValue([
+        {
+          id: 'capture-audio-1',
+          coopId: 'coop-1',
+          kind: 'audio',
+          title: 'Voice note',
+          note: 'Follow up on grant',
+          intakeStatus: 'private-intake',
+        },
+      ]);
+      mockListAgentObservations.mockResolvedValue([
+        makeObservation({
+          id: 'obs-transcript',
+          trigger: 'audio-transcript-ready',
+          coopId: 'coop-1',
+          captureId: 'capture-audio-1',
+          payload: {
+            transcriptText: 'EPA grant requires a 20% local match.',
+          },
+        }),
+      ]);
+
+      await syncAgentObservations();
+
+      const receiverBacklogCalls = mockCreateObservation.mock.calls.filter(
+        (call: unknown[]) => (call[0] as Record<string, unknown>).trigger === 'receiver-backlog',
+      );
+      expect(receiverBacklogCalls).toHaveLength(0);
+    });
   });
 
   describe('emitAudioTranscriptObservation', () => {
@@ -700,6 +776,38 @@ describe('agent handlers', () => {
           summary: expect.stringContaining('…'),
         }),
       );
+    });
+
+    it('redacts sensitive transcript details before saving the observation', async () => {
+      mockFindByFingerprint.mockResolvedValueOnce(undefined);
+      const { emitAudioTranscriptObservation } = await import('../agent');
+
+      await emitAudioTranscriptObservation({
+        captureId: 'cap-3',
+        coopId: 'coop-1',
+        transcriptText:
+          'Contact jane@example.com or 415-555-0199. token=secret https://example.com/grant?id=42&utm_source=newsletter&access_token=abc',
+      });
+
+      expect(mockCreateObservation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          summary: expect.stringContaining('[redacted-email]'),
+          payload: expect.objectContaining({
+            transcriptText: expect.stringContaining('[redacted-email]'),
+          }),
+        }),
+      );
+
+      const payload = mockCreateObservation.mock.calls.at(-1)?.[0]?.payload as {
+        transcriptText: string;
+      };
+      expect(payload.transcriptText).toContain('[redacted-phone]');
+      expect(payload.transcriptText).toContain('token=[redacted]');
+      expect(payload.transcriptText).toContain('https://example.com/grant?id=42');
+      expect(payload.transcriptText).not.toContain('jane@example.com');
+      expect(payload.transcriptText).not.toContain('415-555-0199');
+      expect(payload.transcriptText).not.toContain('access_token=abc');
+      expect(payload.transcriptText).not.toContain('utm_source=newsletter');
     });
   });
 

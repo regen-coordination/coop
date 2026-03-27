@@ -461,9 +461,7 @@ export type TabRouting = z.infer<typeof tabRoutingSchema>;
 export type TabRouterOutput = z.infer<typeof tabRouterOutputSchema>;
 export type MemoryInsightOutput = z.infer<typeof memoryInsightOutputSchema>;
 export type ActionProposal = z.infer<typeof actionProposalSchema>;
-export type AgentPlanStepEvaluationContract = z.infer<
-  typeof agentPlanStepEvaluationContractSchema
->;
+export type AgentPlanStepEvaluationContract = z.infer<typeof agentPlanStepEvaluationContractSchema>;
 export type SkillEvaluationCriterion = z.infer<typeof skillEvaluationCriterionSchema>;
 export type SkillEvaluationAttempt = z.infer<typeof skillEvaluationAttemptSchema>;
 export type AgentPlanStep = z.infer<typeof agentPlanStepSchema>;

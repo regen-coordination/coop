@@ -17,18 +17,6 @@ export interface GreenGoodsAccessSummaryProps {
   memberGardenerBundles: ActionBundle[];
 }
 
-export interface GreenGoodsImpactReportFormProps {
-  onSubmit: (input: {
-    title: string;
-    description: string;
-    domain: 'solar' | 'agro' | 'edu' | 'waste';
-    reportCid: string;
-    metricsSummary: string;
-    reportingPeriodStart: number;
-    reportingPeriodEnd: number;
-  }) => Promise<void>;
-}
-
 export interface GreenGoodsWorkSubmissionFormProps {
   onSubmit: (input: {
     actionUid: number;
@@ -133,9 +121,7 @@ export function GreenGoodsAccessSummary({
           <p className="helper-text">
             {activeCoop.greenGoods?.lastWorkSubmissionAt
               ? `Work submission ${new Date(activeCoop.greenGoods.lastWorkSubmissionAt).toLocaleString()}`
-              : activeCoop.greenGoods?.lastImpactReportAt
-                ? `Impact report ${new Date(activeCoop.greenGoods.lastImpactReportAt).toLocaleString()}`
-                : 'No member attestations recorded yet.'}
+              : 'No member work submissions recorded yet.'}
           </p>
         </div>
       </div>
@@ -160,157 +146,6 @@ export function GreenGoodsAccessSummary({
         </div>
       ) : null}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// GreenGoodsImpactReportForm
-// ---------------------------------------------------------------------------
-
-export function GreenGoodsImpactReportForm({ onSubmit }: GreenGoodsImpactReportFormProps) {
-  const [draft, setDraft] = useState({
-    title: '',
-    description: '',
-    domain: 'agro' as 'solar' | 'agro' | 'edu' | 'waste',
-    reportCid: '',
-    metricsSummary: '',
-    reportingPeriodStart: '',
-    reportingPeriodEnd: '',
-  });
-
-  return (
-    <form
-      className="form-grid"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void onSubmit({
-          title: draft.title,
-          description: draft.description,
-          domain: draft.domain,
-          reportCid: draft.reportCid,
-          metricsSummary: draft.metricsSummary,
-          reportingPeriodStart: Number(draft.reportingPeriodStart),
-          reportingPeriodEnd: Number(draft.reportingPeriodEnd),
-        });
-      }}
-    >
-      <strong>Impact report</strong>
-      <div className="field-grid">
-        <label htmlFor="impact-title">Impact report title</label>
-        <input
-          id="impact-title"
-          required
-          value={draft.title}
-          onChange={(event) =>
-            setDraft((current) => ({
-              ...current,
-              title: event.target.value,
-            }))
-          }
-        />
-      </div>
-      <div className="field-grid">
-        <label htmlFor="impact-description">What changed?</label>
-        <textarea
-          id="impact-description"
-          required
-          value={draft.description}
-          onChange={(event) =>
-            setDraft((current) => ({
-              ...current,
-              description: event.target.value,
-            }))
-          }
-        />
-      </div>
-      <div className="detail-grid">
-        <div className="field-grid">
-          <label htmlFor="impact-domain">Domain</label>
-          <select
-            id="impact-domain"
-            value={draft.domain}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                domain: event.target.value as 'solar' | 'agro' | 'edu' | 'waste',
-              }))
-            }
-          >
-            <option value="solar">solar</option>
-            <option value="agro">agro</option>
-            <option value="edu">edu</option>
-            <option value="waste">waste</option>
-          </select>
-        </div>
-        <div className="field-grid">
-          <label htmlFor="impact-cid">Report CID</label>
-          <input
-            id="impact-cid"
-            required
-            value={draft.reportCid}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                reportCid: event.target.value,
-              }))
-            }
-          />
-        </div>
-      </div>
-      <div className="field-grid">
-        <label htmlFor="impact-metrics">Metrics summary</label>
-        <textarea
-          id="impact-metrics"
-          required
-          value={draft.metricsSummary}
-          onChange={(event) =>
-            setDraft((current) => ({
-              ...current,
-              metricsSummary: event.target.value,
-            }))
-          }
-        />
-      </div>
-      <div className="detail-grid">
-        <div className="field-grid">
-          <label htmlFor="impact-start">Period start (unix seconds)</label>
-          <input
-            id="impact-start"
-            min="0"
-            required
-            type="number"
-            value={draft.reportingPeriodStart}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                reportingPeriodStart: event.target.value,
-              }))
-            }
-          />
-        </div>
-        <div className="field-grid">
-          <label htmlFor="impact-end">Period end (unix seconds)</label>
-          <input
-            id="impact-end"
-            min="0"
-            required
-            type="number"
-            value={draft.reportingPeriodEnd}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                reportingPeriodEnd: event.target.value,
-              }))
-            }
-          />
-        </div>
-      </div>
-      <div className="action-row">
-        <button className="primary-button" type="submit">
-          Submit impact from my account
-        </button>
-      </div>
-    </form>
   );
 }
 
@@ -447,7 +282,7 @@ export function GreenGoodsProvisionButton({
       {!canSubmit ? (
         <p className="helper-text">
           {gardenAddress
-            ? 'Provision your local garden account first. Once the address is predicted, this browser can submit impact and work submissions directly from your member smart account.'
+            ? 'Provision your local garden account first. Once the address is predicted, this browser can submit work from your member smart account.'
             : 'Wait for the coop garden to be linked before submitting member attestations.'}
         </p>
       ) : null}

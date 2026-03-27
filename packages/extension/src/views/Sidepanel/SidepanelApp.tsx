@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PopupThemeToggle } from '../Popup/PopupThemePicker';
 import { NotificationBanner } from '../shared/NotificationBanner';
 import { Tooltip } from '../shared/Tooltip';
@@ -6,9 +6,7 @@ import { useCoopTheme } from '../shared/useCoopTheme';
 import { SidepanelTabRouter } from './SidepanelTabRouter';
 import { SidepanelFooterNav } from './TabStrip';
 import { useSidepanelOrchestration } from './hooks/useSidepanelOrchestration';
-
-const sidepanelTabs = ['roost', 'chickens', 'coops', 'nest'] as const;
-type SidepanelTab = (typeof sidepanelTabs)[number];
+import type { SidepanelTab } from './sidepanel-tabs';
 
 function PairDeviceIcon() {
   return (
@@ -57,6 +55,19 @@ export function SidepanelApp() {
   const orchestration = useSidepanelOrchestration(setPanelTab);
 
   const { dashboard, activeCoop, agentDashboard, hasTrustedNodeAccess, message } = orchestration;
+
+  useEffect(() => {
+    if (!activeCoop) {
+      if (panelTab !== 'nest') {
+        setPanelTab('nest');
+      }
+      return;
+    }
+
+    if (panelTab === 'nest' && !hasTrustedNodeAccess) {
+      setPanelTab('coops');
+    }
+  }, [activeCoop, hasTrustedNodeAccess, panelTab]);
 
   return (
     <div className="coop-shell sidepanel-shell">

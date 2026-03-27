@@ -301,4 +301,8 @@ describe('service-worker safety (built output)', () => {
       expect.fail(`Found ${vs.length} top-level new Worker():\n${formatViolations(vs)}`);
     }
   });
+
+  it('ships the packaged ONNX runtime wasm asset', () => {
+    expect(fs.existsSync(path.join(distDir, 'assets/ort-wasm-simd-threaded.jsep.wasm'))).toBe(true);
+  });
 });

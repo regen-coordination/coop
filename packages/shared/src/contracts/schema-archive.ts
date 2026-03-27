@@ -25,6 +25,13 @@ export const archiveReceiptSchema = z.object({
   uploadedAt: z.string().datetime(),
   filecoinStatus: filecoinStatusSchema,
   delegationIssuer: z.string().min(1),
+  contentEncoding: z.enum(['plain-json', 'encrypted-envelope']).default('plain-json'),
+  encryption: z
+    .object({
+      algorithm: z.literal('aes-gcm'),
+      keyDerivation: z.literal('coop-archive-config-v1'),
+    })
+    .optional(),
   delegation: z
     .object({
       issuer: z.string().min(1),
@@ -61,6 +68,10 @@ export const archiveReceiptSchema = z.object({
             aggregate: z.string().min(1),
             provider: z.string().min(1).optional(),
             dealId: z.string().min(1).optional(),
+            dataAggregationProof: z.string().min(1).optional(),
+            dataAggregationProofCid: z.string().min(1).optional(),
+            onChainSealWitness: z.string().min(1).optional(),
+            onChainSealWitnessCid: z.string().min(1).optional(),
           }),
         )
         .default([]),
@@ -81,6 +92,67 @@ export const archiveBundleSchema = z.object({
   createdAt: z.string().datetime(),
   schemaVersion: z.number().int().positive().default(1),
   payload: z.record(z.any()),
+});
+
+export const archivePayloadEncryptionSchema = z.object({
+  algorithm: z.literal('aes-gcm'),
+  keyDerivation: z.literal('coop-archive-config-v1'),
+});
+
+export const archiveBlobEncryptionSchema = archivePayloadEncryptionSchema.extend({
+  iv: z.string().min(1),
+  ciphertextByteSize: z.number().int().positive(),
+});
+
+export const archiveBlobUploadSchema = z.union([
+  z.string().min(1),
+  z.object({
+    archiveCid: z.string().min(1),
+    archiveEncryption: archiveBlobEncryptionSchema.optional(),
+  }),
+]);
+
+export const archiveEncryptedEnvelopeSchema = z.object({
+  type: z.literal('coop-archive-envelope'),
+  schemaVersion: z.number().int().positive().default(1),
+  bundleId: z.string().min(1),
+  scope: archiveScopeSchema,
+  targetCoopId: z.string().min(1),
+  payloadEncoding: z.literal('json'),
+  algorithm: z.literal('aes-gcm'),
+  keyDerivation: z.literal('coop-archive-config-v1'),
+  iv: z.string().min(1),
+  ciphertext: z.string().min(1),
+});
+
+export const archiveOnChainSealWitnessArtifactSchema = z.object({
+  type: z.literal('coop-filecoin-onchain-seal-witness'),
+  schemaVersion: z.number().int().positive().default(1),
+  source: z.literal('lotus-json-rpc'),
+  witnessedAt: z.string().datetime(),
+  tipSet: z.object({
+    height: z.number().int().nonnegative(),
+    cids: z.array(z.string().min(1)).min(1),
+  }),
+  deal: z.object({
+    dealId: z.string().regex(/^\d+$/),
+    provider: z.string().min(1),
+    pieceCid: z.string().min(1),
+    pieceSize: z.number().int().positive(),
+    verifiedDeal: z.boolean(),
+    startEpoch: z.number().int().nonnegative(),
+    endEpoch: z.number().int().nonnegative(),
+    sectorStartEpoch: z.number().int().positive(),
+    lastUpdatedEpoch: z.number().int(),
+    slashEpoch: z.number().int(),
+  }),
+  activeSector: z.object({
+    sectorNumber: z.number().int().positive(),
+    activation: z.number().int().positive(),
+    expiration: z.number().int().positive(),
+    sealedCid: z.string().min(1).optional(),
+    sectorKeyCid: z.string().min(1).optional(),
+  }),
 });
 
 export const archiveDelegationMaterialSchema = z.object({
@@ -123,6 +195,8 @@ export const trustedNodeArchiveConfigSchema = z.object({
   proofs: z.array(z.string().min(1)).default([]),
   allowsFilecoinInfo: z.boolean().default(false),
   expirationSeconds: z.number().int().positive().default(600),
+  filecoinWitnessRpcUrl: z.string().url().optional(),
+  filecoinWitnessRpcToken: z.string().min(1).optional(),
 });
 
 /** Public archive config — synced via CRDT in CoopSharedState. */
@@ -140,6 +214,18 @@ export const coopArchiveSecretsSchema = z.object({
   agentPrivateKey: z.string().min(1).optional(),
   spaceDelegation: z.string().min(1),
   proofs: z.array(z.string().min(1)).default([]),
+  filecoinWitnessRpcUrl: z.string().url().optional(),
+  filecoinWitnessRpcToken: z.string().min(1).optional(),
+});
+
+export const archiveRecoveryRecordSchema = z.object({
+  id: z.string().min(1),
+  coopId: z.string().min(1),
+  createdAt: z.string().datetime(),
+  receipt: archiveReceiptSchema,
+  artifactIds: z.array(z.string().min(1)).default([]),
+  blobUploads: z.record(archiveBlobUploadSchema).default({}),
+  lastError: z.string().min(1).optional(),
 });
 
 export const anchorCapabilitySchema = z.object({
@@ -232,6 +318,14 @@ export type ArchiveDelegationMaterial = z.infer<typeof archiveDelegationMaterial
 export type ArchiveDelegationRequestInput = z.input<typeof archiveDelegationRequestSchema>;
 export type ArchiveDelegationRequest = z.infer<typeof archiveDelegationRequestSchema>;
 export type ArchiveReceipt = z.infer<typeof archiveReceiptSchema>;
+export type ArchivePayloadEncryption = z.infer<typeof archivePayloadEncryptionSchema>;
+export type ArchiveBlobEncryption = z.infer<typeof archiveBlobEncryptionSchema>;
+export type ArchiveBlobUpload = z.infer<typeof archiveBlobUploadSchema>;
+export type ArchiveEncryptedEnvelope = z.infer<typeof archiveEncryptedEnvelopeSchema>;
+export type ArchiveOnChainSealWitnessArtifact = z.infer<
+  typeof archiveOnChainSealWitnessArtifactSchema
+>;
+export type ArchiveRecoveryRecord = z.infer<typeof archiveRecoveryRecordSchema>;
 export type AnchorCapability = z.infer<typeof anchorCapabilitySchema>;
 export type PrivilegedActionContext = z.infer<typeof privilegedActionContextSchema>;
 export type PrivilegedActionLogEntry = z.infer<typeof privilegedActionLogEntrySchema>;

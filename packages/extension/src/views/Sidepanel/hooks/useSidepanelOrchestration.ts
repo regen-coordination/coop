@@ -2,6 +2,7 @@ import type {
   CaptureMode,
   DelegatedActionClass,
   GreenGoodsAssessmentRequest,
+  GreenGoodsHypercertMintRequest,
   GreenGoodsWorkApprovalRequest,
   InviteCode,
   PolicyActionClass,
@@ -12,6 +13,7 @@ import type {
 import { useEffect, useRef, useState } from 'react';
 import { InferenceBridge, type InferenceBridgeState } from '../../../runtime/inference-bridge';
 import { type AgentDashboardResponse, sendRuntimeMessage } from '../../../runtime/messages';
+import type { SidepanelTab } from '../sidepanel-tabs';
 import { useCoopForm } from './useCoopForm';
 import { useDashboard } from './useDashboard';
 import { useDraftEditor } from './useDraftEditor';
@@ -24,8 +26,6 @@ import { useSidepanelInvites } from './useSidepanelInvites';
 import { useSidepanelPermissions } from './useSidepanelPermissions';
 import { useSyncBindings } from './useSyncBindings';
 import { useTabCapture } from './useTabCapture';
-
-type SidepanelTab = 'roost' | 'chickens' | 'coops' | 'nest';
 
 export interface SidepanelOrchestration {
   // Dashboard state
@@ -71,15 +71,6 @@ export interface SidepanelOrchestration {
   revokeInvite: (inviteId: string) => Promise<void>;
   createReceiverPairing: () => Promise<void>;
   handleProvisionMemberOnchainAccount: () => Promise<void>;
-  handleSubmitGreenGoodsImpactReport: (input: {
-    title: string;
-    description: string;
-    domain: 'solar' | 'agro' | 'edu' | 'waste';
-    reportCid: string;
-    metricsSummary: string;
-    reportingPeriodStart: number;
-    reportingPeriodEnd: number;
-  }) => Promise<void>;
   handleSubmitGreenGoodsWorkSubmission: (input: {
     actionUid: number;
     title: string;
@@ -141,6 +132,10 @@ export interface SidepanelOrchestration {
     request: GreenGoodsAssessmentRequest,
   ) => Promise<void>;
   handleQueueGreenGoodsGapAdminSync: (coopId: string) => Promise<void>;
+  handleQueueGreenGoodsHypercertMint: (
+    coopId: string,
+    request: GreenGoodsHypercertMintRequest,
+  ) => Promise<void>;
   handleQueueGreenGoodsMemberSync: (coopId: string) => Promise<void>;
   updateCoopProfile: (patch: {
     name?: string;
@@ -203,14 +198,14 @@ export function useSidepanelOrchestration(
   // --- Composed hooks ---
   const tabCapture = useTabCapture({
     setMessage,
-    setPanelTab: (tab: string) => setPanelTab(tab as SidepanelTab),
+    setPanelTab,
     loadDashboard,
   });
 
   const draftEditor = useDraftEditor({
     activeCoop,
     setMessage,
-    setPanelTab: (tab: string) => setPanelTab(tab as SidepanelTab),
+    setPanelTab,
     loadDashboard,
     soundPreferences,
     inferenceBridgeRef,
@@ -218,7 +213,7 @@ export function useSidepanelOrchestration(
 
   const coopForm = useCoopForm({
     setMessage,
-    setPanelTab: (tab: string) => setPanelTab(tab as SidepanelTab),
+    setPanelTab,
     loadDashboard,
     soundPreferences,
     configuredSignalingUrls,

@@ -120,6 +120,55 @@ Full reference: `docs/builder/environment.md`
 
 **Branches**: `type/description` (e.g., `feature/receiver-pwa`, `fix/sync-race`)
 
+### Planning OS
+
+`.plans/` is the single live planning space for active feature work.
+
+- New feature execution work goes in `.plans/features/<feature-slug>/`
+- Ratified, long-lived docs stay in `docs/reference/`
+- Do not create new active plan files in repo root
+
+Canonical feature-pack layout:
+
+```text
+.plans/features/<feature-slug>/
+  spec.md
+  context.md
+  lanes/
+    ui.claude.todo.md
+    state.codex.todo.md
+    api.codex.todo.md
+    contracts.codex.todo.md
+  qa/
+    qa-codex.todo.md
+    qa-claude.todo.md
+  eval/
+    implementation-notes.md
+    qa-report.md
+```
+
+Lane ownership:
+
+- Claude: `ui` and `qa` pass 1
+- Codex: `state`, `api`, `contracts`, and `qa` pass 2
+- Both: `docs` via dedicated docs-drift lanes
+
+QA handoff branches:
+
+- `handoff/qa-codex/<feature-slug>` triggers the first QA pass
+- `handoff/qa-claude/<feature-slug>` triggers the second QA pass
+
+Automation entrypoints:
+
+- `bun run plans validate`
+- `bun run plans scaffold <feature-slug> --title "<Feature Title>"`
+- `bun run plans queue --agent claude --lane ui`
+- `bun run plans queue --agent codex`
+- `bun run plans queue --agent claude --lane docs`
+- `bun run plans queue --agent codex --lane docs`
+- `bun run plans queue --agent claude --lane qa --handoff-ready`
+- `bun run plans queue --agent codex --lane qa --handoff-ready`
+
 **Commits**: Conventional Commits with scope: `type(scope): description`
 - Types: feat, fix, refactor, chore, docs, test, perf, ci
 - Scopes: shared, extension, app, claude

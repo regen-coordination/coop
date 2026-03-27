@@ -1,6 +1,5 @@
 import type { JSX } from 'react';
-
-type SidepanelTab = 'roost' | 'chickens' | 'coops' | 'nest';
+import type { SidepanelTab } from './sidepanel-tabs';
 
 interface SidepanelFooterNavProps {
   activeTab: SidepanelTab;

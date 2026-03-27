@@ -4,6 +4,7 @@ import { hashJson } from '../../utils';
 import type { CoopOnchainMode } from '../onchain/onchain';
 import { greenGoodsGardenerManagementAbi } from './greengoods-abis';
 import {
+  type GreenGoodsLiveExecutor,
   type GreenGoodsTransactionResult,
   describeGreenGoodsMode,
   ensureLiveExecutionReady,
@@ -40,6 +41,7 @@ export async function addGreenGoodsGardener(input: {
   onchainState: OnchainState;
   gardenAddress: Address;
   gardenerAddress: Address;
+  liveExecutor?: GreenGoodsLiveExecutor;
 }): Promise<GreenGoodsTransactionResult> {
   ensureLiveExecutionReady(input);
 
@@ -59,15 +61,21 @@ export async function addGreenGoodsGardener(input: {
     gardenAddress: input.gardenAddress,
     gardenerAddress: input.gardenerAddress,
   });
-  const credentials = requireLiveExecutionCredentials(input);
-
-  const result = await sendViaCoopSafe({
-    authSession: credentials.authSession,
-    pimlicoApiKey: credentials.pimlicoApiKey,
-    onchainState: input.onchainState,
-    to: input.gardenAddress,
-    data: calldata,
-  });
+  const result = input.liveExecutor
+    ? await input.liveExecutor({
+        to: input.gardenAddress,
+        data: calldata,
+      })
+    : await (async () => {
+        const credentials = requireLiveExecutionCredentials(input);
+        return sendViaCoopSafe({
+          authSession: credentials.authSession,
+          pimlicoApiKey: credentials.pimlicoApiKey,
+          onchainState: input.onchainState,
+          to: input.gardenAddress,
+          data: calldata,
+        });
+      })();
 
   return {
     txHash: result.txHash,
@@ -82,6 +90,7 @@ export async function removeGreenGoodsGardener(input: {
   onchainState: OnchainState;
   gardenAddress: Address;
   gardenerAddress: Address;
+  liveExecutor?: GreenGoodsLiveExecutor;
 }): Promise<GreenGoodsTransactionResult> {
   ensureLiveExecutionReady(input);
 
@@ -101,15 +110,21 @@ export async function removeGreenGoodsGardener(input: {
     gardenAddress: input.gardenAddress,
     gardenerAddress: input.gardenerAddress,
   });
-  const credentials = requireLiveExecutionCredentials(input);
-
-  const result = await sendViaCoopSafe({
-    authSession: credentials.authSession,
-    pimlicoApiKey: credentials.pimlicoApiKey,
-    onchainState: input.onchainState,
-    to: input.gardenAddress,
-    data: calldata,
-  });
+  const result = input.liveExecutor
+    ? await input.liveExecutor({
+        to: input.gardenAddress,
+        data: calldata,
+      })
+    : await (async () => {
+        const credentials = requireLiveExecutionCredentials(input);
+        return sendViaCoopSafe({
+          authSession: credentials.authSession,
+          pimlicoApiKey: credentials.pimlicoApiKey,
+          onchainState: input.onchainState,
+          to: input.gardenAddress,
+          data: calldata,
+        });
+      })();
 
   return {
     txHash: result.txHash,

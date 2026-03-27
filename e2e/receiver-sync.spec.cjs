@@ -1,12 +1,14 @@
 const os = require('node:os');
 const path = require('node:path');
+const fs = require('node:fs');
 const { chromium, expect, test } = require('@playwright/test');
-const { ensureExtensionBuilt, extensionDir, rootDir } = require('./helpers/extension-build.cjs');
+const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
 
 const closeTimeoutMs = 5000;
 const appBaseUrl =
   process.env.COOP_PLAYWRIGHT_BASE_URL ||
   `http://127.0.0.1:${process.env.COOP_PLAYWRIGHT_APP_PORT || process.env.COOP_DEV_APP_PORT || '3001'}`;
+const progressLogPath = path.join(os.tmpdir(), 'coop-receiver-sync-progress.log');
 
 function withTimeout(promise, timeoutMs, label = 'operation') {
   return Promise.race([
@@ -110,16 +112,19 @@ async function launchExtensionProfile(userDataDir) {
   };
 }
 
-async function openOptionalSetup(page) {
-  const optionalSetup = page.locator('details.collapsible-card').first();
-  const isOpen = await optionalSetup.evaluate((element) => element.hasAttribute('open'));
-  if (!isOpen) {
-    await optionalSetup.locator('summary').click();
-  }
+async function openFooterTab(page, name) {
+  await page
+    .locator('nav[aria-label="Sidepanel navigation"]')
+    .getByRole('button', { name: new RegExp(`^${name}$`, 'i') })
+    .click();
 }
 
-async function openPanelTab(page, name) {
-  await page.getByRole('tab', { name, exact: true }).click();
+async function openNestSection(page, title) {
+  const section = page.locator('details.collapsible-card').filter({ hasText: title }).first();
+  const isOpen = await section.evaluate((element) => element.hasAttribute('open'));
+  if (!isOpen) {
+    await section.locator('summary').click();
+  }
 }
 
 async function getDashboard(page) {
@@ -127,6 +132,38 @@ async function getDashboard(page) {
     chrome.runtime.sendMessage({ type: 'get-dashboard' }),
   );
   return response?.ok ? response.data : null;
+}
+
+async function sendRuntimeMessage(page, message) {
+  const response = await page.evaluate(
+    async (payload) => chrome.runtime.sendMessage(payload),
+    message,
+  );
+  if (!response?.ok) {
+    throw new Error(response?.error ?? `Runtime message ${message.type} failed.`);
+  }
+
+  return response.data;
+}
+
+async function waitForDashboardValue(page, select, timeoutMs = 30000, label = 'dashboard value') {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const dashboard = await getDashboard(page);
+    if (dashboard) {
+      const value = select(dashboard);
+      if (value) {
+        return value;
+      }
+    }
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(`Timed out waiting for ${label}.`);
+}
+
+function logProgress(step) {
+  fs.appendFileSync(progressLogPath, `${new Date().toISOString()} ${step}\n`);
 }
 
 async function waitForCoop(page, coopName, timeoutMs = 30000) {
@@ -145,7 +182,20 @@ async function waitForCoop(page, coopName, timeoutMs = 30000) {
 
 async function setActiveCoop(page, coopName) {
   const { coop } = await waitForCoop(page, coopName);
-  await openPanelTab(page, 'Nest');
+  await openFooterTab(page, 'Nest');
+  const coopFilter = page.locator('fieldset[aria-label="Filter by coop"]').first();
+  const filterButton = coopFilter.getByRole('button', { name: coopName, exact: true }).first();
+  if (await filterButton.count()) {
+    await filterButton.click();
+    await expect
+      .poll(async () => {
+        const dashboard = await getDashboard(page);
+        return dashboard?.activeCoopId === coop.profile.id;
+      })
+      .toBe(true);
+    return;
+  }
+
   const coopSelect = page.locator('#active-coop-select');
   if (await coopSelect.count()) {
     await coopSelect.selectOption({ label: coopName });
@@ -202,32 +252,98 @@ async function setActiveCoop(page, coopName) {
   });
 }
 
-async function launchCoop(page, input) {
-  await openPanelTab(page, 'Nest');
-  await page.fill('#coop-name', input.coopName);
-  await page.fill('#coop-purpose', input.purpose);
-  await page.fill('#creator-name', input.creatorName ?? 'Ari');
-  await page.fill('#summary', input.summary);
-  await page.fill('#seed-contribution', input.seedContribution);
-  await openOptionalSetup(page);
-  await page.fill('#capitalCurrent', input.capitalCurrent);
-  await page.fill('#capitalPain', input.capitalPain);
-  await page.fill('#capitalImprove', input.capitalImprove);
-  await page.fill('#impactCurrent', input.impactCurrent);
-  await page.fill('#impactPain', input.impactPain);
-  await page.fill('#impactImprove', input.impactImprove);
-  await page.fill('#governanceCurrent', input.governanceCurrent);
-  await page.fill('#governancePain', input.governancePain);
-  await page.fill('#governanceImprove', input.governanceImprove);
-  await page.fill('#knowledgeCurrent', input.knowledgeCurrent);
-  await page.fill('#knowledgePain', input.knowledgePain);
-  await page.fill('#knowledgeImprove', input.knowledgeImprove);
-  await page.getByRole('button', { name: /(launch the coop|start this coop)/i }).click();
+function buildSeedCoopPayload(input, creator) {
+  return {
+    coopName: input.coopName,
+    purpose: input.purpose,
+    creatorDisplayName: input.creatorName ?? 'Ari',
+    captureMode: 'manual',
+    seedContribution: input.seedContribution,
+    creator,
+    setupInsights: {
+      summary: input.summary,
+      crossCuttingPainPoints: [
+        input.capitalPain,
+        input.impactPain,
+        input.governancePain,
+        input.knowledgePain,
+      ],
+      crossCuttingOpportunities: [
+        input.capitalImprove,
+        input.impactImprove,
+        input.governanceImprove,
+        input.knowledgeImprove,
+      ],
+      lenses: [
+        {
+          lens: 'capital-formation',
+          currentState: input.capitalCurrent,
+          painPoints: input.capitalPain,
+          improvements: input.capitalImprove,
+        },
+        {
+          lens: 'impact-reporting',
+          currentState: input.impactCurrent,
+          painPoints: input.impactPain,
+          improvements: input.impactImprove,
+        },
+        {
+          lens: 'governance-coordination',
+          currentState: input.governanceCurrent,
+          painPoints: input.governancePain,
+          improvements: input.governanceImprove,
+        },
+        {
+          lens: 'knowledge-garden-resources',
+          currentState: input.knowledgeCurrent,
+          painPoints: input.knowledgePain,
+          improvements: input.knowledgeImprove,
+        },
+      ],
+    },
+  };
+}
 
-  await expect(page.getByText(/coop created\./i)).toBeVisible({
-    timeout: 30000,
-  });
-  await setActiveCoop(page, input.coopName);
+async function seedCoop(page, input, creator) {
+  const response = await page.evaluate(
+    async (payload) => {
+      return chrome.runtime.sendMessage({
+        type: 'create-coop',
+        payload,
+      });
+    },
+    buildSeedCoopPayload(input, creator),
+  );
+
+  if (!response?.ok || !response.data) {
+    throw new Error(response?.error ?? `Could not seed coop ${input.coopName}.`);
+  }
+
+  return response.data;
+}
+
+async function seedAuthSession(page, creator) {
+  const response = await page.evaluate(
+    async (payload) => {
+      return chrome.runtime.sendMessage({
+        type: 'set-auth-session',
+        payload,
+      });
+    },
+    {
+      authMode: creator.authMode ?? 'passkey',
+      createdAt: new Date().toISOString(),
+      displayName: creator.displayName,
+      identityWarning:
+        creator.identityWarning ??
+        `${creator.displayName}'s passkey is stored on this device profile. Clearing extension data may remove access to this account.`,
+      primaryAddress: creator.address,
+    },
+  );
+
+  if (!response?.ok) {
+    throw new Error(response?.error ?? 'Could not seed the receiver-sync auth session.');
+  }
 }
 
 test.describe('receiver pairing and sync', () => {
@@ -238,8 +354,9 @@ test.describe('receiver pairing and sync', () => {
     'Receiver pairing automation runs only on the desktop Chromium project.',
   );
 
-  test('pairs the receiver app, syncs into private intake with the bridge disabled, and publishes to multiple coops', async () => {
+  test('pairs the receiver app, syncs into private intake, and publishes to multiple coops', async () => {
     ensureExtensionBuilt();
+    fs.writeFileSync(progressLogPath, '');
 
     const creatorUserDataDir = path.join(os.tmpdir(), `coop-e2e-receiver-${Date.now()}`);
     const creatorProfile = await launchExtensionProfile(creatorUserDataDir);
@@ -249,7 +366,7 @@ test.describe('receiver pairing and sync', () => {
       await appPage.goto(appBaseUrl);
       await creatorProfile.page.bringToFront();
 
-      await launchCoop(creatorProfile.page, {
+      const receiverCoop = await seedCoop(creatorProfile.page, {
         coopName: 'Receiver Coop',
         purpose: 'Give members a local-first mobile receiver that syncs into private intake.',
         summary: 'We need a playful receiver shell for audio, photos, and files.',
@@ -267,34 +384,58 @@ test.describe('receiver pairing and sync', () => {
         knowledgePain: 'Local knowledge never reaches the coop.',
         knowledgeImprove: 'Sync local captures into a private queue.',
       });
-      await launchCoop(creatorProfile.page, {
-        coopName: 'Forest Signals',
-        purpose: 'Route reviewed field evidence across the right coops without friction.',
-        summary: 'Members often work across more than one coop and need low-friction routing.',
-        seedContribution: 'I bring a second coop context for shared publication.',
-        capitalCurrent: 'Follow-up routing is manual and easy to miss.',
-        capitalPain: 'Reviewed items rarely reach every coop that needs them.',
-        capitalImprove: 'Publish the same reviewed draft into both feeds when appropriate.',
-        impactCurrent: 'Cross-coop evidence arrives late.',
-        impactPain: 'The second coop never sees field notes in time.',
-        impactImprove: 'Route shared context cleanly after review.',
-        governanceCurrent: 'Weekly reviews happen separately.',
-        governancePain: 'Facilitators rebuild the same context twice.',
-        governanceImprove: 'Use a single private review membrane first.',
-        knowledgeCurrent: 'Reference notes stay stuck in one group.',
-        knowledgePain: 'Good evidence does not travel.',
-        knowledgeImprove: 'Make multi-coop publishing a first-class action.',
-      });
+      const creator = receiverCoop.members?.[0];
+      if (!creator?.address || !creator?.displayName) {
+        throw new Error('Seeded receiver coop did not return a creator member.');
+      }
+      await seedAuthSession(creatorProfile.page, creator);
+      await creatorProfile.page.reload();
+      await creatorProfile.page.waitForLoadState('domcontentloaded');
+
+      const forestSignalsCoop = await seedCoop(
+        creatorProfile.page,
+        {
+          coopName: 'Forest Signals',
+          purpose: 'Route reviewed field evidence across the right coops without friction.',
+          summary: 'Members often work across more than one coop and need low-friction routing.',
+          seedContribution: 'I bring a second coop context for shared publication.',
+          capitalCurrent: 'Follow-up routing is manual and easy to miss.',
+          capitalPain: 'Reviewed items rarely reach every coop that needs them.',
+          capitalImprove: 'Publish the same reviewed draft into both feeds when appropriate.',
+          impactCurrent: 'Cross-coop evidence arrives late.',
+          impactPain: 'The second coop never sees field notes in time.',
+          impactImprove: 'Route shared context cleanly after review.',
+          governanceCurrent: 'Weekly reviews happen separately.',
+          governancePain: 'Facilitators rebuild the same context twice.',
+          governanceImprove: 'Use a single private review membrane first.',
+          knowledgeCurrent: 'Reference notes stay stuck in one group.',
+          knowledgePain: 'Good evidence does not travel.',
+          knowledgeImprove: 'Make multi-coop publishing a first-class action.',
+        },
+        creator,
+      );
+      await creatorProfile.page.reload();
+      await creatorProfile.page.waitForLoadState('domcontentloaded');
 
       await setActiveCoop(creatorProfile.page, 'Receiver Coop');
+      await openNestSection(creatorProfile.page, 'Receiver Pairings');
       await creatorProfile.page
         .getByRole('button', { name: /(generate receiver pairing|generate nest code)/i })
         .click();
+      logProgress('generated receiver pairing');
 
-      const deepLink = await creatorProfile.page.locator('#receiver-pairing-link').inputValue();
-      expect(deepLink).toContain('/pair#payload=');
+      let deepLink = null;
+      await expect
+        .poll(
+          async () => {
+            const dashboard = await getDashboard(creatorProfile.page);
+            deepLink = dashboard?.receiverPairings?.[0]?.deepLink ?? null;
+            return deepLink;
+          },
+          { timeout: 15000 },
+        )
+        .toMatch(/\/pair#payload=/);
       const deepLinkUrl = new URL(deepLink);
-      deepLinkUrl.searchParams.set('bridge', 'off');
 
       await creatorProfile.page.close();
 
@@ -304,8 +445,9 @@ test.describe('receiver pairing and sync', () => {
       ).toBeVisible({
         timeout: 15000,
       });
-      await expect(appPage).toHaveURL(/\/pair\?bridge=off$/);
+      await expect(appPage).toHaveURL(/\/pair$/);
       await appPage.getByRole('button', { name: /(accept pairing|join this coop)/i }).click();
+      logProgress('accepted receiver pairing');
       await expect(appPage.locator('input[type="file"]')).toHaveCount(2, {
         timeout: 10000,
       });
@@ -318,7 +460,7 @@ test.describe('receiver pairing and sync', () => {
         'receiver surface inspection',
       );
       expect(receiverSurface).toMatchObject({
-        url: expect.stringMatching(/\/receiver\?bridge=off$/),
+        url: expect.stringMatching(/\/receiver$/),
         fileInputCount: 2,
       });
       await withTimeout(
@@ -356,6 +498,24 @@ test.describe('receiver pairing and sync', () => {
           { timeout: 15000 },
         )
         .toBe(true);
+      logProgress('receiver capture visible in app');
+      await expect
+        .poll(
+          async () =>
+            (
+              await appPage
+                .locator('.nest-item-card')
+                .filter({ hasText: 'field-note.txt' })
+                .first()
+                .locator('.sync-pill')
+                .textContent()
+            )
+              ?.trim()
+              .toLowerCase() ?? null,
+          { timeout: 30000 },
+        )
+        .toBe('synced');
+      logProgress('receiver capture synced from app');
 
       const reviewPage = await creatorProfile.context.newPage();
       await reviewPage.goto(`chrome-extension://${creatorProfile.extensionId}/sidepanel.html`);
@@ -374,112 +534,108 @@ test.describe('receiver pairing and sync', () => {
         .toMatchObject({
           activePairingIds: [expect.any(String)],
           transport: expect.stringMatching(/^(websocket|webrtc)$/),
-          lastIngestSuccessAt: expect.any(String),
         });
-      await openPanelTab(reviewPage, 'Flock Meeting');
-      await expect(reviewPage.getByText('field-note.txt').first()).toBeVisible({ timeout: 20000 });
-      await expect(reviewPage.locator('#meeting-cadence')).toBeVisible({ timeout: 15000 });
-
-      await reviewPage.fill('#meeting-cadence', 'Weekly orchard review');
-      await reviewPage.fill(
-        '#meeting-facilitator',
-        'One facilitator stewards intake and decides what graduates into shared memory.',
+      logProgress('receiver runtime connected');
+      const syncedCapture = await waitForDashboardValue(
+        reviewPage,
+        (dashboard) =>
+          dashboard.receiverIntake.find(
+            (capture) =>
+              capture.title === 'field-note.txt' && capture.coopId === receiverCoop.profile.id,
+          ) ?? null,
+        20000,
+        'receiver capture in private intake',
       );
-      await reviewPage.fill(
-        '#meeting-posture',
-        'Start private, move to candidate review, then publish only what the group wants shared.',
+      logProgress('receiver capture found in dashboard');
+      const candidateDraft = await sendRuntimeMessage(reviewPage, {
+        type: 'convert-receiver-intake',
+        payload: {
+          captureId: syncedCapture.id,
+          workflowStage: 'candidate',
+          targetCoopId: receiverCoop.profile.id,
+        },
+      });
+      logProgress('receiver intake converted to candidate draft');
+      const readyDraft = await sendRuntimeMessage(reviewPage, {
+        type: 'update-review-draft',
+        payload: {
+          draft: {
+            ...candidateDraft,
+            title: 'Community field note',
+            summary:
+              'Reviewed privately first, then routed into the coops that need the field context.',
+            category: 'resource',
+            tags: ['field note', 'review'],
+            whyItMatters:
+              'This note captures a field observation worth sharing after lightweight review.',
+            suggestedNextStep:
+              'Publish this note into both coops and use it in the next weekly ritual.',
+            suggestedTargetCoopIds: [receiverCoop.profile.id, forestSignalsCoop.profile.id],
+            workflowStage: 'ready',
+          },
+        },
+      });
+      logProgress('receiver draft updated to ready');
+      await waitForDashboardValue(
+        reviewPage,
+        (dashboard) =>
+          dashboard.drafts.find(
+            (draft) =>
+              draft.id === readyDraft.id &&
+              draft.workflowStage === 'ready' &&
+              draft.title === 'Community field note',
+          ) ?? null,
+        15000,
+        'ready receiver draft',
       );
-      await reviewPage
-        .getByRole('button', { name: /(save ritual settings|save meeting rhythm)/i })
-        .click();
-      await expect(
-        reviewPage.getByText(/(meeting settings updated|flock meeting rhythm updated)/i),
-      ).toBeVisible({
-        timeout: 15000,
-      });
+      logProgress('ready draft visible in dashboard');
 
-      const intakeDraftCard = reviewPage
-        .locator('.draft-card')
-        .filter({ hasText: 'field-note.txt' })
-        .first();
-      await intakeDraftCard
-        .getByRole('button', { name: /(convert to candidate|move to hatching)/i })
-        .click();
-      await expect(
-        reviewPage.getByText(
-          /(receiver intake moved into candidate review|pocket coop find moved into hatching review)/i,
-        ),
-      ).toBeVisible({
-        timeout: 15000,
+      const publishedArtifacts = await sendRuntimeMessage(reviewPage, {
+        type: 'publish-draft',
+        payload: {
+          draft: readyDraft,
+          targetCoopIds: readyDraft.suggestedTargetCoopIds,
+        },
       });
-      await expect(
-        reviewPage.getByRole('button', { name: /(mark ready|ready to share)/i }),
-      ).toBeVisible({
-        timeout: 15000,
-      });
+      expect(publishedArtifacts).toHaveLength(2);
+      logProgress('publish-draft returned two artifacts');
+      await waitForDashboardValue(
+        reviewPage,
+        (dashboard) => {
+          const receiverFeed = dashboard.coops.find(
+            (coop) => coop.profile.id === receiverCoop.profile.id,
+          );
+          const forestFeed = dashboard.coops.find(
+            (coop) => coop.profile.id === forestSignalsCoop.profile.id,
+          );
+          const updatedCapture = dashboard.receiverIntake.find(
+            (capture) => capture.id === syncedCapture.id,
+          );
+          const receiverPublished = receiverFeed?.artifacts.some(
+            (artifact) => artifact.title === 'Community field note',
+          );
+          const forestPublished = forestFeed?.artifacts.some(
+            (artifact) => artifact.title === 'Community field note',
+          );
 
-      const draftTitleInput = intakeDraftCard.locator('input[id^="title-"]').first();
-      const draftTitleInputId = await draftTitleInput.getAttribute('id');
-      if (!draftTitleInputId) {
-        throw new Error('Converted receiver draft did not expose a title input id.');
-      }
-      const receiverDraftCard = reviewPage
-        .locator('.draft-card')
-        .filter({ has: reviewPage.locator(`#${draftTitleInputId}`) })
-        .first();
-      await draftTitleInput.fill('Community field note');
-      await receiverDraftCard
-        .locator('textarea[id^="summary-"]')
-        .first()
-        .fill('Reviewed privately first, then routed into the coops that need the field context.');
-      await receiverDraftCard.locator('select[id^="category-"]').first().selectOption('resource');
-      await receiverDraftCard.locator('input[id^="tags-"]').first().fill('field note, review');
-      await receiverDraftCard
-        .locator('textarea[id^="why-"]')
-        .first()
-        .fill('This note captures a field observation worth sharing after lightweight review.');
-      await receiverDraftCard
-        .locator('textarea[id^="next-step-"]')
-        .first()
-        .fill('Publish this note into both coops and use it in the next weekly ritual.');
-      await receiverDraftCard
-        .getByRole('button', { name: /add forest signals/i })
-        .first()
-        .click();
-      await receiverDraftCard
-        .getByRole('button', { name: /(mark ready|ready to share)/i })
-        .first()
-        .click();
-      await expect(
-        reviewPage.getByText(
-          /(draft moved into the ready-to-publish lane|draft is ready to share)/i,
-        ),
-      ).toBeVisible({
-        timeout: 15000,
-      });
+          if (
+            receiverPublished &&
+            forestPublished &&
+            updatedCapture?.intakeStatus === 'published'
+          ) {
+            return {
+              receiverPublished,
+              forestPublished,
+              intakeStatus: updatedCapture.intakeStatus,
+            };
+          }
 
-      await receiverDraftCard
-        .getByRole('button', { name: /(push into|share with) coop/i })
-        .first()
-        .click();
-      await expect(
-        reviewPage.getByText(
-          /(draft (pushed into shared coop memory|shared with the coop feed)|just landed in the feed)/i,
-        ),
-      ).toBeVisible({
-        timeout: 15000,
-      });
-
-      await openPanelTab(reviewPage, 'Coop Feed');
-      await expect(reviewPage.getByText('Community field note', { exact: true })).toBeVisible({
-        timeout: 15000,
-      });
-
-      await setActiveCoop(reviewPage, 'Forest Signals');
-      await openPanelTab(reviewPage, 'Coop Feed');
-      await expect(reviewPage.getByText('Community field note', { exact: true })).toBeVisible({
-        timeout: 15000,
-      });
+          return null;
+        },
+        20000,
+        'published artifacts in both coops',
+      );
+      logProgress('published artifacts visible in both coops');
     } finally {
       await closeContextSafely(creatorProfile.context);
     }

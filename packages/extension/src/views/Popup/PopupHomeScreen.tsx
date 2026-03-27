@@ -310,7 +310,10 @@ export function PopupHomeScreen(props: {
         ) : (
           <>
             {audioStatus === 'requesting-permission' ? (
-              <div className="popup-audio-permission popup-audio-permission--pending" aria-live="polite">
+              <div
+                className="popup-audio-permission popup-audio-permission--pending"
+                aria-live="polite"
+              >
                 <strong>Requesting microphone access</strong>
                 <p>Allow microphone access to record a voice note here in the popup.</p>
               </div>

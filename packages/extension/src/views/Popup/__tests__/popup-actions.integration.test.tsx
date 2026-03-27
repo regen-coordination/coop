@@ -68,7 +68,9 @@ function installPopupActionRuntime(
 ) {
   let currentDashboard = structuredClone(
     overrides.dashboard ??
-      (makeDashboard({ drafts: [] as Array<ReturnType<typeof makeDraft>> }) as PopupHarnessDashboard),
+      (makeDashboard({
+        drafts: [] as Array<ReturnType<typeof makeDraft>>,
+      }) as PopupHarnessDashboard),
   ) as PopupHarnessDashboard;
   let draftIndex = currentDashboard.drafts.length + 1;
 
@@ -90,63 +92,65 @@ function installPopupActionRuntime(
     draftIndex += 1;
   };
 
-  mockSendRuntimeMessage.mockImplementation(async (message: { type: string; payload?: unknown }) => {
-    if (message.type === 'get-dashboard') {
-      return { ok: true, data: getDashboard() };
-    }
-    if (message.type === 'get-sidepanel-state') {
-      return { ok: true, data: { open: false, canClose: true } };
-    }
-    if (message.type === 'toggle-sidepanel') {
-      return { ok: true, data: { open: true, canClose: true } };
-    }
-    if (message.type === 'manual-capture') {
-      if (overrides.manualCaptureHandler) {
-        return overrides.manualCaptureHandler({ addDraft, getDashboard, message });
+  mockSendRuntimeMessage.mockImplementation(
+    async (message: { type: string; payload?: unknown }) => {
+      if (message.type === 'get-dashboard') {
+        return { ok: true, data: getDashboard() };
       }
-      addDraft('Roundup generated draft');
-      return { ok: true, data: 1 };
-    }
-    if (message.type === 'capture-active-tab') {
-      if (overrides.captureActiveTabHandler) {
-        return overrides.captureActiveTabHandler({ addDraft, getDashboard, message });
+      if (message.type === 'get-sidepanel-state') {
+        return { ok: true, data: { open: false, canClose: true } };
       }
-      addDraft('Captured active tab');
-      return { ok: true, data: 1 };
-    }
-    if (message.type === 'create-note-draft') {
-      const payload = message.payload as { text: string };
-      addDraft(payload.text.trim() || 'New note');
-      return { ok: true };
-    }
-    if (message.type === 'prepare-visible-screenshot') {
-      return (
-        overrides.prepareVisibleScreenshotResponse ?? {
-          ok: true,
-          data: {
-            kind: 'photo' as const,
-            dataBase64: btoa('image-data'),
-            mimeType: 'image/png',
-            fileName: 'coop-screenshot.png',
-            title: 'Page screenshot',
-            note: 'Captured from https://example.com via Extension Browser.',
-            sourceUrl: 'https://example.com',
-          },
+      if (message.type === 'toggle-sidepanel') {
+        return { ok: true, data: { open: true, canClose: true } };
+      }
+      if (message.type === 'manual-capture') {
+        if (overrides.manualCaptureHandler) {
+          return overrides.manualCaptureHandler({ addDraft, getDashboard, message });
         }
-      );
-    }
-    if (message.type === 'save-popup-capture') {
-      return { ok: true, data: { id: `capture-${draftIndex}` } };
-    }
-    if (message.type === 'set-active-coop') {
-      currentDashboard = {
-        ...currentDashboard,
-        activeCoopId: (message.payload as { coopId: string }).coopId,
-      };
+        addDraft('Roundup generated draft');
+        return { ok: true, data: 1 };
+      }
+      if (message.type === 'capture-active-tab') {
+        if (overrides.captureActiveTabHandler) {
+          return overrides.captureActiveTabHandler({ addDraft, getDashboard, message });
+        }
+        addDraft('Captured active tab');
+        return { ok: true, data: 1 };
+      }
+      if (message.type === 'create-note-draft') {
+        const payload = message.payload as { text: string };
+        addDraft(payload.text.trim() || 'New note');
+        return { ok: true };
+      }
+      if (message.type === 'prepare-visible-screenshot') {
+        return (
+          overrides.prepareVisibleScreenshotResponse ?? {
+            ok: true,
+            data: {
+              kind: 'photo' as const,
+              dataBase64: btoa('image-data'),
+              mimeType: 'image/png',
+              fileName: 'coop-screenshot.png',
+              title: 'Page screenshot',
+              note: 'Captured from https://example.com via Extension Browser.',
+              sourceUrl: 'https://example.com',
+            },
+          }
+        );
+      }
+      if (message.type === 'save-popup-capture') {
+        return { ok: true, data: { id: `capture-${draftIndex}` } };
+      }
+      if (message.type === 'set-active-coop') {
+        currentDashboard = {
+          ...currentDashboard,
+          activeCoopId: (message.payload as { coopId: string }).coopId,
+        };
+        return { ok: true };
+      }
       return { ok: true };
-    }
-    return { ok: true };
-  });
+    },
+  );
 
   return { addDraft, getDashboard };
 }

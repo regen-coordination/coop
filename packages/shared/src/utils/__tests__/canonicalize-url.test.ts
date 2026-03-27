@@ -32,6 +32,12 @@ describe('canonicalizeUrl', () => {
     expect(canonicalizeUrl('https://example.com/?utm_content=banner')).toBe('https://example.com/');
   });
 
+  it('strips arbitrary utm_* params beyond the common five', () => {
+    expect(canonicalizeUrl('https://example.com/?utm_id=launch-42&utm_source=twitter')).toBe(
+      'https://example.com/',
+    );
+  });
+
   it('strips gclid (Google click ID)', () => {
     expect(canonicalizeUrl('https://example.com/?gclid=abc123')).toBe('https://example.com/');
   });
@@ -54,7 +60,7 @@ describe('canonicalizeUrl', () => {
 
   it('preserves non-tracking params while stripping tracking params', () => {
     const url = 'https://example.com/article?id=42&utm_source=newsletter&ref=homepage';
-    expect(canonicalizeUrl(url)).toBe('https://example.com/article?id=42&ref=homepage');
+    expect(canonicalizeUrl(url)).toBe('https://example.com/article?id=42');
   });
 
   it('handles URLs with no query string', () => {
@@ -80,9 +86,19 @@ describe('canonicalizeUrl', () => {
     );
   });
 
-  it('preserves authentication info in URL', () => {
-    expect(canonicalizeUrl('https://user:pass@example.com/page')).toBe(
-      'https://user:pass@example.com/page',
+  it('strips embedded credentials from URLs', () => {
+    expect(canonicalizeUrl('https://user:pass@example.com/page')).toBe('https://example.com/page');
+  });
+
+  it('strips auth-sensitive query params while preserving safe params', () => {
+    expect(
+      canonicalizeUrl('https://example.com/article?id=42&token=secret&access_token=abc123'),
+    ).toBe('https://example.com/article?id=42');
+  });
+
+  it('strips additional newsletter and click-tracking params', () => {
+    expect(canonicalizeUrl('https://example.com/article?mc_cid=campaign-1&si=abc123')).toBe(
+      'https://example.com/article',
     );
   });
 });

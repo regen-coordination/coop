@@ -79,6 +79,8 @@ export function formatActionClassLabel(actionClass: ActionBundle['actionClass'])
       return 'Green Goods create assessment';
     case 'green-goods-sync-gap-admins':
       return 'Green Goods sync GAP admins';
+    case 'green-goods-mint-hypercert':
+      return 'Green Goods mint hypercert';
     case 'green-goods-add-gardener':
       return 'Green Goods add gardener';
     case 'green-goods-remove-gardener':
@@ -86,7 +88,7 @@ export function formatActionClassLabel(actionClass: ActionBundle['actionClass'])
     case 'green-goods-submit-work-submission':
       return 'Green Goods submit work submission';
     case 'green-goods-submit-impact-report':
-      return 'Green Goods submit impact report';
+      return 'Green Goods submit impact report (legacy)';
     case 'safe-add-owner':
       return 'Safe add owner';
     case 'safe-remove-owner':

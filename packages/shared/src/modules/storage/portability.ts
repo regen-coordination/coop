@@ -1,13 +1,16 @@
 import type {
+  CoopArchiveSecrets,
   EncryptedSessionMaterial,
   LocalMemberSignerBinding,
   LocalPasskeyIdentity,
   PrivacyIdentityRecord,
   StealthKeyPairRecord,
 } from '../../contracts/schema';
+import { coopArchiveSecretsSchema } from '../../contracts/schema';
 import { base64ToBytes, bytesToBase64, nowIso } from '../../utils';
 import { clearDerivedKeyCache, clearWrappingSecretCache } from './db';
-import type { CoopDexie, LocalSetting } from './db';
+import type { CoopDexie } from './db';
+import { listCoopArchiveSecrets, setCoopArchiveSecrets } from './db-crud-coop';
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -73,7 +76,7 @@ export interface CryptoKeyBundle {
   privacyIdentities: PrivacyIdentityRecord[];
   stealthKeyPairs: StealthKeyPairRecord[];
   encryptedSessionMaterials: EncryptedSessionMaterial[];
-  archiveSecrets: Array<{ key: string; value: unknown }>;
+  archiveSecrets: Array<{ key: string; value: CoopArchiveSecrets }>;
 }
 
 // ── Encryption helpers (internal) ────────────────────────────────────
@@ -408,6 +411,31 @@ export async function exportCoopBlobs(db: CoopDexie): Promise<string> {
 const WRAPPING_SECRET_KEY = 'session-wrapping-secret';
 const ARCHIVE_SECRETS_PREFIX = 'archive-secrets:';
 
+function parseArchiveSecretBundleEntry(entry: { key: string; value: unknown }) {
+  const direct = coopArchiveSecretsSchema.safeParse(entry.value);
+  if (direct.success) {
+    return {
+      coopId: direct.data.coopId,
+      value: direct.data,
+    };
+  }
+
+  if (entry.value && typeof entry.value === 'object' && !Array.isArray(entry.value)) {
+    const coopId = entry.key.startsWith(ARCHIVE_SECRETS_PREFIX)
+      ? entry.key.slice(ARCHIVE_SECRETS_PREFIX.length)
+      : '';
+    const inferred = coopArchiveSecretsSchema.safeParse({ ...entry.value, coopId });
+    if (inferred.success) {
+      return {
+        coopId,
+        value: inferred.data,
+      };
+    }
+  }
+
+  throw new Error(`Invalid archive secret bundle entry: ${entry.key}`);
+}
+
 export async function exportCryptoKeyBundle(db: CoopDexie, passphrase: string): Promise<string> {
   // Read wrapping secret
   const wrappingSecretSetting = await db.settings.get(WRAPPING_SECRET_KEY);
@@ -429,11 +457,7 @@ export async function exportCryptoKeyBundle(db: CoopDexie, passphrase: string): 
     db.encryptedSessionMaterials.toArray(),
   ]);
 
-  // Read archive secrets from settings
-  const allSettings = await db.settings.toArray();
-  const archiveSecrets = allSettings
-    .filter((s: LocalSetting) => s.key.startsWith(ARCHIVE_SECRETS_PREFIX))
-    .map((s: LocalSetting) => ({ key: s.key, value: s.value }));
+  const archiveSecrets = await listCoopArchiveSecrets(db);
 
   const bundle: CryptoKeyBundle = {
     type: 'coop-crypto-key-bundle',
@@ -518,7 +542,8 @@ export async function importCryptoKeyBundle(
 
   // Restore archive secrets
   for (const secret of bundle.archiveSecrets) {
-    await db.settings.put({ key: secret.key, value: secret.value });
+    const parsed = parseArchiveSecretBundleEntry(secret);
+    await setCoopArchiveSecrets(db, parsed.coopId, parsed.value);
   }
   imported.archiveSecrets = bundle.archiveSecrets.length;
 

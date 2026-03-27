@@ -23,6 +23,19 @@ import {
 import { emitAgentObservationIfMissing } from './agent-observation-emitters';
 import { syncHighConfidenceDraftObservations } from './agent-observation-emitters';
 
+function hasActiveTranscriptObservation(
+  observations: Awaited<ReturnType<typeof listAgentObservations>>,
+  captureId: string,
+) {
+  return observations.some(
+    (observation) =>
+      observation.trigger === 'audio-transcript-ready' &&
+      observation.captureId === captureId &&
+      observation.status !== 'dismissed' &&
+      observation.status !== 'completed',
+  );
+}
+
 export async function reconcileAgentObservations(input: {
   drafts: ReviewDraft[];
   receiverCaptures: ReceiverCapture[];
@@ -46,6 +59,7 @@ export async function reconcileAgentObservations(input: {
       capturesById,
       coopsById,
       drafts: input.drafts,
+      observations,
     });
     if (!inactiveReason) {
       continue;
@@ -62,11 +76,10 @@ export async function reconcileAgentObservations(input: {
 }
 
 export async function syncAgentObservations() {
-  const [coops, drafts, receiverCaptures, observations, memories] = await Promise.all([
+  const [coops, drafts, receiverCaptures, memories] = await Promise.all([
     getCoops(),
     listReviewDrafts(db),
     listReceiverCaptures(db),
-    listAgentObservations(db, 200),
     listAgentMemories(db),
   ]);
 
@@ -76,10 +89,17 @@ export async function syncAgentObservations() {
     receiverCaptures,
   });
 
+  const currentObservations = await listAgentObservations(db, 200);
   await syncHighConfidenceDraftObservations(drafts);
 
   for (const capture of receiverCaptures) {
     if (capture.intakeStatus === 'archived' || capture.intakeStatus === 'published') {
+      continue;
+    }
+    if (
+      capture.kind === 'audio' &&
+      hasActiveTranscriptObservation(currentObservations, capture.id)
+    ) {
       continue;
     }
     await emitAgentObservationIfMissing({
@@ -197,7 +217,9 @@ export async function syncAgentObservations() {
       );
     }
 
-    if (isMemoryInsightDue({ coopId: coop.profile.id, observations, memories })) {
+    if (
+      isMemoryInsightDue({ coopId: coop.profile.id, observations: currentObservations, memories })
+    ) {
       await emitAgentObservationIfMissing({
         trigger: 'memory-insight-due',
         title: `Memory insights due for ${coop.profile.name}`,

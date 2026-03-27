@@ -2,7 +2,6 @@ import {
   type CoopSharedState,
   type GreenGoodsGardenState,
   type PasskeyCredential,
-  createGreenGoodsImpactReportOutput,
   createGreenGoodsWorkSubmissionOutput,
   createLocalMemberSignerBinding,
   createMemberAccountRecord,
@@ -14,14 +13,12 @@ import {
   predictMemberAccountAddress,
   saveLocalMemberSignerBinding,
   sendTransactionViaMemberAccount,
-  submitGreenGoodsImpactReport,
   submitGreenGoodsWorkSubmission,
   syncGreenGoodsMemberBindings,
 } from '@coop/shared';
 import type { Address } from 'viem';
 import type { RuntimeActionResponse, RuntimeRequest } from '../../runtime/messages';
 import {
-  configuredGreenGoodsImpactReportSchemaUid,
   configuredGreenGoodsWorkSchemaUid,
   configuredOnchainMode,
   configuredPimlicoApiKey,
@@ -100,10 +97,7 @@ function resolveMemberAccountForLocalBinding(input: {
     : markAccountPredicted(baseAccount, input.localBinding.accountAddress as Address);
 }
 
-async function requireLocalMemberGreenGoodsContext(
-  input: { coopId: string; memberId: string },
-  actionLabel: 'impact' | 'work submission',
-) {
+async function requireLocalMemberGreenGoodsContext(input: { coopId: string; memberId: string }) {
   const resolution = await requireAuthenticatedMemberContext(input);
   if (!resolution.ok) {
     return resolution;
@@ -125,7 +119,7 @@ async function requireLocalMemberGreenGoodsContext(
   if (!localBinding?.accountAddress) {
     return {
       ok: false as const,
-      error: `Provision your member on-chain account on this browser before submitting ${actionLabel}.`,
+      error: 'Provision your member on-chain account on this browser before submitting work.',
     };
   }
   if (localBinding.passkeyCredentialId !== authSession.passkey.id) {
@@ -205,7 +199,6 @@ function buildSuccessfulMemberGreenGoodsState(input: {
   memberAccount: ReturnType<typeof resolveMemberAccountForLocalBinding>;
   txHash: `0x${string}`;
   detail: string;
-  activityField: 'lastImpactReportAt' | 'lastWorkSubmissionAt';
 }) {
   const activityAt = nowIso();
   const nextAccount =
@@ -235,7 +228,7 @@ function buildSuccessfulMemberGreenGoodsState(input: {
         members: input.coop.members,
         memberAccounts,
       }),
-      [input.activityField]: activityAt,
+      lastWorkSubmissionAt: activityAt,
       lastTxHash: input.txHash,
       statusNote: input.detail,
       lastError: undefined,
@@ -337,89 +330,10 @@ export async function handleProvisionMemberOnchainAccount(
   } satisfies RuntimeActionResponse;
 }
 
-export async function handleSubmitGreenGoodsImpactReport(
-  message: Extract<RuntimeRequest, { type: 'submit-green-goods-impact-report' }>,
-) {
-  const resolution = await requireLocalMemberGreenGoodsContext(message.payload, 'impact');
-  if (!resolution.ok) {
-    return {
-      ok: false,
-      error: resolution.error,
-    } satisfies RuntimeActionResponse;
-  }
-
-  const { authSession, coop, authenticatedMember, localBinding, memberAccount } = resolution;
-  const output = createGreenGoodsImpactReportOutput({
-    gardenAddress: coop.greenGoods.gardenAddress as Address,
-    title: message.payload.report.title,
-    description: message.payload.report.description,
-    domain: message.payload.report.domain,
-    reportCid: message.payload.report.reportCid,
-    metricsSummary: message.payload.report.metricsSummary,
-    reportingPeriodStart: message.payload.report.reportingPeriodStart,
-    reportingPeriodEnd: message.payload.report.reportingPeriodEnd,
-    submittedBy: localBinding.accountAddress as Address,
-  });
-
-  try {
-    const result = await submitGreenGoodsImpactReport({
-      mode: configuredOnchainMode,
-      authSession,
-      pimlicoApiKey: configuredPimlicoApiKey,
-      onchainState: coop.onchainState,
-      gardenAddress: coop.greenGoods.gardenAddress as Address,
-      output,
-      schemaUid: configuredGreenGoodsImpactReportSchemaUid,
-      liveExecutor: createMemberGreenGoodsLiveExecutor({
-        authSession,
-        coop,
-        localBinding,
-      }),
-    });
-
-    const { activityAt, nextAccount, nextState } = buildSuccessfulMemberGreenGoodsState({
-      coop,
-      authenticatedMember,
-      authSession,
-      localBinding,
-      memberAccount,
-      txHash: result.txHash,
-      detail: result.detail,
-      activityField: 'lastImpactReportAt',
-    });
-
-    await persistLocalMemberBindingUse(localBinding, {
-      usedAt: activityAt,
-      lastError: undefined,
-    });
-    await saveState(nextState as CoopSharedState);
-
-    return {
-      ok: true,
-      data: {
-        txHash: result.txHash,
-        account: nextAccount,
-        greenGoods: nextState.greenGoods,
-      },
-    } satisfies RuntimeActionResponse;
-  } catch (error) {
-    const messageText =
-      error instanceof Error ? error.message : 'Green Goods impact report submission failed.';
-    await persistLocalMemberBindingUse(localBinding, {
-      usedAt: nowIso(),
-      lastError: messageText,
-    });
-    return {
-      ok: false,
-      error: messageText,
-    } satisfies RuntimeActionResponse;
-  }
-}
-
 export async function handleSubmitGreenGoodsWorkSubmission(
   message: Extract<RuntimeRequest, { type: 'submit-green-goods-work-submission' }>,
 ) {
-  const resolution = await requireLocalMemberGreenGoodsContext(message.payload, 'work submission');
+  const resolution = await requireLocalMemberGreenGoodsContext(message.payload);
   if (!resolution.ok) {
     return {
       ok: false,
@@ -461,7 +375,6 @@ export async function handleSubmitGreenGoodsWorkSubmission(
       memberAccount,
       txHash: result.txHash,
       detail: result.detail,
-      activityField: 'lastWorkSubmissionAt',
     });
 
     await persistLocalMemberBindingUse(localBinding, {

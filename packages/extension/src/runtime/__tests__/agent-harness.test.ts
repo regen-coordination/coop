@@ -301,13 +301,46 @@ describe('agent harness helpers', () => {
       coopId: 'coop-1',
       captureId: 'capture-1',
     });
-    // Topological sort: no-depends skills alphabetically first,
-    // then chain: opportunity-extractor → grant-fit-scorer → capital-formation-brief
+    // Capture-derived work should run the opportunity chain before optional enrichers.
     expect(selectSkillIdsForObservation(receiverBacklog, manifests)).toEqual([
-      'ecosystem-entity-extractor',
       'opportunity-extractor',
       'grant-fit-scorer',
       'capital-formation-brief',
+      'ecosystem-entity-extractor',
+    ]);
+
+    const audioTranscriptReady = createAgentObservation({
+      trigger: 'audio-transcript-ready',
+      title: 'Voice note transcribed',
+      summary: 'Transcript is ready for synthesis.',
+      coopId: 'coop-1',
+      captureId: 'capture-1',
+      payload: {
+        transcriptText: 'EPA grant requires a local match.',
+      },
+    });
+    expect(selectSkillIdsForObservation(audioTranscriptReady, manifests)).toEqual([
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'ecosystem-entity-extractor',
+    ]);
+
+    const highConfidenceDraft = createAgentObservation({
+      trigger: 'high-confidence-draft',
+      title: 'High-confidence draft',
+      summary: 'Funding lead ready for helper review.',
+      coopId: 'coop-1',
+      draftId: 'draft-1',
+      extractId: 'extract-1',
+    });
+    expect(selectSkillIdsForObservation(highConfidenceDraft, manifests)).toEqual([
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'publish-readiness-check',
+      'ecosystem-entity-extractor',
+      'theme-clusterer',
     ]);
 
     const ritualReview = createAgentObservation({

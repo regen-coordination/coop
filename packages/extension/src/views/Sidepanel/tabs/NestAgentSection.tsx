@@ -60,6 +60,10 @@ export interface NestAgentSectionProps {
     request: import('@coop/shared').GreenGoodsAssessmentRequest,
   ) => Promise<void>;
   handleQueueGreenGoodsGapAdminSync: (coopId: string) => Promise<void>;
+  handleQueueGreenGoodsHypercertMint: (
+    coopId: string,
+    request: import('@coop/shared').GreenGoodsHypercertMintRequest,
+  ) => Promise<void>;
   handleQueueGreenGoodsMemberSync: (coopId: string) => Promise<void>;
 }
 
@@ -95,6 +99,7 @@ export function NestAgentSection({
   handleQueueGreenGoodsWorkApproval,
   handleQueueGreenGoodsAssessment,
   handleQueueGreenGoodsGapAdminSync,
+  handleQueueGreenGoodsHypercertMint,
   handleQueueGreenGoodsMemberSync,
 }: NestAgentSectionProps) {
   return (
@@ -167,6 +172,7 @@ export function NestAgentSection({
       onQueueGreenGoodsWorkApproval={handleQueueGreenGoodsWorkApproval}
       onQueueGreenGoodsAssessment={handleQueueGreenGoodsAssessment}
       onQueueGreenGoodsGapAdminSync={handleQueueGreenGoodsGapAdminSync}
+      onQueueGreenGoodsHypercertMint={handleQueueGreenGoodsHypercertMint}
       onQueueGreenGoodsMemberSync={handleQueueGreenGoodsMemberSync}
       activeCoopId={activeCoop?.profile.id}
       activeCoopName={activeCoop?.profile.name}

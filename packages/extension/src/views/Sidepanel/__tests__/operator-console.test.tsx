@@ -11,7 +11,7 @@ import type {
   SkillManifest,
   SkillRun,
 } from '@coop/shared';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -221,6 +221,53 @@ describe('operator console', () => {
     expect(screen.getAllByText(/added gardener 0x2222/i).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: /queue gardener sync/i }));
     expect(onQueueGreenGoodsMemberSync).toHaveBeenCalledWith('coop-1');
+  });
+
+  it('queues a Hypercert mint package from the garden requests panel', async () => {
+    const user = userEvent.setup();
+    const onQueueGreenGoodsHypercertMint = vi.fn();
+
+    render(
+      <OperatorConsole
+        {...baseProps}
+        greenGoodsContext={{
+          coopId: 'coop-1',
+          coopName: 'Coop Town',
+          enabled: true,
+          gardenAddress: '0x1111111111111111111111111111111111111111',
+        }}
+        onQueueGreenGoodsHypercertMint={onQueueGreenGoodsHypercertMint}
+      />,
+    );
+
+    await expandSection(user, 'Garden Requests');
+    await user.type(screen.getAllByLabelText(/^Title$/i)[1]!, 'Season one stewardship package');
+    await user.type(
+      screen.getAllByLabelText(/^Description$/i)[1]!,
+      'Approved Green Goods work bundled into a Hypercert.',
+    );
+    fireEvent.change(screen.getByLabelText(/^Allowlist JSON$/i), {
+      target: {
+        value: '[{"address":"0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa","units":100000000}]',
+      },
+    });
+    fireEvent.change(screen.getByLabelText(/^Attestations JSON$/i), {
+      target: {
+        value:
+          '[{"uid":"0x1111111111111111111111111111111111111111111111111111111111111111","workUid":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","title":"Watershed planting day","gardenerAddress":"0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa","createdAt":1711929600,"approvedAt":1711936800}]',
+      },
+    });
+
+    await user.click(screen.getByRole('button', { name: /queue hypercert mint/i }));
+
+    expect(onQueueGreenGoodsHypercertMint).toHaveBeenCalledWith(
+      'coop-1',
+      expect.objectContaining({
+        gardenAddress: '0x1111111111111111111111111111111111111111',
+        title: 'Season one stewardship package',
+        description: 'Approved Green Goods work bundled into a Hypercert.',
+      }),
+    );
   });
 
   describe('policy settings section', () => {

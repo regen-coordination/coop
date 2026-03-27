@@ -86,8 +86,12 @@ function syncCoopPayload(coopName) {
     seedContribution: 'I bring deterministic sync health coverage for popup recovery.',
     setupInsights: {
       summary: 'Need explicit browser coverage for sync degradation and recovery.',
-      crossCuttingPainPoints: ['Degraded sync states can regress without a browser-backed popup check.'],
-      crossCuttingOpportunities: ['Persist runtime health and verify the popup rehydrates it after reload.'],
+      crossCuttingPainPoints: [
+        'Degraded sync states can regress without a browser-backed popup check.',
+      ],
+      crossCuttingOpportunities: [
+        'Persist runtime health and verify the popup rehydrates it after reload.',
+      ],
       lenses: [
         {
           lens: 'capital-formation',

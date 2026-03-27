@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type CoopDexie, createCoopDb, getAgentMemory, listAgentMemories } from '../../storage/db';
 import {
   createAgentMemory,
@@ -19,6 +19,10 @@ Dexie.dependencies.IDBKeyRange = IDBKeyRange;
 
 beforeEach(async () => {
   db = createCoopDb(`test-memory-${crypto.randomUUID()}`);
+});
+
+afterEach(async () => {
+  await db.delete();
 });
 
 /* ---------------------------------------------------------------------------
@@ -468,6 +472,37 @@ describe('queryMemoriesForSkill', () => {
       'Member preference',
       'Coop pattern',
       'Coop outcome',
+    ]);
+  });
+
+  it('prefers fresh memories over stale type-priority memories when the age gap is large', async () => {
+    await createAgentMemory(db, {
+      scope: 'member',
+      memberId: 'member-1',
+      type: 'user-feedback',
+      content: 'Old member preference',
+      confidence: 0.9,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      scope: 'coop',
+      coopId: 'coop-1',
+      type: 'domain-pattern',
+      content: 'Fresh coop signal',
+      confidence: 0.7,
+      createdAt: '2026-03-15T00:00:00.000Z',
+    });
+
+    const results = await queryMemoriesForSkill(
+      db,
+      { coopId: 'coop-1', memberId: 'member-1' },
+      'test-skill',
+      { limit: 5 },
+    );
+
+    expect(results.map((memory) => memory.content).slice(0, 2)).toEqual([
+      'Fresh coop signal',
+      'Old member preference',
     ]);
   });
 

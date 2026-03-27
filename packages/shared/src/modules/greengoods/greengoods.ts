@@ -3,6 +3,7 @@ export * from './greengoods-authorization';
 export * from './greengoods-deployments';
 export * from './greengoods-garden';
 export * from './greengoods-gardener';
+export * from './greengoods-hypercert';
 export * from './greengoods-impact';
 export * from './greengoods-state';
 export * from './greengoods-work';

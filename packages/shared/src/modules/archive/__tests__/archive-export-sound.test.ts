@@ -86,6 +86,51 @@ describe('archive, export, and sound behavior', () => {
     expect(exportArchiveReceiptTextBundle(receipt)).toContain(receipt.rootCid);
   });
 
+  it('stores uploaded blob CIDs on archived artifact attachments', () => {
+    const created = createCoop({
+      coopName: 'Archive Coop',
+      purpose: 'Keep approved artifacts portable and durable.',
+      creatorDisplayName: 'Kai',
+      captureMode: 'manual',
+      seedContribution: 'I care about durable long-memory bundles.',
+      setupInsights: buildSetupInsights(),
+    });
+    const artifact = created.state.artifacts[0];
+    if (!artifact) {
+      throw new Error('Expected an initial artifact.');
+    }
+
+    const attachment = {
+      blobId: 'blob-1',
+      mimeType: 'image/png',
+      byteSize: 3,
+      kind: 'image' as const,
+    };
+    const stateWithAttachment = {
+      ...created.state,
+      artifacts: created.state.artifacts.map((candidate) =>
+        candidate.id === artifact.id ? { ...candidate, attachments: [attachment] } : candidate,
+      ),
+    };
+
+    const bundle = createArchiveBundle({
+      scope: 'artifact',
+      state: stateWithAttachment,
+      artifactIds: [artifact.id],
+    });
+    const receipt = createMockArchiveReceipt({
+      bundle,
+      delegationIssuer: 'trusted-node-demo',
+      artifactIds: [artifact.id],
+    });
+    const updated = recordArchiveReceipt(stateWithAttachment, receipt, [artifact.id], {
+      'blob-1': 'bafyblob1',
+    });
+
+    expect(updated.artifacts[0]?.attachments[0]?.archiveCid).toBe('bafyblob1');
+    expect(updated.artifacts[0]?.archiveReceiptIds).toContain(receipt.id);
+  });
+
   it('toggles archive-worthy state without forcing an archive upload', () => {
     const created = createCoop({
       coopName: 'Archive Coop',

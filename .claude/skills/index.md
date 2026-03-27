@@ -77,6 +77,26 @@ classify  research   implement      review
 
 Each agent passes a concise brief to the next. Triage keeps it to 5 lines, oracle to 20, reviewer to 15.
 
+### Plan queue
+
+Active feature execution lives in `.plans/features/<feature-slug>/`.
+
+- Claude lane ownership: `ui`, then `qa` pass 2
+- Codex lane ownership: `state`, `api`, `contracts`, then `qa` pass 1
+- Both can run recurring `docs` maintenance from the docs-drift feature pack
+- Sequential QA is triggered by `handoff/qa-codex/<feature-slug>` then `handoff/qa-claude/<feature-slug>`
+
+Queue commands:
+
+```bash
+bun run plans queue --agent claude --lane ui
+bun run plans queue --agent codex
+bun run plans queue --agent claude --lane docs
+bun run plans queue --agent codex --lane docs
+bun run plans queue --agent claude --lane qa --handoff-ready
+bun run plans queue --agent codex --lane qa --handoff-ready
+```
+
 ---
 
 ## Skills

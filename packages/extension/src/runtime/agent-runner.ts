@@ -22,6 +22,7 @@ import { logCycleEnd, logCycleStart } from './agent-logger';
 import {
   isObservationRunnableForAuthorizedCoops,
   prioritizeObservations,
+  resolveObservationEligibleCoopIds,
 } from './agent-runner-observations';
 import { runObservationPlan } from './agent-runner-skills';
 import {
@@ -180,6 +181,33 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
     })();
 
     for (const observation of runnableObservations.slice(0, 8)) {
+      const eligibleCoopIds = observation.coopId
+        ? null
+        : new Set(resolveObservationEligibleCoopIds(observation, coops));
+      const scopedCoops = observation.coopId
+        ? coops.filter(
+            (coop) =>
+              coop.profile.id === observation.coopId && authorizedCoopIds.has(coop.profile.id),
+          )
+        : coops.filter(
+            (coop) =>
+              authorizedCoopIds.has(coop.profile.id) &&
+              Boolean(eligibleCoopIds?.has(coop.profile.id)),
+          );
+      if (scopedCoops.length === 0) {
+        continue;
+      }
+
+      const scopedObservation =
+        observation.coopId || scopedCoops.length === coops.length
+          ? observation
+          : updateAgentObservation(observation, {
+              payload: {
+                ...observation.payload,
+                eligibleCoopIds: scopedCoops.map((coop) => coop.profile.id),
+              },
+            });
+
       // Stall detection: skip observations that have failed too many times
       const priorPlans = await listAgentPlansByObservationId(db, observation.id);
       if (priorPlans.some((plan) => plan.status === 'executing')) {
@@ -208,7 +236,9 @@ export async function runAgentCycle(options: { force?: boolean; reason?: string 
         continue;
       }
 
-      const observationResult = await runObservationPlan(observation);
+      const observationResult = await runObservationPlan(scopedObservation, {
+        availableCoops: scopedCoops,
+      });
       result.processedObservationIds.push(...observationResult.processedObservationIds);
       result.createdPlanIds.push(...observationResult.createdPlanIds);
       result.createdDraftIds.push(...observationResult.createdDraftIds);

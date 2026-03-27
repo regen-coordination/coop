@@ -8,6 +8,11 @@ export const greenGoodsGardenTokenAbi = parseAbi([
   'function openMinting() view returns (bool)',
 ]);
 
+export const greenGoodsEnsAbi = parseAbi([
+  'function available(string slug) view returns (bool)',
+  'function getRegistrationFee(string slug, address owner, uint8 nameType) view returns (uint256)',
+]);
+
 export const greenGoodsGardenAccountAbi = parseAbi([
   'function updateName(string _name)',
   'function updateDescription(string _description)',

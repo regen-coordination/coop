@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ArchiveReceipt } from '../../../contracts/schema';
 import {
   deriveArchiveReceiptFilecoinStatus,
+  doesArchiveReceiptNeedOnChainSealWitness,
   isArchiveReceiptRefreshable,
   summarizeArchiveFilecoinInfo,
 } from '../archive';
@@ -75,6 +76,7 @@ function buildReceipt(overrides: Partial<ArchiveReceipt> = {}): ArchiveReceipt {
     uploadedAt: new Date().toISOString(),
     filecoinStatus: 'offered',
     delegationIssuer: 'trusted-node-demo',
+    contentEncoding: 'plain-json',
     delegation: {
       issuer: 'trusted-node-demo',
       mode: 'live',
@@ -761,6 +763,67 @@ describe('storacha archive helpers', () => {
     );
   });
 
+  it('writes uploaded blob CIDs back onto artifact attachments in the archived payload', async () => {
+    let capturedPayload: Record<string, unknown> | undefined;
+
+    storachaMocks.uploadFile.mockImplementation(async (blob: Blob) => {
+      const text = await blob.text();
+      try {
+        capturedPayload = JSON.parse(text);
+      } catch {
+        // binary blob, ignore
+      }
+      return { toString: () => 'bafycid-captured' };
+    });
+
+    const blobBytes = new Map<string, Uint8Array>([['file-1', new Uint8Array([1, 2, 3])]]);
+
+    const client = await createStorachaArchiveClient();
+    await uploadArchiveBundleToStoracha({
+      client,
+      bundle: {
+        id: 'bundle-attachment-cids',
+        scope: 'artifact',
+        targetCoopId: 'coop-1',
+        createdAt: new Date().toISOString(),
+        schemaVersion: 1,
+        payload: {
+          coop: { id: 'coop-1', name: 'Attachment CID Coop' },
+          artifacts: [
+            {
+              id: 'artifact-1',
+              attachments: [
+                {
+                  blobId: 'file-1',
+                  mimeType: 'application/octet-stream',
+                  byteSize: 3,
+                  kind: 'file',
+                },
+              ],
+            },
+          ],
+        },
+      },
+      delegation: {
+        spaceDid: 'did:key:space',
+        delegationIssuer: 'trusted-node-demo',
+        gatewayBaseUrl: 'https://storacha.link',
+        spaceDelegation: 'space-proof',
+        proofs: [],
+        allowsFilecoinInfo: false,
+      },
+      blobBytes,
+    });
+
+    const archivedArtifacts = capturedPayload?.artifacts as
+      | Array<Record<string, unknown>>
+      | undefined;
+    const archivedAttachments = archivedArtifacts?.[0]?.attachments as
+      | Array<Record<string, unknown>>
+      | undefined;
+    expect(archivedAttachments?.[0]?.archiveCid).toBe('bafycid-captured');
+  });
+
   it('returns blobCids in the ArchiveUploadResult', async () => {
     let callCount = 0;
     storachaMocks.uploadFile.mockImplementation(async () => {
@@ -831,6 +894,126 @@ describe('storacha archive helpers', () => {
     expect(storachaMocks.uploadFile).toHaveBeenCalledTimes(1);
     expect(result.blobCids).toBeUndefined();
     expect(result.rootCid).toBe('bafyroot-no-blobs');
+  });
+
+  it('encrypts live archive payloads into an archive envelope when archiveConfig is provided', async () => {
+    let capturedJsonUpload: Record<string, unknown> | undefined;
+
+    storachaMocks.uploadFile.mockImplementation(async (blob: Blob) => {
+      const text = await blob.text();
+      try {
+        capturedJsonUpload = JSON.parse(text);
+      } catch {
+        // blob upload, ignore
+      }
+      return { toString: () => 'bafyroot-encrypted' };
+    });
+
+    const client = await createStorachaArchiveClient();
+    const result = await uploadArchiveBundleToStoracha({
+      client,
+      bundle: {
+        id: 'bundle-encrypted',
+        scope: 'artifact',
+        targetCoopId: 'coop-1',
+        createdAt: new Date().toISOString(),
+        schemaVersion: 1,
+        payload: {
+          coop: { id: 'coop-1', name: 'Encrypted Coop' },
+          artifacts: [{ id: 'artifact-1', title: 'Sensitive artifact' }],
+        },
+      },
+      delegation: {
+        spaceDid: 'did:key:space',
+        delegationIssuer: 'trusted-node-demo',
+        gatewayBaseUrl: 'https://storacha.link',
+        spaceDelegation: 'space-proof',
+        proofs: [],
+        allowsFilecoinInfo: false,
+      },
+      archiveConfig: {
+        spaceDid: 'did:key:space',
+        delegationIssuer: 'did:key:issuer',
+        gatewayBaseUrl: 'https://storacha.link',
+        spaceDelegation: 'space-proof',
+        proofs: ['proof-a'],
+        allowsFilecoinInfo: false,
+        expirationSeconds: 600,
+        agentPrivateKey: 'agent-private-key',
+      },
+    });
+
+    expect(capturedJsonUpload?.type).toBe('coop-archive-envelope');
+    expect(capturedJsonUpload?.artifacts).toBeUndefined();
+    expect(capturedJsonUpload?.ciphertext).toBeDefined();
+    expect(result.contentEncoding).toBe('encrypted-envelope');
+    expect(result.encryption).toEqual({
+      algorithm: 'aes-gcm',
+      keyDerivation: 'coop-archive-config-v1',
+    });
+  });
+
+  it('encrypts uploaded attachment blobs when archiveConfig is provided', async () => {
+    const originalBytes = new Uint8Array([1, 2, 3, 4]);
+    const uploadedBuffers: Uint8Array[] = [];
+
+    storachaMocks.uploadFile.mockImplementation(async (blob: Blob) => {
+      uploadedBuffers.push(new Uint8Array(await blob.arrayBuffer()));
+      return { toString: () => `bafycid-${uploadedBuffers.length}` };
+    });
+
+    const client = await createStorachaArchiveClient();
+    const result = await uploadArchiveBundleToStoracha({
+      client,
+      bundle: {
+        id: 'bundle-encrypted-blobs',
+        scope: 'artifact',
+        targetCoopId: 'coop-1',
+        createdAt: new Date().toISOString(),
+        schemaVersion: 1,
+        payload: {
+          coop: { id: 'coop-1', name: 'Encrypted Blob Coop' },
+          artifacts: [
+            {
+              id: 'artifact-1',
+              attachments: [
+                {
+                  blobId: 'file-1',
+                  mimeType: 'application/octet-stream',
+                  byteSize: originalBytes.length,
+                  kind: 'file',
+                },
+              ],
+            },
+          ],
+        },
+      },
+      delegation: {
+        spaceDid: 'did:key:space',
+        delegationIssuer: 'trusted-node-demo',
+        gatewayBaseUrl: 'https://storacha.link',
+        spaceDelegation: 'space-proof',
+        proofs: [],
+        allowsFilecoinInfo: false,
+      },
+      blobBytes: new Map([['file-1', originalBytes]]),
+      archiveConfig: {
+        spaceDid: 'did:key:space',
+        delegationIssuer: 'did:key:issuer',
+        gatewayBaseUrl: 'https://storacha.link',
+        spaceDelegation: 'space-proof',
+        proofs: ['proof-a'],
+        allowsFilecoinInfo: false,
+        expirationSeconds: 600,
+        agentPrivateKey: 'agent-private-key',
+      },
+    });
+
+    expect(uploadedBuffers[0]).not.toEqual(originalBytes);
+    expect(result.blobUploads?.['file-1']?.archiveEncryption).toMatchObject({
+      algorithm: 'aes-gcm',
+      keyDerivation: 'coop-archive-config-v1',
+    });
   });
 
   /* ================================================================ */
@@ -1231,6 +1414,7 @@ describe('isArchiveReceiptRefreshable', () => {
       uploadedAt: '2026-03-13T00:00:00.000Z',
       filecoinStatus: 'offered',
       delegationIssuer: 'trusted-node-demo',
+      contentEncoding: 'plain-json',
       delegation: {
         issuer: 'trusted-node-demo',
         mode: 'live',
@@ -1281,6 +1465,48 @@ describe('isArchiveReceiptRefreshable', () => {
 
   it('returns false when filecoinStatus is sealed', () => {
     expect(isArchiveReceiptRefreshable(makeReceipt({ filecoinStatus: 'sealed' }))).toBe(false);
+  });
+
+  it('flags sealed live receipts that still lack an on-chain seal witness', () => {
+    expect(
+      doesArchiveReceiptNeedOnChainSealWitness(
+        makeReceipt({
+          filecoinStatus: 'sealed',
+          filecoinInfo: {
+            pieceCid: 'bafkpiece',
+            aggregates: [],
+            deals: [
+              {
+                aggregate: 'bafyaggregate',
+                dealId: '44',
+              },
+            ],
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false once sealed receipts already carry an on-chain seal witness', () => {
+    expect(
+      doesArchiveReceiptNeedOnChainSealWitness(
+        makeReceipt({
+          filecoinStatus: 'sealed',
+          filecoinInfo: {
+            pieceCid: 'bafkpiece',
+            aggregates: [],
+            deals: [
+              {
+                aggregate: 'bafyaggregate',
+                dealId: '44',
+                onChainSealWitness: '{"type":"coop-filecoin-onchain-seal-witness"}',
+                onChainSealWitnessCid: 'bafysealwitness',
+              },
+            ],
+          },
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('returns false when no pieceCid is available anywhere', () => {

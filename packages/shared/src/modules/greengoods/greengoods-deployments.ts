@@ -1,7 +1,5 @@
 import { toSafeSmartAccount } from 'permissionless/accounts';
-import { createSmartAccountClient } from 'permissionless/clients';
-import { createPimlicoClient } from 'permissionless/clients/pimlico';
-import { http, type Address, createPublicClient, encodeFunctionData } from 'viem';
+import { type Address, encodeFunctionData } from 'viem';
 import type {
   AuthSession,
   CoopChainKey,
@@ -11,7 +9,12 @@ import type {
 } from '../../contracts/schema';
 import { assertHexString } from '../../utils';
 import { restorePasskeyAccount } from '../auth/auth';
-import { type CoopOnchainMode, buildPimlicoRpcUrl, getCoopChainConfig } from '../onchain/onchain';
+import {
+  type CoopOnchainMode,
+  createCoopSmartAccountClient,
+  sendSmartAccountTransactionWithCoopGasFallback,
+} from '../onchain/onchain';
+import { createCoopPublicClient } from '../onchain/provider';
 import { greenGoodsEasAbi } from './greengoods-abis';
 
 const greenGoodsDeployments = {
@@ -19,6 +22,8 @@ const greenGoodsDeployments = {
     gardenToken: '0xe1Da335110b1ed48e7df63209f5D424d02276593',
     actionRegistry: '0xA514eA2730b9eD401875693793BEfA9e2D51C0b4',
     gardensModule: '0x9d9F913eEeBAC1142E38E5276dE7c8bc9Cf7a183',
+    greenGoodsENS: '0x4fAD8Db8e04005884D484eC730aDae10d7A2e491',
+    hypercertsModule: '0x9CB6300cb0DD64dfe577944d7a8AF70799Fe3ef0',
     assessmentResolver: '0x0646B09bcf3993F02957651354dC267c450CFE58',
     karmaGapModule: '0x0FC2bE8D57595b16af0953CB2d711118F34563FE',
     workApprovalResolver: '0x166732eD81Ab200A099215cF33F6A712309B69F7',
@@ -31,6 +36,8 @@ const greenGoodsDeployments = {
     gardenToken: '0x3e0DE15Ad3D9fd0299b6811247f14449eb866A39',
     actionRegistry: '0xB768203B1A3e3d6FaE0e788d0f9b99381ecB3Bae',
     gardensModule: '0xa3938322bCc723Ff89fA8b34873ac046A7B8C837',
+    greenGoodsENS: '0xa33856C756B07A8Ac5472aE25d9fdaCF126C2636',
+    hypercertsModule: '0x7748Db3Bb3e4CF1A1d489f982F3e1C258Ae9fD30',
     assessmentResolver: '0x0646B09bcf3993F02957651354dC267c450CFE58',
     karmaGapModule: '0x329916F4598eB55eE9D70062Afbf11312c7F6E48',
     workApprovalResolver: '0x166732eD81Ab200A099215cF33F6A712309B69F7',
@@ -45,6 +52,8 @@ const greenGoodsDeployments = {
     gardenToken: Address;
     actionRegistry: Address;
     gardensModule: Address;
+    greenGoodsENS: Address;
+    hypercertsModule: Address;
     assessmentResolver: Address;
     karmaGapModule: Address;
     workApprovalResolver: Address;
@@ -87,15 +96,13 @@ export type GreenGoodsLiveExecutor = (input: {
   value?: bigint;
 }) => Promise<{
   txHash: `0x${string}`;
-  receipt?: Awaited<ReturnType<ReturnType<typeof createPublicClient>['waitForTransactionReceipt']>>;
+  receipt?: Awaited<
+    ReturnType<Awaited<ReturnType<typeof createCoopPublicClient>>['waitForTransactionReceipt']>
+  >;
   safeAddress: Address;
 }>;
 
 export const ZERO_BYTES32 = `0x${'0'.repeat(64)}` as const;
-
-// TODO: Register this Coop-specific schema before enabling live member impact reporting.
-export const IMPACT_REPORT_SCHEMA_UID =
-  '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 
 export function getGreenGoodsDeployment(chainKey: CoopChainKey): GreenGoodsDeployment {
   return greenGoodsDeployments[chainKey];
@@ -119,7 +126,7 @@ export function normalizeBytes32(value: string | undefined) {
 
 export function requireLiveSchemaUid(
   schemaUid: `0x${string}` | undefined,
-  label: 'work submission' | 'impact report',
+  label: 'work submission',
 ) {
   const normalized = normalizeBytes32(schemaUid);
   if (!normalized) {
@@ -172,42 +179,31 @@ export async function sendViaCoopSafe(input: {
   value?: bigint;
 }) {
   const sender = restorePasskeyAccount(input.authSession);
-  const chainConfig = getCoopChainConfig(input.onchainState.chainKey);
-  const bundlerUrl = buildPimlicoRpcUrl(input.onchainState.chainKey, input.pimlicoApiKey);
-  const publicClient = createPublicClient({
-    chain: chainConfig.chain,
-    transport: http(chainConfig.chain.rpcUrls.default.http[0]),
-  });
+  const publicClient = await createCoopPublicClient(input.onchainState.chainKey);
   const account = await toSafeSmartAccount({
     client: publicClient,
     owners: [sender],
     address: assertHexString(input.onchainState.safeAddress, 'safeAddress'),
     version: '1.4.1',
   });
-  const pimlicoClient = createPimlicoClient({
-    chain: chainConfig.chain,
-    transport: http(bundlerUrl),
-  });
-  const smartClient = createSmartAccountClient({
+  const { smartClient } = createCoopSmartAccountClient({
     account,
-    chain: chainConfig.chain,
-    bundlerTransport: http(bundlerUrl),
-    paymaster: pimlicoClient,
-    userOperation: {
-      estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
-    },
+    chainKey: input.onchainState.chainKey,
+    pimlicoApiKey: input.pimlicoApiKey,
+    accountTypeHint: 'safe',
   });
 
-  const txHash = await smartClient.sendTransaction({
+  const result = await sendSmartAccountTransactionWithCoopGasFallback({
+    smartClient,
+    accountTypeHint: 'safe',
     to: input.to,
     data: input.data,
     value: input.value ?? 0n,
   });
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
   return {
-    txHash,
-    receipt,
+    txHash: result.txHash,
+    receipt: result.receipt,
     safeAddress: account.address,
   };
 }

@@ -1,4 +1,4 @@
-import type { Address } from 'viem';
+import { type Address, toFunctionSelector } from 'viem';
 import { describe, expect, it } from 'vitest';
 import type { AuthSession, GreenGoodsDomain, OnchainState } from '../../../contracts/schema';
 import {
@@ -104,6 +104,39 @@ describe('Gardener lifecycle', () => {
       const b = await addGreenGoodsGardener(input);
       expect(a.txHash).toBe(b.txHash);
     });
+
+    it('builds the live addGardener call against the garden address and passes through the executor tx hash', async () => {
+      const calls: Array<{ to: Address; data: `0x${string}`; value?: bigint }> = [];
+      const txHash = `0x${'a'.repeat(64)}` as const;
+
+      const result = await addGreenGoodsGardener({
+        mode: 'live',
+        authSession: mockAuthSession,
+        pimlicoApiKey: 'test-key',
+        onchainState: mockOnchainState,
+        gardenAddress: MOCK_GARDEN_ADDRESS,
+        gardenerAddress: MOCK_GARDENER_ADDRESS,
+        liveExecutor: async (input) => {
+          calls.push(input);
+          return {
+            txHash,
+            safeAddress: mockOnchainState.safeAddress as Address,
+          };
+        },
+      });
+
+      expect(result.txHash).toBe(txHash);
+      expect(calls).toEqual([
+        {
+          to: MOCK_GARDEN_ADDRESS,
+          data: buildAddGardenerCalldata({
+            gardenAddress: MOCK_GARDEN_ADDRESS,
+            gardenerAddress: MOCK_GARDENER_ADDRESS,
+          }),
+        },
+      ]);
+      expect(calls[0]?.data.slice(0, 10)).toBe(toFunctionSelector('addGardener(address)'));
+    });
   });
 
   describe('removeGreenGoodsGardener', () => {
@@ -135,6 +168,39 @@ describe('Gardener lifecycle', () => {
       const addResult = await addGreenGoodsGardener(baseInput);
       const removeResult = await removeGreenGoodsGardener(baseInput);
       expect(addResult.txHash).not.toBe(removeResult.txHash);
+    });
+
+    it('builds the live removeGardener call against the garden address and passes through the executor tx hash', async () => {
+      const calls: Array<{ to: Address; data: `0x${string}`; value?: bigint }> = [];
+      const txHash = `0x${'b'.repeat(64)}` as const;
+
+      const result = await removeGreenGoodsGardener({
+        mode: 'live',
+        authSession: mockAuthSession,
+        pimlicoApiKey: 'test-key',
+        onchainState: mockOnchainState,
+        gardenAddress: MOCK_GARDEN_ADDRESS,
+        gardenerAddress: MOCK_GARDENER_ADDRESS,
+        liveExecutor: async (input) => {
+          calls.push(input);
+          return {
+            txHash,
+            safeAddress: mockOnchainState.safeAddress as Address,
+          };
+        },
+      });
+
+      expect(result.txHash).toBe(txHash);
+      expect(calls).toEqual([
+        {
+          to: MOCK_GARDEN_ADDRESS,
+          data: buildRemoveGardenerCalldata({
+            gardenAddress: MOCK_GARDEN_ADDRESS,
+            gardenerAddress: MOCK_GARDENER_ADDRESS,
+          }),
+        },
+      ]);
+      expect(calls[0]?.data.slice(0, 10)).toBe(toFunctionSelector('removeGardener(address)'));
     });
   });
 });
@@ -235,7 +301,7 @@ describe('Impact report', () => {
 
       expect(result.txHash).toMatch(/^0x[a-fA-F0-9]{64}$/);
       expect(result.detail).toContain('mock');
-      expect(result.detail).toContain('impact report');
+      expect(result.detail).toContain('impact reporting request');
     });
   });
 });

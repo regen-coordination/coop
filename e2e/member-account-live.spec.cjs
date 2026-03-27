@@ -13,23 +13,27 @@ const envFilePath = path.join(rootDir, '.env.local');
 const envFile = fs.existsSync(envFilePath) ? parseDotEnv(fs.readFileSync(envFilePath, 'utf8')) : {};
 const pimlicoApiKey = readEnvValue('VITE_PIMLICO_API_KEY');
 const impactSchemaUid = readEnvValue('VITE_COOP_GREEN_GOODS_IMPACT_REPORT_SCHEMA_UID');
-const sepoliaDeployment = resolveGreenGoodsSepoliaDeployment();
+const liveChainKey = resolveLiveChainKey(
+  readEnvValue('COOP_MEMBER_ACCOUNT_LIVE_CHAIN') ?? readEnvValue('VITE_COOP_CHAIN'),
+);
+const liveChainConfig = resolveChainConfig(liveChainKey);
+const liveDeployment = resolveGreenGoodsDeployment(liveChainKey);
 const workSchemaUid =
-  readEnvValue('VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID') ?? sepoliaDeployment.schemas.workSchemaUID;
+  readEnvValue('VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID') ?? liveDeployment.schemas.workSchemaUID;
 const hasImpactSchema = /^0x[a-fA-F0-9]{64}$/.test(impactSchemaUid ?? '');
 const hasRequiredEnv = Boolean(pimlicoApiKey && /^0x[a-fA-F0-9]{64}$/.test(workSchemaUid ?? ''));
 
 const viem = require(path.join(rootDir, 'packages/shared/node_modules/viem'));
 const { createPublicClient, getContract, http, parseAbi } = viem;
 
-const sepoliaPublicClient = createPublicClient({
+const livePublicClient = createPublicClient({
   chain: {
-    id: 11155111,
-    name: 'Sepolia',
-    nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
-    rpcUrls: { default: { http: ['https://ethereum-sepolia.publicnode.com'] } },
+    id: liveChainConfig.chainId,
+    name: liveChainConfig.label,
+    nativeCurrency: liveChainConfig.nativeCurrency,
+    rpcUrls: { default: { http: [liveChainConfig.rpcUrl] } },
   },
-  transport: http('https://ethereum-sepolia.publicnode.com'),
+  transport: http(liveChainConfig.rpcUrl),
 });
 
 const actionRegistryAbi = parseAbi([
@@ -74,13 +78,50 @@ function readEnvValue(name) {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
-function resolveGreenGoodsSepoliaDeployment() {
+function resolveLiveChainKey(raw) {
+  return raw === 'arbitrum' ? 'arbitrum' : 'sepolia';
+}
+
+function resolveChainConfig(chainKey) {
+  if (chainKey === 'arbitrum') {
+    return {
+      chainId: 42161,
+      label: 'Arbitrum One',
+      shortLabel: 'Arbitrum',
+      rpcUrl: 'https://arb1.arbitrum.io/rpc',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    };
+  }
+
+  return {
+    chainId: 11155111,
+    label: 'Ethereum Sepolia',
+    shortLabel: 'Sepolia',
+    rpcUrl: 'https://ethereum-sepolia.publicnode.com',
+    nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
+  };
+}
+
+function resolveGreenGoodsDeployment(chainKey) {
+  const chainId = chainKey === 'arbitrum' ? '42161' : '11155111';
   const deploymentPath = path.join(
     greenGoodsRepoDir,
-    'packages/contracts/deployments/11155111-latest.json',
+    `packages/contracts/deployments/${chainId}-latest.json`,
   );
   if (fs.existsSync(deploymentPath)) {
     return JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
+  }
+
+  if (chainKey === 'arbitrum') {
+    return {
+      gardenToken: '0xe1Da335110b1ed48e7df63209f5D424d02276593',
+      actionRegistry: '0xA514eA2730b9eD401875693793BEfA9e2D51C0b4',
+      schemas: {
+        assessmentSchemaUID: '0x97b3a7378bc97e8e455dbf9bd7958e4c149bef5e1f388540852b6d53eb6dbf93',
+        workApprovalSchemaUID: '0x6f44cac380791858e86c67c75de1f10b186fb6534c00f85b596709a3cd51f381',
+        workSchemaUID: '0x43ebd37da5479df9d495a4c6514e7cb7f370e9f4166a0a58e14a3baf466078c4',
+      },
+    };
   }
 
   return {
@@ -95,13 +136,13 @@ function resolveGreenGoodsSepoliaDeployment() {
 
 async function resolveActiveWorkAction(domainValue) {
   const registry = getContract({
-    address: sepoliaDeployment.actionRegistry,
+    address: liveDeployment.actionRegistry,
     abi: actionRegistryAbi,
-    client: sepoliaPublicClient,
+    client: livePublicClient,
   });
   const now = BigInt(Math.floor(Date.now() / 1000));
 
-  for (let actionUid = 0n; actionUid < 24n; actionUid += 1n) {
+  for (let actionUid = 0n; actionUid < 128n; actionUid += 1n) {
     const action = await registry.read.getAction([actionUid]);
     const isInitialized = action.startTime > 0n;
     const isActive = action.startTime <= now && action.endTime >= now;
@@ -115,24 +156,26 @@ async function resolveActiveWorkAction(domainValue) {
     }
   }
 
-  throw new Error(`No active Sepolia Green Goods action found for domain ${domainValue}.`);
+  throw new Error(
+    `No active ${liveChainConfig.shortLabel} Green Goods action found for domain ${domainValue}.`,
+  );
 }
 
 async function inspectGardenMintAuthorization(safeAddress) {
-  const owner = await sepoliaPublicClient.readContract({
-    address: sepoliaDeployment.gardenToken,
+  const owner = await livePublicClient.readContract({
+    address: liveDeployment.gardenToken,
     abi: greenGoodsGardenTokenAuthAbi,
     functionName: 'owner',
   });
-  const deploymentRegistry = await sepoliaPublicClient.readContract({
-    address: sepoliaDeployment.gardenToken,
+  const deploymentRegistry = await livePublicClient.readContract({
+    address: liveDeployment.gardenToken,
     abi: greenGoodsGardenTokenAuthAbi,
     functionName: 'deploymentRegistry',
   });
 
   try {
-    const openMinting = await sepoliaPublicClient.readContract({
-      address: sepoliaDeployment.gardenToken,
+    const openMinting = await livePublicClient.readContract({
+      address: liveDeployment.gardenToken,
       abi: greenGoodsGardenTokenAuthAbi,
       functionName: 'openMinting',
     });
@@ -157,7 +200,7 @@ async function inspectGardenMintAuthorization(safeAddress) {
     };
   }
 
-  const allowlisted = await sepoliaPublicClient.readContract({
+  const allowlisted = await livePublicClient.readContract({
     address: deploymentRegistry,
     abi: greenGoodsDeploymentRegistryAbi,
     functionName: 'isInAllowlist',
@@ -176,7 +219,7 @@ async function inspectGardenMintAuthorization(safeAddress) {
     authorized: false,
     owner,
     deploymentRegistry,
-    detail: `Green Goods Sepolia currently restricts garden minting. Coop Safe ${safeAddress} is not the GardenToken owner ${owner} and is not allowlisted in deployment registry ${deploymentRegistry}. Ask Green Goods governance to allowlist this Safe or enable open minting before retrying the live flow.`,
+    detail: `Green Goods ${liveChainConfig.shortLabel} currently restricts garden minting. Coop Safe ${safeAddress} is not the GardenToken owner ${owner} and is not allowlisted in deployment registry ${deploymentRegistry}. Ask Green Goods governance to allowlist this Safe or enable open minting before retrying the live flow.`,
   };
 }
 
@@ -194,6 +237,10 @@ function withTimeout(promise, timeoutMs, label = 'operation') {
       setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
     }),
   ]);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function isBenignCloseError(error) {
@@ -266,7 +313,31 @@ async function openOptionalSetup(page) {
 }
 
 async function openPanelTab(page, name) {
-  await page.getByRole('tab', { name, exact: true }).click();
+  const tab = page.getByRole('tab', { name, exact: true });
+  if (await tab.isVisible().catch(() => false)) {
+    await tab.click();
+    return;
+  }
+
+  const footerButton = page
+    .locator('nav[aria-label="Sidepanel navigation"]')
+    .locator('button')
+    .filter({ hasText: new RegExp(`\\b${escapeRegExp(name)}\\b`, 'i') })
+    .first();
+
+  if (await footerButton.isVisible().catch(() => false)) {
+    const ariaCurrent = await footerButton.getAttribute('aria-current').catch(() => null);
+    const className = await footerButton.getAttribute('class').catch(() => '');
+    if (ariaCurrent === 'page' || /\bis-active\b/.test(className ?? '')) {
+      return;
+    }
+    await footerButton.click();
+    return;
+  }
+
+  throw new Error(
+    `Unable to open sidepanel tab "${name}" because no matching tab control is visible.`,
+  );
 }
 
 async function sendRuntimeMessage(page, message) {
@@ -283,7 +354,7 @@ function buildLiveEnv() {
     ...process.env,
     ...envFile,
     VITE_PIMLICO_API_KEY: pimlicoApiKey,
-    VITE_COOP_CHAIN: 'sepolia',
+    VITE_COOP_CHAIN: liveChainKey,
     VITE_COOP_ONCHAIN_MODE: 'live',
     VITE_COOP_ARCHIVE_MODE: 'mock',
     VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID: workSchemaUid,
@@ -293,6 +364,13 @@ function buildLiveEnv() {
         }
       : {}),
   };
+}
+
+async function openFooterTab(page, name) {
+  await page
+    .locator('nav[aria-label="Sidepanel navigation"]')
+    .getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}$`, 'i') })
+    .click();
 }
 
 async function launchExtensionProfile(userDataDir) {
@@ -329,10 +407,19 @@ async function launchExtensionProfile(userDataDir) {
 function buildCreateGardenPayload(coop) {
   const garden = coop.greenGoods;
   const creator = coop.members[0];
+  const baseSlug = (garden?.slug || 'live-garden-coop').toLowerCase();
+  const normalizedSlug = baseSlug
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  const uniqueSuffix = coop.profile.id
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase()
+    .slice(-8);
   return {
     coopId: coop.profile.id,
     name: garden?.name || coop.profile.name,
-    slug: garden?.slug,
+    slug: `${normalizedSlug}-${uniqueSuffix}`,
     description: garden?.description || coop.profile.purpose,
     location: garden?.location || undefined,
     bannerImage: garden?.bannerImage || undefined,
@@ -351,7 +438,7 @@ test.describe('member account live workflow', () => {
   test.skip(({ isMobile }) => isMobile, 'Extension automation runs only on desktop Chromium.');
   test.skip(
     !runLive || !hasRequiredEnv,
-    'Set COOP_RUN_MEMBER_ACCOUNT_LIVE=1 and provide a Pimlico API key to run this Sepolia live spec.',
+    'Set COOP_RUN_MEMBER_ACCOUNT_LIVE=1 and provide a Pimlico API key to run this live spec.',
   );
 
   test('lazy-deploys the member account on first Green Goods member attestation', async () => {
@@ -389,7 +476,6 @@ test.describe('member account live workflow', () => {
       await profile.page.getByRole('button', { name: /start this coop/i }).click();
       await expect(profile.page.getByText(/coop created\./i)).toBeVisible({ timeout: 90000 });
 
-      await openPanelTab(profile.page, 'Nest');
       await expect(profile.page.getByRole('heading', { name: 'Live Garden Coop' })).toBeVisible();
 
       await expect
@@ -451,8 +537,29 @@ test.describe('member account live workflow', () => {
         .toMatch(/^0x[a-fA-F0-9]{40}$/);
 
       await profile.page.reload();
-      await openPanelTab(profile.page, 'Nest');
+      const restoreActiveCoop = await sendRuntimeMessage(profile.page, {
+        type: 'set-active-coop',
+        payload: { coopId: coop.profile.id },
+      });
+      expect(restoreActiveCoop?.ok).toBe(true);
 
+      await expect
+        .poll(async () => {
+          const restoredDashboard = await getDashboard(profile.page);
+          return {
+            activeCoopId: restoredDashboard?.activeCoopId ?? null,
+            activeCoopName:
+              restoredDashboard?.coops.find(
+                (candidate) => candidate.profile.id === restoredDashboard?.activeCoopId,
+              )?.profile.name ?? null,
+          };
+        })
+        .toEqual({
+          activeCoopId: coop.profile.id,
+          activeCoopName: coop.profile.name,
+        });
+
+      await openFooterTab(profile.page, 'Roost');
       await profile.page.getByRole('button', { name: /provision my garden account/i }).click();
       await expect(
         profile.page.getByText(/member smart account predicted and stored on this browser/i),
@@ -466,14 +573,14 @@ test.describe('member account live workflow', () => {
             coopId: coop.profile.id,
             memberId: creatorMember.id,
             report: {
-              title: 'Live Sepolia garden impact report',
+              title: `Live ${liveChainConfig.shortLabel} garden impact report`,
               description: 'Baseline impact report submitted from the member smart account.',
               domain: 'agro',
               reportCid: 'bafybeifakeimpactreport1234567890abcdef',
               metricsSummary: JSON.stringify({
                 gardeners: 1,
                 restoredBeds: 1,
-                observation: 'Live Sepolia proof path',
+                observation: `Live ${liveChainConfig.shortLabel} proof path`,
               }),
               reportingPeriodStart: 1704067200,
               reportingPeriodEnd: 1706745600,
@@ -506,7 +613,7 @@ test.describe('member account live workflow', () => {
           submission: {
             actionUid: liveAction.actionUid,
             title: `${liveAction.title} - live member proof`,
-            feedback: 'Live Sepolia submission from the lazily deployed member smart account.',
+            feedback: `Live ${liveChainConfig.shortLabel} submission from the lazily deployed member smart account.`,
             metadataCid: 'bafybeifakeworkmetadata123456789',
             mediaCids: [
               'bafybeifakemediaaaaaaaaaaaaaaaaaaaaaaaaa',

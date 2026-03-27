@@ -13,7 +13,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // Minimal mock for GreenGoods cards to avoid deep @coop/shared dependency chain
 vi.mock('../../cards/GreenGoodsActionCards', () => ({
   GreenGoodsAccessSummary: () => <div data-testid="gg-summary" />,
-  GreenGoodsImpactReportForm: () => <div data-testid="gg-impact" />,
   GreenGoodsWorkSubmissionForm: () => <div data-testid="gg-work" />,
   GreenGoodsProvisionButton: () => <div data-testid="gg-provision" />,
 }));
@@ -86,7 +85,6 @@ function buildProps(overrides: Partial<RoostTabProps> = {}): RoostTabProps {
     greenGoodsActionQueue: [],
     onProvisionMemberOnchainAccount: vi.fn(),
     onSubmitGreenGoodsWorkSubmission: vi.fn(),
-    onSubmitGreenGoodsImpactReport: vi.fn(),
     ...overrides,
   };
 }
@@ -116,6 +114,12 @@ describe('RoostTab subheader integration', () => {
     const wrapper = document.querySelector('.sidepanel-subheader');
     expect(wrapper).not.toBeNull();
     expect(wrapper?.querySelector('.popup-subheader')).not.toBeNull();
+  });
+
+  it('does not render the removed direct impact-report form', () => {
+    render(<RoostTab {...buildProps()} />);
+
+    expect(screen.queryByTestId('gg-impact')).not.toBeInTheDocument();
   });
 
   it('renders tags for multiple coops', () => {

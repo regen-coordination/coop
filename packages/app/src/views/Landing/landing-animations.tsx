@@ -1,12 +1,20 @@
-import type { ChickenFacing, ChickenVariant } from './landing-types';
+import type { ChickenColor, ChickenFacing, ChickenVariant } from './landing-types';
 
 export function ChickenSprite({
   label,
   showLabel = true,
   variant = 'adult',
   facing = 'right',
-}: { label: string; showLabel?: boolean; variant?: ChickenVariant; facing?: ChickenFacing }) {
+  color = 'classic',
+}: {
+  label: string;
+  showLabel?: boolean;
+  variant?: ChickenVariant;
+  facing?: ChickenFacing;
+  color?: ChickenColor;
+}) {
   const variantClass = variant !== 'adult' ? ` chicken-${variant}` : '';
+  const colorClass = color !== 'classic' ? ` chicken-${color}` : '';
   const facingClass = facing === 'left' ? ' is-facing-left' : '';
 
   return (
@@ -14,7 +22,7 @@ export function ChickenSprite({
       <span className={`scene-chicken-art${facingClass}`}>
         <svg
           aria-hidden="true"
-          className={`scene-chicken-svg${variantClass}`}
+          className={`scene-chicken-svg${variantClass}${colorClass}`}
           viewBox="0 0 150 118"
           xmlns="http://www.w3.org/2000/svg"
         >

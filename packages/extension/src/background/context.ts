@@ -176,11 +176,6 @@ export const configuredGreenGoodsWorkSchemaUid =
   /^0x[a-fA-F0-9]{64}$/.test(import.meta.env.VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID)
     ? (import.meta.env.VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID as `0x${string}`)
     : undefined;
-export const configuredGreenGoodsImpactReportSchemaUid =
-  typeof import.meta.env.VITE_COOP_GREEN_GOODS_IMPACT_REPORT_SCHEMA_UID === 'string' &&
-  /^0x[a-fA-F0-9]{64}$/.test(import.meta.env.VITE_COOP_GREEN_GOODS_IMPACT_REPORT_SCHEMA_UID)
-    ? (import.meta.env.VITE_COOP_GREEN_GOODS_IMPACT_REPORT_SCHEMA_UID as `0x${string}`)
-    : undefined;
 export const configuredReceiverAppUrl = resolveReceiverAppUrl(
   import.meta.env.VITE_COOP_RECEIVER_APP_URL,
 );

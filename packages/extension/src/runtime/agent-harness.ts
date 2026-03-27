@@ -167,7 +167,45 @@ export function selectSkillIdsForObservation(
     .filter((manifest) => manifest.triggers.includes(observation.trigger))
     .filter((manifest) => observation.draftId || manifest.id !== 'publish-readiness-check');
 
-  return topologicalSortSkills(filtered).map((manifest) => manifest.id);
+  const ordered = topologicalSortSkills(filtered);
+  const preferredOrderByTrigger: Partial<Record<AgentObservation['trigger'], string[]>> = {
+    'high-confidence-draft': [
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'publish-readiness-check',
+      'ecosystem-entity-extractor',
+      'theme-clusterer',
+    ],
+    'receiver-backlog': [
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'ecosystem-entity-extractor',
+    ],
+    'audio-transcript-ready': [
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'ecosystem-entity-extractor',
+    ],
+  };
+  const preferredOrder = preferredOrderByTrigger[observation.trigger];
+  if (!preferredOrder) {
+    return ordered.map((manifest) => manifest.id);
+  }
+
+  const rank = new Map(preferredOrder.map((skillId, index) => [skillId, index] as const));
+  return [...ordered]
+    .sort((left, right) => {
+      const leftRank = rank.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = rank.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
+      }
+      return 0;
+    })
+    .map((manifest) => manifest.id);
 }
 
 export function isAgentObservationVisible(input: {

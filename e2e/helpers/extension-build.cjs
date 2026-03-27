@@ -5,12 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 
 const rootDir = path.resolve(__dirname, '..', '..');
-const extensionDir = path.join(rootDir, 'packages/extension/.output/chrome-mv3');
 const buildCacheDir = path.join(
   os.tmpdir(),
   'coop-e2e-extension-build',
   crypto.createHash('sha1').update(rootDir).digest('hex'),
 );
+const builtExtensionDir = path.join(rootDir, 'packages/extension/.output/chrome-mv3');
+const extensionDir = path.join(buildCacheDir, 'chrome-mv3');
 const buildLockDir = path.join(buildCacheDir, 'lock');
 const buildStampPath = path.join(buildCacheDir, 'stamp.json');
 const buildLockTimeoutMs = 5 * 60 * 1000;
@@ -49,19 +50,22 @@ function resolveSignalingUrl(env) {
 function buildEnvForVisuals(env) {
   return {
     ...env,
-    VITE_COOP_ONCHAIN_MODE: 'mock',
-    VITE_COOP_ARCHIVE_MODE: 'mock',
-    VITE_COOP_RECEIVER_APP_URL: resolveAppBaseUrl(env),
-    VITE_COOP_SIGNALING_URLS: resolveSignalingUrl(env),
+    VITE_COOP_ONCHAIN_MODE: env.VITE_COOP_ONCHAIN_MODE || 'mock',
+    VITE_COOP_ARCHIVE_MODE: env.VITE_COOP_ARCHIVE_MODE || 'mock',
+    VITE_COOP_RECEIVER_APP_URL: env.VITE_COOP_RECEIVER_APP_URL || resolveAppBaseUrl(env),
+    VITE_COOP_SIGNALING_URLS: env.VITE_COOP_SIGNALING_URLS || resolveSignalingUrl(env),
   };
 }
 
 function buildSignature(env) {
+  const viteEnv = Object.fromEntries(
+    Object.entries(env)
+      .filter(([key]) => key.startsWith('VITE_'))
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+
   return JSON.stringify({
-    archiveMode: env.VITE_COOP_ARCHIVE_MODE,
-    onchainMode: env.VITE_COOP_ONCHAIN_MODE,
-    receiverAppUrl: env.VITE_COOP_RECEIVER_APP_URL,
-    signalingUrls: env.VITE_COOP_SIGNALING_URLS,
+    viteEnv,
   });
 }
 
@@ -94,6 +98,16 @@ function latestInputMtimeMs() {
   return extensionBuildInputs.reduce((latest, entryPath) => {
     return Math.max(latest, latestMtimeMs(entryPath));
   }, 0);
+}
+
+function copyBuildToCache() {
+  const manifestPath = path.join(builtExtensionDir, 'manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`Expected ${manifestPath} to exist after building the extension.`);
+  }
+
+  fs.rmSync(extensionDir, { recursive: true, force: true });
+  fs.cpSync(builtExtensionDir, extensionDir, { recursive: true });
 }
 
 function hasMatchingBuild(signature, minBuiltAtMs) {
@@ -185,6 +199,7 @@ function ensureExtensionBuilt(env = process.env) {
         stdio: 'inherit',
         env: buildEnv,
       });
+      copyBuildToCache();
       fs.writeFileSync(
         buildStampPath,
         JSON.stringify({ builtAt: new Date().toISOString(), signature }, null, 2),

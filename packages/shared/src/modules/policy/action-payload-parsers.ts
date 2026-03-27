@@ -1,4 +1,8 @@
-import type { DelegatedActionClass, PolicyActionClass } from '../../contracts/schema';
+import {
+  greenGoodsHypercertMintActionPayloadSchema,
+  type DelegatedActionClass,
+  type PolicyActionClass,
+} from '../../contracts/schema';
 
 export type ScopedActionClass = PolicyActionClass | DelegatedActionClass;
 
@@ -653,6 +657,35 @@ export function resolveScopedActionPayload(input: {
           removeAdmins: removeAdmins.value,
         },
         targetIds: [gardenAddress.value, ...addAdmins.value, ...removeAdmins.value],
+      };
+    }
+    case 'green-goods-mint-hypercert': {
+      const parsed = greenGoodsHypercertMintActionPayloadSchema.safeParse(input.payload);
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        const key = issue?.path?.[0];
+        return {
+          ok: false,
+          reason:
+            typeof key === 'string'
+              ? `Action payload has an invalid "${key}".`
+              : 'Action payload has an invalid Green Goods Hypercert package.',
+        };
+      }
+      const scopeValidation = validateExpectedCoopId(parsed.data.coopId, input.expectedCoopId);
+      if (!scopeValidation.ok) {
+        return scopeValidation;
+      }
+      return {
+        ok: true,
+        coopId: parsed.data.coopId,
+        normalizedPayload: parsed.data,
+        targetIds: [
+          parsed.data.gardenAddress,
+          parsed.data.title,
+          ...parsed.data.attestations.map((attestation) => attestation.uid),
+          ...parsed.data.allowlist.map((entry) => entry.address),
+        ],
       };
     }
     case 'safe-add-owner': {

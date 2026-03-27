@@ -52,7 +52,6 @@ These variables configure the Filecoin Virtual Machine integration for on-chain 
 | Variable | Values | Default | Purpose |
 | --- | --- | --- | --- |
 | `VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID` | `0x...` (64-char hex) | -- | EAS schema UID for Green Goods work attestations |
-| `VITE_COOP_GREEN_GOODS_IMPACT_REPORT_SCHEMA_UID` | `0x...` (64-char hex) | -- | EAS schema UID for Green Goods impact report attestations |
 
 ## Trusted Node Archive
 
@@ -68,6 +67,8 @@ These variables configure the trusted-node archive workflow when `VITE_COOP_ARCH
 | `VITE_COOP_TRUSTED_NODE_ARCHIVE_GATEWAY_URL` | Gateway URL for archive retrieval (default: `https://storacha.link`) |
 | `VITE_COOP_TRUSTED_NODE_ARCHIVE_ALLOWS_FILECOIN_INFO` | Whether Filecoin info queries are allowed (`true`/`false`) |
 | `VITE_COOP_TRUSTED_NODE_ARCHIVE_EXPIRATION_SECONDS` | Archive delegation expiration in seconds |
+| `VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_URL` | Optional Lotus/Filecoin JSON-RPC URL for independent sealing witnesses |
+| `VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_TOKEN` | Optional bearer token for the Filecoin witness RPC |
 
 ## Development
 
@@ -94,4 +95,5 @@ VITE_COOP_SIGNALING_URLS=ws://127.0.0.1:4444
 - TURN credentials are only needed when peers cannot establish direct WebRTC connections (corporate firewalls, symmetric NAT). Without TURN, blob sync falls back to the yws WebSocket relay.
 - Trusted node archive variables are only needed by operators running in anchor mode with live archive enabled.
 - FVM variables are only needed when interacting with the ERC-8004 on-chain agent registry on Filecoin.
-- Green Goods schema UIDs are EAS (Ethereum Attestation Service) identifiers required for garden work and impact report attestations.
+- Green Goods schema UIDs are EAS (Ethereum Attestation Service) identifiers required for the Green Goods work submission flow. Work approval and assessment UIDs ship from the canonical deployment map.
+- Green Goods impact reporting is not a direct EAS attestation flow in Coop. The protocol packages impact through Hypercert/Karma GAP workflows instead.

@@ -19,10 +19,11 @@ import {
   initialCreateForm,
   toSetupInsights,
 } from '../setup-insights';
+import type { SidepanelTab } from '../sidepanel-tabs';
 
 export function useCoopForm(deps: {
   setMessage: (msg: string) => void;
-  setPanelTab: (tab: string) => void;
+  setPanelTab: (tab: SidepanelTab) => void;
   loadDashboard: () => Promise<void>;
   soundPreferences: SoundPreferences;
   configuredSignalingUrls: string[];
@@ -135,8 +136,8 @@ export function useCoopForm(deps: {
             `Coop created, but archive config failed: ${archiveResult.error ?? 'Unknown error'}`,
           );
           setCreateForm(initialCreateForm);
-          setPanelTab('Coop Feed');
           await loadDashboard();
+          setPanelTab('nest');
           return;
         }
       }
@@ -149,8 +150,8 @@ export function useCoopForm(deps: {
         }${hasArchiveConfig(createForm) ? ' Storacha space connected.' : ''}`,
       );
       setCreateForm(initialCreateForm);
-      setPanelTab('Coop Feed');
       await loadDashboard();
+      setPanelTab('nest');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to create coop.');
     }
@@ -179,6 +180,7 @@ export function useCoopForm(deps: {
       setJoinName('');
       setJoinSeed('');
       await loadDashboard();
+      setPanelTab('coops');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not join this coop.');
     }

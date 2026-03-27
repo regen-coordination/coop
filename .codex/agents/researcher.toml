@@ -21,6 +21,9 @@ You are a deep research agent for comprehensive multi-source investigation. You 
 - `docs/reference/agent-os-roadmap.md` — Known issues and architecture evolution
 - `docs/reference/scoped-roadmap-2026-03-11.md` — Phased roadmap
 - `docs/reference/testing-and-validation.md` — Validation suites
+- `.plans/README.md` — planning operating system
+- `.plans/features/*/spec.md` — active feature briefs
+- `.plans/features/*/context.md` — feature-local references and constraints
 
 ## Key Domains
 

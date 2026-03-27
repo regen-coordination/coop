@@ -8,7 +8,7 @@ import {
   createId,
   createReceiverCapture,
   createReceiverDraftSeed,
-  findExistingExtractByTextHash,
+  findDuplicatePageExtract,
   findRecentCandidateByUrlHash,
   getAuthSession,
   hashText,
@@ -22,6 +22,7 @@ import {
   saveReceiverCapture,
   saveReviewDraft,
   saveTabCandidate,
+  sanitizeTextForInference,
   transcribeAudio,
   updateReceiverCapture,
 } from '@coop/shared';
@@ -174,8 +175,9 @@ export async function runCaptureForTabs(
         previewImageUrl: snapshot.previewImageUrl,
       });
 
-      // Content-hash dedup: skip extract if identical content already exists
-      const duplicateExtractId = await findExistingExtractByTextHash(db, extract.textHash);
+      // Reuse an existing extract when the captured page is the same signal
+      // under a print view, alternate path, or other small boilerplate drift.
+      const duplicateExtractId = await findDuplicatePageExtract(db, extract);
       if (duplicateExtractId) {
         newExtractIds.push(duplicateExtractId);
       } else {
@@ -198,6 +200,7 @@ export async function runCaptureForTabs(
         reason: 'capture-complete',
         force: true,
         maxPasses: 2,
+        syncBetweenPasses: true,
       });
     }
   }
@@ -247,6 +250,7 @@ export async function seedCoopFromStoredRoundup(coop: CoopSharedState) {
     reason: `seed-coop:${coop.profile.id}`,
     force: true,
     maxPasses: 2,
+    syncBetweenPasses: true,
   });
   await refreshBadge();
   return extracts.length;
@@ -387,7 +391,10 @@ async function startAudioTranscription(
       entityId: capture.id,
       state: 'completed',
       title: 'Voice note transcribed',
-      message: `"${result.text.slice(0, 80)}${result.text.length > 80 ? '…' : ''}"`,
+      message: (() => {
+        const preview = sanitizeTextForInference(result.text);
+        return `"${preview.slice(0, 80)}${preview.length > 80 ? '…' : ''}"`;
+      })(),
     });
   } catch (err) {
     console.warn('[captureAudio] Background transcription failed:', err);
@@ -531,8 +538,7 @@ export async function handleTabRemoved(tabId: number) {
       previewImageUrl: undefined,
     });
 
-    // Content-hash dedup: skip extract if identical content already exists
-    const duplicateExtractId = await findExistingExtractByTextHash(db, extract.textHash);
+    const duplicateExtractId = await findDuplicatePageExtract(db, extract);
     if (!duplicateExtractId) {
       await savePageExtract(db, extract);
     }

@@ -103,8 +103,12 @@ function popupCoopPayload(coopName) {
     seedContribution: 'I bring popup action coverage and persistence checks.',
     setupInsights: {
       summary: 'Need stable popup action coverage for capture, notes, and review persistence.',
-      crossCuttingPainPoints: ['Popup flows have less browser-level action coverage than sidepanel flows.'],
-      crossCuttingOpportunities: ['Exercise popup actions in a real extension session before releases.'],
+      crossCuttingPainPoints: [
+        'Popup flows have less browser-level action coverage than sidepanel flows.',
+      ],
+      crossCuttingOpportunities: [
+        'Exercise popup actions in a real extension session before releases.',
+      ],
       lenses: [
         {
           lens: 'capital-formation',
@@ -159,20 +163,23 @@ async function seedPopupCoop(popupPage, coopName) {
     throw new Error('Popup smoke seed coop did not return a creator member.');
   }
 
-  const authResponse = await popupPage.evaluate(async (payload) => {
-    return chrome.runtime.sendMessage({
-      type: 'set-auth-session',
-      payload,
-    });
-  }, {
-    authMode: creator.authMode ?? 'passkey',
-    createdAt: new Date().toISOString(),
-    displayName: creator.displayName,
-    identityWarning:
-      creator.identityWarning ??
-      `${creator.displayName}'s passkey is stored on this device profile. Clearing extension data may remove access to this account.`,
-    primaryAddress: creator.address,
-  });
+  const authResponse = await popupPage.evaluate(
+    async (payload) => {
+      return chrome.runtime.sendMessage({
+        type: 'set-auth-session',
+        payload,
+      });
+    },
+    {
+      authMode: creator.authMode ?? 'passkey',
+      createdAt: new Date().toISOString(),
+      displayName: creator.displayName,
+      identityWarning:
+        creator.identityWarning ??
+        `${creator.displayName}'s passkey is stored on this device profile. Clearing extension data may remove access to this account.`,
+      primaryAddress: creator.address,
+    },
+  );
 
   if (!authResponse?.ok) {
     throw new Error(authResponse?.error ?? 'Could not seed popup auth session.');
@@ -323,7 +330,9 @@ test.describe('popup action smoke', () => {
       await clickWithoutFocusing(profile.popupPage.getByRole('button', { name: 'Screenshot' }));
       await profile.popupPage.bringToFront();
       await expect(profile.popupPage.getByRole('dialog')).toBeVisible({ timeout: 30_000 });
-      await profile.popupPage.getByRole('textbox', { name: 'Title' }).fill('Popup screenshot proof');
+      await profile.popupPage
+        .getByRole('textbox', { name: 'Title' })
+        .fill('Popup screenshot proof');
       await profile.popupPage
         .getByRole('textbox', { name: 'Context' })
         .fill('Captured from the browser smoke suite for popup persistence coverage.');
@@ -449,9 +458,9 @@ test.describe('popup action smoke', () => {
         timeout: 30_000,
       });
 
-      await profile.popupPage.getByRole('textbox', { name: 'Note' }).fill(
-        'Popup still accepts notes after a failed capture attempt.',
-      );
+      await profile.popupPage
+        .getByRole('textbox', { name: 'Note' })
+        .fill('Popup still accepts notes after a failed capture attempt.');
       await profile.popupPage.getByRole('button', { name: 'Save note' }).click();
 
       await expect(profile.popupPage.getByText('Note hatched into your roost.')).toBeVisible({

@@ -63,12 +63,11 @@ export async function createLivePasskeyIdentity(input: {
     getFn: createWebAuthnCredentialGetFn(),
     rpId,
   });
-  const ownerAddress = toDeterministicAddress(`passkey:${credential.id}:${credential.publicKey}`);
   const createdAt = nowIso();
   const record = localPasskeyIdentitySchema.parse({
     id: createId('identity'),
     displayName: input.displayName,
-    ownerAddress,
+    ownerAddress: toDeterministicAddress(`passkey:${credential.id}:${credential.publicKey}`),
     createdAt,
     lastUsedAt: createdAt,
     identityWarning: createDeviceBoundWarning(input.displayName),

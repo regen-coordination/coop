@@ -11,11 +11,12 @@ import { useState } from 'react';
 import { playCoopSound } from '../../../runtime/audio';
 import type { InferenceBridge } from '../../../runtime/inference-bridge';
 import { sendRuntimeMessage } from '../../../runtime/messages';
+import type { SidepanelTab } from '../sidepanel-tabs';
 
 export function useDraftEditor(deps: {
   activeCoop: CoopSharedState | undefined;
   setMessage: (msg: string) => void;
-  setPanelTab: (tab: string) => void;
+  setPanelTab: (tab: SidepanelTab) => void;
   loadDashboard: () => Promise<void>;
   soundPreferences: SoundPreferences;
   inferenceBridgeRef: React.RefObject<InferenceBridge | null>;
@@ -204,7 +205,7 @@ export function useDraftEditor(deps: {
         ? 'Pocket Coop find moved into an editable draft.'
         : 'Pocket Coop find moved into hatching review.',
     );
-    setPanelTab(workflowStage === 'ready' ? 'Roost' : 'Flock Meeting');
+    setPanelTab('chickens');
     await loadDashboard();
   }
 

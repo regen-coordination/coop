@@ -222,7 +222,14 @@ export function writeCoopState(doc: Y.Doc, state: CoopSharedState) {
         fieldMap = new Y.Map<string>();
         artifactsV2.set(artifact.id, fieldMap);
       }
-      for (const [key, value] of Object.entries(artifact)) {
+      const definedEntries = Object.entries(artifact).filter(([, value]) => value !== undefined);
+      const definedKeys = new Set(definedEntries.map(([key]) => key));
+      for (const key of fieldMap.keys()) {
+        if (!definedKeys.has(key)) {
+          fieldMap.delete(key);
+        }
+      }
+      for (const [key, value] of definedEntries) {
         fieldMap.set(key, JSON.stringify(value));
       }
     }
@@ -306,6 +313,29 @@ export function updateCoopState(
  */
 export function encodeCoopDoc(doc: Y.Doc) {
   return Y.encodeStateAsUpdate(doc);
+}
+
+/**
+ * Merges one or more Yjs updates into a single state update payload.
+ * @param updates - Incremental Yjs updates to combine
+ * @returns A single merged state update payload
+ */
+export function mergeCoopDocUpdates(updates: Uint8Array[]) {
+  if (updates.length === 0) {
+    return new Uint8Array();
+  }
+
+  const doc = hydrateCoopDoc();
+
+  try {
+    for (const update of updates) {
+      Y.applyUpdate(doc, update);
+    }
+
+    return encodeCoopDoc(doc);
+  } finally {
+    doc.destroy();
+  }
 }
 
 /**

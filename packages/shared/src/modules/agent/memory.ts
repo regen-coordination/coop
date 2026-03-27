@@ -41,6 +41,56 @@ type MemoryQueryScope =
       memberId?: string;
     };
 
+const STALE_MEMORY_RELATIVE_GAP_MS = 30 * 24 * 60 * 60 * 1000;
+
+function memoryTypePriority(memory: AgentMemory) {
+  if (memory.scope === 'member') {
+    return 0;
+  }
+
+  switch (memory.type) {
+    case 'skill-pattern':
+      return 1;
+    case 'observation-outcome':
+      return 2;
+    case 'decision-context':
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+function sortMemoriesForSkill(memories: AgentMemory[]) {
+  const latestCreatedAt = memories.reduce<number>((latest, memory) => {
+    const createdAt = Date.parse(memory.createdAt);
+    return Number.isFinite(createdAt) ? Math.max(latest, createdAt) : latest;
+  }, 0);
+
+  return [...memories].sort((left, right) => {
+    const leftCreatedAt = Date.parse(left.createdAt);
+    const rightCreatedAt = Date.parse(right.createdAt);
+    const leftIsStale =
+      latestCreatedAt > 0 &&
+      Number.isFinite(leftCreatedAt) &&
+      latestCreatedAt - leftCreatedAt > STALE_MEMORY_RELATIVE_GAP_MS;
+    const rightIsStale =
+      latestCreatedAt > 0 &&
+      Number.isFinite(rightCreatedAt) &&
+      latestCreatedAt - rightCreatedAt > STALE_MEMORY_RELATIVE_GAP_MS;
+
+    if (leftIsStale !== rightIsStale) {
+      return leftIsStale ? 1 : -1;
+    }
+
+    const priorityDelta = memoryTypePriority(left) - memoryTypePriority(right);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
+}
+
 function filterMemoriesByScope(memories: AgentMemory[], scope: MemoryQueryScope) {
   if (typeof scope === 'string') {
     return memories.filter((memory) => memory.scope === 'coop' && memory.coopId === scope);
@@ -160,10 +210,9 @@ export async function queryMemoriesForSkill(
     if (seen.has(memory.id)) continue;
     seen.add(memory.id);
     merged.push(memory);
-    if (merged.length >= limit) break;
   }
 
-  return merged;
+  return sortMemoriesForSkill(merged).slice(0, limit);
 }
 
 export async function enforceMemoryLimit(

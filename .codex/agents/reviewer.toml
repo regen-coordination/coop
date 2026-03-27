@@ -54,6 +54,7 @@ Commands to run after fixes.
 - ANY unresolved Critical/High -> REQUEST_CHANGES
 - Read surrounding code for context, not just the diff
 - Never rubber-stamp — every review gets all 6 passes
+- For active feature work, read the matching `.plans/features/<feature-slug>/spec.md` and QA plan first when available
 
 ### Coop-Specific Checks
 - Barrel imports only (`from '@coop/shared'`, never deep paths)

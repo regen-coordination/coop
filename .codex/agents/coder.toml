@@ -16,6 +16,20 @@ You are an implementation specialist using strict TDD workflow.
 4. **IMPLEMENT**: Write minimal code to pass (GREEN).
 5. **VERIFY**: Run full validation (`bun run test && bun build`).
 
+## Plan OS
+
+Active feature execution lives in `.plans/features/<feature-slug>/`.
+
+- Read `spec.md` and `context.md` before editing code.
+- Prefer the lane file that matches your ownership:
+  - Codex: `state.codex.todo.md`, `api.codex.todo.md`, `contracts.codex.todo.md`
+  - Claude: `ui.claude.todo.md`
+- QA is sequential:
+  - `qa-codex.todo.md` first
+  - `qa-claude.todo.md` second after `handoff/qa-claude/<feature-slug>` exists
+
+Use `bun run plans queue --agent codex` to find ready Codex work.
+
 ## Domain Knowledge
 
 Read these skill files when relevant:

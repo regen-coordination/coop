@@ -5,10 +5,11 @@ import {
   preflightManualCapture,
   preflightScreenshotCapture,
 } from '../../shared/capture-preflight';
+import type { SidepanelTab } from '../sidepanel-tabs';
 
 export function useTabCapture(deps: {
   setMessage: (msg: string) => void;
-  setPanelTab: (tab: string) => void;
+  setPanelTab: (tab: SidepanelTab) => void;
   loadDashboard: () => Promise<void>;
 }) {
   const { setMessage, setPanelTab, loadDashboard } = deps;
@@ -29,7 +30,7 @@ export function useTabCapture(deps: {
 
       if ((response.data ?? 0) > 0) {
         setMessage(`Round-up complete. Coop checked ${response.data ?? 0} tabs locally.`);
-        setPanelTab('Roost');
+        setPanelTab('chickens');
       } else {
         setMessage('No eligible tabs were captured.');
       }
@@ -55,7 +56,7 @@ export function useTabCapture(deps: {
 
       if ((response.data ?? 0) > 0) {
         setMessage(`This tab was rounded up locally. Coop checked ${response.data ?? 0} tab.`);
-        setPanelTab('Roost');
+        setPanelTab('chickens');
       } else {
         setMessage('This tab did not produce a new capture.');
       }
@@ -82,7 +83,7 @@ export function useTabCapture(deps: {
           : (response.error ?? 'Screenshot capture failed.'),
       );
       if (response.ok) {
-        setPanelTab('Nest');
+        setPanelTab('nest');
         await loadDashboard();
       }
     } catch (error) {

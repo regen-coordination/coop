@@ -8,6 +8,7 @@ import {
 } from '../../runtime/agent-config';
 import { ensureReceiverSyncOffscreenDocument, getLocalSetting, setLocalSetting } from '../context';
 import { db } from '../context';
+import { syncAgentObservations } from './agent-reconciliation';
 
 export async function getAgentCycleState() {
   return getLocalSetting<AgentCycleState>(AGENT_SETTING_KEYS.cycleState, {
@@ -43,9 +44,13 @@ export async function drainAgentCycles(input: {
   reason: string;
   force?: boolean;
   maxPasses?: number;
+  syncBetweenPasses?: boolean;
 }) {
   const maxPasses = input.maxPasses ?? 2;
   for (let pass = 0; pass < maxPasses; pass += 1) {
+    if (pass > 0 && input.syncBetweenPasses) {
+      await syncAgentObservations();
+    }
     const pending = await listAgentObservationsByStatus(db, ['pending']);
     if (pending.length === 0 && pass > 0) {
       break;

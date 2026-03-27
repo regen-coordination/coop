@@ -1,5 +1,11 @@
-import type { ArtifactAttachment, BlobOrigin } from '../../contracts/schema';
+import type {
+  ArtifactAttachment,
+  BlobOrigin,
+  TrustedNodeArchiveConfig,
+} from '../../contracts/schema';
 import { nowIso } from '../../utils';
+import { decryptArchiveBlobBytes } from '../archive/crypto';
+import { computeStorachaFileRootCid } from '../archive/verification';
 import type { CoopDexie } from '../storage/db';
 import { getCoopBlob, saveCoopBlob, touchCoopBlobAccess } from './store';
 import type { BlobSyncChannel } from './sync';
@@ -15,6 +21,7 @@ export async function resolveBlob(input: {
   coopId: string;
   blobSync?: BlobSyncChannel;
   gatewayBaseUrl?: string;
+  archiveConfig?: TrustedNodeArchiveConfig;
 }): Promise<{ bytes: Uint8Array; source: BlobOrigin } | null> {
   const { db, blobId, attachment, coopId, blobSync } = input;
 
@@ -52,7 +59,30 @@ export async function resolveBlob(input: {
 
   // Tier 3: IPFS gateway (if archived)
   if (attachment.archiveCid) {
-    const gatewayBytes = await fetchBlobFromGateway(attachment.archiveCid, input.gatewayBaseUrl);
+    let gatewayBytes = await fetchBlobFromGateway(attachment.archiveCid, input.gatewayBaseUrl);
+    if (gatewayBytes) {
+      let computedArchiveCid: string;
+      try {
+        computedArchiveCid = await computeStorachaFileRootCid(gatewayBytes);
+      } catch {
+        return null;
+      }
+      if (computedArchiveCid !== attachment.archiveCid) {
+        return null;
+      }
+    }
+    if (gatewayBytes && attachment.archiveEncryption) {
+      if (!input.archiveConfig) {
+        return null;
+      }
+      gatewayBytes = await decryptArchiveBlobBytes({
+        bytes: gatewayBytes,
+        targetCoopId: coopId,
+        blobId,
+        config: input.archiveConfig,
+        encryption: attachment.archiveEncryption,
+      });
+    }
     if (gatewayBytes) {
       const now = nowIso();
       await saveCoopBlob(
@@ -65,6 +95,8 @@ export async function resolveBlob(input: {
           byteSize: gatewayBytes.length,
           kind: attachment.kind,
           origin: 'gateway',
+          archiveCid: attachment.archiveCid,
+          archiveEncryption: attachment.archiveEncryption,
           createdAt: now,
           accessedAt: now,
         },

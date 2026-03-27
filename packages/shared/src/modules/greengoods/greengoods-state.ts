@@ -11,7 +11,7 @@ import type {
   SetupInsights,
 } from '../../contracts/schema';
 import { greenGoodsGardenStateSchema } from '../../contracts/schema';
-import { nowIso, slugify, truncateWords, unique } from '../../utils';
+import { compactWhitespace, nowIso, slugify, truncateWords, unique } from '../../utils';
 import { greenGoodsDomainBitValue } from './greengoods-deployments';
 
 export function toGreenGoodsDomainMask(domains: GreenGoodsDomain[]) {
@@ -311,33 +311,79 @@ function normalizeOptionalGardenText(value?: string): string {
   return trimmed || '';
 }
 
+function shouldAppendDerivedDescriptionPart(current: string, candidate: string) {
+  const normalizedCurrent = current.trim().toLowerCase();
+  const normalizedCandidate = candidate.trim().toLowerCase();
+  if (!normalizedCurrent || !normalizedCandidate) {
+    return false;
+  }
+
+  return (
+    normalizedCurrent !== normalizedCandidate &&
+    !normalizedCurrent.includes(normalizedCandidate) &&
+    !normalizedCandidate.includes(normalizedCurrent)
+  );
+}
+
+export function deriveGreenGoodsGardenDraft(input: {
+  coopName: string;
+  purpose: string;
+  setupInsights: SetupInsights;
+}) {
+  const coopName = compactWhitespace(input.coopName);
+  const purpose = compactWhitespace(input.purpose);
+  const summary = compactWhitespace(input.setupInsights.summary);
+  const descriptionParts = purpose ? [purpose] : [];
+
+  if (!purpose && summary) {
+    descriptionParts.push(summary);
+  } else if (purpose && summary && shouldAppendDerivedDescriptionPart(purpose, summary)) {
+    descriptionParts.push(summary);
+  }
+
+  const domains = deriveGreenGoodsDomainsFromText({
+    purpose: input.purpose,
+    setupInsights: input.setupInsights,
+  });
+  const name = truncateWords(coopName || 'Coop Garden', 12);
+  const description = truncateWords(
+    descriptionParts.join(' ') || `${name} coordinates shared work through Coop.`,
+    48,
+  );
+
+  return {
+    name,
+    slug: slugify(coopName).slice(0, 48) || undefined,
+    description,
+    domains,
+    domainMask: toGreenGoodsDomainMask(domains),
+  };
+}
+
 export function createInitialGreenGoodsState(input: {
   coopName: string;
   purpose: string;
   setupInsights: SetupInsights;
   requestedAt?: string;
 }): GreenGoodsGardenState {
-  const domains = deriveGreenGoodsDomainsFromText({
-    purpose: input.purpose,
-    setupInsights: input.setupInsights,
-  });
+  const draft = deriveGreenGoodsGardenDraft(input);
   const requestedAt = input.requestedAt ?? nowIso();
 
   return greenGoodsGardenStateSchema.parse({
     enabled: true,
     status: 'requested',
     requestedAt,
-    name: truncateWords(input.coopName.trim(), 12),
-    slug: slugify(input.coopName).slice(0, 48) || undefined,
-    description: truncateWords(input.purpose.trim(), 48),
+    name: draft.name,
+    slug: draft.slug,
+    description: draft.description,
     location: '',
     bannerImage: '',
     metadata: '',
     openJoining: false,
     maxGardeners: 0,
     weightScheme: 'linear',
-    domains,
-    domainMask: toGreenGoodsDomainMask(domains),
+    domains: draft.domains,
+    domainMask: draft.domainMask,
     statusNote: 'Green Goods garden requested and awaiting trusted-node execution.',
   });
 }

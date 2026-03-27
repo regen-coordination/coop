@@ -49,20 +49,17 @@ describe('capture preflight', () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it('requests only the active tab origin when access is missing', async () => {
+  it('relies on the activeTab grant for user-initiated active-tab capture', async () => {
     query.mockResolvedValue([{ url: 'https://example.com/path?q=1' }]);
     contains.mockResolvedValue(false);
     request.mockResolvedValue(true);
 
     const result = await preflightActiveTabCapture();
 
-    expect(result).toMatchObject({ ok: true });
-    expect(contains).toHaveBeenCalledWith({
-      origins: ['https://example.com/*'],
-    });
-    expect(request).toHaveBeenCalledWith({
-      origins: ['https://example.com/*'],
-    });
+    expect(result).toMatchObject({ ok: true, tab: { url: 'https://example.com/path?q=1' } });
+    expect(query).toHaveBeenCalledWith({ active: true, currentWindow: true });
+    expect(contains).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
   });
 
   it('builds stable origin patterns for standard web urls', () => {

@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -8,9 +10,15 @@ import { resolveReceiverBridgeMatches } from './src/build/receiver-matches';
 loadRootEnv();
 
 const extensionRoot = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const transformersEntryPath = require.resolve('@huggingface/transformers');
+const transformersDistDir = path.resolve(path.dirname(transformersEntryPath), '../dist');
+const onnxWasmAssetPath = path.join(transformersDistDir, 'ort-wasm-simd-threaded.jsep.wasm');
+const onnxWasmModulePath = path.join(transformersDistDir, 'ort-wasm-simd-threaded.jsep.mjs');
 const receiverBridgeMatches = resolveReceiverBridgeMatches(process.env.VITE_COOP_RECEIVER_APP_URL);
 const localDevStartUrl = `http://127.0.0.1:${process.env.COOP_DEV_APP_PORT ?? '3001'}`;
 const extensionDevServerPort = Number(process.env.COOP_DEV_EXTENSION_PORT ?? '3020');
+const buildSourceMaps = process.env.COOP_EXTENSION_SOURCEMAP === '1';
 
 /**
  * Replaces Vite's modulepreload polyfill with a service-worker-safe no-op.
@@ -106,6 +114,26 @@ function inquire() {
 `,
         map: null,
       };
+    },
+  };
+}
+
+function bundleOnnxRuntimeWasmPlugin() {
+  const outputFileName = 'assets/ort-wasm-simd-threaded.jsep.wasm';
+
+  return {
+    name: 'bundle-onnx-runtime-wasm',
+    generateBundle() {
+      if (!fs.existsSync(onnxWasmAssetPath)) {
+        this.error(`Missing ONNX runtime wasm asset at ${onnxWasmAssetPath}`);
+        return;
+      }
+
+      this.emitFile({
+        type: 'asset',
+        fileName: outputFileName,
+        source: fs.readFileSync(onnxWasmAssetPath),
+      });
     },
   };
 }
@@ -220,10 +248,17 @@ export default defineConfig({
     },
   },
   vite: ({ command }) => ({
+    resolve: {
+      alias: {
+        '@huggingface/transformers/dist/ort-wasm-simd-threaded.jsep.mjs': onnxWasmModulePath,
+        '@huggingface/transformers/dist/ort-wasm-simd-threaded.jsep.wasm': onnxWasmAssetPath,
+      },
+    },
     plugins: [
       swSafePreloadPlugin(),
       swSafePermissionlessOxPlugin(),
       swSafeProtobufInquirePlugin(),
+      bundleOnnxRuntimeWasmPlugin(),
       ...(process.env.ANALYZE === 'true'
         ? [
             visualizer({
@@ -237,7 +272,7 @@ export default defineConfig({
     ],
     build: {
       target: 'es2022',
-      sourcemap: command === 'build' ? 'hidden' : undefined,
+      sourcemap: command === 'build' && buildSourceMaps ? 'hidden' : false,
       rollupOptions: {
         treeshake: {
           moduleSideEffects(id) {

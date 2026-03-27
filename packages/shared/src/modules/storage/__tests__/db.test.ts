@@ -22,6 +22,12 @@ import type {
 } from '../../../contracts/schema';
 import { createMockPasskeyIdentity } from '../../auth/identity';
 import { createCoop } from '../../coop/flows';
+import {
+  hydrateCoopDoc,
+  mergeCoopDocUpdates,
+  readCoopState,
+  writeCoopState,
+} from '../../coop/sync';
 import { createReceiverCapture, createReceiverDeviceIdentity } from '../../receiver/capture';
 import { createReceiverPairingPayload, toReceiverPairingRecord } from '../../receiver/pairing';
 import {
@@ -74,6 +80,7 @@ import {
   listTabCandidates,
   listTabRoutings,
   loadCoopState,
+  mergeCoopStateUpdate,
   recordReplayId,
   saveActionBundle,
   saveActionLogEntry,
@@ -396,6 +403,67 @@ describe('coop Dexie storage', () => {
     expect(loaded?.artifacts).toHaveLength(created.state.artifacts.length);
   });
 
+  it('merges incremental peer updates without clobbering newer local coop writes', async () => {
+    const db = freshDb();
+    const created = createCoop({
+      coopName: 'Merge Coop',
+      purpose: 'Keep local saves and synced peer updates together.',
+      creatorDisplayName: 'Rae',
+      captureMode: 'manual',
+      seedContribution: 'I care about preserving merged coop state.',
+      setupInsights: buildSetupInsights(),
+    });
+
+    await saveCoopState(db, created.state);
+
+    const seededRecord = await db.coopDocs.get(created.state.profile.id);
+    const peerDoc = hydrateCoopDoc(seededRecord?.encodedState);
+    let peerUpdate: Uint8Array | undefined;
+
+    peerDoc.on('update', (update) => {
+      peerUpdate = peerUpdate ? mergeCoopDocUpdates([peerUpdate, update]) : update;
+    });
+
+    try {
+      const localState = {
+        ...created.state,
+        artifacts: [
+          ...created.state.artifacts,
+          {
+            ...created.state.artifacts[0],
+            id: 'artifact-local',
+            title: 'Local publish survives',
+          },
+        ],
+      };
+
+      await saveCoopState(db, localState);
+
+      const peerState = readCoopState(peerDoc);
+      writeCoopState(peerDoc, {
+        ...peerState,
+        artifacts: [
+          ...peerState.artifacts,
+          {
+            ...peerState.artifacts[0],
+            id: 'artifact-peer',
+            title: 'Peer sync survives',
+          },
+        ],
+      });
+
+      expect(peerUpdate).toBeDefined();
+      await mergeCoopStateUpdate(db, created.state.profile.id, peerUpdate as Uint8Array);
+
+      const loaded = await loadCoopState(db, created.state.profile.id);
+      expect(loaded?.artifacts.map((artifact) => artifact.id).sort()).toEqual(
+        expect.arrayContaining(['artifact-local', 'artifact-peer']),
+      );
+    } finally {
+      peerDoc.destroy();
+    }
+  });
+
   it('returns null when loading a non-existent coop', async () => {
     const db = freshDb();
     expect(await loadCoopState(db, 'non-existent')).toBeNull();
@@ -715,6 +783,8 @@ describe('trusted node archive config persistence', () => {
       proofs: [],
       allowsFilecoinInfo: false,
       expirationSeconds: 600,
+      filecoinWitnessRpcUrl: 'https://lotus.example/rpc/v1',
+      filecoinWitnessRpcToken: 'token-1',
     };
 
     await setTrustedNodeArchiveConfig(db, config);
@@ -722,6 +792,7 @@ describe('trusted node archive config persistence', () => {
 
     expect(loaded).not.toBeNull();
     expect(loaded?.spaceDid).toBe('did:key:z1234');
+    expect(loaded?.filecoinWitnessRpcUrl).toBe('https://lotus.example/rpc/v1');
   });
 
   it('returns null when stored value does not match schema', async () => {

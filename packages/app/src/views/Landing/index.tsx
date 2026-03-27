@@ -7,6 +7,7 @@ import { ChickenSprite, CoopIllustration } from './landing-animations';
 import {
   LANDING_DRAFT_STORAGE_KEY,
   STAR_COUNT,
+  arrivalChickenCommunities,
   arrivalFlightPaths,
   audienceOptions,
   audienceToSpaceType,
@@ -20,11 +21,9 @@ import {
   defaultTranscriptStatus,
   emptyLandingTranscripts,
   getLensProgress,
-  heroSignalFragments,
   howItWorksCards,
   initialsForName,
   journeyChickens,
-  partnerMarks,
   readLandingDraft,
   resolveSpeechError,
   resolveSpeechRecognitionConstructor,
@@ -63,8 +62,11 @@ export function App({
   const arrivalJourneyRef = useRef<HTMLElement | null>(null);
   const heroCopyRef = useRef<HTMLDivElement | null>(null);
   const howItWorksRef = useRef<HTMLDivElement | null>(null);
+  const ritualSectionRef = useRef<HTMLElement | null>(null);
   const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const recognitionHadErrorRef = useRef(false);
+  const recognitionStoppedIntentionallyRef = useRef(false);
+  const recognitionRestartCountRef = useRef(0);
 
   const storySunRef = useRef<HTMLDivElement | null>(null);
   const storyGlowLeftRef = useRef<HTMLDivElement | null>(null);
@@ -257,17 +259,14 @@ export function App({
           const storySignalLabels = Array.from(
             scope.querySelectorAll<HTMLElement>('.journey-scene-story .scene-chicken-label'),
           );
-          const heroSignalCluster =
-            scope.querySelector<HTMLDivElement>('.hero-signal-cluster') ?? null;
-          const heroSignalFragmentElements = Array.from(
-            scope.querySelectorAll<HTMLElement>('.hero-signal-fragment'),
-          );
           const whyBuildCard =
-            arrivalJourneyRef.current?.querySelector<HTMLDivElement>('.why-build-copy') ?? null;
-          const whyBuildProof =
-            whyBuildCard?.querySelector<HTMLDivElement>('.why-build-proof') ?? null;
-          const whyBuildGroups = Array.from(
-            whyBuildCard?.querySelectorAll<HTMLElement>('.why-build-group') ?? [],
+            arrivalJourneyRef.current?.querySelector<HTMLDivElement>('.why-build-heading-card') ??
+            null;
+          const whyBuildTeam =
+            arrivalJourneyRef.current?.querySelector<HTMLDivElement>('.why-build-scene-team') ??
+            null;
+          const whyBuildTeamMembers = Array.from(
+            whyBuildTeam?.querySelectorAll<HTMLElement>('.scene-team-member') ?? [],
           );
 
           const arrivalCoopParts = {
@@ -326,20 +325,20 @@ export function App({
             .fromTo(storyCloudBRef.current, { x: '2vw', y: 0 }, { x: '-8vw', y: '4vh' }, 0)
             .fromTo(
               storyHillBackRef.current,
-              { x: '-2vw', y: '2vh', scaleX: 1.02 },
-              { x: '6vw', y: '-3vh', scaleX: 1.08 },
+              { x: '-3vw', y: '3vh', scaleX: 1.02 },
+              { x: '8vw', y: '-5vh', scaleX: 1.1 },
               0,
             )
             .fromTo(
               storyHillMidRef.current,
-              { x: '1vw', y: 0, scaleX: 1 },
-              { x: '-7vw', y: '-4vh', scaleX: 1.08 },
+              { x: '2vw', y: '1vh', scaleX: 1 },
+              { x: '-9vw', y: '-6vh', scaleX: 1.1 },
               0,
             )
             .fromTo(
               storyHillFrontRef.current,
-              { x: '-1vw', y: 0, scaleX: 1 },
-              { x: '9vw', y: '-5vh', scaleX: 1.09 },
+              { x: '-2vw', y: '1vh', scaleX: 1 },
+              { x: '11vw', y: '-8vh', scaleX: 1.12 },
               0,
             )
             .fromTo(
@@ -350,21 +349,9 @@ export function App({
             )
             .fromTo(
               storySignalLabels,
-              { autoAlpha: 0.34, y: 8, filter: 'blur(3px)' },
-              { autoAlpha: 0.74, y: 0, filter: 'blur(0px)', stagger: 0.02 },
-              0.08,
-            )
-            .fromTo(
-              heroSignalCluster,
-              { autoAlpha: 0.8, y: 8, scale: 0.995 },
-              { autoAlpha: 1, y: 0, scale: 1 },
-              0.12,
-            )
-            .fromTo(
-              heroSignalFragmentElements,
-              { autoAlpha: 0.72, y: 10, filter: 'blur(0.5px)' },
-              { autoAlpha: 1, y: 0, filter: 'blur(0px)', stagger: 0.05 },
-              0.16,
+              { autoAlpha: 0.18, y: 10, filter: 'blur(4px)' },
+              { autoAlpha: 0.88, y: 0, filter: 'blur(0px)', stagger: 0.03 },
+              0.06,
             )
             .fromTo(heroCopyRef.current, { autoAlpha: 1, y: 0 }, { autoAlpha: 0.12, y: -18 }, 0.42)
             .fromTo(
@@ -454,20 +441,30 @@ export function App({
             },
           });
 
+          // Heading card and team fade in immediately, stay visible through mid-scroll,
+          // then fade out as the coop house rises
           arrivalTimeline
             .fromTo(
               whyBuildCard,
-              { autoAlpha: 0.78, y: 38, scale: 0.985 },
-              { autoAlpha: 1, y: -8, scale: 1 },
-              0.12,
+              { autoAlpha: 0, y: 12 },
+              { autoAlpha: 1, y: 0, duration: 0.04 },
+              0,
             )
-            .fromTo(whyBuildProof, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0 }, 0.5)
             .fromTo(
-              whyBuildGroups,
-              { autoAlpha: 0, y: 20 },
-              { autoAlpha: 1, y: 0, stagger: 0.08 },
-              0.54,
+              whyBuildTeam,
+              { autoAlpha: 0, y: 10 },
+              { autoAlpha: 1, y: 0, duration: 0.05 },
+              0.02,
             )
+            .fromTo(
+              whyBuildTeamMembers,
+              { autoAlpha: 0, scale: 0.9 },
+              { autoAlpha: 1, scale: 1, stagger: 0.02, duration: 0.05 },
+              0.04,
+            )
+            .to(whyBuildCard, { autoAlpha: 0, y: -20, scale: 0.96 }, 0.45)
+            .to(whyBuildTeam, { autoAlpha: 0, y: -14 }, 0.48)
+            .to(whyBuildTeamMembers, { autoAlpha: 0, y: -10, stagger: 0.03 }, 0.5)
             .fromTo(
               arrivalGlowLeftRef.current,
               { x: '-10vw', y: '3vh', scale: 0.9 },
@@ -521,7 +518,7 @@ export function App({
               0.58,
             );
           arrivalTimeline
-            .fromTo(arrivalNightSkyRef.current, { opacity: 0 }, { opacity: 0.82 }, 0.4)
+            .fromTo(arrivalNightSkyRef.current, { opacity: 0 }, { opacity: 0.92 }, 0.4)
             .fromTo(arrivalStarsRef.current, { opacity: 0 }, { opacity: 0.78 }, 0.5)
             .fromTo(
               arrivalMoonRef.current,
@@ -543,7 +540,9 @@ export function App({
             .to(arrivalCoopGlowRef.current, { opacity: 1 }, 0.48)
             .to(arrivalCloudRef.current, { opacity: 0.14 }, 0.38);
 
-          // Stagger chicken arrivals — each starts slightly later for a natural procession
+          // Stagger chicken arrivals — procession walking toward the coop door.
+          // Start at 0.05 so they begin moving almost immediately as the section
+          // enters, and spread over a tight range so the walk is clearly visible.
           for (let i = 0; i < journeyChickens.length; i++) {
             const chicken = journeyChickens[i];
             const node = arrivalChickenRefs.current[chicken.id];
@@ -553,7 +552,7 @@ export function App({
               continue;
             }
 
-            const staggerDelay = 0.02 + i * 0.02;
+            const staggerDelay = 0.05 + i * 0.02;
 
             arrivalTimeline.to(
               node,
@@ -570,17 +569,6 @@ export function App({
               staggerDelay,
             );
           }
-
-          arrivalTimeline.to(
-            arrivalChickens,
-            {
-              autoAlpha: 0,
-              scale: 0.08,
-              y: '-=2vh',
-              duration: 0.1,
-            },
-            0.48,
-          );
         }, scope);
 
         revertAnimations = () => {
@@ -719,6 +707,8 @@ export function App({
       return;
     }
 
+    recognitionStoppedIntentionallyRef.current = true;
+
     if (recognition.abort) {
       recognition.abort();
     } else {
@@ -734,6 +724,7 @@ export function App({
       return;
     }
 
+    recognitionStoppedIntentionallyRef.current = true;
     const lensTitle = ritualLenses.find((l) => l.id === recordingLens)?.title ?? recordingLens;
     setTranscriptStatus(`Saving the ${lensTitle.toLowerCase()} notes...`);
     recognitionRef.current.stop();
@@ -752,6 +743,8 @@ export function App({
     }
 
     recognitionHadErrorRef.current = false;
+    recognitionStoppedIntentionallyRef.current = false;
+    recognitionRestartCountRef.current = 0;
 
     const recognition = new speechRecognition();
     let committedTranscript = cleanText(transcripts[cardId]);
@@ -803,15 +796,45 @@ export function App({
     };
 
     recognition.onend = () => {
-      setRecordingLens((current) => (current === cardId ? null : current));
-      recognitionRef.current = null;
-
       if (recognitionHadErrorRef.current) {
+        setRecordingLens((current) => (current === cardId ? null : current));
+        recognitionRef.current = null;
         return;
       }
 
+      // Auto-restart if the browser stopped recognition unexpectedly (e.g. silence timeout)
+      if (
+        !recognitionStoppedIntentionallyRef.current &&
+        speechRecognition &&
+        recognitionRestartCountRef.current < 3
+      ) {
+        recognitionRestartCountRef.current += 1;
+        try {
+          const restartRecognition = new speechRecognition();
+          restartRecognition.continuous = true;
+          restartRecognition.interimResults = true;
+          restartRecognition.lang = 'en-US';
+          restartRecognition.onstart = recognition.onstart;
+          restartRecognition.onresult = recognition.onresult;
+          restartRecognition.onerror = recognition.onerror;
+          restartRecognition.onend = recognition.onend;
+          recognitionRef.current = restartRecognition;
+          restartRecognition.start();
+          return;
+        } catch {
+          // Fall through to normal cleanup if restart fails
+        }
+      }
+
+      setRecordingLens((current) => (current === cardId ? null : current));
+      recognitionRef.current = null;
+
       const endTitle = ritualLenses.find((l) => l.id === cardId)?.title ?? cardId;
-      setTranscriptStatus(`${endTitle} transcript is ready to edit.`);
+      if (!recognitionStoppedIntentionallyRef.current && recognitionRestartCountRef.current >= 3) {
+        setTranscriptStatus('Recording paused \u2014 tap Record to try again');
+      } else {
+        setTranscriptStatus(`${endTitle} transcript is ready to edit.`);
+      }
     };
 
     recognitionRef.current = recognition;
@@ -955,10 +978,29 @@ export function App({
             }
             type="button"
           >
+            <span className="record-dot" aria-hidden="true" />
             {recordingLens === openCardLens.id ? 'Stop recording' : 'Record'}
           </button>
 
-          <span className="flashcard-stage-tip">Everything stays saved on this device.</span>
+          <button
+            className="button button-secondary button-small"
+            onClick={async () => {
+              try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                  updateTranscript(
+                    openCardLens.id,
+                    [transcripts[openCardLens.id], text].filter(Boolean).join('\n'),
+                  );
+                }
+              } catch {
+                setTranscriptStatus('Clipboard access unavailable. Use Cmd+V to paste.');
+              }
+            }}
+            type="button"
+          >
+            Paste
+          </button>
         </div>
 
         {recordingLens === openCardLens.id || transcripts[openCardLens.id] ? (
@@ -1058,9 +1100,11 @@ export function App({
                   ref={setStoryChickenRef(chicken.id)}
                 >
                   <div className="thought-bubble" aria-hidden="true">
-                    {chickenThoughts[chicken.id]}
+                    <span className="thought-kicker">{chickenThoughts[chicken.id].kicker}</span>
+                    <span className="thought-text">{chickenThoughts[chicken.id].text}</span>
                   </div>
                   <ChickenSprite
+                    color={chicken.color}
                     facing={chicken.facing}
                     label={chicken.label}
                     showLabel={true}
@@ -1085,30 +1129,7 @@ export function App({
                   </p>
                 </div>
 
-                <div aria-hidden="true" className="hero-stage">
-                  <div className="hero-signal-cluster">
-                    <span className="hero-signal-trace hero-signal-trace-a" />
-                    <span className="hero-signal-trace hero-signal-trace-b" />
-                    <span className="hero-signal-trace hero-signal-trace-c" />
-                    {heroSignalFragments.map((fragment) => (
-                      <span
-                        className={`hero-signal-fragment hero-signal-fragment-${fragment.tone}`}
-                        key={fragment.id}
-                        style={
-                          {
-                            '--hero-signal-x': fragment.x,
-                            '--hero-signal-y': fragment.y,
-                            '--hero-signal-rotate': fragment.rotate,
-                            '--hero-signal-width': fragment.width,
-                          } as CSSProperties
-                        }
-                      >
-                        <span className="hero-signal-kicker">{fragment.kicker}</span>
-                        <span className="hero-signal-text">{fragment.text}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                {/* Signal info is now merged into chicken thought bubbles */}
 
                 <div
                   className={`hero-scroll-hint${heroScrollHintOpacity < 0.04 ? ' is-hidden' : ''}`}
@@ -1164,7 +1185,7 @@ export function App({
           </div>
         </section>
 
-        <section className="section ritual-section" id="ritual">
+        <section className="section ritual-section" id="ritual" ref={ritualSectionRef}>
           <div className="section-heading ritual-section-heading">
             <h2>Curate your coop</h2>
             <p className="lede ritual-section-copy">
@@ -1193,6 +1214,22 @@ export function App({
                   ))}
                 </div>
               </div>
+
+              <span className="ritual-local-badge" aria-label="All data stays on this device">
+                <svg
+                  aria-hidden="true"
+                  className="ritual-local-icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8 1C5.8 1 4 2.8 4 5v2H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-1V5c0-2.2-1.8-4-4-4Zm0 1.5A2.5 2.5 0 0 1 10.5 5v2h-5V5A2.5 2.5 0 0 1 8 2.5Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                All data stays on this device
+              </span>
 
               <button
                 className="button button-secondary button-small ritual-reset-inline"
@@ -1401,60 +1438,53 @@ export function App({
                 </div>
               </div>
 
-              {journeyChickens.map((chicken) => (
-                <div
-                  className={`scene-chicken scene-chicken-${chicken.id} scene-chicken-arrival`}
-                  key={chicken.id}
-                  ref={setArrivalChickenRef(chicken.id)}
-                >
-                  <ChickenSprite
-                    facing={chicken.facing}
-                    label={chicken.label}
-                    showLabel={false}
-                    variant={chicken.variant}
-                  />
+              {journeyChickens.map((chicken) => {
+                const communityLabel = arrivalChickenCommunities[chicken.id];
+                return (
+                  <div
+                    className={`scene-chicken scene-chicken-${chicken.id} scene-chicken-arrival`}
+                    key={chicken.id}
+                    ref={setArrivalChickenRef(chicken.id)}
+                  >
+                    <ChickenSprite
+                      color={chicken.color}
+                      facing={chicken.facing}
+                      label={communityLabel ?? chicken.label}
+                      showLabel={!!communityLabel}
+                      variant={chicken.variant}
+                    />
+                  </div>
+                );
+              })}
+
+              <div className="why-build-heading-card">
+                <h2>Why we build</h2>
+                <p className="lede">
+                  Scattered knowledge becomes shared action when the right group has a clear place
+                  to work from.
+                </p>
+              </div>
+
+              <div className="why-build-scene-team" aria-label="Built by the Coop team">
+                <span className="scene-team-label">Built by the Coop team</span>
+                <div className="scene-team-member scene-team-left">
+                  <span className="team-avatar">{initialsForName(teamMembers[0])}</span>
+                  <span className="scene-team-name">{teamMembers[0]}</span>
                 </div>
-              ))}
+                <div className="scene-team-member scene-team-right-top">
+                  <span className="team-avatar">{initialsForName(teamMembers[1])}</span>
+                  <span className="scene-team-name">{teamMembers[1]}</span>
+                </div>
+                <div className="scene-team-member scene-team-right-bottom">
+                  <span className="team-avatar">{initialsForName(teamMembers[2])}</span>
+                  <span className="scene-team-name">{teamMembers[2]}</span>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="journey-panels">
-            <article className="journey-panel why-build-panel">
-              <div className="why-build-copy nest-card story-card">
-                <div className="why-build-intro">
-                  <h2>Why we build</h2>
-                  <p className="lede">
-                    Scattered knowledge becomes shared action when the right group has a clear place
-                    to work from.
-                  </p>
-                </div>
-
-                <div className="why-build-proof">
-                  <div className="why-build-group">
-                    <p className="why-build-label">Built by the Coop team</p>
-                    <div className="team-strip">
-                      {teamMembers.map((name) => (
-                        <span className="team-card" key={name}>
-                          <span className="team-avatar">{initialsForName(name)}</span>
-                          <span>{name}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="why-build-group">
-                    <p className="why-build-label">Shaped with regen coordination communities</p>
-                    <div className="partner-strip">
-                      {partnerMarks.map((mark) => (
-                        <span className="partner-pill" key={mark}>
-                          {mark}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </article>
+            <article className="journey-panel why-build-panel" />
             <div className="arrival-scroll-spacer" aria-hidden="true" />
           </div>
         </section>

@@ -47,12 +47,14 @@ export type SpeechWindow = Window &
 
 export type ChickenVariant = 'adult' | 'young' | 'chick';
 export type ChickenFacing = 'left' | 'right';
+export type ChickenColor = 'classic' | 'russet' | 'slate' | 'golden' | 'plum';
 
 export type JourneyChicken = {
   id: string;
   label: string;
   variant?: ChickenVariant;
   facing?: ChickenFacing;
+  color?: ChickenColor;
 };
 
 export type RitualCardMapping = {

@@ -44,7 +44,6 @@ vi.mock('@coop/shared', () => ({
     createdAt: '2026-03-20T00:01:00.000Z',
     lastUsedAt: '2026-03-20T00:01:00.000Z',
   })),
-  createGreenGoodsImpactReportOutput: vi.fn((input) => input),
   createGreenGoodsWorkSubmissionOutput: vi.fn((input) => input),
   nowIso: vi.fn(() => '2026-03-20T00:03:00.000Z'),
   saveLocalMemberSignerBinding: vi.fn(async () => undefined),
@@ -52,10 +51,6 @@ vi.mock('@coop/shared', () => ({
     txHash: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     receipt: {},
     accountAddress: '0x1111111111111111111111111111111111111111',
-  })),
-  submitGreenGoodsImpactReport: vi.fn(async () => ({
-    txHash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    detail: 'live Green Goods on Sepolia submitted a Green Goods impact report attestation.',
   })),
   submitGreenGoodsWorkSubmission: vi.fn(async () => ({
     txHash: '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
@@ -78,8 +73,6 @@ vi.mock('../../context', () => ({
   saveState: vi.fn(async () => undefined),
   configuredOnchainMode: 'live',
   configuredPimlicoApiKey: 'test-key',
-  configuredGreenGoodsImpactReportSchemaUid:
-    '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
   configuredGreenGoodsWorkSchemaUid:
     '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
 }));
@@ -88,11 +81,9 @@ vi.mock('../../operator', () => ({
   findAuthenticatedCoopMember: vi.fn(),
 }));
 
-const {
-  handleProvisionMemberOnchainAccount,
-  handleSubmitGreenGoodsImpactReport,
-  handleSubmitGreenGoodsWorkSubmission,
-} = await import('../member-account');
+const { handleProvisionMemberOnchainAccount, handleSubmitGreenGoodsWorkSubmission } = await import(
+  '../member-account'
+);
 const shared = await import('@coop/shared');
 const context = await import('../../context');
 const operator = await import('../../operator');
@@ -187,117 +178,6 @@ describe('handleProvisionMemberOnchainAccount', () => {
               actorAddress: '0x1111111111111111111111111111111111111111',
             }),
           ],
-        }),
-      }),
-    );
-  });
-});
-
-describe('handleSubmitGreenGoodsImpactReport', () => {
-  it('submits impact from the local member signer binding and persists the updated state', async () => {
-    vi.mocked(shared.getAuthSession).mockResolvedValue({
-      authMode: 'passkey',
-      displayName: 'Mina',
-      primaryAddress: '0x9999999999999999999999999999999999999999',
-      createdAt: '2026-03-20T00:00:00.000Z',
-      identityWarning: 'Device bound.',
-      passkey: {
-        id: 'cred-abc',
-        publicKey: '0x1234abcd',
-        rpId: 'coop.local',
-      },
-    });
-    vi.mocked(shared.getLocalMemberSignerBinding).mockResolvedValue({
-      id: 'msigner-1',
-      coopId: 'coop-1',
-      memberId: 'member-1',
-      accountAddress: '0x1111111111111111111111111111111111111111',
-      accountType: 'safe',
-      passkeyCredentialId: 'cred-abc',
-      createdAt: '2026-03-20T00:01:00.000Z',
-      lastUsedAt: '2026-03-20T00:01:00.000Z',
-    } as never);
-    vi.mocked(context.getCoops).mockResolvedValue([
-      {
-        profile: { id: 'coop-1' },
-        onchainState: { chainKey: 'sepolia' },
-        members: [
-          {
-            id: 'member-1',
-            displayName: 'Mina',
-            address: '0x9999999999999999999999999999999999999999',
-            role: 'member',
-          },
-        ],
-        memberAccounts: [
-          {
-            id: 'macct-1',
-            memberId: 'member-1',
-            coopId: 'coop-1',
-            accountAddress: '0x1111111111111111111111111111111111111111',
-            accountType: 'safe',
-            ownerPasskeyCredentialId: 'cred-abc',
-            chainKey: 'sepolia',
-            status: 'predicted',
-            statusNote: 'Counterfactual account address predicted and ready for lazy deployment',
-            createdAt: '2026-03-20T00:00:00.000Z',
-            updatedAt: '2026-03-20T00:01:00.000Z',
-          },
-        ],
-        greenGoods: {
-          enabled: true,
-          gardenAddress: '0x5555555555555555555555555555555555555555',
-          memberBindings: [],
-        },
-      },
-    ] as never);
-    vi.mocked(operator.findAuthenticatedCoopMember).mockReturnValue({
-      id: 'member-1',
-      displayName: 'Mina',
-      address: '0x9999999999999999999999999999999999999999',
-      role: 'member',
-    } as never);
-
-    const result = await handleSubmitGreenGoodsImpactReport({
-      type: 'submit-green-goods-impact-report',
-      payload: {
-        coopId: 'coop-1',
-        memberId: 'member-1',
-        report: {
-          title: 'Q1 2026 impact',
-          description: 'Quarterly impact summary.',
-          domain: 'agro',
-          reportCid: 'bafy-report',
-          metricsSummary: '{"soil":0.9}',
-          reportingPeriodStart: 1704067200,
-          reportingPeriodEnd: 1711929600,
-        },
-      },
-    });
-
-    expect(result.ok).toBe(true);
-    expect(shared.submitGreenGoodsImpactReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        gardenAddress: '0x5555555555555555555555555555555555555555',
-        output: expect.objectContaining({
-          submittedBy: '0x1111111111111111111111111111111111111111',
-          title: 'Q1 2026 impact',
-        }),
-        liveExecutor: expect.any(Function),
-      }),
-    );
-    expect(vi.mocked(context.saveState)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        memberAccounts: [
-          expect.objectContaining({
-            memberId: 'member-1',
-            status: 'active',
-            deploymentTxHash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-          }),
-        ],
-        greenGoods: expect.objectContaining({
-          lastImpactReportAt: expect.any(String),
-          lastTxHash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
         }),
       }),
     );

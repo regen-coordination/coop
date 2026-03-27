@@ -52,7 +52,7 @@ export { executeAgentPlanProposals } from './agent-plan-executor';
 
 // ---- Imports from split modules (used by handlers) ----
 import { getAgentAutoRunSkillIds, requestAgentCycle } from './agent-cycle-helpers';
-import { waitForAgentCycle } from './agent-cycle-helpers';
+import { drainAgentCycles, waitForAgentCycle } from './agent-cycle-helpers';
 import { getAgentDashboard, runProactiveAgentCycle } from './agent-dashboard';
 import { resolveDesiredGreenGoodsGapAdmins } from './agent-observation-conditions';
 import { emitAgentObservationIfMissing } from './agent-observation-emitters';
@@ -80,6 +80,13 @@ export async function handleRunAgentCycle(): Promise<
   }
   await syncAgentObservations();
   await runProactiveAgentCycle({ reason: 'manual-run' });
+  await syncAgentObservations();
+  await drainAgentCycles({
+    reason: 'manual-run',
+    force: true,
+    maxPasses: 3,
+    syncBetweenPasses: true,
+  });
   return {
     ok: true,
     data: await getAgentDashboard(),
@@ -104,7 +111,10 @@ export async function handleApproveAgentPlan(
   let approvedPlan = markAgentPlanApproved(plan);
   await saveAgentPlan(db, approvedPlan);
 
-  const dispatch = await executeAgentPlanProposals(approvedPlan);
+  const dispatch =
+    approvedPlan.actionProposals.length > 0
+      ? await executeAgentPlanProposals(approvedPlan)
+      : { executedCount: 0, errors: [] };
   if (dispatch.errors.length > 0) {
     approvedPlan = updateAgentPlan(approvedPlan, {
       failureReason: dispatch.errors.join(' '),

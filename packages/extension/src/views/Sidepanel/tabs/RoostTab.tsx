@@ -3,7 +3,6 @@ import { PopupSubheader, type PopupSubheaderTag } from '../../Popup/PopupSubhead
 import { SidepanelSubheader } from '../SidepanelSubheader';
 import {
   GreenGoodsAccessSummary,
-  GreenGoodsImpactReportForm,
   GreenGoodsProvisionButton,
   GreenGoodsWorkSubmissionForm,
 } from '../cards/GreenGoodsActionCards';
@@ -44,15 +43,6 @@ export interface RoostTabProps {
     metadataCid: string;
     mediaCids: string[];
   }) => Promise<void>;
-  onSubmitGreenGoodsImpactReport: (input: {
-    title: string;
-    description: string;
-    domain: 'solar' | 'agro' | 'edu' | 'waste';
-    reportCid: string;
-    metricsSummary: string;
-    reportingPeriodStart: number;
-    reportingPeriodEnd: number;
-  }) => Promise<void>;
 }
 
 export function RoostTab({
@@ -63,7 +53,6 @@ export function RoostTab({
   greenGoodsActionQueue,
   onProvisionMemberOnchainAccount,
   onSubmitGreenGoodsWorkSubmission,
-  onSubmitGreenGoodsImpactReport,
 }: RoostTabProps) {
   // ---------------------------------------------------------------------------
   // Derived state
@@ -146,9 +135,13 @@ export function RoostTab({
           onProvision={onProvisionMemberOnchainAccount}
         />
         {canSubmitMemberGreenGoodsActions ? (
-          <div className="detail-grid operator-console-grid">
-            <GreenGoodsImpactReportForm onSubmit={onSubmitGreenGoodsImpactReport} />
+          <div className="stack">
             <GreenGoodsWorkSubmissionForm onSubmit={onSubmitGreenGoodsWorkSubmission} />
+            <p className="helper-text">
+              Impact certificates are packaged later from approved work and assessments through
+              operator Hypercert and Karma GAP flows. Coop currently supports direct member work
+              submissions only.
+            </p>
           </div>
         ) : (
           <p className="helper-text">

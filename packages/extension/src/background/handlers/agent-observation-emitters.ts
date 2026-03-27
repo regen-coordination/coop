@@ -4,6 +4,7 @@ import {
   createAgentObservation,
   findAgentObservationByFingerprint,
   saveAgentObservation,
+  sanitizeTextForInference,
 } from '@coop/shared';
 import { AGENT_HIGH_CONFIDENCE_THRESHOLD } from '../../runtime/agent-config';
 import { db } from '../context';
@@ -29,16 +30,18 @@ export async function emitRoundupBatchObservation(input: {
   extractIds: string[];
   eligibleCoopIds: string[];
 }) {
-  if (input.extractIds.length === 0 || input.eligibleCoopIds.length === 0) {
+  const extractIds = [...new Set(input.extractIds.filter((value) => typeof value === 'string'))];
+
+  if (extractIds.length === 0 || input.eligibleCoopIds.length === 0) {
     return null;
   }
 
   return emitAgentObservationIfMissing({
     trigger: 'roundup-batch-ready',
     title: 'Captured tabs ready for routing',
-    summary: `Route ${input.extractIds.length} freshly captured tab extracts into local coop contexts.`,
+    summary: `Route ${extractIds.length} freshly captured tab extracts into local coop contexts.`,
     payload: {
-      extractIds: input.extractIds,
+      extractIds,
       eligibleCoopIds: input.eligibleCoopIds,
     },
   });
@@ -50,13 +53,14 @@ export async function emitAudioTranscriptObservation(input: {
   transcriptText: string;
   durationSeconds?: number;
 }) {
-  if (!input.transcriptText.trim()) {
+  const sanitizedTranscript = sanitizeTextForInference(input.transcriptText).trim();
+  if (!sanitizedTranscript) {
     return null;
   }
 
   const TRANSCRIPT_PREVIEW_LIMIT = 200;
-  const preview = input.transcriptText.slice(0, TRANSCRIPT_PREVIEW_LIMIT);
-  const ellipsis = input.transcriptText.length > TRANSCRIPT_PREVIEW_LIMIT ? '…' : '';
+  const preview = sanitizedTranscript.slice(0, TRANSCRIPT_PREVIEW_LIMIT);
+  const ellipsis = sanitizedTranscript.length > TRANSCRIPT_PREVIEW_LIMIT ? '…' : '';
 
   // Store only a truncated preview in the payload — the full transcript
   // is already persisted as a CoopBlob (kind: 'audio-transcript').
@@ -70,7 +74,7 @@ export async function emitAudioTranscriptObservation(input: {
     coopId: input.coopId,
     payload: {
       captureId: input.captureId,
-      transcriptText: input.transcriptText.slice(0, PAYLOAD_TEXT_LIMIT),
+      transcriptText: sanitizedTranscript.slice(0, PAYLOAD_TEXT_LIMIT),
       durationSeconds: input.durationSeconds,
     },
   });

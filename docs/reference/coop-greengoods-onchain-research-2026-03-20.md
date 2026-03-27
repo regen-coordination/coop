@@ -626,7 +626,7 @@ Recommendation:
 4. Expand Green Goods action surface
 - gardener lifecycle
 - evidence upload
-- impact reporting
+- Hypercert and Karma GAP packaging workflows after work approvals and assessments
 - vault entry/exit planning
 
 5. Choose a funding rail

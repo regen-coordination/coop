@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ArtifactAttachment, CoopBlobRecord } from '../../../contracts/schema';
+import type {
+  ArtifactAttachment,
+  CoopBlobRecord,
+  TrustedNodeArchiveConfig,
+} from '../../../contracts/schema';
+import { encryptArchiveBlobBytes } from '../../archive/crypto';
+import { computeStorachaFileRootCid } from '../../archive/verification';
 import { fetchBlobFromGateway, resolveBlob } from '../resolve';
 import type { BlobSyncChannel } from '../sync';
 
@@ -26,6 +32,19 @@ const testAttachment: ArtifactAttachment = {
 };
 
 const testBytes = new Uint8Array([1, 2, 3, 4, 5]);
+
+function buildArchiveConfig(): TrustedNodeArchiveConfig {
+  return {
+    spaceDid: 'did:key:space',
+    delegationIssuer: 'did:key:issuer',
+    gatewayBaseUrl: 'https://storacha.link',
+    spaceDelegation: 'space-proof',
+    proofs: ['proof-a'],
+    allowsFilecoinInfo: true,
+    expirationSeconds: 600,
+    agentPrivateKey: 'agent-private-key',
+  };
+}
 
 describe('resolveBlob', () => {
   beforeEach(() => {
@@ -96,7 +115,10 @@ describe('resolveBlob', () => {
       destroy: vi.fn(),
     };
 
-    const attachmentWithCid = { ...testAttachment, archiveCid: 'bafytest123' };
+    const attachmentWithCid = {
+      ...testAttachment,
+      archiveCid: await computeStorachaFileRootCid(testBytes),
+    };
 
     // Mock fetch for gateway
     vi.mocked(fetch).mockResolvedValue({
@@ -167,6 +189,104 @@ describe('resolveBlob', () => {
 
     expect(result).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('decrypts encrypted gateway blobs when attachment archive encryption metadata is present', async () => {
+    vi.mocked(getCoopBlob).mockResolvedValue(null);
+
+    const encrypted = await encryptArchiveBlobBytes({
+      bytes: testBytes,
+      targetCoopId: 'coop-1',
+      blobId: 'blob-123',
+      config: buildArchiveConfig(),
+    });
+    const archiveCid = await computeStorachaFileRootCid(encrypted.ciphertext);
+    const attachmentWithCid: ArtifactAttachment = {
+      ...testAttachment,
+      archiveCid,
+      archiveEncryption: encrypted.encryption,
+    };
+
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(encrypted.ciphertext.buffer),
+    } as Response);
+
+    const result = await resolveBlob({
+      db: mockDb,
+      blobId: 'blob-123',
+      attachment: attachmentWithCid,
+      coopId: 'coop-1',
+      archiveConfig: buildArchiveConfig(),
+    });
+
+    expect(result).toEqual({ bytes: testBytes, source: 'gateway' });
+    expect(saveCoopBlob).toHaveBeenCalledWith(
+      mockDb,
+      expect.objectContaining({
+        blobId: 'blob-123',
+        origin: 'gateway',
+        archiveCid,
+        archiveEncryption: encrypted.encryption,
+      }),
+      testBytes,
+    );
+  });
+
+  it('returns null for encrypted gateway blobs when archive secrets are unavailable', async () => {
+    vi.mocked(getCoopBlob).mockResolvedValue(null);
+
+    const encrypted = await encryptArchiveBlobBytes({
+      bytes: testBytes,
+      targetCoopId: 'coop-1',
+      blobId: 'blob-123',
+      config: buildArchiveConfig(),
+    });
+    const archiveCid = await computeStorachaFileRootCid(encrypted.ciphertext);
+    const attachmentWithCid: ArtifactAttachment = {
+      ...testAttachment,
+      archiveCid,
+      archiveEncryption: encrypted.encryption,
+    };
+
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(encrypted.ciphertext.buffer),
+    } as Response);
+
+    const result = await resolveBlob({
+      db: mockDb,
+      blobId: 'blob-123',
+      attachment: attachmentWithCid,
+      coopId: 'coop-1',
+    });
+
+    expect(result).toBeNull();
+    expect(saveCoopBlob).not.toHaveBeenCalled();
+  });
+
+  it('rejects gateway blobs when the fetched bytes do not match the archived UnixFS root', async () => {
+    vi.mocked(getCoopBlob).mockResolvedValue(null);
+
+    const attachmentWithCid: ArtifactAttachment = {
+      ...testAttachment,
+      archiveCid: await computeStorachaFileRootCid(testBytes),
+    };
+
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new Uint8Array([9, 9, 9]).buffer),
+    } as Response);
+
+    const result = await resolveBlob({
+      db: mockDb,
+      blobId: 'blob-123',
+      attachment: attachmentWithCid,
+      coopId: 'coop-1',
+    });
+
+    expect(result).toBeNull();
+    expect(saveCoopBlob).not.toHaveBeenCalled();
   });
 });
 

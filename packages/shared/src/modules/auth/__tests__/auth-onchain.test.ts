@@ -7,13 +7,13 @@ import {
 } from '../../onchain/onchain';
 import {
   authSessionToLocalIdentity,
-  createWebAuthnCredentialGetFn,
   createPasskeySession,
+  createWebAuthnCredentialGetFn,
   derivePasskeyAddress,
   resolvePasskeyRpId,
   restorePasskeyAccount,
-  setWebAuthnCredentialGetFnOverride,
   sessionToMember,
+  setWebAuthnCredentialGetFnOverride,
 } from '../auth';
 
 vi.mock('viem/account-abstraction', () => ({
@@ -37,7 +37,12 @@ vi.mock('permissionless/accounts', () => ({
 
 vi.mock('permissionless/clients', () => ({
   createSmartAccountClient: vi.fn(() => ({
-    sendTransaction: vi.fn(async () => `0x${'56'.repeat(32)}`),
+    sendUserOperation: vi.fn(async () => `0x${'56'.repeat(32)}`),
+    waitForUserOperationReceipt: vi.fn(async () => ({
+      receipt: {
+        transactionHash: `0x${'78'.repeat(32)}`,
+      },
+    })),
   })),
 }));
 
@@ -109,9 +114,9 @@ describe('auth and onchain helpers', () => {
       throw new Error('Expected WebAuthn getFn helper to be defined.');
     }
 
-    await expect(getFn({ publicKey: { challenge: new Uint8Array([1]) } } as Parameters<
-      typeof getFn
-    >[0])).rejects.toThrow('WebAuthn credential retrieval is unavailable in this runtime.');
+    await expect(
+      getFn({ publicKey: { challenge: new Uint8Array([1]) } } as Parameters<typeof getFn>[0]),
+    ).rejects.toThrow('WebAuthn credential retrieval is unavailable in this runtime.');
   });
 
   it('derives a stable local sender address from passkey material', () => {

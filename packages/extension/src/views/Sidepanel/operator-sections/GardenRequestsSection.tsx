@@ -2,6 +2,7 @@ import type {
   ActionBundle,
   ActionLogEntry,
   GreenGoodsAssessmentRequest,
+  GreenGoodsHypercertMintRequest,
   GreenGoodsMemberBinding,
   GreenGoodsWorkApprovalRequest,
 } from '@coop/shared';
@@ -28,8 +29,30 @@ export type GardenRequestsSectionProps = {
     request: GreenGoodsAssessmentRequest,
   ): void | Promise<void>;
   onQueueGreenGoodsGapAdminSync?(coopId: string): void | Promise<void>;
+  onQueueGreenGoodsHypercertMint?(
+    coopId: string,
+    request: GreenGoodsHypercertMintRequest,
+  ): void | Promise<void>;
   onQueueGreenGoodsMemberSync?(coopId: string): void | Promise<void>;
 };
+
+function splitCsv(value: string) {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function parseOptionalUnixSeconds(value: string) {
+  if (!value.trim()) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error('Timestamps must be non-negative integers in unix seconds.');
+  }
+  return parsed;
+}
 
 export function GardenRequestsSection(props: GardenRequestsSectionProps) {
   const canQueueGreenGoods = Boolean(
@@ -65,6 +88,26 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
     endDate: '',
     location: '',
   });
+  const [hypercert, setHypercert] = useState({
+    title: '',
+    description: '',
+    domain: 'mutual_credit',
+    workScopes: '',
+    impactScopes: 'all',
+    workTimeframeStart: '',
+    workTimeframeEnd: '',
+    impactTimeframeStart: '',
+    impactTimeframeEnd: '',
+    externalUrl: '',
+    imageUri: '',
+    sdgs: '',
+    capitals: '',
+    gapProjectUid: '',
+    outcomesJson: '',
+    allowlistJson: '',
+    attestationsJson: '',
+  });
+  const [hypercertError, setHypercertError] = useState<string | null>(null);
 
   return (
     <details className="panel-card collapsible-card">
@@ -423,6 +466,249 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
                 <div className="action-row">
                   <button className="primary-button" type="submit">
                     Queue assessment
+                  </button>
+                </div>
+              </form>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!props.greenGoodsContext || !props.onQueueGreenGoodsHypercertMint) {
+                    return;
+                  }
+
+                  try {
+                    const allowlist = JSON.parse(hypercert.allowlistJson || '[]');
+                    const attestations = JSON.parse(hypercert.attestationsJson || '[]');
+                    const outcomes = hypercert.outcomesJson
+                      ? JSON.parse(hypercert.outcomesJson)
+                      : undefined;
+
+                    const request: GreenGoodsHypercertMintRequest = {
+                      gardenAddress: props.greenGoodsContext.gardenAddress!,
+                      title: hypercert.title,
+                      description: hypercert.description,
+                      workScopes: splitCsv(hypercert.workScopes),
+                      impactScopes: splitCsv(hypercert.impactScopes),
+                      workTimeframeStart: parseOptionalUnixSeconds(hypercert.workTimeframeStart),
+                      workTimeframeEnd: parseOptionalUnixSeconds(hypercert.workTimeframeEnd),
+                      impactTimeframeStart: parseOptionalUnixSeconds(
+                        hypercert.impactTimeframeStart,
+                      ),
+                      impactTimeframeEnd: parseOptionalUnixSeconds(hypercert.impactTimeframeEnd),
+                      externalUrl: hypercert.externalUrl || undefined,
+                      imageUri: hypercert.imageUri || undefined,
+                      domain:
+                        (hypercert.domain || undefined) as GreenGoodsHypercertMintRequest['domain'],
+                      sdgs: splitCsv(hypercert.sdgs).map((value) => Number(value)),
+                      capitals: splitCsv(
+                        hypercert.capitals,
+                      ) as GreenGoodsHypercertMintRequest['capitals'],
+                      outcomes,
+                      allowlist,
+                      attestations,
+                      gapProjectUid: hypercert.gapProjectUid || undefined,
+                      rationale:
+                        'Mint a Green Goods Hypercert package for approved work and assessment evidence.',
+                    };
+                    setHypercertError(null);
+                    void props.onQueueGreenGoodsHypercertMint(
+                      props.greenGoodsContext.coopId,
+                      request,
+                    );
+                  } catch (error) {
+                    setHypercertError(
+                      error instanceof Error
+                        ? error.message
+                        : 'Could not parse the Hypercert package fields.',
+                    );
+                  }
+                }}
+              >
+                <strong>Mint Hypercert</strong>
+                <p className="helper-text">
+                  Package approved work and assessments into the operator-side Hypercert flow.
+                  Provide the allowlist and attestation refs as JSON arrays.
+                </p>
+                {hypercertError ? <p className="helper-text">{hypercertError}</p> : null}
+                <label className="helper-text">
+                  Title
+                  <input
+                    type="text"
+                    value={hypercert.title}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        title: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Description
+                  <textarea
+                    value={hypercert.description}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Domain
+                  <select
+                    value={hypercert.domain}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        domain: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="mutual_credit">mutual_credit</option>
+                    <option value="solar">solar</option>
+                    <option value="waste">waste</option>
+                    <option value="agro">agro</option>
+                    <option value="agroforestry">agroforestry</option>
+                    <option value="edu">edu</option>
+                    <option value="education">education</option>
+                  </select>
+                </label>
+                <label className="helper-text">
+                  Work scopes (comma separated)
+                  <input
+                    type="text"
+                    value={hypercert.workScopes}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        workScopes: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Impact scopes (comma separated)
+                  <input
+                    type="text"
+                    value={hypercert.impactScopes}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        impactScopes: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Work timeframe start
+                  <input
+                    type="number"
+                    value={hypercert.workTimeframeStart}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        workTimeframeStart: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Work timeframe end
+                  <input
+                    type="number"
+                    value={hypercert.workTimeframeEnd}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        workTimeframeEnd: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  GAP project UID (optional)
+                  <input
+                    type="text"
+                    value={hypercert.gapProjectUid}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        gapProjectUid: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  SDGs (comma separated)
+                  <input
+                    type="text"
+                    value={hypercert.sdgs}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        sdgs: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Capitals (comma separated)
+                  <input
+                    type="text"
+                    value={hypercert.capitals}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        capitals: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Outcomes JSON (optional)
+                  <textarea
+                    placeholder='{"predefined":{},"custom":{}}'
+                    value={hypercert.outcomesJson}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        outcomesJson: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Allowlist JSON
+                  <textarea
+                    placeholder='[{"address":"0x...","units":100000000,"label":"Core contributor"}]'
+                    value={hypercert.allowlistJson}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        allowlistJson: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="helper-text">
+                  Attestations JSON
+                  <textarea
+                    placeholder='[{"uid":"0x...","workUid":"0x...","title":"Watershed planting day","gardenerAddress":"0x...","createdAt":1711929600,"approvedAt":1712016000}]'
+                    value={hypercert.attestationsJson}
+                    onChange={(event) =>
+                      setHypercert((current) => ({
+                        ...current,
+                        attestationsJson: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <div className="action-row">
+                  <button className="primary-button" type="submit">
+                    Queue Hypercert mint
                   </button>
                 </div>
               </form>

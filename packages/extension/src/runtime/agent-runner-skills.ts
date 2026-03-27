@@ -51,6 +51,7 @@ import {
   greenGoodsAssessmentRequestSchema,
   greenGoodsWorkApprovalRequestSchema,
   listReviewDrafts,
+  listAgentObservations,
   listTabRoutings,
   nowIso,
   pruneExpiredMemories,
@@ -60,6 +61,8 @@ import {
   saveReviewDraft,
   saveSkillRun,
   saveTabRouting,
+  sanitizeTextForInference,
+  sanitizeValueForInference,
   shapeReviewDraft,
   truncateWords,
   updateAgentObservation,
@@ -125,43 +128,57 @@ export async function buildSkillPrompt(input: {
   relatedRoutings: TabRouting[];
   memories: AgentMemory[];
 }) {
+  const sanitize = (value?: string, maxWords = 80) =>
+    typeof value === 'string' && value.trim().length > 0
+      ? truncateWords(sanitizeTextForInference(value), maxWords)
+      : undefined;
+  const sanitizedObservationPayload =
+    input.observation.payload && Object.keys(input.observation.payload).length > 0
+      ? JSON.stringify(sanitizeValueForInference(input.observation.payload, { maxStringWords: 60 }))
+      : undefined;
   const coopContext = input.coop
     ? compact([
-        `Coop name: ${input.coop.profile.name}`,
-        `Coop purpose: ${input.coop.profile.purpose}`,
+        `Coop name: ${sanitize(input.coop.profile.name, 20)}`,
+        `Coop purpose: ${sanitize(input.coop.profile.purpose, 40)}`,
         `Ritual cadence: ${input.coop.rituals.map((ritual) => ritual.weeklyReviewCadence).join('; ')}`,
         `Green Goods status: ${input.coop.greenGoods?.status ?? 'disabled'}`,
         `Top archive tags: ${
           input.coop.memoryProfile.topTags
-            .map((tag) => tag.tag)
+            .map((tag) => sanitize(tag.tag, 6))
             .slice(0, 6)
             .join(', ') || 'none'
         }`,
-        `Useful signal: ${input.coop.soul.usefulSignalDefinition}`,
-        `Artifact focus: ${input.coop.soul.artifactFocus.join(', ')}`,
-        `Why this coop exists: ${input.coop.soul.whyThisCoopExists}`,
-        `Tone and working style: ${input.coop.soul.toneAndWorkingStyle}`,
-        input.coop.soul.agentPersona ? `Agent persona: ${input.coop.soul.agentPersona}` : undefined,
+        `Useful signal: ${sanitize(input.coop.soul.usefulSignalDefinition, 30)}`,
+        `Artifact focus: ${input.coop.soul.artifactFocus.map((value) => sanitize(value, 12)).join(', ')}`,
+        `Why this coop exists: ${sanitize(input.coop.soul.whyThisCoopExists, 40)}`,
+        `Tone and working style: ${sanitize(input.coop.soul.toneAndWorkingStyle, 30)}`,
+        input.coop.soul.agentPersona
+          ? `Agent persona: ${sanitize(input.coop.soul.agentPersona, 24)}`
+          : undefined,
         input.coop.soul.vocabularyTerms.length > 0
-          ? `Vocabulary: ${input.coop.soul.vocabularyTerms.join(', ')}`
+          ? `Vocabulary: ${input.coop.soul.vocabularyTerms.map((value) => sanitize(value, 8)).join(', ')}`
           : undefined,
         input.coop.soul.prohibitedTopics.length > 0
-          ? `Prohibited topics: ${input.coop.soul.prohibitedTopics.join(', ')}`
+          ? `Prohibited topics: ${input.coop.soul.prohibitedTopics
+              .map((value) => sanitize(value, 12))
+              .join(', ')}`
           : undefined,
         `Confidence threshold: ${input.coop.soul.confidenceThreshold}`,
       ]).join('\n')
     : 'No coop context available.';
 
   const sourceContext = compact([
-    input.observation.title ? `Observation title: ${input.observation.title}` : undefined,
-    input.observation.summary ? `Observation summary: ${input.observation.summary}` : undefined,
-    Object.keys(input.observation.payload ?? {}).length > 0
-      ? `Observation payload: ${JSON.stringify(input.observation.payload)}`
+    input.observation.title
+      ? `Observation title: ${sanitize(input.observation.title, 24)}`
       : undefined,
-    input.draft?.title ? `Draft title: ${input.draft.title}` : undefined,
-    input.draft?.summary ? `Draft summary: ${input.draft.summary}` : undefined,
-    input.capture?.title ? `Capture title: ${input.capture.title}` : undefined,
-    input.capture?.note ? `Capture note: ${input.capture.note}` : undefined,
+    input.observation.summary
+      ? `Observation summary: ${sanitize(input.observation.summary, 40)}`
+      : undefined,
+    sanitizedObservationPayload ? `Observation payload: ${sanitizedObservationPayload}` : undefined,
+    input.draft?.title ? `Draft title: ${sanitize(input.draft.title, 24)}` : undefined,
+    input.draft?.summary ? `Draft summary: ${sanitize(input.draft.summary, 40)}` : undefined,
+    input.capture?.title ? `Capture title: ${sanitize(input.capture.title, 24)}` : undefined,
+    input.capture?.note ? `Capture note: ${sanitize(input.capture.note, 40)}` : undefined,
     input.receipt?.rootCid ? `Archive root CID: ${input.receipt.rootCid}` : undefined,
   ]).join('\n');
 
@@ -170,10 +187,12 @@ export async function buildSkillPrompt(input: {
       ? `Captured extracts:\n${input.extracts
           .map(
             (extract) =>
-              `- ${extract.id}: ${extract.cleanedTitle} (${extract.domain})\n  ${truncateWords(
-                [extract.metaDescription, ...extract.topHeadings, ...extract.leadParagraphs]
-                  .filter(Boolean)
-                  .join(' '),
+              `- ${extract.id}: ${sanitize(extract.cleanedTitle, 24)} (${extract.domain})\n  ${truncateWords(
+                sanitizeTextForInference(
+                  [extract.metaDescription, ...extract.topHeadings, ...extract.leadParagraphs]
+                    .filter(Boolean)
+                    .join(' '),
+                ),
                 48,
               )}`,
           )
@@ -185,7 +204,7 @@ export async function buildSkillPrompt(input: {
       ? `Opportunity candidates:\n${input.candidates
           .map(
             (candidate) =>
-              `- ${candidate.id}: ${candidate.title} (priority ${candidate.priority.toFixed(2)})\n  ${candidate.summary}`,
+              `- ${candidate.id}: ${sanitize(candidate.title, 20)} (priority ${candidate.priority.toFixed(2)})\n  ${sanitize(candidate.summary, 32)}`,
           )
           .join('\n')}`
       : 'Opportunity candidates: none yet.';
@@ -195,7 +214,9 @@ export async function buildSkillPrompt(input: {
       ? `Grant fit scores:\n${input.scores
           .map(
             (score) =>
-              `- ${score.candidateId}: ${score.score.toFixed(2)} for ${score.candidateTitle}; reasons: ${score.reasons.join(', ') || 'none'}`,
+              `- ${score.candidateId}: ${score.score.toFixed(2)} for ${sanitize(score.candidateTitle, 18)}; reasons: ${
+                score.reasons.map((reason) => sanitize(reason, 16)).join(', ') || 'none'
+              }`,
           )
           .join('\n')}`
       : 'Grant fit scores: none yet.';
@@ -212,13 +233,13 @@ export async function buildSkillPrompt(input: {
     `Recent related drafts: ${
       input.relatedDrafts
         .slice(0, 4)
-        .map((draft) => draft.title)
+        .map((draft) => sanitize(draft.title, 18))
         .join(', ') || 'none'
     }`,
     `Recent related artifacts: ${
       input.relatedArtifacts
         .slice(-4)
-        .map((artifact) => artifact.title)
+        .map((artifact) => sanitize(artifact.title, 18))
         .join(', ') || 'none'
     }`,
   ].join('\n');
@@ -238,32 +259,22 @@ export async function buildSkillPrompt(input: {
     `Expected output schema ref: ${input.skill.manifest.outputSchemaRef}`,
   ].join('\n\n');
 
-  const memberMemoryContext =
-    input.memories.filter((memory) => memory.scope === 'member').length > 0
-      ? `Member memories:\n${input.memories
-          .filter((memory) => memory.scope === 'member')
+  const memoryContext =
+    input.memories.length > 0
+      ? `Ordered memories:\n${input.memories
           .map(
-            (m) =>
-              `- [${m.type}] ${truncateWords(m.content, 40)} (confidence: ${m.confidence.toFixed(2)})`,
-          )
-          .join('\n')}`
-      : '';
-
-  const coopMemoryContext =
-    input.memories.filter((memory) => memory.scope === 'coop').length > 0
-      ? `Coop memories:\n${input.memories
-          .filter((memory) => memory.scope === 'coop')
-          .map(
-            (m) =>
-              `- [${m.type}] ${truncateWords(m.content, 40)} (confidence: ${m.confidence.toFixed(2)})`,
+            (memory) =>
+              `- [${memory.scope}:${memory.type}] ${truncateWords(
+                sanitizeTextForInference(memory.content),
+                40,
+              )} (confidence: ${memory.confidence.toFixed(2)})`,
           )
           .join('\n')}`
       : '';
 
   const prompt = [
     coopContext,
-    ...(memberMemoryContext ? [memberMemoryContext] : []),
-    ...(coopMemoryContext ? [coopMemoryContext] : []),
+    ...(memoryContext ? [memoryContext] : []),
     extractContext,
     sourceContext,
     candidateContext,
@@ -285,6 +296,7 @@ export async function completeSkill<T>(input: {
   skill: RegisteredSkill;
   observation: AgentObservation;
   coop?: CoopSharedState;
+  availableCoops?: CoopSharedState[];
   draft?: ReviewDraft | null;
   capture?: ReceiverCapture | null;
   receipt?: ArchiveReceipt | null;
@@ -319,7 +331,7 @@ export async function completeSkill<T>(input: {
       output: inferTabRoutingsHeuristically({
         observation: input.observation,
         extracts: input.extracts,
-        coops: input.coop ? [input.coop] : await getCoops(),
+        coops: input.coop ? [input.coop] : (input.availableCoops ?? (await getCoops())),
       }) as T,
     };
   }
@@ -600,12 +612,45 @@ export async function persistTabRouterOutput(input: {
   output: TabRouterOutput;
   provider: AgentProvider;
 }) {
+  const TAB_ROUTER_DRAFT_THRESHOLD = 0.18;
+  const TAB_ROUTER_MULTI_DRAFT_MARGIN = 0.05;
   const extractsById = new Map(input.extracts.map((extract) => [extract.id, extract] as const));
   const coopsById = new Map(input.coops.map((coop) => [coop.profile.id, coop] as const));
+  const relevantRoutings = input.output.routings.filter(
+    (routing) => extractsById.has(routing.extractId) && coopsById.has(routing.coopId),
+  );
   const createdDraftIds: string[] = [];
   const routedByCoop = new Map<string, TabRouting[]>();
+  const draftableCoopIdsByExtractId = new Map<string, Set<string>>();
 
-  for (const rawRouting of input.output.routings) {
+  for (const [extractId, extractRoutings] of Object.entries(
+    relevantRoutings.reduce<Record<string, TabRouterOutput['routings']>>((acc, routing) => {
+      (acc[routing.extractId] ??= []).push(routing);
+      return acc;
+    }, {}),
+  )) {
+    const sorted = [...extractRoutings].sort(
+      (left, right) => right.relevanceScore - left.relevanceScore,
+    );
+    const topRouting = sorted[0];
+    if (!topRouting || topRouting.relevanceScore < TAB_ROUTER_DRAFT_THRESHOLD) {
+      continue;
+    }
+
+    const draftableCoopIds = new Set<string>([topRouting.coopId]);
+    for (const routing of sorted.slice(1)) {
+      if (routing.relevanceScore < AGENT_HIGH_CONFIDENCE_THRESHOLD) {
+        continue;
+      }
+      if (topRouting.relevanceScore - routing.relevanceScore > TAB_ROUTER_MULTI_DRAFT_MARGIN) {
+        continue;
+      }
+      draftableCoopIds.add(routing.coopId);
+    }
+    draftableCoopIdsByExtractId.set(extractId, draftableCoopIds);
+  }
+
+  for (const rawRouting of relevantRoutings) {
     const extract = extractsById.get(rawRouting.extractId);
     const coop = coopsById.get(rawRouting.coopId);
     if (!extract || !coop) {
@@ -614,12 +659,16 @@ export async function persistTabRouterOutput(input: {
 
     const existingRouting = await getTabRoutingByExtractAndCoop(db, extract.id, coop.profile.id);
     let draftId = existingRouting?.draftId;
+    const shouldDraft =
+      (draftableCoopIdsByExtractId.get(extract.id)?.has(coop.profile.id) ?? false) ||
+      existingRouting?.status === 'drafted' ||
+      existingRouting?.status === 'published';
     let status: TabRouting['status'] =
       existingRouting?.status === 'published' || existingRouting?.status === 'dismissed'
         ? existingRouting.status
         : 'routed';
 
-    if (rawRouting.relevanceScore >= 0.18) {
+    if (shouldDraft) {
       let draft =
         (draftId ? await getReviewDraft(db, draftId) : null) ??
         (await findExistingDraftForRouting(extract.id, coop.profile.id));
@@ -685,7 +734,7 @@ export async function persistTabRouterOutput(input: {
     };
     await saveTabRouting(db, nextRouting);
 
-    if (rawRouting.relevanceScore >= 0.18) {
+    if (rawRouting.relevanceScore >= TAB_ROUTER_DRAFT_THRESHOLD) {
       const routed = routedByCoop.get(coop.profile.id) ?? [];
       routed.push(nextRouting);
       routedByCoop.set(coop.profile.id, routed);
@@ -720,9 +769,12 @@ export async function persistTabRouterOutput(input: {
 
 export async function buildSkillContext(
   observation: AgentObservation,
+  options: {
+    availableCoops?: CoopSharedState[];
+  } = {},
 ): Promise<SkillExecutionContext> {
-  const [coops, draft, capture, authSession, extracts] = await Promise.all([
-    getCoops(),
+  const coops = options.availableCoops ?? (await getCoops());
+  const [draft, capture, authSession, extracts] = await Promise.all([
     observation.draftId ? getReviewDraft(db, observation.draftId) : Promise.resolve(null),
     observation.captureId ? getReceiverCapture(db, observation.captureId) : Promise.resolve(null),
     getAuthSession(db),
@@ -796,6 +848,14 @@ export function extractMemoriesFromOutput(
     case 'opportunity-extractor-output': {
       const typed = output as OpportunityExtractorOutput;
       if (!typed.candidates?.length) return [];
+      const topCandidate = typed.candidates[0];
+      const rationaleBasis =
+        (topCandidate?.fundingSignals?.length ?? 0) > 0
+          ? 'funding signals'
+          : 'ecological relevance';
+      const topCandidateTitle = topCandidate?.title ?? 'Unknown candidate';
+      const topCandidatePriority =
+        typeof topCandidate?.priority === 'number' ? topCandidate.priority.toFixed(2) : '0.50';
       const topTitles = typed.candidates
         .slice(0, 3)
         .map((c) => c.title)
@@ -810,8 +870,8 @@ export function extractMemoriesFromOutput(
         },
         {
           type: 'decision-context' as const,
-          content: `Decision: Surfaced ${typed.candidates.length} opportunity candidates\nRationale: Priority ordering based on ${typed.candidates[0]?.fundingSignals.length ? 'funding signals' : 'ecological relevance'}\nTop candidate: ${typed.candidates[0]?.title} (priority: ${typed.candidates[0]?.priority.toFixed(2)})`,
-          confidence: typed.candidates[0]?.priority ?? 0.5,
+          content: `Decision: Surfaced ${typed.candidates.length} opportunity candidates\nRationale: Priority ordering based on ${rationaleBasis}\nTop candidate: ${topCandidateTitle} (priority: ${topCandidatePriority})`,
+          confidence: topCandidate?.priority ?? 0.5,
           domain: 'opportunities',
           expiresAt: thirtyDaysFromNow,
         },
@@ -969,11 +1029,20 @@ async function writeSkillMemories(
   }
 }
 
-export async function runObservationPlan(observation: AgentObservation): Promise<AgentCycleResult> {
-  const context = await buildSkillContext(observation);
+export async function runObservationPlan(
+  observation: AgentObservation,
+  options: {
+    availableCoops?: CoopSharedState[];
+  } = {},
+): Promise<AgentCycleResult> {
+  const [context, observations] = await Promise.all([
+    buildSkillContext(observation, { availableCoops: options.availableCoops }),
+    listAgentObservations(db, 200),
+  ]);
   const dismissalReason = getObservationDismissReason({
     observation,
     context,
+    observations,
   });
   if (dismissalReason) {
     await saveAgentObservation(
@@ -1185,6 +1254,7 @@ export async function runObservationPlan(observation: AgentObservation): Promise
         skill: registered,
         observation,
         coop: context.coop,
+        availableCoops: options.availableCoops,
         draft: context.draft,
         capture: context.capture,
         receipt: context.receipt,
@@ -1196,6 +1266,49 @@ export async function runObservationPlan(observation: AgentObservation): Promise
         relatedRoutings: context.relatedRoutings,
         memories: context.memories,
       });
+
+      const confidenceBefore = workingPlan.confidence;
+      const recalculatedConfidence = computeOutputConfidence(
+        registered.manifest.outputSchemaRef,
+        completed.output,
+        completed.provider,
+      );
+      const qualityThreshold = registered.manifest.qualityThreshold;
+
+      if (typeof qualityThreshold === 'number' && recalculatedConfidence < qualityThreshold) {
+        const message = `Skill "${skillId}" output confidence ${recalculatedConfidence.toFixed(
+          2,
+        )} fell below the configured quality threshold ${qualityThreshold.toFixed(2)}.`;
+
+        run = failSkillRun(run, message);
+        await saveSkillRun(db, run);
+        void logSkillFailed({ skillId, observationId: observation.id, error: message });
+
+        currentStep = updateAgentPlanStep(currentStep, {
+          provider: completed.provider,
+          status: 'failed',
+          finishedAt: nowIso(),
+          error: message,
+        });
+        workingPlan = updateAgentPlan(workingPlan, {
+          steps: workingPlan.steps.map((candidate) =>
+            candidate.id === currentStep.id ? currentStep : candidate,
+          ),
+          confidence: Math.min(workingPlan.confidence, recalculatedConfidence),
+          failureReason: message,
+        });
+        await saveAgentPlan(db, workingPlan);
+
+        result.errors.push(message);
+        result.skillRunMetrics.push({
+          skillId,
+          provider: completed.provider,
+          durationMs: completed.durationMs,
+          retryCount: 0,
+          skipped: false,
+        });
+        continue;
+      }
 
       const handled = await applySkillOutput({
         output: completed.output,
@@ -1209,7 +1322,7 @@ export async function runObservationPlan(observation: AgentObservation): Promise
         context,
         extracts: context.extracts,
         autoRunEnabled: autoRunSkillIds.has(skillId),
-        getCoops,
+        getCoops: async () => options.availableCoops ?? (await getCoops()),
         saveReviewDraft: async (draft) => saveReviewDraft(db, draft),
         savePlan: async (plan) => saveAgentPlan(db, plan),
         persistTabRouterOutput,
@@ -1227,12 +1340,6 @@ export async function runObservationPlan(observation: AgentObservation): Promise
       await saveSkillRun(db, run);
       result.completedSkillRunIds.push(run.id);
 
-      const confidenceBefore = workingPlan.confidence;
-      const recalculatedConfidence = computeOutputConfidence(
-        registered.manifest.outputSchemaRef,
-        output,
-        completed.provider,
-      );
       if (recalculatedConfidence < workingPlan.confidence) {
         workingPlan = updateAgentPlan(workingPlan, {
           confidence: recalculatedConfidence,

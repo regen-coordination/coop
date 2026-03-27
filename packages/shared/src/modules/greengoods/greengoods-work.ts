@@ -58,6 +58,7 @@ export async function submitGreenGoodsWorkApproval(input: {
   onchainState: OnchainState;
   gardenAddress: Address;
   output: GreenGoodsWorkApprovalOutput;
+  liveExecutor?: GreenGoodsLiveExecutor;
 }): Promise<GreenGoodsTransactionResult> {
   ensureLiveExecutionReady(input);
 
@@ -95,15 +96,21 @@ export async function submitGreenGoodsWorkApproval(input: {
     recipient: input.gardenAddress,
     encodedData,
   });
-  const credentials = requireLiveExecutionCredentials(input);
-
-  const result = await sendViaCoopSafe({
-    authSession: credentials.authSession,
-    pimlicoApiKey: credentials.pimlicoApiKey,
-    onchainState: input.onchainState,
-    to: tx.to,
-    data: tx.data,
-  });
+  const result = input.liveExecutor
+    ? await input.liveExecutor({
+        to: tx.to,
+        data: tx.data,
+      })
+    : await (async () => {
+        const credentials = requireLiveExecutionCredentials(input);
+        return sendViaCoopSafe({
+          authSession: credentials.authSession,
+          pimlicoApiKey: credentials.pimlicoApiKey,
+          onchainState: input.onchainState,
+          to: tx.to,
+          data: tx.data,
+        });
+      })();
 
   return {
     txHash: result.txHash,
@@ -118,6 +125,7 @@ export async function createGreenGoodsAssessment(input: {
   onchainState: OnchainState;
   gardenAddress: Address;
   output: GreenGoodsAssessmentOutput;
+  liveExecutor?: GreenGoodsLiveExecutor;
 }): Promise<GreenGoodsTransactionResult> {
   ensureLiveExecutionReady(input);
 
@@ -155,15 +163,21 @@ export async function createGreenGoodsAssessment(input: {
     recipient: input.gardenAddress,
     encodedData,
   });
-  const credentials = requireLiveExecutionCredentials(input);
-
-  const result = await sendViaCoopSafe({
-    authSession: credentials.authSession,
-    pimlicoApiKey: credentials.pimlicoApiKey,
-    onchainState: input.onchainState,
-    to: tx.to,
-    data: tx.data,
-  });
+  const result = input.liveExecutor
+    ? await input.liveExecutor({
+        to: tx.to,
+        data: tx.data,
+      })
+    : await (async () => {
+        const credentials = requireLiveExecutionCredentials(input);
+        return sendViaCoopSafe({
+          authSession: credentials.authSession,
+          pimlicoApiKey: credentials.pimlicoApiKey,
+          onchainState: input.onchainState,
+          to: tx.to,
+          data: tx.data,
+        });
+      })();
 
   return {
     txHash: result.txHash,
