@@ -45,7 +45,9 @@ export interface RoostTabProps {
     metadataCid: string;
     mediaCids: string[];
   }) => Promise<void>;
-  onOpenSynthesisSegment: (segment: Extract<SidepanelIntentSegment, 'signals' | 'drafts' | 'stale'>) => void;
+  onOpenSynthesisSegment: (
+    segment: Extract<SidepanelIntentSegment, 'signals' | 'drafts' | 'stale'>,
+  ) => void;
 }
 
 export function RoostTab({
@@ -118,13 +120,25 @@ export function RoostTab({
           <span className="badge">{summary?.staleObservationCount ?? 0} stale</span>
         </div>
         <div className="nest-quick-actions">
-          <button className="secondary-button" onClick={() => onOpenSynthesisSegment('signals')} type="button">
+          <button
+            className="secondary-button"
+            onClick={() => onOpenSynthesisSegment('signals')}
+            type="button"
+          >
             Open Signals
           </button>
-          <button className="secondary-button" onClick={() => onOpenSynthesisSegment('drafts')} type="button">
+          <button
+            className="secondary-button"
+            onClick={() => onOpenSynthesisSegment('drafts')}
+            type="button"
+          >
             Review Drafts
           </button>
-          <button className="secondary-button" onClick={() => onOpenSynthesisSegment('stale')} type="button">
+          <button
+            className="secondary-button"
+            onClick={() => onOpenSynthesisSegment('stale')}
+            type="button"
+          >
             Clear Stale
           </button>
         </div>

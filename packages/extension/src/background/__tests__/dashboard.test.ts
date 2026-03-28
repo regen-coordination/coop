@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { describeActionIndicator, isStalePendingObservation, summarizeSyncStatus } from '../dashboard';
+import {
+  describeActionIndicator,
+  isStalePendingObservation,
+  summarizeSyncStatus,
+} from '../dashboard';
 
 describe('summarizeSyncStatus', () => {
   it('returns a healthy sync summary when runtime health is clear', () => {
@@ -279,35 +283,41 @@ describe('summarizeSyncStatus', () => {
 describe('isStalePendingObservation', () => {
   it('flags pending observations older than 24 hours', () => {
     expect(
-      isStalePendingObservation({
-        id: 'obs-1',
-        trigger: 'memory-insight-due',
-        title: 'Stale observation',
-        summary: 'Needs review.',
-        status: 'pending',
-        provider: 'heuristic',
-        fingerprint: 'obs-1',
-        payload: {},
-        createdAt: '2026-03-20T00:00:00.000Z',
-        updatedAt: '2026-03-20T00:00:00.000Z',
-      } as Parameters<typeof isStalePendingObservation>[0], new Date('2026-03-21T12:00:00.000Z').getTime()),
+      isStalePendingObservation(
+        {
+          id: 'obs-1',
+          trigger: 'memory-insight-due',
+          title: 'Stale observation',
+          summary: 'Needs review.',
+          status: 'pending',
+          provider: 'heuristic',
+          fingerprint: 'obs-1',
+          payload: {},
+          createdAt: '2026-03-20T00:00:00.000Z',
+          updatedAt: '2026-03-20T00:00:00.000Z',
+        } as Parameters<typeof isStalePendingObservation>[0],
+        new Date('2026-03-21T12:00:00.000Z').getTime(),
+      ),
     ).toBe(true);
   });
 
   it('ignores non-pending observations', () => {
     expect(
-      isStalePendingObservation({
-        id: 'obs-2',
-        trigger: 'memory-insight-due',
-        title: 'Completed observation',
-        summary: 'Handled.',
-        status: 'completed',
-        provider: 'heuristic',
-        fingerprint: 'obs-2',
-        payload: {},
-        createdAt: '2026-03-20T00:00:00.000Z',
-        updatedAt: '2026-03-20T00:00:00.000Z',
-      } as Parameters<typeof isStalePendingObservation>[0], new Date('2026-03-21T12:00:00.000Z').getTime()),
+      isStalePendingObservation(
+        {
+          id: 'obs-2',
+          trigger: 'memory-insight-due',
+          title: 'Completed observation',
+          summary: 'Handled.',
+          status: 'completed',
+          provider: 'heuristic',
+          fingerprint: 'obs-2',
+          payload: {},
+          createdAt: '2026-03-20T00:00:00.000Z',
+          updatedAt: '2026-03-20T00:00:00.000Z',
+        } as Parameters<typeof isStalePendingObservation>[0],
+        new Date('2026-03-21T12:00:00.000Z').getTime(),
+      ),
     ).toBe(false);
   });
 });

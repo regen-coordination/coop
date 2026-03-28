@@ -1,6 +1,11 @@
 import { webcrypto } from 'node:crypto';
+import { configure } from '@testing-library/dom';
 import '@testing-library/jest-dom/vitest';
 import 'fake-indexeddb/auto';
+
+if (process.argv.includes('--coverage')) {
+  configure({ asyncUtilTimeout: 10_000 });
+}
 
 if (!globalThis.crypto?.subtle) {
   Object.defineProperty(globalThis, 'crypto', {

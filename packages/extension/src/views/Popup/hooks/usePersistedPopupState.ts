@@ -34,13 +34,12 @@ export function usePersistedPopupState<T>(storageKey: string, initialState: T) {
       return;
     }
 
-    void chrome.storage.local
-      .set({
-        [storageKey]: state,
-      })
-      .catch(() => {
-        // Ignore popup state persistence failures.
-      });
+    const write = chrome.storage.local.set({
+      [storageKey]: state,
+    });
+    void Promise.resolve(write).catch(() => {
+      // Ignore popup state persistence failures.
+    });
   }, [loading, state, storageKey]);
 
   return {

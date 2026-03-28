@@ -807,8 +807,8 @@ export async function persistTabRouterOutput(input: {
     if (shouldDraft) {
       const draft =
         masterDraft ??
-        ((draftId ? await getReviewDraft(db, draftId) : null) ??
-          (await findExistingDraftForRouting(extract.id, coop.profile.id)));
+        (draftId ? await getReviewDraft(db, draftId) : null) ??
+        (await findExistingDraftForRouting(extract.id, coop.profile.id));
       if (!draft) {
         continue;
       }

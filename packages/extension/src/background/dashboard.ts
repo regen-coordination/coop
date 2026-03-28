@@ -14,9 +14,9 @@ import {
   getSoundPreferences,
   listActionBundles,
   listActionLogEntries,
+  listAgentObservations,
   listExecutionPermits,
   listLocalIdentities,
-  listAgentObservations,
   listPermitLogEntries,
   listReceiverCaptures,
   listReceiverPairings,
@@ -38,8 +38,8 @@ import {
   type CoopBadgeSummary,
   type DashboardResponse,
   POPUP_SNAPSHOT_KEY,
-  type ProactiveSignal,
   type PopupSnapshot,
+  type ProactiveSignal,
   type RuntimeSummary,
   notifyDashboardUpdated,
 } from '../runtime/messages';
@@ -293,17 +293,23 @@ export async function buildProactiveSignals(input: {
 
   const coopsById = new Map(input.coops.map((coop) => [coop.profile.id, coop] as const));
   const draftsById = new Map(input.drafts.map((draft) => [draft.id, draft] as const));
-  const candidatesById = new Map(input.candidates.map((candidate) => [candidate.id, candidate] as const));
+  const candidatesById = new Map(
+    input.candidates.map((candidate) => [candidate.id, candidate] as const),
+  );
   const supportCoopIds = [...new Set(scopedRoutings.map((routing) => routing.coopId))];
   const memoriesByCoop = new Map(
     await Promise.all(
-      supportCoopIds.map(async (coopId) => [coopId, await queryRecentMemories(db, coopId, { limit: 2 })] as const),
+      supportCoopIds.map(
+        async (coopId) => [coopId, await queryRecentMemories(db, coopId, { limit: 2 })] as const,
+      ),
     ),
   );
 
   return [...groups.entries()]
     .map(([groupId, routings]) => {
-      const ranked = [...routings].sort((left, right) => right.relevanceScore - left.relevanceScore);
+      const ranked = [...routings].sort(
+        (left, right) => right.relevanceScore - left.relevanceScore,
+      );
       const top = ranked[0];
       if (!top) {
         return null;
@@ -329,8 +335,7 @@ export async function buildProactiveSignals(input: {
           const coop = coopsById.get(target.coopId);
           const memory = memoriesByCoop.get(target.coopId)?.[0];
           const relatedDraft = input.drafts.find(
-            (draft) =>
-              draft.id !== draftId && draft.suggestedTargetCoopIds.includes(target.coopId),
+            (draft) => draft.id !== draftId && draft.suggestedTargetCoopIds.includes(target.coopId),
           );
           const relatedArtifact = coop?.artifacts[0];
           return [
@@ -370,7 +375,10 @@ export async function buildProactiveSignals(input: {
             detail: string;
           } => Boolean(item),
         )
-        .filter((item, index, items) => items.findIndex((candidateItem) => candidateItem.id === item.id) === index)
+        .filter(
+          (item, index, items) =>
+            items.findIndex((candidateItem) => candidateItem.id === item.id) === index,
+        )
         .slice(0, 2);
 
       return {
@@ -447,7 +455,8 @@ export async function buildSummary(): Promise<{ summary: RuntimeSummary; drafts:
       isStalePendingObservation(observation) &&
       (!activeContext.activeCoopId || observation.coopId === activeContext.activeCoopId),
   ).length;
-  const pendingAttentionCount = visibleDrafts.length + routedTabs + pendingActions + staleObservationCount;
+  const pendingAttentionCount =
+    visibleDrafts.length + routedTabs + pendingActions + staleObservationCount;
   const enhancement = localEnhancementAvailability();
   const iconState = deriveExtensionIconState({
     hasCoop: coops.length > 0,

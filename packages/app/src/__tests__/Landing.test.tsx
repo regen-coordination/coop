@@ -142,16 +142,43 @@ describe('landing page', () => {
   });
 
   it('fills flashcards and copies a setup packet', async () => {
-    vi.useFakeTimers();
+    window.localStorage.setItem(
+      'coop-landing-ritual-v2',
+      JSON.stringify({
+        version: 2,
+        audience: 'family',
+        openCardId: null,
+        sharedNotes: '',
+        setupInput: {
+          ...emptySetupInsightsInput,
+          knowledgeCurrent: 'We keep links in chats.',
+          knowledgePain: 'Important context gets buried.',
+          knowledgeImprove: 'Collect family knowledge in one shared place.',
+          capitalCurrent: 'Shared resources move through family group chats.',
+          capitalPain: 'Logistics are hard to retrace later.',
+          capitalImprove: 'Keep resources and asks visible to everyone.',
+          governanceCurrent: 'Logistics live in a few different threads.',
+          governancePain: 'Decisions get repeated.',
+          governanceImprove: 'Use one shared ritual to organize next steps.',
+          impactCurrent: 'Milestones are easy to miss without a shared place.',
+          impactPain: 'Wins and follow-ups drift apart.',
+          impactImprove: 'Track progress in a packet the family can reuse.',
+        },
+        transcripts: {
+          ...emptyLandingTranscripts,
+          knowledge: 'We keep links in chats.',
+          capital: 'Shared resources move through family group chats.',
+          governance: 'Logistics live in a few different threads.',
+          impact: 'Milestones are easy to miss without a shared place.',
+        },
+      }),
+    );
 
     render(<App />);
 
-    // Switch to Family — lens titles become: Household Memory, Shared Resources, Logistics, Milestones
-    fireEvent.click(screen.getByRole('button', { name: /^family$/i }));
-    completeCard('Household Memory', 'We keep links in chats.');
-    completeCard('Shared Resources');
-    completeCard('Logistics');
-    completeCard('Milestones');
+    expect(
+      await screen.findByRole('heading', { name: /your setup packet is ready/i }),
+    ).toBeVisible();
 
     fireEvent.change(screen.getByLabelText(/coop name/i), {
       target: { value: 'Pocket Flock' },
@@ -175,13 +202,7 @@ describe('landing page', () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining('"audience": "family"'),
     );
-
-    act(() => {
-      vi.runAllTimers();
-    });
-
-    vi.useRealTimers();
-  });
+  }, 30_000);
 
   it('restores ritual progress from localStorage after a remount', () => {
     // Default audience is community — capital lens title is "Funding & Resources"

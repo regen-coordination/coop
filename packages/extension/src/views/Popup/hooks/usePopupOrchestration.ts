@@ -730,72 +730,54 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       snapshot?.syncTone,
     ],
   );
-  const homeStatusItems = useMemo(() => {
-    const draftCount = dashboard ? visibleDrafts.length : (snapshot?.draftCount ?? 0);
-    const routedSignalCount =
-      dashboard?.summary?.routedTabs ?? snapshot?.routedSignalCount ?? 0;
-    const staleObservationCount =
-      dashboard?.summary?.staleObservationCount ?? snapshot?.staleObservationCount ?? 0;
-    const lastCaptureAt = dashboard?.summary?.lastCaptureAt ?? snapshot?.lastCaptureAt;
-
-    return [
-      {
-        id: 'sync',
-        label: 'Sync',
-        value: syncStatus.label,
-        tone: syncStatus.tone ?? ('ok' as const),
-        detail: syncStatus.detail,
-      },
-      {
-        id: 'signals',
-        label: 'Signals',
-        value: String(routedSignalCount),
-        tone: routedSignalCount > 0 ? ('warning' as const) : ('ok' as const),
-        onClick: () =>
-          void openWorkspace({
-            targetCoopId: workspaceTargetCoopId,
-            intent: { tab: 'chickens', segment: 'signals', coopId: workspaceTargetCoopId },
-          }),
-      },
-      {
-        id: 'stale',
-        label: 'Stale',
-        value: String(staleObservationCount),
-        tone: staleObservationCount > 0 ? ('warning' as const) : ('ok' as const),
-        onClick: () =>
-          void openWorkspace({
-            targetCoopId: workspaceTargetCoopId,
-            intent: { tab: 'chickens', segment: 'stale', coopId: workspaceTargetCoopId },
-          }),
-      },
-      {
-        id: 'drafts',
-        label: 'Drafts',
-        value: String(draftCount),
-        tone: 'ok' as const,
-        detail: lastCaptureAt ? `Last roundup ${formatRelativeTime(lastCaptureAt)}` : undefined,
-        onClick: () =>
-          void openWorkspace({
-            targetCoopId: workspaceTargetCoopId,
-            intent: { tab: 'chickens', segment: 'drafts', coopId: workspaceTargetCoopId },
-          }),
-      },
-    ];
-  }, [
-    dashboard,
-    dashboard?.summary?.lastCaptureAt,
-    dashboard?.summary?.routedTabs,
-    dashboard?.summary?.staleObservationCount,
-    snapshot?.draftCount,
-    snapshot?.lastCaptureAt,
-    snapshot?.routedSignalCount,
-    snapshot?.staleObservationCount,
-    syncStatus.detail,
-    syncStatus.label,
-    syncStatus.tone,
-    visibleDrafts.length,
-    workspaceTargetCoopId,
-  ]);
+  const draftCount = dashboard ? visibleDrafts.length : (snapshot?.draftCount ?? 0);
+  const routedSignalCount = dashboard?.summary?.routedTabs ?? snapshot?.routedSignalCount ?? 0;
+  const staleObservationCount =
+    dashboard?.summary?.staleObservationCount ?? snapshot?.staleObservationCount ?? 0;
+  const lastCaptureAt = dashboard?.summary?.lastCaptureAt ?? snapshot?.lastCaptureAt;
+  const homeStatusItems = [
+    {
+      id: 'sync',
+      label: 'Sync',
+      value: syncStatus.label,
+      tone: syncStatus.tone ?? ('ok' as const),
+      detail: syncStatus.detail,
+    },
+    {
+      id: 'signals',
+      label: 'Signals',
+      value: String(routedSignalCount),
+      tone: routedSignalCount > 0 ? ('warning' as const) : ('ok' as const),
+      onClick: () =>
+        void openWorkspace({
+          targetCoopId: workspaceTargetCoopId,
+          intent: { tab: 'chickens', segment: 'signals', coopId: workspaceTargetCoopId },
+        }),
+    },
+    {
+      id: 'stale',
+      label: 'Stale',
+      value: String(staleObservationCount),
+      tone: staleObservationCount > 0 ? ('warning' as const) : ('ok' as const),
+      onClick: () =>
+        void openWorkspace({
+          targetCoopId: workspaceTargetCoopId,
+          intent: { tab: 'chickens', segment: 'stale', coopId: workspaceTargetCoopId },
+        }),
+    },
+    {
+      id: 'drafts',
+      label: 'Drafts',
+      value: String(draftCount),
+      tone: 'ok' as const,
+      detail: lastCaptureAt ? `Last roundup ${formatRelativeTime(lastCaptureAt)}` : undefined,
+      onClick: () =>
+        void openWorkspace({
+          targetCoopId: workspaceTargetCoopId,
+          intent: { tab: 'chickens', segment: 'drafts', coopId: workspaceTargetCoopId },
+        }),
+    },
+  ];
 
   const draftFilterTags = useMemo(
     () => buildFilterTags(coopOptions, draftFilterId, setDraftFilterId),

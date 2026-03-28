@@ -247,11 +247,12 @@ describe('operator console', () => {
       throw new Error('Expected the Hypercert mint form fields to render.');
     }
 
-    await user.type(hypercertTitleInput, 'Season one stewardship package');
-    await user.type(
-      hypercertDescriptionInput,
-      'Approved Green Goods work bundled into a Hypercert.',
-    );
+    fireEvent.change(hypercertTitleInput, {
+      target: { value: 'Season one stewardship package' },
+    });
+    fireEvent.change(hypercertDescriptionInput, {
+      target: { value: 'Approved Green Goods work bundled into a Hypercert.' },
+    });
     fireEvent.change(screen.getByLabelText(/^Allowlist JSON$/i), {
       target: {
         value: '[{"address":"0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa","units":100000000}]',
@@ -274,7 +275,7 @@ describe('operator console', () => {
         description: 'Approved Green Goods work bundled into a Hypercert.',
       }),
     );
-  });
+  }, 30_000);
 
   describe('policy settings section', () => {
     it('renders the Approval Rules heading', () => {

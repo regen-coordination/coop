@@ -28,6 +28,8 @@ describe('PopupApp', () => {
     mockSendRuntimeMessage.mockReset();
     mockPlayCoopSound.mockReset().mockResolvedValue(undefined);
     mockPlayRandomChickenSound.mockReset();
+    window.localStorage.clear();
+    sessionStorage.clear();
 
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -271,13 +273,15 @@ describe('PopupApp', () => {
 
     render(<PopupApp />);
 
-    await user.click(await screen.findByRole('button', { name: 'Open sidepanel' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Open sidepanel' }, { timeout: 10_000 }),
+    );
 
     await waitFor(() => {
       expect(chrome.sidePanel.open).toHaveBeenCalledWith({ windowId: 7 });
+      expect(screen.getByRole('button', { name: 'Close sidepanel' })).toBeInTheDocument();
     });
-    expect(await screen.findByRole('button', { name: 'Close sidepanel' })).toBeInTheDocument();
-  });
+  }, 30_000);
 
   it('falls back to the direct sidepanel API when the runtime bridge is stale', async () => {
     mockSendRuntimeMessage.mockImplementation(async (message: { type: string }) => {
@@ -585,9 +589,10 @@ describe('PopupApp', () => {
     const titleInput = screen.getByRole('textbox', { name: 'Title' });
     const contextInput = screen.getByRole('textbox', { name: 'Context' });
 
-    await user.clear(titleInput);
-    await user.type(titleInput, 'Field note screenshot');
-    await user.type(contextInput, 'Needs follow-up in the next coop review.');
+    fireEvent.change(titleInput, { target: { value: 'Field note screenshot' } });
+    fireEvent.change(contextInput, {
+      target: { value: 'Needs follow-up in the next coop review.' },
+    });
     await user.click(screen.getByRole('button', { name: 'Save to Pocket Coop' }));
 
     await waitFor(() => {

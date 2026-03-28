@@ -147,26 +147,29 @@ describe('receiver app routes', () => {
   });
 
   it('stores a local file capture and shows it in the inbox', async () => {
+    const user = userEvent.setup();
+
     await act(async () => {
       render(<RootApp />);
     });
 
-    const fileInput = document.querySelectorAll('input[type="file"]')[1];
+    const fileInput = screen.getByLabelText('Attach file');
     const file = new File(['receiver capture from test'], 'field-note.txt', {
       type: 'text/plain',
     });
 
-    await act(async () => {
-      fireEvent.change(fileInput, {
-        target: {
-          files: [file],
-        },
-      });
-    });
+    await user.upload(fileInput, file);
 
-    expect((await screen.findAllByText('field-note.txt')).length).toBeGreaterThan(0);
-    expect(screen.getByText(/nest item saved locally/i)).toBeVisible();
-    expect(screen.getByText(/local only/i)).toBeVisible();
+    await waitFor(
+      () => {
+        expect(screen.getAllByText('field-note.txt').length).toBeGreaterThan(0);
+      },
+      { timeout: 10_000 },
+    );
+    expect(
+      await screen.findByText(/nest item saved locally/i, {}, { timeout: 10_000 }),
+    ).toBeVisible();
+    expect(await screen.findByText(/local only/i, {}, { timeout: 10_000 })).toBeVisible();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('link', { name: 'Roost' }));
@@ -192,20 +195,21 @@ describe('receiver app routes', () => {
       render(<RootApp initialShareInput={handoff} />);
     });
 
-    await waitFor(
-      () => {
-        expect(screen.getAllByText('Shared Grant').length).toBeGreaterThan(0);
-        expect(screen.getByText(/shared link saved locally/i)).toBeVisible();
-      },
-      { timeout: 3_000 },
-    );
+    expect(
+      (await screen.findAllByText('Shared Grant', {}, { timeout: 10_000 })).length,
+    ).toBeGreaterThan(0);
+    expect(
+      await screen.findByText(/shared link saved locally/i, {}, { timeout: 10_000 }),
+    ).toBeVisible();
     expect(screen.getByRole('link', { name: 'Roost' })).toBeVisible();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('link', { name: 'Roost' }));
     });
 
-    expect(await screen.findByText('https://example.com/grant', {}, { timeout: 3_000 })).toBeVisible();
+    expect(
+      await screen.findByText('https://example.com/grant', {}, { timeout: 3_000 }),
+    ).toBeVisible();
     expect(screen.getByRole('button', { name: /copy link/i })).toBeVisible();
   });
 

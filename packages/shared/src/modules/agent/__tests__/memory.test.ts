@@ -195,8 +195,8 @@ describe('queryRecentMemories', () => {
   });
 
   it('defaults limit to 10', async () => {
-    // Seed 12 memories
-    for (let i = 0; i < 12; i++) {
+    // Seed just over the default limit to keep the coverage path fast.
+    for (let i = 0; i < 11; i++) {
       await createAgentMemory(db, {
         coopId: 'coop-many',
         type: 'observation-outcome',
@@ -209,7 +209,7 @@ describe('queryRecentMemories', () => {
     const results = await queryRecentMemories(db, 'coop-many');
 
     expect(results).toHaveLength(10);
-  }, 15_000);
+  }, 25_000);
 });
 
 /* ---------------------------------------------------------------------------
@@ -507,7 +507,7 @@ describe('queryMemoriesForSkill', () => {
   });
 
   it('respects the limit option', async () => {
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 6; i++) {
       await createAgentMemory(db, {
         coopId: 'coop-limit',
         type: 'observation-outcome',

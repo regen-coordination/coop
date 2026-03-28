@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { playCoopSound } from '../audio';
+
 type MockOscillator = {
   connect: ReturnType<typeof vi.fn>;
   frequency: { value: number };
@@ -64,7 +66,6 @@ class MockAudioContext {
 
 describe('extension audio playback', () => {
   beforeEach(() => {
-    vi.resetModules();
     vi.stubGlobal('AudioContext', MockAudioContext as unknown as typeof AudioContext);
     createdContexts.length = 0;
     createdAudioElements.length = 0;
@@ -72,8 +73,6 @@ describe('extension audio playback', () => {
   });
 
   it('does nothing when sound playback is disabled', async () => {
-    const { playCoopSound } = await import('../audio');
-
     await playCoopSound('coop-created', {
       enabled: false,
       reducedMotion: false,
@@ -85,8 +84,6 @@ describe('extension audio playback', () => {
   }, 30_000);
 
   it('plays packaged coop audio files when Audio is available', async () => {
-    const { playCoopSound } = await import('../audio');
-
     await playCoopSound('coop-created', {
       enabled: true,
       reducedMotion: false,
@@ -102,7 +99,6 @@ describe('extension audio playback', () => {
 
   it('falls back to generated tones when packaged audio is unavailable', async () => {
     vi.stubGlobal('Audio', undefined as unknown as typeof Audio);
-    const { playCoopSound } = await import('../audio');
 
     await playCoopSound('sound-test', {
       enabled: true,

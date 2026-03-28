@@ -1,8 +1,8 @@
+import type { SidepanelIntent, SidepanelIntentSegment } from '../../runtime/messages';
 import { ErrorBoundary } from '../ErrorBoundary';
 import type { SidepanelOrchestration } from './hooks/useSidepanelOrchestration';
 import type { SidepanelTab } from './sidepanel-tabs';
 import { ChickensTab, CoopsTab, NestTab, RoostTab } from './tabs/index';
-import type { SidepanelIntent, SidepanelIntentSegment } from '../../runtime/messages';
 
 export interface SidepanelTabRouterProps {
   panelTab: SidepanelTab;

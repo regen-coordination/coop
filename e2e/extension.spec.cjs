@@ -146,9 +146,7 @@ async function waitForCoopCreated(page, coopName, timeoutMs = 30000) {
     .poll(
       async () => {
         const dashboard = await getDashboard(page);
-        return (
-          dashboard?.coops.some((candidate) => candidate.profile.name === coopName) ?? false
-        );
+        return dashboard?.coops.some((candidate) => candidate.profile.name === coopName) ?? false;
       },
       { timeout: timeoutMs },
     )
@@ -630,7 +628,7 @@ test.describe('extension workflow', () => {
     }
   });
 
-  test('provisions a member garden account and hatches a sidepanel garden pass in mock-path modes', async ({ }, testInfo) => {
+  test('provisions a member garden account and hatches a sidepanel garden pass in mock-path modes', async (_fixtures, testInfo) => {
     testInfo.setTimeout(300_000);
     ensureExtensionBuilt();
 

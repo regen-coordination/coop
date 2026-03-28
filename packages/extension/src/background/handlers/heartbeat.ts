@@ -116,7 +116,7 @@ async function checkUnreviewedObservations(now: number): Promise<number> {
       message:
         state === '72h'
           ? `A proactive observation has been waiting for review since ${new Date(observation.createdAt).toLocaleString()}.`
-          : `A proactive observation has been waiting for review for over 24 hours.`,
+          : 'A proactive observation has been waiting for review for over 24 hours.',
       intent: {
         tab: 'chickens',
         segment: 'stale',

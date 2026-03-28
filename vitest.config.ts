@@ -6,6 +6,7 @@ const sharedRootEntry = path.resolve(__dirname, 'packages/shared/src/index.ts');
 const sharedAppEntry = path.resolve(__dirname, 'packages/shared/src/app-entry.ts');
 const appImporterSegment = `${path.sep}packages${path.sep}app${path.sep}`;
 const testImporterSegment = `${path.sep}__tests__${path.sep}`;
+const coverageEnabled = process.argv.includes('--coverage');
 
 export default defineConfig({
   plugins: [
@@ -33,6 +34,9 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['./vitest.setup.ts'],
+    fileParallelism: coverageEnabled ? false : undefined,
+    testTimeout: coverageEnabled ? 20_000 : undefined,
+    hookTimeout: coverageEnabled ? 20_000 : undefined,
     include: [
       'packages/app/src/**/*.test.{ts,tsx}',
       'packages/extension/src/**/*.test.{ts,tsx}',
@@ -48,6 +52,7 @@ export default defineConfig({
       include: [
         'packages/app/src/**/*.{ts,tsx}',
         'packages/extension/src/runtime/**/*.{ts,tsx}',
+        'packages/extension/src/views/**/*.{ts,tsx}',
         'packages/shared/src/**/*.{ts,tsx}',
       ],
       exclude: [
@@ -67,7 +72,6 @@ export default defineConfig({
         'packages/extension/src/runtime/agent-models.ts',
         'packages/extension/src/runtime/inference-bridge.ts',
         'packages/app/src/app.tsx',
-        'packages/app/src/views/**',
       ],
       reporter: ['text', 'html', 'json-summary'],
       thresholds: {

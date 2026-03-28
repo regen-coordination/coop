@@ -10,9 +10,11 @@ Date: March 27, 2026
 ## Build And Audit
 
 1. Set `VITE_COOP_RECEIVER_APP_URL` to the exact production HTTPS receiver origin for the release candidate.
-2. Run `bun run validate:store-readiness`.
-3. Run `bun run validate:production-readiness`.
-4. If the build enables live Safe, session-key, or archive rails, run `bun run validate:production-live-readiness`.
+2. Clear the staged launch bar first:
+   `bun format && bun lint`, `bun run test`, `bun run test:coverage`, `bun build`,
+   `bun run validate:store-readiness`, `bun run validate:production-readiness`.
+3. Only if the candidate enables live Safe, session-key, or archive rails and the live env
+   contract is complete, run `bun run validate:production-live-readiness`.
 5. Confirm the extension zip is created from `packages/extension/.output/chrome-mv3` with files at the archive root.
 
 ## Manual Verification

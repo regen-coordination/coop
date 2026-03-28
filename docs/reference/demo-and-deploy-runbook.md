@@ -137,18 +137,47 @@ This is the release target.
 - Deploy with `flyctl deploy -a coop` from `packages/api/`
 - Health check: `https://api.coop.town/health`
 
+### Staged Launch Gate
+
+This is the default production release bar and does not require live Safe, archive, or session
+rails.
+
+```bash
+bun format && bun lint
+bun run test
+bun run test:coverage
+bun build
+bun run validate:store-readiness
+bun run validate:production-readiness
+```
+
+Manual staged-launch checks still include:
+
+- popup `Capture Tab` and `Screenshot` saves in real Chrome
+- popup screenshot review edit/save and cancel paths
+- sidepanel create, Chickens review, publish, board/archive, and receiver pairing flows
+- confirmation that public builds do not embed operator-only signing material
+
 ### Live Modes
 
-Enable only when the required credentials are present:
+Treat live rails as a second gate after the staged launch bar is green. Enable only when the
+required credentials are present:
 
 ```bash
 VITE_COOP_ONCHAIN_MODE=live
 VITE_COOP_ARCHIVE_MODE=live
 VITE_COOP_SESSION_MODE=live
 VITE_PIMLICO_API_KEY=...
+VITE_COOP_TRUSTED_NODE_ARCHIVE_AGENT_PRIVATE_KEY=...
 VITE_COOP_TRUSTED_NODE_ARCHIVE_SPACE_DID=...
 VITE_COOP_TRUSTED_NODE_ARCHIVE_DELEGATION_ISSUER=...
 VITE_COOP_TRUSTED_NODE_ARCHIVE_SPACE_DELEGATION=...
+```
+
+After the staged launch bar is green and the live env is complete:
+
+```bash
+bun run validate:production-live-readiness
 ```
 
 Session-key live execution is limited to:
@@ -311,9 +340,11 @@ Use this before demos and before production launch.
 ### Extension To Chrome Web Store
 
 1. Set `VITE_COOP_RECEIVER_APP_URL` to the exact production HTTPS receiver origin.
-2. Run `bun run validate:store-readiness`.
-3. Run `bun run validate:production-readiness`.
-4. If live Safe, session-key, or archive rails are enabled, run
+2. Clear the staged launch bar:
+   `bun format && bun lint`, `bun run test`, `bun run test:coverage`, `bun build`,
+   `bun run validate:store-readiness`, and `bun run validate:production-readiness`.
+3. If live Safe, session-key, or archive rails are enabled, wait until the staged launch bar is
+   green and the live env contract is complete, then run
    `bun run validate:production-live-readiness`.
 5. Build the extension.
 6. Zip the contents of `packages/extension/.output/chrome-mv3` at the archive root.
@@ -324,13 +355,19 @@ Use this before demos and before production launch.
 
 ## Validation Commands
 
-Use this before demo day and before packaging a normal release candidate:
+Use this before demo day and before packaging a staged release candidate:
 
 ```bash
+bun format && bun lint
+bun run test
+bun run test:coverage
+bun build
+bun run validate:store-readiness
 bun run validate:production-readiness
 ```
 
-Use this only when the release candidate enables live Safe, session-key, or archive behavior:
+Use this only after the staged launch bar is green and the release candidate enables live Safe,
+session-key, or archive behavior:
 
 ```bash
 bun run validate:production-live-readiness

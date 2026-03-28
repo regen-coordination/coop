@@ -118,8 +118,9 @@ function resolveSynthesisDraftContext(context: SkillOutputHandlerExecutionContex
         .concat(context.coop ? [context.coop.profile.id] : []),
     ),
   ];
-  const routedDraftId = context.relatedRoutings.find((routing) => typeof routing.draftId === 'string')
-    ?.draftId;
+  const routedDraftId = context.relatedRoutings.find(
+    (routing) => typeof routing.draftId === 'string',
+  )?.draftId;
   const existingDraft =
     context.draft ??
     context.relatedDrafts.find((draft) => draft.id === routedDraftId) ??

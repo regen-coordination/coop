@@ -1166,7 +1166,7 @@ button:disabled {
   gap: 0.5rem;
 }
 
-.synthesis-card[data-focused='true'] {
+.synthesis-card[data-focused="true"] {
   border-color: rgba(253, 138, 1, 0.45);
   box-shadow: 0 0 0 1px rgba(253, 138, 1, 0.18);
 }

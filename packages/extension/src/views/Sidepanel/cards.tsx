@@ -113,7 +113,9 @@ export function DraftCard({
   onShareToFeed,
 }: DraftCardProps) {
   const value = draftEditor.draftValue(draft);
-  const selectedCoops = coops.filter((coop) => value.suggestedTargetCoopIds.includes(coop.profile.id));
+  const selectedCoops = coops.filter((coop) =>
+    value.suggestedTargetCoopIds.includes(coop.profile.id),
+  );
   const source = value.sources[0];
   const visibleTags = value.tags.slice(0, 4);
   const hiddenTagCount = Math.max(0, value.tags.length - visibleTags.length);
@@ -526,7 +528,9 @@ export function ArtifactCard({
         <p className="draft-card__lede">{artifact.summary}</p>
       </div>
       <div className="draft-card__meta-strip">
-        <span>{summarizeSourceLine(primarySource?.url, primarySource?.domain, artifact.sources.length)}</span>
+        <span>
+          {summarizeSourceLine(primarySource?.url, primarySource?.domain, artifact.sources.length)}
+        </span>
         <span>{artifact.attachments.length} attachment(s)</span>
       </div>
       {visibleTags.length > 0 ? (

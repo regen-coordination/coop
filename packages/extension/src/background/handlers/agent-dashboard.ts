@@ -131,8 +131,8 @@ async function notifyProactiveDelta(input: {
       : delta.reviewDigests > 0
         ? `${delta.reviewDigests} review digest draft(s) ready.`
         : delta.insightDrafts > 0
-        ? `${delta.insightDrafts} local insight draft(s) ready for review.`
-        : `${delta.routedTabs} tab signal(s) routed locally.`;
+          ? `${delta.insightDrafts} local insight draft(s) ready for review.`
+          : `${delta.routedTabs} tab signal(s) routed locally.`;
   const focusIntent =
     delta.pendingActions > 0
       ? ({ tab: 'nest', segment: 'agent' } as const)
@@ -163,8 +163,8 @@ async function notifyProactiveDelta(input: {
           : delta.reviewDigests > 0
             ? `Your onboarding run prepared ${delta.reviewDigests} review digest draft(s).`
             : delta.insightDrafts > 0
-            ? `Your onboarding run prepared ${delta.insightDrafts} local insight draft(s).`
-            : `Your onboarding run routed ${delta.routedTabs} tab signal(s).`,
+              ? `Your onboarding run prepared ${delta.insightDrafts} local insight draft(s).`
+              : `Your onboarding run routed ${delta.routedTabs} tab signal(s).`,
       intent: focusIntent,
     });
     return;

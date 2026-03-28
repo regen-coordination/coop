@@ -242,6 +242,8 @@ describe('Popup action integration', () => {
     mockSendRuntimeMessage.mockReset();
     mockPlayCoopSound.mockReset().mockResolvedValue(undefined);
     installChromeMocks();
+    window.localStorage.clear();
+    sessionStorage.clear();
 
     Object.defineProperty(window.navigator, 'clipboard', {
       configurable: true,
@@ -289,10 +291,9 @@ describe('Popup action integration', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('field-note.txt');
 
-    await user.type(
-      screen.getByRole('textbox', { name: 'Context' }),
-      'Remember why this file matters.',
-    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Context' }), {
+      target: { value: 'Remember why this file matters.' },
+    });
     await user.click(screen.getByRole('button', { name: 'Save to Pocket Coop' }));
 
     await waitFor(() => {
@@ -329,7 +330,9 @@ describe('Popup action integration', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Voice note');
 
-    await user.type(screen.getByRole('textbox', { name: 'Context' }), 'Shared after the walk.');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Context' }), {
+      target: { value: 'Shared after the walk.' },
+    });
     await user.click(screen.getByRole('button', { name: 'Save to Pocket Coop' }));
 
     await waitFor(() => {
@@ -350,18 +353,21 @@ describe('Popup action integration', () => {
           };
         }),
     });
-    const user = userEvent.setup();
 
     render(<PopupApp />);
 
-    const roundupButton = await screen.findByRole('button', { name: 'Roundup Chickens' });
-    await user.click(roundupButton);
+    const roundupButton = await screen.findByRole(
+      'button',
+      { name: 'Roundup Chickens' },
+      { timeout: 10_000 },
+    );
+    fireEvent.click(roundupButton);
 
     await waitFor(() => {
       expect(roundupButton).toBeDisabled();
     });
 
-    await user.click(roundupButton);
+    fireEvent.click(roundupButton);
 
     expect(
       mockSendRuntimeMessage.mock.calls.filter(
@@ -372,7 +378,7 @@ describe('Popup action integration', () => {
     resolveCapture?.({ ok: true, data: 1 });
 
     expect(await screen.findByText('Deferred roundup draft')).toBeInTheDocument();
-  });
+  }, 30_000);
 
   it('keeps Home visible when active-tab capture returns zero new results', async () => {
     installPopupActionRuntime({

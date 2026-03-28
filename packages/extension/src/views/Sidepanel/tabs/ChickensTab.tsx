@@ -462,7 +462,9 @@ export function ChickensTab({
   const staleObservations = useMemo(
     () =>
       [...(agentDashboard?.observations ?? [])]
-        .filter((observation) => isStalePendingObservation(observation.createdAt, observation.status))
+        .filter((observation) =>
+          isStalePendingObservation(observation.createdAt, observation.status),
+        )
         .sort((left, right) => left.createdAt.localeCompare(right.createdAt)),
     [agentDashboard?.observations],
   );
@@ -652,9 +654,7 @@ export function ChickensTab({
                       focused={observation.id === focusedObservationId}
                       observation={observation}
                       onReviewDraft={
-                        observation.draftId
-                          ? () => onSelectSynthesisSegment('drafts')
-                          : undefined
+                        observation.draftId ? () => onSelectSynthesisSegment('drafts') : undefined
                       }
                     />
                   ))}
