@@ -628,7 +628,10 @@ test.describe('extension workflow', () => {
     }
   });
 
-  test('provisions a member garden account and hatches a sidepanel garden pass in mock-path modes', async (_fixtures, testInfo) => {
+  test('provisions a member garden account and hatches a sidepanel garden pass in mock-path modes', async ({
+    browserName,
+  }, testInfo) => {
+    void browserName;
     testInfo.setTimeout(300_000);
     ensureExtensionBuilt();
 

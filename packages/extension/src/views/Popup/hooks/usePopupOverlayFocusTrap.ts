@@ -1,4 +1,4 @@
-import { type RefObject, useEffect } from 'react';
+import { type RefObject, useLayoutEffect } from 'react';
 
 const focusableSelector =
   'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -10,7 +10,7 @@ export function usePopupOverlayFocusTrap(input: {
 }) {
   const { containerRef, initialFocusRef, onClose } = input;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const previousFocus =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const surface = document.querySelector<HTMLElement>('.popup-surface');
