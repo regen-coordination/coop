@@ -2,13 +2,29 @@ import { ErrorBoundary } from '../ErrorBoundary';
 import type { SidepanelOrchestration } from './hooks/useSidepanelOrchestration';
 import type { SidepanelTab } from './sidepanel-tabs';
 import { ChickensTab, CoopsTab, NestTab, RoostTab } from './tabs/index';
+import type { SidepanelIntent, SidepanelIntentSegment } from '../../runtime/messages';
 
 export interface SidepanelTabRouterProps {
   panelTab: SidepanelTab;
   orchestration: SidepanelOrchestration;
+  synthesisSegment: SidepanelIntentSegment;
+  onSelectSynthesisSegment: (segment: SidepanelIntentSegment) => void;
+  focusedDraftId?: string;
+  focusedSignalId?: string;
+  focusedObservationId?: string;
+  onApplySidepanelIntent: (intent: SidepanelIntent) => Promise<void>;
 }
 
-export function SidepanelTabRouter({ panelTab, orchestration }: SidepanelTabRouterProps) {
+export function SidepanelTabRouter({
+  panelTab,
+  orchestration,
+  synthesisSegment,
+  onSelectSynthesisSegment,
+  focusedDraftId,
+  focusedSignalId,
+  focusedObservationId,
+  onApplySidepanelIntent,
+}: SidepanelTabRouterProps) {
   const {
     dashboard,
     agentDashboard,
@@ -96,8 +112,16 @@ export function SidepanelTabRouter({ panelTab, orchestration }: SidepanelTabRout
             allCoops={dashboard?.coops ?? []}
             selectActiveCoop={selectActiveCoop}
             greenGoodsActionQueue={dashboard?.operator.policyActionQueue ?? []}
+            summary={dashboard?.summary ?? null}
             onProvisionMemberOnchainAccount={handleProvisionMemberOnchainAccount}
             onSubmitGreenGoodsWorkSubmission={handleSubmitGreenGoodsWorkSubmission}
+            onOpenSynthesisSegment={(segment) =>
+              void onApplySidepanelIntent({
+                tab: 'chickens',
+                segment,
+                coopId: activeCoop?.profile.id,
+              })
+            }
           />
         </ErrorBoundary>
       );
@@ -107,11 +131,17 @@ export function SidepanelTabRouter({ panelTab, orchestration }: SidepanelTabRout
         <ErrorBoundary>
           <ChickensTab
             dashboard={dashboard}
+            agentDashboard={agentDashboard}
             visibleDrafts={visibleDrafts}
             draftEditor={draftEditor}
             inferenceState={inferenceState}
             runtimeConfig={runtimeConfig}
             tabCapture={tabCapture}
+            synthesisSegment={synthesisSegment}
+            onSelectSynthesisSegment={onSelectSynthesisSegment}
+            focusedDraftId={focusedDraftId}
+            focusedSignalId={focusedSignalId}
+            focusedObservationId={focusedObservationId}
           />
         </ErrorBoundary>
       );

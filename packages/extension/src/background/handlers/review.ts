@@ -8,6 +8,7 @@ import {
   getAuthSession,
   getReviewDraft,
   getTabRoutingByExtractAndCoop,
+  listTabRoutings,
   nowIso,
   publishDraftAcrossCoops,
   saveReviewDraft,
@@ -104,17 +105,32 @@ export async function publishDraftWithContext(input: {
   );
 
   if (validation.draft.provenance.type === 'tab') {
-    for (const coopId of validation.targetActors.map((target) => target.coopId)) {
-      const routing = await getTabRoutingByExtractAndCoop(db, validation.draft.extractId, coopId);
-      if (!routing) {
+    const publishedCoopIds = new Set(validation.targetActors.map((target) => target.coopId));
+    const relatedRoutings = await listTabRoutings(db, {
+      extractId: validation.draft.extractId,
+      limit: 500,
+    });
+    for (const routing of relatedRoutings) {
+      if (routing.status === 'dismissed') {
         continue;
       }
-      await saveTabRouting(db, {
-        ...routing,
-        status: 'published',
-        draftId: validation.draft.id,
-        updatedAt: nowIso(),
-      });
+      if (publishedCoopIds.has(routing.coopId)) {
+        await saveTabRouting(db, {
+          ...routing,
+          status: 'published',
+          draftId: validation.draft.id,
+          updatedAt: nowIso(),
+        });
+        continue;
+      }
+      if (routing.draftId === validation.draft.id && routing.status !== 'published') {
+        await saveTabRouting(db, {
+          ...routing,
+          status: 'routed',
+          draftId: undefined,
+          updatedAt: nowIso(),
+        });
+      }
     }
   }
   if (validation.draft.provenance.type === 'receiver') {
@@ -167,6 +183,35 @@ export async function handleUpdateReviewDraft(
   }
 
   await saveReviewDraft(db, validation.draft);
+  if (validation.draft.provenance.type === 'tab') {
+    const relatedRoutings = await listTabRoutings(db, {
+      extractId: validation.draft.extractId,
+      limit: 500,
+    });
+    const selectedCoopIds = new Set(validation.draft.suggestedTargetCoopIds);
+    for (const routing of relatedRoutings) {
+      if (routing.status === 'published' || routing.status === 'dismissed') {
+        continue;
+      }
+      if (routing.draftId === validation.draft.id && !selectedCoopIds.has(routing.coopId)) {
+        await saveTabRouting(db, {
+          ...routing,
+          status: 'routed',
+          draftId: undefined,
+          updatedAt: nowIso(),
+        });
+        continue;
+      }
+      if (routing.draftId === validation.draft.id || selectedCoopIds.has(routing.coopId)) {
+        await saveTabRouting(db, {
+          ...routing,
+          status: 'drafted',
+          draftId: validation.draft.id,
+          updatedAt: nowIso(),
+        });
+      }
+    }
+  }
   await syncReceiverCaptureFromDraft(validation.draft);
   await requestAgentCycle(`draft-update:${validation.draft.id}`);
   await refreshBadge();

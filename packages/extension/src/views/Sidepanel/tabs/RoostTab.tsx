@@ -1,4 +1,5 @@
 import type { ActionBundle, CoopSharedState } from '@coop/shared';
+import type { RuntimeSummary, SidepanelIntentSegment } from '../../../runtime/messages';
 import { PopupSubheader, type PopupSubheaderTag } from '../../Popup/PopupSubheader';
 import { SidepanelSubheader } from '../SidepanelSubheader';
 import {
@@ -35,6 +36,7 @@ export interface RoostTabProps {
   allCoops: CoopSharedState[];
   selectActiveCoop: (coopId: string) => void;
   greenGoodsActionQueue: ActionBundle[];
+  summary: RuntimeSummary | null;
   onProvisionMemberOnchainAccount: () => Promise<void>;
   onSubmitGreenGoodsWorkSubmission: (input: {
     actionUid: number;
@@ -43,6 +45,7 @@ export interface RoostTabProps {
     metadataCid: string;
     mediaCids: string[];
   }) => Promise<void>;
+  onOpenSynthesisSegment: (segment: Extract<SidepanelIntentSegment, 'signals' | 'drafts' | 'stale'>) => void;
 }
 
 export function RoostTab({
@@ -51,8 +54,10 @@ export function RoostTab({
   allCoops,
   selectActiveCoop,
   greenGoodsActionQueue,
+  summary,
   onProvisionMemberOnchainAccount,
   onSubmitGreenGoodsWorkSubmission,
+  onOpenSynthesisSegment,
 }: RoostTabProps) {
   // ---------------------------------------------------------------------------
   // Derived state
@@ -101,6 +106,29 @@ export function RoostTab({
           )}
         />
       </SidepanelSubheader>
+
+      <article className="panel-card">
+        <h2>Synthesis Summary</h2>
+        <p className="helper-text">
+          Track what the agent has routed, enriched, and left waiting for review.
+        </p>
+        <div className="badge-row">
+          <span className="badge">{summary?.routedTabs ?? 0} signals</span>
+          <span className="badge">{summary?.pendingDrafts ?? 0} drafts</span>
+          <span className="badge">{summary?.staleObservationCount ?? 0} stale</span>
+        </div>
+        <div className="nest-quick-actions">
+          <button className="secondary-button" onClick={() => onOpenSynthesisSegment('signals')} type="button">
+            Open Signals
+          </button>
+          <button className="secondary-button" onClick={() => onOpenSynthesisSegment('drafts')} type="button">
+            Review Drafts
+          </button>
+          <button className="secondary-button" onClick={() => onOpenSynthesisSegment('stale')} type="button">
+            Clear Stale
+          </button>
+        </div>
+      </article>
 
       {/* --- 1. Garden Status Card --- */}
       <article className="panel-card">

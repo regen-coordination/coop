@@ -80,4 +80,25 @@ describe('PopupFeedScreen', () => {
 
     expect(screen.getByText('Nothing shared in the coop yet')).toBeInTheDocument();
   });
+
+  it('keeps the summary as the primary row copy when why-it-matters is also present', () => {
+    render(
+      <PopupFeedScreen
+        artifacts={[
+          makeArtifact({
+            summary: 'Concrete summary',
+            whyItMatters: 'Interpretive why text',
+            suggestedNextStep: 'Queue follow-up',
+          }),
+        ]}
+        filterTags={[]}
+        onOpenArtifact={vi.fn()}
+        onDismissArtifact={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Concrete summary')).toBeInTheDocument();
+    expect(screen.queryByText('Interpretive why text')).not.toBeInTheDocument();
+    expect(screen.getByText('Next: Queue follow-up')).toBeInTheDocument();
+  });
 });

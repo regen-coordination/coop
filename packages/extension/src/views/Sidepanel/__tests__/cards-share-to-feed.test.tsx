@@ -114,6 +114,32 @@ describe('DraftCard onShareToFeed', () => {
 
     expect(screen.queryByRole('menuitem', { name: /share to feed/i })).not.toBeInTheDocument();
   });
+
+  it('renders safely when the source url is not parseable', () => {
+    const draft = makeReviewDraft({
+      sources: [{ label: 'Broken Source', url: 'not-a-url', domain: '' }],
+    });
+
+    render(
+      <DraftCard
+        draft={draft}
+        context="roost"
+        draftEditor={makeDraftEditor()}
+        inferenceState={null}
+        runtimeConfig={
+          {
+            archiveMode: 'mock',
+            onchainMode: 'mock',
+            privacyMode: 'off',
+            hasApiKey: false,
+          } as unknown as DraftCardProps['runtimeConfig']
+        }
+        coops={[]}
+      />,
+    );
+
+    expect(screen.getByText('not-a-url')).toBeInTheDocument();
+  });
 });
 
 describe('ArtifactCard onShareToFeed', () => {
@@ -157,5 +183,38 @@ describe('ArtifactCard onShareToFeed', () => {
     await user.click(shareButton);
 
     expect(screen.getByRole('menuitem', { name: /share to feed/i })).toBeInTheDocument();
+  });
+
+  it('renders safely when the artifact source url is not parseable', () => {
+    const artifact = {
+      id: 'art-2',
+      originId: 'origin-2',
+      targetCoopId: 'coop-1',
+      title: 'Shared Artifact',
+      summary: 'Artifact summary',
+      sources: [{ label: 'Broken Source', url: 'not-a-url', domain: '' }],
+      tags: [],
+      category: 'opportunity' as const,
+      whyItMatters: 'Important',
+      suggestedNextStep: 'Act on it',
+      createdBy: 'user-1',
+      createdAt: new Date().toISOString(),
+      reviewStatus: 'draft' as const,
+      archiveStatus: 'not-archived' as const,
+      archiveReceiptIds: [],
+      attachments: [],
+    };
+
+    render(
+      <ArtifactCard
+        artifact={artifact}
+        archiveReceipts={[]}
+        activeCoop={undefined}
+        archiveArtifact={vi.fn()}
+        toggleArtifactArchiveWorthiness={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('not-a-url')).toBeInTheDocument();
   });
 });

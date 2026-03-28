@@ -56,4 +56,27 @@ describe('PopupDraftListScreen', () => {
     expect(screen.getByText('No chickens here yet.')).toBeDefined();
     expect(screen.getByText('Roundup Chickens')).toBeDefined();
   });
+
+  it('keeps the summary as the primary row copy when why-it-matters is also present', () => {
+    render(
+      <PopupDraftListScreen
+        drafts={[
+          makeDraft({
+            summary: 'Concrete summary',
+            whyItMatters: 'Interpretive why text',
+            suggestedNextStep: 'Queue follow-up',
+          }),
+        ]}
+        filterTags={[]}
+        onOpenDraft={vi.fn()}
+        onMarkReady={vi.fn()}
+        onShare={vi.fn()}
+        onRoundUp={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Concrete summary')).toBeInTheDocument();
+    expect(screen.queryByText('Interpretive why text')).not.toBeInTheDocument();
+    expect(screen.getByText('Next: Queue follow-up')).toBeInTheDocument();
+  });
 });

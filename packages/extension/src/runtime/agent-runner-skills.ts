@@ -682,9 +682,12 @@ async function emitObservationIfMissing(observation: AgentObservation) {
   return observation;
 }
 
-async function findExistingDraftForRouting(extractId: string, coopId: string) {
+async function findExistingDraftForRouting(extractId: string, coopId?: string) {
   const drafts = (await listReviewDrafts(db)).filter((draft) => draft.extractId === extractId);
-  return drafts.find((draft) => draft.suggestedTargetCoopIds.includes(coopId));
+  if (coopId) {
+    return drafts.find((draft) => draft.suggestedTargetCoopIds.includes(coopId)) ?? drafts[0];
+  }
+  return drafts[0];
 }
 
 export async function persistTabRouterOutput(input: {
@@ -704,6 +707,7 @@ export async function persistTabRouterOutput(input: {
   const createdDraftIds: string[] = [];
   const routedByCoop = new Map<string, TabRouting[]>();
   const draftableCoopIdsByExtractId = new Map<string, Set<string>>();
+  const masterDraftByExtractId = new Map<string, ReviewDraft>();
 
   for (const [extractId, extractRoutings] of Object.entries(
     relevantRoutings.reduce<Record<string, TabRouterOutput['routings']>>((acc, routing) => {
@@ -732,6 +736,53 @@ export async function persistTabRouterOutput(input: {
       draftableCoopIds.add(routing.coopId);
     }
     draftableCoopIdsByExtractId.set(extractId, draftableCoopIds);
+
+    const extract = extractsById.get(extractId);
+    const topCoop = coopsById.get(topRouting.coopId);
+    if (!extract || !topCoop) {
+      continue;
+    }
+
+    let draft = await findExistingDraftForRouting(extractId);
+    if (!draft) {
+      draft = shapeReviewDraft(
+        extract,
+        {
+          id: `routing-interpretation-${extract.id}-${topCoop.profile.id}`,
+          targetCoopId: topCoop.profile.id,
+          relevanceScore: topRouting.relevanceScore,
+          matchedRitualLenses: topRouting.matchedRitualLenses,
+          categoryCandidates: [topRouting.category],
+          tagCandidates: topRouting.tags,
+          rationale: topRouting.rationale,
+          suggestedNextStep: topRouting.suggestedNextStep,
+          archiveWorthinessHint: topRouting.archiveWorthinessHint,
+        },
+        topCoop.profile,
+      );
+      createdDraftIds.push(draft.id);
+    }
+
+    const mergedTargetCoopIds = [
+      ...new Set([...draft.suggestedTargetCoopIds, ...draftableCoopIds]),
+    ];
+    const mergedTags = [...new Set([...draft.tags, ...sorted.flatMap((routing) => routing.tags)])];
+    const mergedLenses = [...new Set(sorted.flatMap((routing) => routing.matchedRitualLenses))];
+    const nextDraft = {
+      ...draft,
+      suggestedTargetCoopIds: mergedTargetCoopIds,
+      tags: mergedTags,
+      category: topRouting.category,
+      confidence: Math.max(draft.confidence, topRouting.relevanceScore),
+      rationale: topRouting.rationale,
+      suggestedNextStep: topRouting.suggestedNextStep,
+      whyItMatters:
+        mergedLenses.length > 0
+          ? `${topRouting.rationale} It appears relevant to ${mergedTargetCoopIds.length === 1 ? topCoop.profile.name : 'multiple coops'} across ${mergedLenses.join(', ')}.`
+          : draft.whyItMatters,
+    } satisfies ReviewDraft;
+    await saveReviewDraft(db, nextDraft);
+    masterDraftByExtractId.set(extractId, nextDraft);
   }
 
   for (const rawRouting of relevantRoutings) {
@@ -742,6 +793,7 @@ export async function persistTabRouterOutput(input: {
     }
 
     const existingRouting = await getTabRoutingByExtractAndCoop(db, extract.id, coop.profile.id);
+    const masterDraft = masterDraftByExtractId.get(extract.id);
     let draftId = existingRouting?.draftId;
     const shouldDraft =
       (draftableCoopIdsByExtractId.get(extract.id)?.has(coop.profile.id) ?? false) ||
@@ -753,27 +805,12 @@ export async function persistTabRouterOutput(input: {
         : 'routed';
 
     if (shouldDraft) {
-      let draft =
-        (draftId ? await getReviewDraft(db, draftId) : null) ??
-        (await findExistingDraftForRouting(extract.id, coop.profile.id));
+      const draft =
+        masterDraft ??
+        ((draftId ? await getReviewDraft(db, draftId) : null) ??
+          (await findExistingDraftForRouting(extract.id, coop.profile.id)));
       if (!draft) {
-        draft = shapeReviewDraft(
-          extract,
-          {
-            id: `routing-interpretation-${extract.id}-${coop.profile.id}`,
-            targetCoopId: coop.profile.id,
-            relevanceScore: rawRouting.relevanceScore,
-            matchedRitualLenses: rawRouting.matchedRitualLenses,
-            categoryCandidates: [rawRouting.category],
-            tagCandidates: rawRouting.tags,
-            rationale: rawRouting.rationale,
-            suggestedNextStep: rawRouting.suggestedNextStep,
-            archiveWorthinessHint: rawRouting.archiveWorthinessHint,
-          },
-          coop.profile,
-        );
-        await saveReviewDraft(db, draft);
-        createdDraftIds.push(draft.id);
+        continue;
       }
       draftId = draft.id;
       status = existingRouting?.status === 'published' ? 'published' : 'drafted';

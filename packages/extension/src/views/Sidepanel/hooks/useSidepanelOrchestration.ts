@@ -48,6 +48,8 @@ export interface SidepanelOrchestration {
   refreshableArchiveReceipts: ReturnType<typeof useDashboard>['refreshableArchiveReceipts'];
   browserUxCapabilities: ReturnType<typeof useDashboard>['browserUxCapabilities'];
   boardUrl: ReturnType<typeof useDashboard>['boardUrl'];
+  agentDelta: ReturnType<typeof useDashboard>['agentDelta'];
+  clearAgentDelta: ReturnType<typeof useDashboard>['clearAgentDelta'];
   message: string;
   setMessage: (msg: string) => void;
   actionPolicies: ReturnType<typeof useDashboard>['actionPolicies'];
@@ -178,6 +180,8 @@ export function useSidepanelOrchestration(
     refreshableArchiveReceipts,
     browserUxCapabilities,
     boardUrl,
+    agentDelta,
+    clearAgentDelta,
     message,
     setMessage,
     pairingResult,
@@ -338,6 +342,8 @@ export function useSidepanelOrchestration(
     refreshableArchiveReceipts,
     browserUxCapabilities,
     boardUrl,
+    agentDelta,
+    clearAgentDelta,
     message,
     setMessage,
     actionPolicies,

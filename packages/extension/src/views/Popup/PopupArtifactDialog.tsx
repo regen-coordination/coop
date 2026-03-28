@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Tooltip } from '../shared/Tooltip';
+import { formatRelativeTime } from './helpers';
 import { usePopupOverlayFocusTrap } from './hooks/usePopupOverlayFocusTrap';
 import type { PopupFeedArtifactItem } from './popup-types';
 
@@ -134,6 +135,13 @@ export function PopupArtifactDialog(props: {
           ) : null}
 
           <section className="popup-dialog__section">
+            <div className="popup-dialog__meta">
+              {artifact.sources[0]?.domain ? <span>{artifact.sources[0].domain}</span> : null}
+              <span>{formatRelativeTime(artifact.createdAt)}</span>
+            </div>
+          </section>
+
+          <section className="popup-dialog__section">
             <strong>Summary</strong>
             <p>{artifact.summary}</p>
           </section>
@@ -147,6 +155,19 @@ export function PopupArtifactDialog(props: {
             <strong>Suggested next step</strong>
             <p>{artifact.suggestedNextStep}</p>
           </section>
+
+          {artifact.tags.length > 0 ? (
+            <section className="popup-dialog__section">
+              <strong>Tags</strong>
+              <div className="popup-review-queue__pills">
+                {artifact.tags.slice(0, 5).map((tag) => (
+                  <span className="popup-mini-pill popup-mini-pill--muted" key={tag}>
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {sourceLinks.length > 0 ? (
             <section className="popup-dialog__section">

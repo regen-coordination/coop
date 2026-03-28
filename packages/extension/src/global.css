@@ -356,6 +356,11 @@ button:disabled {
   font-weight: 700;
 }
 
+.badge--neutral {
+  background: rgba(66, 40, 24, 0.08);
+  color: var(--coop-brown-soft);
+}
+
 .state-pill.is-error {
   background: rgba(166, 59, 32, 0.12);
   color: var(--coop-error);
@@ -420,6 +425,73 @@ button:disabled {
   background: var(--coop-surface-elevated);
 }
 
+.draft-card__header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.draft-card__lede {
+  margin: 0;
+  color: var(--coop-brown-soft);
+  line-height: 1.5;
+}
+
+.draft-card__meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  font-size: 0.78rem;
+  color: var(--coop-brown-soft);
+}
+
+.draft-card__section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--coop-brown-soft);
+}
+
+.draft-card__insights {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.draft-card__insight {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem;
+  border-radius: var(--coop-radius-button);
+  background: rgba(66, 40, 24, 0.04);
+}
+
+.draft-card__insight p {
+  margin: 0;
+  color: var(--coop-brown);
+  line-height: 1.5;
+}
+
+.draft-card__rationale {
+  font-size: 0.84rem;
+  color: var(--coop-brown-soft);
+}
+
+.draft-card__editor {
+  border-top: 1px solid rgba(66, 40, 24, 0.08);
+  padding-top: 0.15rem;
+}
+
+.draft-card__editor > summary {
+  padding: 0.85rem 0 0.4rem;
+}
+
+.draft-card__editor .collapsible-card__content {
+  padding: 0.35rem 0 0;
+}
+
 .source-link {
   color: var(--coop-green);
   word-break: break-all;
@@ -451,7 +523,8 @@ button:disabled {
   .tab-strip,
   .detail-grid,
   .card-grid,
-  .lens-grid {
+  .lens-grid,
+  .draft-card__insights {
     grid-template-columns: 1fr;
   }
 }
@@ -1081,6 +1154,33 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+/* ---- Synthesis queue ---- */
+
+.synthesis-queue-card {
+  gap: 0.75rem;
+}
+
+.synthesis-card {
+  gap: 0.5rem;
+}
+
+.synthesis-card[data-focused='true'] {
+  border-color: rgba(253, 138, 1, 0.45);
+  box-shadow: 0 0 0 1px rgba(253, 138, 1, 0.18);
+}
+
+.synthesis-support-list {
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--coop-radius-photo);
+  background: rgba(66, 40, 24, 0.04);
+}
+
+.synthesis-support-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 /* ---- Stub card ---- */

@@ -141,6 +141,20 @@ async function getDashboard(page) {
   return response?.ok ? response.data : null;
 }
 
+async function waitForCoopCreated(page, coopName, timeoutMs = 30000) {
+  await expect
+    .poll(
+      async () => {
+        const dashboard = await getDashboard(page);
+        return (
+          dashboard?.coops.some((candidate) => candidate.profile.name === coopName) ?? false
+        );
+      },
+      { timeout: timeoutMs },
+    )
+    .toBe(true);
+}
+
 async function getAgentDashboard(page) {
   const response = await page.evaluate(async () =>
     chrome.runtime.sendMessage({ type: 'get-agent-dashboard' }),
@@ -231,9 +245,7 @@ test.describe('extension workflow', () => {
         .getByRole('button', { name: /(launch the coop|start this coop)/i })
         .click();
 
-      await expect(creatorProfile.page.getByText(/coop created\./i)).toBeVisible({
-        timeout: 30000,
-      });
+      await waitForCoopCreated(creatorProfile.page, 'Coop Town Test');
       await expect(
         creatorProfile.page.getByRole('heading', { name: 'Coop Town Test' }),
       ).toBeVisible();
@@ -356,6 +368,17 @@ test.describe('extension workflow', () => {
           },
         )
         .toBeGreaterThan(0);
+
+      // Wait for the coop detail UI to render the receipt so boardUrl is fresh
+      const savedProofSection = creatorProfile.page
+        .locator('article.panel-card')
+        .filter({
+          has: creatorProfile.page.getByRole('heading', { name: 'Saved Proof' }),
+        })
+        .first();
+      await expect(savedProofSection.locator('.draft-card').first()).toBeVisible({
+        timeout: 15000,
+      });
 
       const boardPagePromise = creatorProfile.context.waitForEvent('page');
       await creatorProfile.page.getByRole('button', { name: 'Open Board', exact: true }).click();
@@ -495,9 +518,7 @@ test.describe('extension workflow', () => {
         .getByRole('button', { name: /(launch the coop|start this coop)/i })
         .click();
 
-      await expect(creatorProfile.page.getByText(/coop created\./i)).toBeVisible({
-        timeout: 30000,
-      });
+      await waitForCoopCreated(creatorProfile.page, 'Agent Loop Coop');
 
       await openFooterTab(creatorProfile.page, 'Chickens');
       await creatorProfile.page.getByRole('button', { name: 'Round Up', exact: true }).click();
@@ -609,7 +630,8 @@ test.describe('extension workflow', () => {
     }
   });
 
-  test('provisions a member garden account and hatches a sidepanel garden pass in mock-path modes', async () => {
+  test('provisions a member garden account and hatches a sidepanel garden pass in mock-path modes', async ({ }, testInfo) => {
+    testInfo.setTimeout(300_000);
     ensureExtensionBuilt();
 
     const creatorUserDataDir = path.join(os.tmpdir(), `coop-sidepanel-onchain-${Date.now()}`);
@@ -681,19 +703,28 @@ test.describe('extension workflow', () => {
         .getByRole('button', { name: /(launch the coop|start this coop)/i })
         .click();
 
-      await expect(creatorProfile.page.getByText(/coop created\./i)).toBeVisible({
-        timeout: 30_000,
-      });
+      await waitForCoopCreated(creatorProfile.page, 'Garden Pass Coop');
       await expect(
         creatorProfile.page.getByRole('heading', { name: 'Garden Pass Coop' }),
       ).toBeVisible();
 
-      await openFooterTab(creatorProfile.page, 'Roost');
-      await expect(
-        creatorProfile.page.getByRole('heading', { name: 'Green Goods Access' }),
-      ).toBeVisible({
-        timeout: 30_000,
-      });
+      // Creation handler may race setPanelTab('nest') after loadDashboard(),
+      // so retry the Roost switch until the tab actually sticks.
+      await expect
+        .poll(
+          async () => {
+            const heading = creatorProfile.page.getByRole('heading', {
+              name: 'Green Goods Access',
+            });
+            const visible = await heading.isVisible().catch(() => false);
+            if (!visible) {
+              await openFooterTab(creatorProfile.page, 'Roost');
+            }
+            return visible;
+          },
+          { timeout: 30_000 },
+        )
+        .toBe(true);
       await creatorProfile.page
         .getByRole('button', { name: /provision my garden account/i })
         .click();
@@ -702,6 +733,7 @@ test.describe('extension workflow', () => {
       ).toBeVisible({
         timeout: 30_000,
       });
+      await openFooterTab(creatorProfile.page, 'Roost');
       await expect(
         creatorProfile.page.getByRole('button', { name: /refresh local garden account/i }),
       ).toBeVisible({

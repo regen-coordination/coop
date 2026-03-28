@@ -29,6 +29,67 @@ import type { useDraftEditor } from './hooks/useDraftEditor';
 
 type DraftEditorReturn = ReturnType<typeof useDraftEditor>;
 
+function formatRelativeTime(timestamp?: string) {
+  if (!timestamp) {
+    return 'Just now';
+  }
+
+  const elapsed = Date.now() - new Date(timestamp).getTime();
+  if (Number.isNaN(elapsed) || elapsed < 0) {
+    return 'Just now';
+  }
+
+  const minutes = Math.round(elapsed / 60000);
+  if (minutes < 1) {
+    return 'Just now';
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
+function formatConfidence(value: number) {
+  return `${Math.round(value * 100)}% match`;
+}
+
+function formatDraftStageLabel(stage: ReviewDraft['workflowStage']) {
+  return stage === 'ready' ? 'ready to share' : 'hatching';
+}
+
+function formatProvenanceLabel(provenance: ReviewDraft['provenance']) {
+  switch (provenance.type) {
+    case 'tab':
+      return 'tab signal';
+    case 'agent':
+      return 'agent insight';
+    case 'receiver':
+      return 'pocket coop';
+    default:
+      return 'draft';
+  }
+}
+
+function summarizeSourceLine(url?: string, domain?: string, count = 0) {
+  let sourceLabel = domain || 'Local note';
+  if (!domain && url) {
+    try {
+      sourceLabel = new URL(url).hostname.replace(/^www\./, '') || url;
+    } catch {
+      sourceLabel = url;
+    }
+  }
+  if (count <= 1) {
+    return sourceLabel;
+  }
+  return `${sourceLabel} +${count - 1} source${count - 1 === 1 ? '' : 's'}`;
+}
+
 // ---------------------------------------------------------------------------
 // DraftCard
 // ---------------------------------------------------------------------------
@@ -52,110 +113,166 @@ export function DraftCard({
   onShareToFeed,
 }: DraftCardProps) {
   const value = draftEditor.draftValue(draft);
+  const selectedCoops = coops.filter((coop) => value.suggestedTargetCoopIds.includes(coop.profile.id));
+  const source = value.sources[0];
+  const visibleTags = value.tags.slice(0, 4);
+  const hiddenTagCount = Math.max(0, value.tags.length - visibleTags.length);
 
   return (
     <article className="draft-card stack" key={draft.id}>
-      <div className="badge-row">
-        <span className="badge">
-          {value.workflowStage === 'ready' ? 'ready to share' : 'hatching'}
-        </span>
-        <span className="badge">{value.category}</span>
-        {value.provenance.type === 'receiver' ? <span className="badge">pocket coop</span> : null}
-        {isArchiveWorthy(value) ? <span className="badge">worth saving</span> : null}
-      </div>
-      <div className="field-grid">
-        <label htmlFor={`title-${draft.id}`}>Title</label>
-        <input
-          id={`title-${draft.id}`}
-          onChange={(event) => draftEditor.updateDraft(draft, { title: event.target.value })}
-          value={value.title}
-        />
-      </div>
-      <div className="field-grid">
-        <label htmlFor={`summary-${draft.id}`}>Summary</label>
-        <textarea
-          id={`summary-${draft.id}`}
-          onChange={(event) => draftEditor.updateDraft(draft, { summary: event.target.value })}
-          value={value.summary}
-        />
-      </div>
-      <div className="detail-grid">
-        <div className="field-grid">
-          <label htmlFor={`category-${draft.id}`}>Category</label>
-          <select
-            id={`category-${draft.id}`}
-            onChange={(event) =>
-              draftEditor.updateDraft(draft, {
-                category: event.target.value as ReviewDraft['category'],
-              })
-            }
-            value={value.category}
-          >
-            {artifactCategorySchema.options.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field-grid">
-          <label htmlFor={`tags-${draft.id}`}>Tags</label>
-          <input
-            id={`tags-${draft.id}`}
-            onChange={(event) =>
-              draftEditor.updateDraft(draft, {
-                tags: event.target.value
-                  .split(',')
-                  .map((tag) => tag.trim())
-                  .filter(Boolean),
-              })
-            }
-            value={value.tags.join(', ')}
-          />
-        </div>
-      </div>
-      <div className="field-grid">
-        <label htmlFor={`why-${draft.id}`}>Why it matters</label>
-        <textarea
-          id={`why-${draft.id}`}
-          onChange={(event) => draftEditor.updateDraft(draft, { whyItMatters: event.target.value })}
-          value={value.whyItMatters}
-        />
-      </div>
-      <div className="field-grid">
-        <label htmlFor={`next-step-${draft.id}`}>Suggested next step</label>
-        <textarea
-          id={`next-step-${draft.id}`}
-          onChange={(event) =>
-            draftEditor.updateDraft(draft, { suggestedNextStep: event.target.value })
-          }
-          value={value.suggestedNextStep}
-        />
-      </div>
-      <div className="field-grid">
-        <span className="helper-text">Share with coop(s)</span>
+      <div className="draft-card__header-row">
         <div className="badge-row">
-          {coops.map((coop) => {
-            const selected = value.suggestedTargetCoopIds.includes(coop.profile.id);
-            return (
-              <button
-                className={selected ? 'inline-button' : 'secondary-button'}
-                key={coop.profile.id}
-                onClick={() => draftEditor.toggleDraftTargetCoop(draft, coop.profile.id)}
-                type="button"
-              >
-                {selected ? 'Included' : 'Add'} {coop.profile.name}
-              </button>
-            );
-          })}
+          <span className="badge">{formatDraftStageLabel(value.workflowStage)}</span>
+          <span className="badge">{formatArtifactCategoryLabel(value.category)}</span>
+          <span className="badge">{formatProvenanceLabel(value.provenance)}</span>
+          <span className="badge">{formatConfidence(value.confidence)}</span>
+          {isArchiveWorthy(value) ? <span className="badge">worth saving</span> : null}
         </div>
+        <span className="meta-text">{formatRelativeTime(value.createdAt)}</span>
       </div>
-      <div className="helper-text">{value.rationale}</div>
+      <div className="stack" style={{ gap: '0.35rem' }}>
+        <strong>{value.title}</strong>
+        <p className="draft-card__lede">{value.summary}</p>
+      </div>
+      <div className="draft-card__meta-strip">
+        <span>{summarizeSourceLine(source?.url, source?.domain, value.sources.length)}</span>
+        <span>{selectedCoops.length || value.suggestedTargetCoopIds.length} coop target(s)</span>
+        <span>{value.attachments.length} attachment(s)</span>
+      </div>
+      {selectedCoops.length > 0 ? (
+        <div className="stack" style={{ gap: '0.35rem' }}>
+          <span className="draft-card__section-label">Targets</span>
+          <div className="badge-row">
+            {selectedCoops.map((coop) => (
+              <span className="badge" key={coop.profile.id}>
+                {coop.profile.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {visibleTags.length > 0 ? (
+        <div className="badge-row">
+          {visibleTags.map((tag) => (
+            <span className="badge badge--neutral" key={`${draft.id}:${tag}`}>
+              #{tag}
+            </span>
+          ))}
+          {hiddenTagCount > 0 ? (
+            <span className="badge badge--neutral">+{hiddenTagCount} more</span>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="draft-card__insights">
+        <section className="draft-card__insight">
+          <span className="draft-card__section-label">Why now</span>
+          <p>{value.whyItMatters}</p>
+        </section>
+        <section className="draft-card__insight">
+          <span className="draft-card__section-label">Next move</span>
+          <p>{value.suggestedNextStep}</p>
+        </section>
+      </div>
+      <div className="draft-card__rationale">{value.rationale}</div>
       {isArchiveWorthy(value) ? (
         <div className="helper-text">
           This draft is marked worth saving once the summary feels clean.
         </div>
       ) : null}
+      <details className="collapsible-card draft-card__editor">
+        <summary>Edit details</summary>
+        <div className="collapsible-card__content">
+          <div className="field-grid">
+            <label htmlFor={`title-${draft.id}`}>Title</label>
+            <input
+              id={`title-${draft.id}`}
+              onChange={(event) => draftEditor.updateDraft(draft, { title: event.target.value })}
+              value={value.title}
+            />
+          </div>
+          <div className="field-grid">
+            <label htmlFor={`summary-${draft.id}`}>Summary</label>
+            <textarea
+              id={`summary-${draft.id}`}
+              onChange={(event) => draftEditor.updateDraft(draft, { summary: event.target.value })}
+              value={value.summary}
+            />
+          </div>
+          <div className="detail-grid">
+            <div className="field-grid">
+              <label htmlFor={`category-${draft.id}`}>Category</label>
+              <select
+                id={`category-${draft.id}`}
+                onChange={(event) =>
+                  draftEditor.updateDraft(draft, {
+                    category: event.target.value as ReviewDraft['category'],
+                  })
+                }
+                value={value.category}
+              >
+                {artifactCategorySchema.options.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field-grid">
+              <label htmlFor={`tags-${draft.id}`}>Tags</label>
+              <input
+                id={`tags-${draft.id}`}
+                onChange={(event) =>
+                  draftEditor.updateDraft(draft, {
+                    tags: event.target.value
+                      .split(',')
+                      .map((tag) => tag.trim())
+                      .filter(Boolean),
+                  })
+                }
+                value={value.tags.join(', ')}
+              />
+            </div>
+          </div>
+          <div className="field-grid">
+            <label htmlFor={`why-${draft.id}`}>Why it matters</label>
+            <textarea
+              id={`why-${draft.id}`}
+              onChange={(event) =>
+                draftEditor.updateDraft(draft, { whyItMatters: event.target.value })
+              }
+              value={value.whyItMatters}
+            />
+          </div>
+          <div className="field-grid">
+            <label htmlFor={`next-step-${draft.id}`}>Suggested next step</label>
+            <textarea
+              id={`next-step-${draft.id}`}
+              onChange={(event) =>
+                draftEditor.updateDraft(draft, { suggestedNextStep: event.target.value })
+              }
+              value={value.suggestedNextStep}
+            />
+          </div>
+          <div className="field-grid">
+            <span className="helper-text">Share with coop(s)</span>
+            <div className="badge-row">
+              {coops.map((coop) => {
+                const selected = value.suggestedTargetCoopIds.includes(coop.profile.id);
+                return (
+                  <button
+                    className={selected ? 'inline-button' : 'secondary-button'}
+                    key={coop.profile.id}
+                    onClick={() => draftEditor.toggleDraftTargetCoop(draft, coop.profile.id)}
+                    type="button"
+                  >
+                    {selected ? 'Included' : 'Add'} {coop.profile.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </details>
       {draftEditor.refineResults[draft.id] ? (
         <div
           className="panel-card"
@@ -215,7 +332,7 @@ export function DraftCard({
           onClick={() => void draftEditor.saveDraft(draft)}
           type="button"
         >
-          Save to roost
+          Save changes
         </button>
         <button
           className="secondary-button"
@@ -379,28 +496,61 @@ export function ArtifactCard({
         .find((candidate) => candidate.id === artifact.id)
         ?.archiveReceiptIds.includes(receipt.id),
     ) ?? null;
+  const visibleTags = artifact.tags.slice(0, 4);
+  const hiddenTagCount = Math.max(0, artifact.tags.length - visibleTags.length);
+  const primarySource = artifact.sources[0];
 
   return (
     <article className="artifact-card stack" key={artifact.id}>
-      <strong>{artifact.title}</strong>
-      <div className="badge-row">
-        <span className="badge">{formatArtifactCategoryLabel(artifact.category)}</span>
-        <span className="badge">{formatReviewStatusLabel(artifact.reviewStatus)}</span>
-        <span className="badge">{formatSaveStatusLabel(artifact.archiveStatus)}</span>
-        {isArchiveWorthy(artifact) ? <span className="badge">worth saving</span> : null}
-        {artifact.createdBy === 'anonymous-member' ? (
-          <span className="badge" style={{ background: 'var(--accent-subtle, #2d2d3d)' }}>
-            anonymous {artifact.membershipProof ? '(ZK verified)' : ''}
-          </span>
-        ) : null}
-        {artifact.createdBy === 'unverified-anonymous' ? (
-          <span className="badge" style={{ background: 'var(--warning, #8b6914)' }}>
-            unverified anonymous
-          </span>
-        ) : null}
+      <div className="draft-card__header-row">
+        <div className="badge-row">
+          <span className="badge">{formatArtifactCategoryLabel(artifact.category)}</span>
+          <span className="badge">{formatReviewStatusLabel(artifact.reviewStatus)}</span>
+          <span className="badge">{formatSaveStatusLabel(artifact.archiveStatus)}</span>
+          {isArchiveWorthy(artifact) ? <span className="badge">worth saving</span> : null}
+          {artifact.createdBy === 'anonymous-member' ? (
+            <span className="badge" style={{ background: 'var(--accent-subtle, #2d2d3d)' }}>
+              anonymous {artifact.membershipProof ? '(ZK verified)' : ''}
+            </span>
+          ) : null}
+          {artifact.createdBy === 'unverified-anonymous' ? (
+            <span className="badge" style={{ background: 'var(--warning, #8b6914)' }}>
+              unverified anonymous
+            </span>
+          ) : null}
+        </div>
+        <span className="meta-text">{formatRelativeTime(artifact.createdAt)}</span>
       </div>
-      <div className="helper-text">{artifact.summary}</div>
-      <div className="helper-text">{artifact.whyItMatters}</div>
+      <div className="stack" style={{ gap: '0.35rem' }}>
+        <strong>{artifact.title}</strong>
+        <p className="draft-card__lede">{artifact.summary}</p>
+      </div>
+      <div className="draft-card__meta-strip">
+        <span>{summarizeSourceLine(primarySource?.url, primarySource?.domain, artifact.sources.length)}</span>
+        <span>{artifact.attachments.length} attachment(s)</span>
+      </div>
+      {visibleTags.length > 0 ? (
+        <div className="badge-row">
+          {visibleTags.map((tag) => (
+            <span className="badge badge--neutral" key={`${artifact.id}:${tag}`}>
+              #{tag}
+            </span>
+          ))}
+          {hiddenTagCount > 0 ? (
+            <span className="badge badge--neutral">+{hiddenTagCount} more</span>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="draft-card__insights">
+        <section className="draft-card__insight">
+          <span className="draft-card__section-label">Why it landed</span>
+          <p>{artifact.whyItMatters}</p>
+        </section>
+        <section className="draft-card__insight">
+          <span className="draft-card__section-label">Next move</span>
+          <p>{artifact.suggestedNextStep}</p>
+        </section>
+      </div>
       {latestReceipt ? (
         <div className="helper-text">
           Saved already ·{' '}

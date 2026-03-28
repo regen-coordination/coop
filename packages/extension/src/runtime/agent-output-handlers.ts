@@ -24,6 +24,7 @@ import type {
   SkillOutputSchemaRef,
   SkillRun,
   TabRouterOutput,
+  TabRouting,
 } from '@coop/shared';
 import {
   buildGreenGoodsCreateAssessmentPayload,
@@ -46,6 +47,8 @@ export type SkillOutputHandlerExecutionContext = {
   candidates: OpportunityCandidate[];
   scores: GrantFitScore[];
   createdDraftIds: string[];
+  relatedDrafts: ReviewDraft[];
+  relatedRoutings: TabRouting[];
 };
 
 export type PersistedTabRouterResult = {
@@ -105,6 +108,57 @@ function pushCreatedDraft(input: {
 }) {
   input.context.createdDraftIds.push(input.draftId);
   input.createdDraftIds.push(input.draftId);
+}
+
+function resolveSynthesisDraftContext(context: SkillOutputHandlerExecutionContext) {
+  const routedTargetCoopIds = [
+    ...new Set(
+      context.relatedRoutings
+        .map((routing) => routing.coopId)
+        .concat(context.coop ? [context.coop.profile.id] : []),
+    ),
+  ];
+  const routedDraftId = context.relatedRoutings.find((routing) => typeof routing.draftId === 'string')
+    ?.draftId;
+  const existingDraft =
+    context.draft ??
+    context.relatedDrafts.find((draft) => draft.id === routedDraftId) ??
+    context.relatedDrafts.find(
+      (draft) =>
+        context.relatedRoutings.some((routing) => routing.extractId === draft.extractId) &&
+        draft.provenance.type === 'tab',
+    ) ??
+    null;
+
+  return {
+    existingDraft,
+    targetCoopIds:
+      routedTargetCoopIds.length > 0
+        ? routedTargetCoopIds
+        : context.coop
+          ? [context.coop.profile.id]
+          : [],
+  };
+}
+
+function patchSynthesisDraft(input: {
+  draft: ReviewDraft;
+  generated: ReviewDraft;
+  targetCoopIds: string[];
+}) {
+  return {
+    ...input.draft,
+    title: input.generated.title,
+    summary: input.generated.summary,
+    whyItMatters: input.generated.whyItMatters,
+    suggestedNextStep: input.generated.suggestedNextStep,
+    tags: [...new Set([...input.draft.tags, ...input.generated.tags])],
+    category: input.generated.category,
+    confidence: Math.max(input.draft.confidence, input.generated.confidence),
+    suggestedTargetCoopIds: [
+      ...new Set([...input.draft.suggestedTargetCoopIds, ...input.targetCoopIds]),
+    ],
+  } satisfies ReviewDraft;
 }
 
 export function resolveGreenGoodsOperatorAddresses(coop: CoopSharedState) {
@@ -290,8 +344,10 @@ const skillOutputHandlers: Partial<Record<SkillOutputSchemaRef, SkillOutputHandl
     }
 
     const createdDraftIds: string[] = [];
-    for (const insight of (input.output as MemoryInsightOutput).insights) {
-      const draft = createMemoryInsightDraft({
+    const insights = (input.output as MemoryInsightOutput).insights;
+    const synthesisContext = resolveSynthesisDraftContext(input.context);
+    for (const [index, insight] of insights.entries()) {
+      const generatedDraft = createMemoryInsightDraft({
         observationId: input.observation.id,
         planId: input.plan.id,
         skillRunId: input.run.id,
@@ -299,10 +355,28 @@ const skillOutputHandlers: Partial<Record<SkillOutputSchemaRef, SkillOutputHandl
         coopId: input.context.coop.profile.id,
         output: insight,
       });
-      await input.saveReviewDraft(draft);
+      if (index === 0 && synthesisContext.existingDraft) {
+        const patchedDraft = patchSynthesisDraft({
+          draft: synthesisContext.existingDraft,
+          generated: generatedDraft,
+          targetCoopIds: synthesisContext.targetCoopIds,
+        });
+        await input.saveReviewDraft(patchedDraft);
+        input.context.draft = patchedDraft;
+        continue;
+      }
+
+      const nextDraft = {
+        ...generatedDraft,
+        suggestedTargetCoopIds:
+          synthesisContext.targetCoopIds.length > 0
+            ? synthesisContext.targetCoopIds
+            : generatedDraft.suggestedTargetCoopIds,
+      } satisfies ReviewDraft;
+      await input.saveReviewDraft(nextDraft);
       pushCreatedDraft({
         context: input.context,
-        draftId: draft.id,
+        draftId: nextDraft.id,
         createdDraftIds,
       });
     }
@@ -328,7 +402,7 @@ const skillOutputHandlers: Partial<Record<SkillOutputSchemaRef, SkillOutputHandl
       };
     }
 
-    const draft = createReviewDigestDraft({
+    const generatedDraft = createReviewDigestDraft({
       observationId: input.observation.id,
       planId: input.plan.id,
       skillRunId: input.run.id,
@@ -336,14 +410,34 @@ const skillOutputHandlers: Partial<Record<SkillOutputSchemaRef, SkillOutputHandl
       coopId: input.context.coop.profile.id,
       output: input.output as ReviewDigestOutput,
     });
-    await input.saveReviewDraft(draft);
+    const synthesisContext = resolveSynthesisDraftContext(input.context);
+    let createdDraftIds: string[] = [];
 
-    const createdDraftIds = [draft.id];
-    pushCreatedDraft({
-      context: input.context,
-      draftId: draft.id,
-      createdDraftIds,
-    });
+    if (synthesisContext.existingDraft) {
+      const patchedDraft = patchSynthesisDraft({
+        draft: synthesisContext.existingDraft,
+        generated: generatedDraft,
+        targetCoopIds: synthesisContext.targetCoopIds,
+      });
+      await input.saveReviewDraft(patchedDraft);
+      input.context.draft = patchedDraft;
+    } else {
+      const nextDraft = {
+        ...generatedDraft,
+        suggestedTargetCoopIds:
+          synthesisContext.targetCoopIds.length > 0
+            ? synthesisContext.targetCoopIds
+            : generatedDraft.suggestedTargetCoopIds,
+      } satisfies ReviewDraft;
+      await input.saveReviewDraft(nextDraft);
+
+      createdDraftIds = [nextDraft.id];
+      pushCreatedDraft({
+        context: input.context,
+        draftId: nextDraft.id,
+        createdDraftIds,
+      });
+    }
 
     return {
       plan: input.plan,

@@ -26,7 +26,7 @@ import {
   transcribeAudio,
   updateReceiverCapture,
 } from '@coop/shared';
-import type { PopupPreparedCapture } from '../../runtime/messages';
+import type { PopupPreparedCapture, SidepanelIntent } from '../../runtime/messages';
 import { resolveReceiverPairingMember } from '../../runtime/receiver';
 import {
   type CaptureSnapshot,
@@ -52,6 +52,7 @@ import {
 } from '../context';
 import { refreshBadge } from '../dashboard';
 import { getActiveReviewContextForSession } from '../operator';
+import { focusCoopSidepanel } from '../sidepanel';
 import {
   drainAgentCycles,
   emitAudioTranscriptObservation,
@@ -594,10 +595,15 @@ export async function registerContextMenus() {
   });
 }
 
-export async function openCoopSidepanel() {
+export async function openCoopSidepanel(intent?: SidepanelIntent) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.windowId == null) {
     return false;
+  }
+
+  if (intent) {
+    await focusCoopSidepanel(tab.windowId, intent);
+    return true;
   }
 
   await chrome.sidePanel.open({ windowId: tab.windowId });

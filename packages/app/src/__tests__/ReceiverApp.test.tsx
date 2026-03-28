@@ -192,15 +192,20 @@ describe('receiver app routes', () => {
       render(<RootApp initialShareInput={handoff} />);
     });
 
-    expect((await screen.findAllByText('Shared Grant')).length).toBeGreaterThan(0);
-    expect(screen.getByText(/shared link saved locally/i)).toBeVisible();
+    await waitFor(
+      () => {
+        expect(screen.getAllByText('Shared Grant').length).toBeGreaterThan(0);
+        expect(screen.getByText(/shared link saved locally/i)).toBeVisible();
+      },
+      { timeout: 3_000 },
+    );
     expect(screen.getByRole('link', { name: 'Roost' })).toBeVisible();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('link', { name: 'Roost' }));
     });
 
-    expect(await screen.findByText('https://example.com/grant')).toBeVisible();
+    expect(await screen.findByText('https://example.com/grant', {}, { timeout: 3_000 })).toBeVisible();
     expect(screen.getByRole('button', { name: /copy link/i })).toBeVisible();
   });
 

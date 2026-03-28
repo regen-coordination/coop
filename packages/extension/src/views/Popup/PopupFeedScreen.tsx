@@ -1,5 +1,6 @@
 import { PopupOnboardingHero } from './PopupOnboardingHero';
 import { PopupSubheader, type PopupSubheaderTag } from './PopupSubheader';
+import { formatRelativeTime } from './helpers';
 import type { PopupFeedArtifactItem } from './popup-types';
 
 function formatCategoryLabel(value: string) {
@@ -32,8 +33,16 @@ export function PopupFeedScreen(props: {
                   type="button"
                 >
                   <div className="popup-activity-row__copy">
-                    <strong>{artifact.title}</strong>
+                    <div className="popup-row-heading">
+                      <strong>{artifact.title}</strong>
+                      <span className="popup-row-kicker">
+                        {formatRelativeTime(artifact.createdAt)}
+                      </span>
+                    </div>
                     <span>{artifact.summary}</span>
+                    {artifact.suggestedNextStep ? (
+                      <span className="popup-row-kicker">Next: {artifact.suggestedNextStep}</span>
+                    ) : null}
                     <span className="popup-review-queue__pills">
                       <span className="popup-mini-pill popup-mini-pill--muted">
                         {artifact.coopLabel}
@@ -41,6 +50,11 @@ export function PopupFeedScreen(props: {
                       <span className="popup-mini-pill">
                         {formatCategoryLabel(artifact.category)}
                       </span>
+                      {artifact.tags[0] ? (
+                        <span className="popup-mini-pill popup-mini-pill--muted">
+                          #{artifact.tags[0]}
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                 </button>

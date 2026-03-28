@@ -56,6 +56,7 @@ export interface RuntimeSummary {
   routedTabs: number;
   insightDrafts: number;
   pendingActions: number;
+  staleObservationCount: number;
   pendingAttentionCount: number;
   coopCount: number;
   syncState: string;
@@ -87,6 +88,8 @@ export interface PopupSnapshot {
   syncTone: 'ok' | 'warning' | 'error';
   syncDetail: string;
   draftCount: number;
+  routedSignalCount: number;
+  staleObservationCount: number;
   artifactCount: number;
   lastCaptureAt?: string;
   recentDraftTitles: string[];
@@ -104,6 +107,52 @@ export interface CoopBadgeSummary {
   pendingAttentionCount: number;
 }
 
+export type SidepanelIntentTab = 'roost' | 'chickens' | 'coops' | 'nest';
+export type SidepanelIntentSegment = 'signals' | 'drafts' | 'stale' | 'summary' | 'agent';
+
+export interface SidepanelIntent {
+  tab: SidepanelIntentTab;
+  segment?: SidepanelIntentSegment;
+  coopId?: string;
+  draftId?: string;
+  signalId?: string;
+  observationId?: string;
+  emittedAt?: string;
+}
+
+export interface ProactiveSignalSupport {
+  id: string;
+  kind: 'memory' | 'draft' | 'artifact';
+  title: string;
+  detail: string;
+}
+
+export interface ProactiveSignalTarget {
+  coopId: string;
+  coopName: string;
+  relevanceScore: number;
+  rationale: string;
+  suggestedNextStep: string;
+  matchedRitualLenses: string[];
+}
+
+export interface ProactiveSignal {
+  id: string;
+  sourceCandidateId: string;
+  extractId: string;
+  title: string;
+  url: string;
+  domain: string;
+  category: TabRouting['category'];
+  tags: string[];
+  archiveWorthinessHint: boolean;
+  draftId?: string;
+  topRelevanceScore: number;
+  targetCoops: ProactiveSignalTarget[];
+  support: ProactiveSignalSupport[];
+  updatedAt: string;
+}
+
 export interface DashboardResponse {
   coops: CoopSharedState[];
   activeCoopId?: string;
@@ -111,6 +160,7 @@ export interface DashboardResponse {
   drafts: ReviewDraft[];
   candidates: TabCandidate[];
   tabRoutings: TabRouting[];
+  proactiveSignals: ProactiveSignal[];
   summary: RuntimeSummary;
   soundPreferences: SoundPreferences;
   uiPreferences: UiPreferences;
@@ -204,6 +254,8 @@ export type RuntimeRequest =
   | { type: 'get-dashboard' }
   | { type: 'get-sidepanel-state'; payload: { windowId: number } }
   | { type: 'toggle-sidepanel'; payload: { windowId: number } }
+  | { type: 'set-sidepanel-intent'; payload: SidepanelIntent }
+  | { type: 'consume-sidepanel-intent' }
   | { type: 'get-receiver-sync-config' }
   | { type: 'get-receiver-sync-runtime' }
   | { type: 'manual-capture' }
@@ -605,6 +657,13 @@ export interface AgentStateDeltaEvent {
   reviewDigests: number;
   pendingActions: number;
   message: string;
+  focusIntent?: SidepanelIntent;
+  emittedAt: string;
+}
+
+export interface SidepanelIntentEvent {
+  type: 'SIDEPANEL_INTENT';
+  intent: SidepanelIntent;
   emittedAt: string;
 }
 
@@ -621,7 +680,10 @@ export type AgentEvent =
   | AgentStateDeltaEvent
   | AgentCycleErrorEvent;
 
-export type BackgroundNotification = { type: 'DASHBOARD_UPDATED' } | AgentEvent;
+export type BackgroundNotification =
+  | { type: 'DASHBOARD_UPDATED' }
+  | SidepanelIntentEvent
+  | AgentEvent;
 
 /** Fire-and-forget push to any open popup or sidepanel. Suppresses "Receiving end does not exist". */
 function sendBackgroundNotification(msg: BackgroundNotification, label: string): Promise<void> {
@@ -641,4 +703,16 @@ export function notifyDashboardUpdated(): Promise<void> {
 /** Push an agent lifecycle event to any open popup or sidepanel. */
 export function notifyAgentEvent(event: AgentEvent): Promise<void> {
   return sendBackgroundNotification(event, 'notifyAgentEvent');
+}
+
+/** Push a sidepanel navigation intent to any open sidepanel instance. */
+export function notifySidepanelIntent(intent: SidepanelIntent): Promise<void> {
+  return sendBackgroundNotification(
+    {
+      type: 'SIDEPANEL_INTENT',
+      intent,
+      emittedAt: new Date().toISOString(),
+    },
+    'notifySidepanelIntent',
+  );
 }

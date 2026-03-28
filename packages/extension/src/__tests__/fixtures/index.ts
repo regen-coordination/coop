@@ -84,6 +84,7 @@ export function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
     drafts: [],
     candidates: [],
     tabRoutings: [],
+    proactiveSignals: [],
     summary: {
       iconState: 'ready',
       iconLabel: 'Synced',
@@ -91,6 +92,7 @@ export function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
       routedTabs: 0,
       insightDrafts: 0,
       pendingActions: 0,
+      staleObservationCount: 0,
       pendingAttentionCount: 0,
       coopCount: 1,
       syncState: 'Peer-ready local-first sync',
@@ -101,8 +103,9 @@ export function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
       captureMode: 'manual',
       agentCadenceMinutes: 64,
       localEnhancement: 'Heuristics-first fallback',
-      localInferenceOptIn: false,
+      localInferenceOptIn: true,
       activeCoopId: 'coop-1',
+      pendingOutboxCount: 0,
     },
     soundPreferences: {
       enabled: true,
@@ -111,10 +114,13 @@ export function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
     },
     uiPreferences: {
       notificationsEnabled: true,
-      localInferenceOptIn: false,
+      localInferenceOptIn: true,
       preferredExportMethod: 'download',
       heartbeatEnabled: true,
       agentCadenceMinutes: 64,
+      excludedCategories: [],
+      customExcludedDomains: [],
+      captureOnClose: false,
     },
     authSession: {
       primaryAddress: '0x1234567890abcdef1234567890abcdef12345678',

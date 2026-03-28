@@ -1,4 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  type BackgroundNotification,
+  type SidepanelIntent,
+  type SidepanelIntentSegment,
+  sendRuntimeMessage,
+} from '../../runtime/messages';
 import { PopupThemeToggle } from '../Popup/PopupThemePicker';
 import { NotificationBanner } from '../shared/NotificationBanner';
 import { Tooltip } from '../shared/Tooltip';
@@ -51,10 +57,39 @@ function WorkspaceIcon() {
 export function SidepanelApp() {
   const { preference, setTheme } = useCoopTheme();
   const [panelTab, setPanelTab] = useState<SidepanelTab>('roost');
+  const [synthesisSegment, setSynthesisSegment] = useState<SidepanelIntentSegment>('signals');
+  const [focusedDraftId, setFocusedDraftId] = useState<string | undefined>();
+  const [focusedSignalId, setFocusedSignalId] = useState<string | undefined>();
+  const [focusedObservationId, setFocusedObservationId] = useState<string | undefined>();
 
   const orchestration = useSidepanelOrchestration(setPanelTab);
 
-  const { dashboard, activeCoop, agentDashboard, hasTrustedNodeAccess, message } = orchestration;
+  const {
+    dashboard,
+    activeCoop,
+    agentDashboard,
+    hasTrustedNodeAccess,
+    message,
+    agentDelta,
+    clearAgentDelta,
+  } = orchestration;
+
+  const applySidepanelIntent = useCallback(
+    async (intent: SidepanelIntent) => {
+      if (intent.coopId && intent.coopId !== orchestration.dashboard?.activeCoopId) {
+        await orchestration.selectActiveCoop(intent.coopId);
+      }
+      setPanelTab(intent.tab);
+      if (intent.segment) {
+        setSynthesisSegment(intent.segment);
+      }
+      setFocusedDraftId(intent.draftId);
+      setFocusedSignalId(intent.signalId);
+      setFocusedObservationId(intent.observationId);
+      clearAgentDelta();
+    },
+    [clearAgentDelta, orchestration],
+  );
 
   useEffect(() => {
     if (!activeCoop) {
@@ -68,6 +103,24 @@ export function SidepanelApp() {
       setPanelTab('coops');
     }
   }, [activeCoop, hasTrustedNodeAccess, panelTab]);
+
+  useEffect(() => {
+    void sendRuntimeMessage<SidepanelIntent | null>({
+      type: 'consume-sidepanel-intent',
+    }).then((response) => {
+      if (response.ok && response.data) {
+        void applySidepanelIntent(response.data);
+      }
+    });
+
+    const listener = (msg: BackgroundNotification) => {
+      if (msg.type === 'SIDEPANEL_INTENT') {
+        void applySidepanelIntent(msg.intent);
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+    return () => chrome.runtime.onMessage.removeListener(listener);
+  }, [applySidepanelIntent]);
 
   return (
     <div className="coop-shell sidepanel-shell">
@@ -122,6 +175,15 @@ export function SidepanelApp() {
       <main className="sidepanel-content">
         {message ? <div className="panel-card helper-text">{message}</div> : null}
 
+        {agentDelta?.focusIntent ? (
+          <NotificationBanner
+            id={`agent-delta-${agentDelta.emittedAt}`}
+            message={agentDelta.message}
+            actionLabel="Open"
+            onAction={() => void applySidepanelIntent(agentDelta.focusIntent as SidepanelIntent)}
+          />
+        ) : null}
+
         {(dashboard?.summary.pendingDrafts ?? 0) > 0 && (
           <NotificationBanner
             id={`roundup-${dashboard?.summary.lastCaptureAt ?? 'none'}`}
@@ -131,7 +193,16 @@ export function SidepanelApp() {
           />
         )}
 
-        <SidepanelTabRouter panelTab={panelTab} orchestration={orchestration} />
+        <SidepanelTabRouter
+          panelTab={panelTab}
+          orchestration={orchestration}
+          synthesisSegment={synthesisSegment}
+          onSelectSynthesisSegment={setSynthesisSegment}
+          focusedDraftId={focusedDraftId}
+          focusedSignalId={focusedSignalId}
+          focusedObservationId={focusedObservationId}
+          onApplySidepanelIntent={applySidepanelIntent}
+        />
       </main>
 
       <SidepanelFooterNav
@@ -146,7 +217,10 @@ export function SidepanelApp() {
                 (b.actionClass === 'green-goods-add-gardener' ||
                   b.actionClass === 'green-goods-remove-gardener'),
             ).length ?? 0,
-          chickens: dashboard?.summary.pendingDrafts ?? 0,
+          chickens:
+            (dashboard?.summary.pendingDrafts ?? 0) +
+            (dashboard?.summary.routedTabs ?? 0) +
+            (dashboard?.summary.staleObservationCount ?? 0),
           coops: (dashboard?.coops ?? []).length,
           nest:
             (dashboard?.operator.policyActionQueue?.filter(

@@ -11,6 +11,19 @@ const mockDb = {
     get: vi.fn(),
     put: vi.fn(),
   },
+  tabRoutings: {
+    put: vi.fn(),
+    orderBy: vi.fn(() => ({
+      reverse: () => ({
+        toArray: vi.fn().mockResolvedValue([]),
+      }),
+    })),
+    where: vi.fn(() => ({
+      equals: () => ({
+        first: vi.fn().mockResolvedValue(undefined),
+      }),
+    })),
+  },
   coopDocs: { toArray: vi.fn().mockResolvedValue([]) },
   settings: { get: vi.fn(), put: vi.fn() },
   captureRuns: { put: vi.fn() },

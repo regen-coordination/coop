@@ -47,10 +47,15 @@ export interface PopupDraftListItem {
   summary: string;
   previewImageUrl?: string;
   category: ArtifactCategory;
+  tags?: string[];
   coopLabel: string;
   coopIds: string[];
   workflowStage: ReviewDraftWorkflowStage;
+  whyItMatters?: string;
+  suggestedNextStep?: string;
+  createdAt?: string;
   sourceUrl?: string;
+  sourceDomain?: string;
 }
 
 export interface PopupFeedArtifactItem extends Artifact {

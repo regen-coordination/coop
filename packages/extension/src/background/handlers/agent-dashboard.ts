@@ -131,8 +131,14 @@ async function notifyProactiveDelta(input: {
       : delta.reviewDigests > 0
         ? `${delta.reviewDigests} review digest draft(s) ready.`
         : delta.insightDrafts > 0
-          ? `${delta.insightDrafts} local insight draft(s) ready for review.`
-          : `${delta.routedTabs} tab signal(s) routed locally.`;
+        ? `${delta.insightDrafts} local insight draft(s) ready for review.`
+        : `${delta.routedTabs} tab signal(s) routed locally.`;
+  const focusIntent =
+    delta.pendingActions > 0
+      ? ({ tab: 'nest', segment: 'agent' } as const)
+      : delta.reviewDigests > 0 || delta.insightDrafts > 0
+        ? ({ tab: 'chickens', segment: 'drafts' } as const)
+        : ({ tab: 'chickens', segment: 'signals' } as const);
 
   void notifyAgentEvent({
     type: 'AGENT_STATE_DELTA',
@@ -141,6 +147,7 @@ async function notifyProactiveDelta(input: {
     reviewDigests: delta.reviewDigests,
     pendingActions: delta.pendingActions,
     message: deltaMessage,
+    focusIntent,
     emittedAt: nowIso(),
   });
 
@@ -156,8 +163,9 @@ async function notifyProactiveDelta(input: {
           : delta.reviewDigests > 0
             ? `Your onboarding run prepared ${delta.reviewDigests} review digest draft(s).`
             : delta.insightDrafts > 0
-              ? `Your onboarding run prepared ${delta.insightDrafts} local insight draft(s).`
-              : `Your onboarding run routed ${delta.routedTabs} tab signal(s).`,
+            ? `Your onboarding run prepared ${delta.insightDrafts} local insight draft(s).`
+            : `Your onboarding run routed ${delta.routedTabs} tab signal(s).`,
+      intent: focusIntent,
     });
     return;
   }
@@ -169,6 +177,7 @@ async function notifyProactiveDelta(input: {
       state: `${delta.pendingActions}`,
       title: 'Action awaiting review',
       message: `${delta.pendingActions} new action bundle(s) need review.`,
+      intent: focusIntent,
     });
     return;
   }
@@ -179,7 +188,8 @@ async function notifyProactiveDelta(input: {
       entityId: `digest:${nowIso()}`,
       state: `${delta.reviewDigests}`,
       title: 'Review digest ready',
-      message: `${delta.reviewDigests} new review digest draft(s) are ready in the Roost.`,
+      message: `${delta.reviewDigests} new review digest draft(s) are ready in Chickens.`,
+      intent: focusIntent,
     });
     return;
   }
@@ -191,6 +201,7 @@ async function notifyProactiveDelta(input: {
       state: `${delta.insightDrafts}`,
       title: 'Local insight ready',
       message: `${delta.insightDrafts} new local insight draft(s) are ready for review.`,
+      intent: focusIntent,
     });
     return;
   }
@@ -201,6 +212,7 @@ async function notifyProactiveDelta(input: {
     state: `${delta.routedTabs}`,
     title: 'Roundup summary',
     message: `${delta.routedTabs} new routed tab signal(s) are ready locally.`,
+    intent: focusIntent,
   });
 }
 

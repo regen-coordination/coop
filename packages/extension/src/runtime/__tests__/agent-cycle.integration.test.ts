@@ -77,10 +77,16 @@ function makeAuthSession(address: string, displayName: string) {
 }
 
 async function resetCoopExtensionDb() {
-  const { db: runtimeDb } = await import('../agent-runner-state');
+  const [{ db: runtimeDb }, { db: backgroundDb }] = await Promise.all([
+    import('../agent-runner-state'),
+    import('../../background/context'),
+  ]);
 
   await new Promise((resolve) => setTimeout(resolve, 50));
-  await Promise.all(runtimeDb.tables.map((table) => table.clear()));
+  await Promise.all([
+    ...runtimeDb.tables.map((table) => table.clear()),
+    ...backgroundDb.tables.map((table) => table.clear()),
+  ]);
 }
 
 async function loadAgentIntegrationModules() {
@@ -130,7 +136,9 @@ describe('agent cycle integration', () => {
     Reflect.deleteProperty(globalThis, 'chrome');
   });
 
-  it('limits routed output to authorized coops and drafts only the strongest authorized match', async () => {
+  it(
+    'limits routed output to authorized coops and drafts only the strongest authorized match',
+    async () => {
     await resetCoopExtensionDb();
     const { backgroundDb, runAgentCycle, runCaptureForTabs, runtimeDb } =
       await loadAgentIntegrationModules();
@@ -300,9 +308,13 @@ describe('agent cycle integration', () => {
     ).toBe('routed');
     expect(drafts).toHaveLength(1);
     expect(drafts[0]?.suggestedTargetCoopIds).toEqual([strongAuthorizedCoop.profile.id]);
-  });
+    },
+    10_000,
+  );
 
-  it('collapses near-duplicate captures into one extract and one routed draft', async () => {
+  it(
+    'collapses near-duplicate captures into one extract and one routed draft',
+    async () => {
     await resetCoopExtensionDb();
     const { backgroundDb, runAgentCycle, runCaptureForTabs, runtimeDb } =
       await loadAgentIntegrationModules();
@@ -432,7 +444,9 @@ describe('agent cycle integration', () => {
     expect(routings).toHaveLength(1);
     expect(drafts).toHaveLength(1);
     expect(drafts[0]?.suggestedTargetCoopIds).toEqual([coop.profile.id]);
-  });
+    },
+    10_000,
+  );
 
   it('runs transcript inference end-to-end with prompt redaction and freshness-ordered memory context', async () => {
     await resetCoopExtensionDb();

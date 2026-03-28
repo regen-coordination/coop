@@ -196,6 +196,10 @@ describe('SidepanelApp', () => {
         },
         runtime: {
           getURL: vi.fn((path: string) => `chrome-extension://${path}`),
+          onMessage: {
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+          },
         },
         action: {
           openPopup: vi.fn(),

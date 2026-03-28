@@ -40,7 +40,7 @@ import {
   resolveReceiverAppUrl,
   resolveTrustedNodeArchiveBootstrapConfig,
 } from '../runtime/config';
-import type { ReceiverSyncRuntimeStatus } from '../runtime/messages';
+import type { ReceiverSyncRuntimeStatus, SidepanelIntent } from '../runtime/messages';
 
 // ---- Database ----
 
@@ -109,6 +109,7 @@ export type RuntimeHealth = {
 export type SidepanelStateRegistry = Record<string, boolean>;
 
 export type NotificationRegistry = Record<string, string>;
+export type NotificationIntentRegistry = Record<string, SidepanelIntent>;
 export type AgentOnboardingStatus = 'pending-followup' | 'steady';
 export type AgentOnboardingState = Record<
   string,
@@ -126,9 +127,11 @@ export const stateKeys = {
   activeCoopId: 'active-coop-id',
   agentOnboarding: 'agent-onboarding',
   captureMode: 'capture-mode',
+  notificationIntentRegistry: 'notification-intent-registry',
   notificationRegistry: 'notification-registry',
   receiverSyncRuntime: 'receiver-sync-runtime',
   runtimeHealth: 'runtime-health',
+  sidepanelIntent: 'sidepanel-intent',
   sidepanelState: 'sidepanel-state',
   sessionWrappingSecret: 'session-wrapping-secret',
 };
@@ -280,6 +283,10 @@ export async function getNotificationRegistry() {
   return getLocalSetting<NotificationRegistry>(stateKeys.notificationRegistry, {});
 }
 
+export async function getNotificationIntentRegistry() {
+  return getLocalSetting<NotificationIntentRegistry>(stateKeys.notificationIntentRegistry, {});
+}
+
 export function agentOnboardingKey(coopId: string, memberId: string) {
   return `${coopId}:${memberId}`;
 }
@@ -292,12 +299,29 @@ export async function setAgentOnboardingState(value: AgentOnboardingState) {
   await setLocalSetting(stateKeys.agentOnboarding, value);
 }
 
+export async function getPendingSidepanelIntent() {
+  return getLocalSetting<SidepanelIntent | null>(stateKeys.sidepanelIntent, null);
+}
+
+export async function setPendingSidepanelIntent(value: SidepanelIntent | null) {
+  await setLocalSetting(stateKeys.sidepanelIntent, value);
+}
+
+export async function consumePendingSidepanelIntent() {
+  const current = await getPendingSidepanelIntent();
+  if (current) {
+    await setPendingSidepanelIntent(null);
+  }
+  return current;
+}
+
 export async function notifyExtensionEvent(input: {
   eventKind: string;
   entityId: string;
   state: string;
   title: string;
   message: string;
+  intent?: SidepanelIntent;
 }) {
   if (!uiPreferences.notificationsEnabled) {
     return;
@@ -314,15 +338,31 @@ export async function notifyExtensionEvent(input: {
   await setLocalSetting(stateKeys.notificationRegistry, registry);
 
   try {
-    await chrome.notifications.create(`coop-${createId('notification')}`, {
+    const notificationId = `coop-${createId('notification')}`;
+    await chrome.notifications.create(notificationId, {
       type: 'basic',
       iconUrl: 'icons/icon-128.png',
       title: input.title,
       message: input.message,
     });
+    if (input.intent) {
+      const registry = await getNotificationIntentRegistry();
+      registry[notificationId] = input.intent;
+      await setLocalSetting(stateKeys.notificationIntentRegistry, registry);
+    }
   } catch {
     // Notifications are optional UX only.
   }
+}
+
+export async function consumeNotificationIntent(notificationId: string) {
+  const registry = await getNotificationIntentRegistry();
+  const intent = registry[notificationId];
+  if (intent) {
+    delete registry[notificationId];
+    await setLocalSetting(stateKeys.notificationIntentRegistry, registry);
+  }
+  return intent;
 }
 
 // ---- Offscreen Document ----

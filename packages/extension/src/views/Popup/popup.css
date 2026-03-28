@@ -1087,11 +1087,24 @@ button:focus-visible,
   gap: 4px;
 }
 
+.popup-row-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .popup-activity-row__copy span,
 .popup-draft-row__copy span {
   color: var(--coop-text-soft);
   font-size: 0.8rem;
   line-height: 1.4;
+}
+
+.popup-activity-row__copy .popup-row-kicker,
+.popup-draft-row__copy .popup-row-kicker {
+  font-size: 0.74rem;
+  color: var(--coop-text-soft);
 }
 
 .popup-mini-pill--muted {
@@ -1472,6 +1485,11 @@ button:focus-visible,
   font-size: 0.82rem;
   font-weight: 700;
   text-decoration: none;
+}
+
+.popup-dialog__meta span {
+  color: var(--coop-text-soft);
+  font-size: 0.78rem;
 }
 
 .popup-dialog__sources {

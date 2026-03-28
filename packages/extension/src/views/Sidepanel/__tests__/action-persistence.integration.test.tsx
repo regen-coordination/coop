@@ -222,6 +222,7 @@ function makeDashboard(): DashboardResponse {
     ],
     candidates: [],
     tabRoutings: [],
+    proactiveSignals: [],
     summary: {
       iconState: 'ready',
       iconLabel: 'Synced',
@@ -229,6 +230,7 @@ function makeDashboard(): DashboardResponse {
       routedTabs: 0,
       insightDrafts: 0,
       pendingActions: 0,
+      staleObservationCount: 0,
       pendingAttentionCount: 0,
       coopCount: 2,
       syncState: 'Peer-ready local-first sync',

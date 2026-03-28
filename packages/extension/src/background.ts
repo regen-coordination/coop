@@ -30,6 +30,7 @@ import type {
   RuntimeActionResponse,
   RuntimeRequest,
 } from './runtime/messages';
+import { notifySidepanelIntent } from './runtime/messages';
 import { filterVisibleReceiverPairings } from './runtime/receiver';
 import { requestWebAuthnCredentialViaExtensionBridge } from './runtime/webauthn-bridge';
 
@@ -39,6 +40,8 @@ import {
   configuredChain,
   configuredOnchainMode,
   contextMenuIds,
+  consumeNotificationIntent,
+  consumePendingSidepanelIntent,
   db,
   ensureDbReady,
   ensureDefaults,
@@ -50,6 +53,7 @@ import {
   reportReceiverSyncRuntime,
   saveResolvedUiPreferences,
   saveState,
+  setPendingSidepanelIntent,
   setLocalSetting,
   setRuntimeHealth,
   stateKeys,
@@ -286,6 +290,17 @@ export function startBackground() {
     void handleAlarmEvent(alarm);
   });
 
+  chrome.notifications.onClicked.addListener((notificationId) => {
+    void (async () => {
+      await ensureDefaults();
+      const intent = await consumeNotificationIntent(notificationId);
+      if (!intent) {
+        return;
+      }
+      await openCoopSidepanel(intent);
+    })();
+  });
+
   // Proactive online/offline detection — updates RuntimeHealth immediately
   // instead of waiting for the next passive getRuntimeHealth() poll.
   self.addEventListener('online', () => {
@@ -388,6 +403,17 @@ export function startBackground() {
           sendResponse({
             ok: true,
             data: await togglePopupSidepanel(message.payload.windowId),
+          } satisfies RuntimeActionResponse);
+          return;
+        case 'set-sidepanel-intent':
+          await setPendingSidepanelIntent(message.payload);
+          await notifySidepanelIntent(message.payload);
+          sendResponse({ ok: true } satisfies RuntimeActionResponse);
+          return;
+        case 'consume-sidepanel-intent':
+          sendResponse({
+            ok: true,
+            data: await consumePendingSidepanelIntent(),
           } satisfies RuntimeActionResponse);
           return;
         case 'get-receiver-sync-config':

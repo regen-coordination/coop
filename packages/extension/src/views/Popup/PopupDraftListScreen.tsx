@@ -1,6 +1,7 @@
 import type { ReviewDraft } from '@coop/shared';
 import { PopupOnboardingHero } from './PopupOnboardingHero';
 import { PopupSubheader, type PopupSubheaderTag } from './PopupSubheader';
+import { formatRelativeTime } from './helpers';
 import type { PopupDraftListItem } from './popup-types';
 
 function formatCategoryLabel(value: string) {
@@ -35,13 +36,27 @@ export function PopupDraftListScreen(props: {
                 style={{ animationDelay: `${index * 40}ms` }}
               >
                 <div className="popup-draft-row__copy">
-                  <strong>{draft.title}</strong>
+                  <div className="popup-row-heading">
+                    <strong>{draft.title}</strong>
+                    <span className="popup-row-kicker">{formatRelativeTime(draft.createdAt)}</span>
+                  </div>
                   <span>{draft.summary}</span>
+                  {draft.suggestedNextStep ? (
+                    <span className="popup-row-kicker">Next: {draft.suggestedNextStep}</span>
+                  ) : null}
                   <span className="popup-review-queue__pills">
+                    <span className="popup-mini-pill">
+                      {draft.workflowStage === 'ready' ? 'Ready' : 'Hatching'}
+                    </span>
                     <span className="popup-mini-pill">{formatCategoryLabel(draft.category)}</span>
                     <span className="popup-mini-pill popup-mini-pill--muted">
                       {draft.coopLabel}
                     </span>
+                    {draft.tags?.[0] ? (
+                      <span className="popup-mini-pill popup-mini-pill--muted">
+                        #{draft.tags[0]}
+                      </span>
+                    ) : null}
                   </span>
                 </div>
                 <div className="popup-row-actions">

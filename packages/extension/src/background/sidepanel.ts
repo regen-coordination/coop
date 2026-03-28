@@ -1,5 +1,6 @@
-import type { PopupSidepanelState } from '../runtime/messages';
-import { isSidepanelOpen, setSidepanelWindowState } from './context';
+import type { PopupSidepanelState, SidepanelIntent } from '../runtime/messages';
+import { notifySidepanelIntent } from '../runtime/messages';
+import { isSidepanelOpen, setPendingSidepanelIntent, setSidepanelWindowState } from './context';
 
 type SidepanelLifecycleInfo = {
   windowId: number;
@@ -68,4 +69,11 @@ export async function togglePopupSidepanel(windowId: number): Promise<PopupSidep
     open: true,
     canClose: typeof sidePanelApi.close === 'function',
   };
+}
+
+export async function focusCoopSidepanel(windowId: number, intent: SidepanelIntent) {
+  await setPendingSidepanelIntent(intent);
+  await notifySidepanelIntent(intent);
+  await getSidepanelApi().open({ windowId });
+  await setSidepanelWindowState(windowId, true);
 }

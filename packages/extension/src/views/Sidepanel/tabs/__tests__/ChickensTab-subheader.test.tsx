@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReviewDraft } from '@coop/shared';
 import type { InferenceBridgeState } from '../../../../runtime/inference-bridge';
-import type { DashboardResponse } from '../../../../runtime/messages';
+import type { AgentDashboardResponse, DashboardResponse } from '../../../../runtime/messages';
 import type { useDraftEditor } from '../../hooks/useDraftEditor';
 import type { useTabCapture } from '../../hooks/useTabCapture';
 import { ChickensTab, type ChickensTabProps } from '../ChickensTab';
@@ -20,18 +20,55 @@ function buildDashboard(overrides: Partial<DashboardResponse> = {}): DashboardRe
   return {
     candidates: [],
     coops: [],
+    drafts: [],
+    tabRoutings: [],
+    proactiveSignals: [],
     runtimeConfig: {
-      captureMode: 'manual',
+      chainKey: 'sepolia',
       onchainMode: 'mock',
       archiveMode: 'mock',
       sessionMode: 'off',
       privacyMode: 'off',
-      providerMode: 'standard',
-      fvmChain: 'filecoin-calibration',
-      localEnhancement: 'off',
+      providerMode: 'rpc',
+      receiverAppUrl: 'http://localhost:3000',
+      signalingUrls: [],
+    },
+    summary: {
+      iconState: 'ready',
+      iconLabel: 'Coop',
+      pendingDrafts: 0,
+      routedTabs: 0,
+      insightDrafts: 0,
+      pendingActions: 0,
+      staleObservationCount: 0,
+      pendingAttentionCount: 0,
+      coopCount: 0,
+      syncState: 'idle',
+      syncLabel: 'Idle',
+      syncDetail: 'Idle',
+      syncTone: 'ok',
+      captureMode: 'manual',
+      agentCadenceMinutes: 64,
+      localEnhancement: 'none',
+      localInferenceOptIn: true,
+      pendingOutboxCount: 0,
     },
     ...overrides,
   } as DashboardResponse;
+}
+
+function buildAgentDashboard(
+  overrides: Partial<AgentDashboardResponse> = {},
+): AgentDashboardResponse {
+  return {
+    observations: [],
+    plans: [],
+    skillRuns: [],
+    manifests: [],
+    autoRunSkillIds: [],
+    memories: [],
+    ...overrides,
+  };
 }
 
 function buildTabCapture(): ReturnType<typeof useTabCapture> {
@@ -80,11 +117,14 @@ function buildDraftEditor(): ReturnType<typeof useDraftEditor> {
 function buildProps(overrides: Partial<ChickensTabProps> = {}): ChickensTabProps {
   return {
     dashboard: buildDashboard(),
+    agentDashboard: buildAgentDashboard(),
     visibleDrafts: [],
     draftEditor: buildDraftEditor(),
     inferenceState: null,
     runtimeConfig: buildDashboard().runtimeConfig,
     tabCapture: buildTabCapture(),
+    synthesisSegment: 'signals',
+    onSelectSynthesisSegment: vi.fn(),
     ...overrides,
   };
 }
@@ -147,5 +187,55 @@ describe('ChickensTab subheader regression (popup-icon-button)', () => {
     for (const btn of actionButtons) {
       expect(btn.getAttribute('aria-label')).toBeTruthy();
     }
+  });
+
+  it('renders the synthesis queue with signals counts and support text', () => {
+    render(
+      <ChickensTab
+        {...buildProps({
+          dashboard: buildDashboard({
+            proactiveSignals: [
+              {
+                id: 'signal-1',
+                sourceCandidateId: 'candidate-1',
+                extractId: 'extract-1',
+                title: 'River signal',
+                url: 'https://example.com/river',
+                domain: 'example.com',
+                category: 'insight',
+                tags: ['water'],
+                archiveWorthinessHint: false,
+                draftId: 'draft-1',
+                topRelevanceScore: 0.82,
+                targetCoops: [
+                  {
+                    coopId: 'coop-1',
+                    coopName: 'Starter Coop',
+                    relevanceScore: 0.82,
+                    rationale: 'Matches current watershed priorities.',
+                    suggestedNextStep: 'Review and merge context.',
+                    matchedRitualLenses: ['knowledge-garden-resources'],
+                  },
+                ],
+                support: [
+                  {
+                    id: 'memory-1',
+                    kind: 'memory',
+                    title: 'Memory from Starter Coop',
+                    detail: 'Earlier work connected this topic to wetlands restoration.',
+                  },
+                ],
+                updatedAt: new Date().toISOString(),
+              },
+            ],
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Synthesis Queue')).toBeInTheDocument();
+    expect(screen.getByText('River signal')).toBeInTheDocument();
+    expect(screen.getByText('Memory from Starter Coop')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /signals/i })).toBeInTheDocument();
   });
 });

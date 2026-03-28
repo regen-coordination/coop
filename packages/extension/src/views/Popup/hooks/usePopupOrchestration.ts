@@ -1,6 +1,10 @@
 import { type ReviewDraft, type UiPreferences, defaultSoundPreferences } from '@coop/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type PopupSidepanelState, sendRuntimeMessage } from '../../../runtime/messages';
+import {
+  type PopupSidepanelState,
+  type SidepanelIntent,
+  sendRuntimeMessage,
+} from '../../../runtime/messages';
 import { useCaptureActions } from '../../shared/useCaptureActions';
 import { useCoopActions } from '../../shared/useCoopActions';
 import { useQuickDraftActions } from '../../shared/useQuickDraftActions';
@@ -523,11 +527,59 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     void refreshWorkspaceState();
   }, [hasCoops]);
 
-  async function openWorkspace(input?: { windowIdOverride?: number; targetCoopId?: string }) {
-    const { windowIdOverride, targetCoopId } = input ?? {};
+  function buildWorkspaceIntent(targetCoopId?: string): SidepanelIntent {
+    if (selectedArtifact) {
+      return {
+        tab: 'coops',
+        coopId: targetCoopId,
+      };
+    }
+
+    if (currentScreen === 'draft-detail' && draftHandlers.selectedDraft) {
+      return {
+        tab: 'chickens',
+        segment: 'drafts',
+        coopId: targetCoopId,
+        draftId: draftHandlers.selectedDraft.id,
+      };
+    }
+
+    if ((dashboard?.summary?.staleObservationCount ?? snapshot?.staleObservationCount ?? 0) > 0) {
+      return {
+        tab: 'chickens',
+        segment: 'stale',
+        coopId: targetCoopId,
+      };
+    }
+
+    return {
+      tab: 'chickens',
+      segment: 'signals',
+      coopId: targetCoopId,
+    };
+  }
+
+  async function setWorkspaceIntent(intent: SidepanelIntent) {
+    await sendRuntimeMessage({
+      type: 'set-sidepanel-intent',
+      payload: {
+        ...intent,
+        emittedAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  async function openWorkspace(input?: {
+    windowIdOverride?: number;
+    targetCoopId?: string;
+    intent?: SidepanelIntent;
+  }) {
+    const { windowIdOverride, targetCoopId, intent } = input ?? {};
     if (!(await ensureWorkspaceCoopContext(targetCoopId))) {
       return;
     }
+
+    await setWorkspaceIntent(intent ?? buildWorkspaceIntent(targetCoopId));
 
     try {
       const windowId = windowIdOverride ?? (await resolveCurrentWindowId());
@@ -680,6 +732,10 @@ export function usePopupOrchestration(): PopupOrchestrationState {
   );
   const homeStatusItems = useMemo(() => {
     const draftCount = dashboard ? visibleDrafts.length : (snapshot?.draftCount ?? 0);
+    const routedSignalCount =
+      dashboard?.summary?.routedTabs ?? snapshot?.routedSignalCount ?? 0;
+    const staleObservationCount =
+      dashboard?.summary?.staleObservationCount ?? snapshot?.staleObservationCount ?? 0;
     const lastCaptureAt = dashboard?.summary?.lastCaptureAt ?? snapshot?.lastCaptureAt;
 
     return [
@@ -691,27 +747,54 @@ export function usePopupOrchestration(): PopupOrchestrationState {
         detail: syncStatus.detail,
       },
       {
-        id: 'drafts',
-        label: 'Chickens',
-        value: String(draftCount),
-        tone: 'ok' as const,
+        id: 'signals',
+        label: 'Signals',
+        value: String(routedSignalCount),
+        tone: routedSignalCount > 0 ? ('warning' as const) : ('ok' as const),
+        onClick: () =>
+          void openWorkspace({
+            targetCoopId: workspaceTargetCoopId,
+            intent: { tab: 'chickens', segment: 'signals', coopId: workspaceTargetCoopId },
+          }),
       },
       {
-        id: 'roundup',
-        label: 'Roundup',
-        value: formatRelativeTime(lastCaptureAt),
+        id: 'stale',
+        label: 'Stale',
+        value: String(staleObservationCount),
+        tone: staleObservationCount > 0 ? ('warning' as const) : ('ok' as const),
+        onClick: () =>
+          void openWorkspace({
+            targetCoopId: workspaceTargetCoopId,
+            intent: { tab: 'chickens', segment: 'stale', coopId: workspaceTargetCoopId },
+          }),
+      },
+      {
+        id: 'drafts',
+        label: 'Drafts',
+        value: String(draftCount),
         tone: 'ok' as const,
+        detail: lastCaptureAt ? `Last roundup ${formatRelativeTime(lastCaptureAt)}` : undefined,
+        onClick: () =>
+          void openWorkspace({
+            targetCoopId: workspaceTargetCoopId,
+            intent: { tab: 'chickens', segment: 'drafts', coopId: workspaceTargetCoopId },
+          }),
       },
     ];
   }, [
     dashboard,
     dashboard?.summary?.lastCaptureAt,
+    dashboard?.summary?.routedTabs,
+    dashboard?.summary?.staleObservationCount,
     snapshot?.draftCount,
     snapshot?.lastCaptureAt,
+    snapshot?.routedSignalCount,
+    snapshot?.staleObservationCount,
     syncStatus.detail,
     syncStatus.label,
     syncStatus.tone,
     visibleDrafts.length,
+    workspaceTargetCoopId,
   ]);
 
   const draftFilterTags = useMemo(

@@ -256,7 +256,7 @@ export function detectLocalEnhancementAvailability(input?: {
   if (!input?.prefersLocalModels) {
     return localEnhancementAvailabilitySchema.parse({
       status: 'stubbed',
-      reason: 'Local enhancement is opt-in and disabled by default.',
+      reason: 'Local enhancement is available locally and currently turned off.',
       model: 'Qwen2 0.5B (planned)',
     });
   }

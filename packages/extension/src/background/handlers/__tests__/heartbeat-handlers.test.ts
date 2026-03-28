@@ -22,16 +22,20 @@ const mockCreateObservation = vi.fn((input: Record<string, unknown>) => ({
   ...input,
 }));
 
-vi.mock('@coop/shared', () => ({
-  createAgentObservation: mockCreateObservation,
-  findAgentObservationByFingerprint: mockFindByFingerprint,
-  listReviewDraftsByWorkflowStage: mockListReviewDraftsByWorkflowStage,
-  saveAgentObservation: mockSaveObservation,
-  pruneExpiredMemories: mockPruneExpiredMemories,
-  pruneSensitiveLocalData: mockPruneSensitiveLocalData,
-  deduplicateMemories: mockDeduplicateMemories,
-  enforceMemoryLimit: mockEnforceMemoryLimit,
-}));
+vi.mock('@coop/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@coop/shared')>();
+  return {
+    ...actual,
+    createAgentObservation: mockCreateObservation,
+    findAgentObservationByFingerprint: mockFindByFingerprint,
+    listReviewDraftsByWorkflowStage: mockListReviewDraftsByWorkflowStage,
+    saveAgentObservation: mockSaveObservation,
+    pruneExpiredMemories: mockPruneExpiredMemories,
+    pruneSensitiveLocalData: mockPruneSensitiveLocalData,
+    deduplicateMemories: mockDeduplicateMemories,
+    enforceMemoryLimit: mockEnforceMemoryLimit,
+  };
+});
 
 // --- Mock helpers for Dexie chained queries ---
 
@@ -59,6 +63,7 @@ function createTable(defaultData: unknown[] = []) {
 const reviewDraftsTable = createTable();
 const agentObservationsTable = createTable();
 const mockGetCoops = vi.fn().mockResolvedValue([]);
+const mockNotifyExtensionEvent = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../context', () => ({
   db: {
@@ -66,12 +71,17 @@ vi.mock('../../context', () => ({
     agentObservations: agentObservationsTable,
   },
   getCoops: mockGetCoops,
+  notifyExtensionEvent: mockNotifyExtensionEvent,
   uiPreferences: {
     heartbeatEnabled: true,
     notificationsEnabled: true,
     localInferenceOptIn: false,
     preferredExportMethod: 'download' as const,
   },
+}));
+
+vi.mock('../../dashboard', () => ({
+  refreshBadge: vi.fn().mockResolvedValue(undefined),
 }));
 
 const { handleAgentHeartbeat } = await import('../heartbeat');
