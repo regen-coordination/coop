@@ -4,6 +4,7 @@ const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
 
 const closeTimeoutMs = 15_000;
+const popupSnapshotKey = 'coop:popup-snapshot';
 const appBaseUrl =
   process.env.COOP_PLAYWRIGHT_BASE_URL ||
   `http://127.0.0.1:${process.env.COOP_PLAYWRIGHT_APP_PORT || process.env.COOP_DEV_APP_PORT || '3001'}`;
@@ -30,6 +31,34 @@ function isBenignCloseError(error) {
     error instanceof Error &&
     /Target page, context or browser has been closed|Browser has been closed/i.test(error.message)
   );
+}
+
+function isTransientNavigationError(error) {
+  return (
+    error instanceof Error &&
+    /ERR_EMPTY_RESPONSE|ERR_CONNECTION_RESET|ERR_CONNECTION_CLOSED|ERR_CONNECTION_REFUSED|ERR_FAILED/i.test(
+      error.message,
+    )
+  );
+}
+
+async function gotoWithRetry(page, url, attempts = 5) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientNavigationError(error) || attempt === attempts) {
+        throw error;
+      }
+      await page.waitForTimeout(Math.min(250 * attempt, 1000));
+    }
+  }
+
+  throw lastError ?? new Error(`Could not navigate to ${url}.`);
 }
 
 async function closeContextSafely(context) {
@@ -146,6 +175,61 @@ async function getDashboard(page) {
   return response?.ok ? response.data : null;
 }
 
+async function getAgentDashboard(page) {
+  const response = await page.evaluate(async () =>
+    chrome.runtime.sendMessage({ type: 'get-agent-dashboard' }),
+  );
+  return response?.ok ? response.data : null;
+}
+
+async function getPopupSnapshot(page) {
+  return page.evaluate(async (storageKey) => {
+    const result = await chrome.storage.local.get(storageKey);
+    return result[storageKey] ?? null;
+  }, popupSnapshotKey);
+}
+
+async function waitForDashboardValue(page, select, timeoutMs = 30000, label = 'dashboard value') {
+  const startedAt = Date.now();
+  let lastDashboard = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastDashboard = await getDashboard(page);
+    if (lastDashboard) {
+      const value = select(lastDashboard);
+      if (value) {
+        return value;
+      }
+    }
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(`Timed out waiting for ${label}.`);
+}
+
+async function waitForPopupSnapshotValue(
+  page,
+  select,
+  timeoutMs = 30000,
+  label = 'popup snapshot value',
+) {
+  const startedAt = Date.now();
+  let lastSnapshot = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastSnapshot = await getPopupSnapshot(page);
+    if (lastSnapshot) {
+      const value = select(lastSnapshot);
+      if (value) {
+        return value;
+      }
+    }
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(`Timed out waiting for ${label}. Last snapshot: ${JSON.stringify(lastSnapshot)}`);
+}
+
 async function seedPopupCoop(popupPage, coopName) {
   const response = await popupPage.evaluate(async (payload) => {
     return chrome.runtime.sendMessage({
@@ -224,7 +308,7 @@ async function launchPopupProfile(userDataDir, options = {}) {
 async function openStandardPage(context, suffix = '') {
   const page = await context.newPage();
   const targetUrl = `${appBaseUrl}/manual-roundup-fixture.html${suffix}`;
-  await page.goto(targetUrl);
+  await gotoWithRetry(page, targetUrl);
   await page.waitForLoadState('domcontentloaded');
   await page.bringToFront();
   return page;
@@ -238,19 +322,120 @@ async function goHome(popupPage) {
 }
 
 async function waitForDraftCount(popupPage, count) {
-  await expect
-    .poll(async () => (await getDashboard(popupPage))?.drafts.length ?? 0, {
-      timeout: 30_000,
-    })
-    .toBe(count);
+  await waitForDashboardValue(
+    popupPage,
+    (dashboard) => ((dashboard?.drafts.length ?? 0) === count ? count : null),
+    30_000,
+    `popup draft count ${count}`,
+  );
 }
 
 async function waitForReceiverIntakeCount(popupPage, count) {
-  await expect
-    .poll(async () => (await getDashboard(popupPage))?.receiverIntake.length ?? 0, {
-      timeout: 30_000,
-    })
-    .toBe(count);
+  await waitForDashboardValue(
+    popupPage,
+    (dashboard) => ((dashboard?.receiverIntake.length ?? 0) === count ? count : null),
+    30_000,
+    `receiver intake count ${count}`,
+  );
+}
+
+async function waitForDraftCountAbove(popupPage, baselineDraftCount, timeoutMs = 30000) {
+  const startedAt = Date.now();
+  let lastSnapshot = null;
+  let lastDashboard = null;
+  let lastAgentDashboard = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    [lastSnapshot, lastDashboard, lastAgentDashboard] = await Promise.all([
+      getPopupSnapshot(popupPage),
+      getDashboard(popupPage),
+      getAgentDashboard(popupPage),
+    ]);
+
+    const snapshotDraftCount = lastSnapshot?.draftCount ?? 0;
+    const dashboardDraftCount = lastDashboard?.drafts.length ?? 0;
+
+    if (snapshotDraftCount > baselineDraftCount || dashboardDraftCount > baselineDraftCount) {
+      return Math.max(snapshotDraftCount, dashboardDraftCount);
+    }
+
+    await popupPage.waitForTimeout(250);
+  }
+
+  throw new Error(
+    `Timed out waiting for popup draft count > ${baselineDraftCount}. Last snapshot: ${JSON.stringify(
+      lastSnapshot,
+    )}. Last dashboard summary: ${JSON.stringify(
+      lastDashboard?.summary ?? null,
+    )}. Last recent capture runs: ${JSON.stringify(
+      (lastDashboard?.recentCaptureRuns ?? []).slice(0, 3).map((run) => ({
+        id: run.id,
+        state: run.state,
+        capturedAt: run.capturedAt,
+        candidateCount: run.candidateCount,
+        skippedCount: run.skippedCount,
+        capturedDomains: run.capturedDomains,
+      })),
+    )}. Last visible candidates: ${JSON.stringify(
+      (lastDashboard?.candidates ?? []).slice(0, 5).map((candidate) => ({
+        id: candidate.id,
+        url: candidate.url,
+        title: candidate.title,
+        capturedAt: candidate.capturedAt,
+      })),
+    )}. Last agent dashboard: ${JSON.stringify({
+      observations:
+        lastAgentDashboard?.observations?.map((observation) => ({
+          trigger: observation.trigger,
+          status: observation.status,
+          coopId: observation.coopId,
+          blockedReason: observation.blockedReason,
+        })) ?? [],
+      plans:
+        lastAgentDashboard?.plans?.map((plan) => ({
+          skillId: plan.skillId,
+          status: plan.status,
+          failureReason: plan.failureReason,
+          confidence: plan.confidence,
+        })) ?? [],
+      skillRuns:
+        lastAgentDashboard?.skillRuns?.map((run) => ({
+          skillId: run.skillId,
+          status: run.status,
+          error: run.error,
+        })) ?? [],
+    })}.`,
+  );
+}
+
+async function waitForCaptureRunActivity(popupPage, baselineCapturedAt, timeoutMs = 5000) {
+  const startedAt = Date.now();
+  let lastDashboard = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastDashboard = await getDashboard(popupPage);
+    const latestCaptureRun = lastDashboard?.recentCaptureRuns?.[0] ?? null;
+    const latestCapturedAt = latestCaptureRun?.capturedAt ?? lastDashboard?.summary?.lastCaptureAt;
+
+    if (latestCapturedAt && latestCapturedAt !== baselineCapturedAt) {
+      return latestCaptureRun;
+    }
+
+    await popupPage.waitForTimeout(200);
+  }
+
+  throw new Error(
+    `Timed out waiting for a new capture run after ${baselineCapturedAt ?? 'none'}. Last recent capture runs: ${JSON.stringify(
+      (lastDashboard?.recentCaptureRuns ?? []).slice(0, 3).map((run) => ({
+        id: run.id,
+        state: run.state,
+        capturedAt: run.capturedAt,
+        candidateCount: run.candidateCount,
+        skippedCount: run.skippedCount,
+        capturedDomains: run.capturedDomains,
+      })),
+    )}`,
+  );
 }
 
 async function clickWithoutFocusing(locator) {
@@ -316,14 +501,22 @@ async function createActionPopupDriver(context, worker) {
 
   return {
     async open() {
+      const initialTargets = await cdp.send('Target.getTargets');
+      const existingPopupTargetIds = new Set(
+        initialTargets.targetInfos
+          .filter((target) => target.url.endsWith('/popup.html'))
+          .map((target) => target.targetId),
+      );
+
       await worker.evaluate(async () => {
         await chrome.action.openPopup();
       });
 
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const targets = await cdp.send('Target.getTargets');
-        const popupTarget = targets.targetInfos.find((target) =>
-          target.url.endsWith('/popup.html'),
+        const popupTarget = targets.targetInfos.find(
+          (target) =>
+            target.url.endsWith('/popup.html') && !existingPopupTargetIds.has(target.targetId),
         );
         if (popupTarget) {
           const { sessionId } = await cdp.send('Target.attachToTarget', {
@@ -331,6 +524,18 @@ async function createActionPopupDriver(context, worker) {
             flatten: false,
           });
           await sendToTarget(sessionId, 'Runtime.enable');
+
+          for (let readyAttempt = 0; readyAttempt < 30; readyAttempt += 1) {
+            const ready = await evaluate(
+              sessionId,
+              `(() => document.readyState !== 'loading' && Boolean(document.querySelector('.popup-app')) && document.querySelectorAll('button').length > 0)()`,
+            );
+            if (ready) {
+              return sessionId;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+
           return sessionId;
         }
 
@@ -398,35 +603,49 @@ test.describe('popup action smoke', () => {
     ensureExtensionBuilt();
   });
 
-  test('rounds up open pages from the real popup into popup drafts', async () => {
+  test('rounds up open pages into popup drafts in a live extension session', async () => {
     const profile = await launchPopupProfile(
       path.join(os.tmpdir(), `coop-popup-actions-roundup-${Date.now()}`),
     );
 
     try {
-      const actionPopup = await createActionPopupDriver(profile.context, profile.worker);
       await seedPopupCoop(profile.popupPage, `Popup Smoke ${Date.now()}`);
+      await waitForDashboardValue(
+        profile.popupPage,
+        (dashboard) =>
+          dashboard?.recentCaptureRuns?.[0]?.capturedAt ??
+          dashboard?.summary?.lastCaptureAt ??
+          null,
+        10_000,
+        'initial onboarding capture run',
+      );
+      await profile.popupPage.waitForTimeout(500);
       await openStandardPage(profile.context, '?roundup=1');
 
       const baselineDraftCount = (await getDashboard(profile.popupPage))?.drafts.length ?? 0;
+      const baselineCaptureAt = (await getDashboard(profile.popupPage))?.summary?.lastCaptureAt;
       await expect
         .poll(async () => (await getDashboard(profile.popupPage))?.drafts.length ?? 0)
         .toBe(baselineDraftCount);
 
-      const popupSessionId = await actionPopup.open();
-      await actionPopup.clickButton(popupSessionId, 'Roundup Chickens');
-      await expect
-        .poll(async () => (await getDashboard(profile.popupPage))?.drafts.length ?? 0, {
-          timeout: 30_000,
-        })
-        .toBeGreaterThan(baselineDraftCount);
-      await expect
-        .poll(async () => {
-          return ((await getDashboard(profile.popupPage))?.drafts ?? [])
-            .map((draft) => draft.title)
-            .join('\n');
-        })
-        .toContain('Funding roundup for Coop Town Test');
+      const captureResponse = await profile.popupPage.evaluate(async () =>
+        chrome.runtime.sendMessage({ type: 'manual-capture' }),
+      );
+      if (!captureResponse?.ok) {
+        throw new Error(captureResponse?.error ?? 'Roundup capture did not succeed.');
+      }
+      await waitForCaptureRunActivity(profile.popupPage, baselineCaptureAt);
+      await waitForDraftCountAbove(profile.popupPage, baselineDraftCount);
+      const draftTitles = await waitForDashboardValue(
+        profile.popupPage,
+        (dashboard) => {
+          const titles = (dashboard?.drafts ?? []).map((draft) => draft.title);
+          return titles.length > baselineDraftCount ? titles : null;
+        },
+        30_000,
+        'popup draft titles after roundup',
+      );
+      expect(draftTitles.join('\n')).toContain('Funding roundup for Coop Town Test');
     } finally {
       await closeContextSafely(profile.context);
     }

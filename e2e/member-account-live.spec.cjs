@@ -353,6 +353,7 @@ function buildLiveEnv() {
   return {
     ...process.env,
     ...envFile,
+    COOP_E2E_USE_VITE_MODES: '1',
     VITE_PIMLICO_API_KEY: pimlicoApiKey,
     VITE_COOP_CHAIN: liveChainKey,
     VITE_COOP_ONCHAIN_MODE: 'live',

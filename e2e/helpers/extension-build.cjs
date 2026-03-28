@@ -48,12 +48,14 @@ function resolveSignalingUrl(env) {
 }
 
 function buildEnvForVisuals(env) {
+  const useRequestedViteModes = env.COOP_E2E_USE_VITE_MODES === '1';
   return {
     ...env,
-    VITE_COOP_ONCHAIN_MODE: env.VITE_COOP_ONCHAIN_MODE || 'mock',
-    VITE_COOP_ARCHIVE_MODE: env.VITE_COOP_ARCHIVE_MODE || 'mock',
-    VITE_COOP_RECEIVER_APP_URL: env.VITE_COOP_RECEIVER_APP_URL || resolveAppBaseUrl(env),
-    VITE_COOP_SIGNALING_URLS: env.VITE_COOP_SIGNALING_URLS || resolveSignalingUrl(env),
+    VITE_COOP_ONCHAIN_MODE: useRequestedViteModes ? env.VITE_COOP_ONCHAIN_MODE || 'mock' : 'mock',
+    VITE_COOP_ARCHIVE_MODE: useRequestedViteModes ? env.VITE_COOP_ARCHIVE_MODE || 'mock' : 'mock',
+    VITE_COOP_SESSION_MODE: useRequestedViteModes ? env.VITE_COOP_SESSION_MODE || 'off' : 'off',
+    VITE_COOP_RECEIVER_APP_URL: resolveAppBaseUrl(env),
+    VITE_COOP_SIGNALING_URLS: resolveSignalingUrl(env),
   };
 }
 

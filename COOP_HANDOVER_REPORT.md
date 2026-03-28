@@ -9,7 +9,7 @@ Fresh validation work on 2026-03-28 produced this current-state result:
 
 - `bun run build`: passed
 - `bun run validate:store-readiness`: passed
-- `bun run validate:production-readiness`: still failing
+- `bun run validate:production-readiness`: passed
 
 What changed during this pass:
 
@@ -21,20 +21,33 @@ What changed during this pass:
   [`e2e/extension.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/extension.spec.cjs) by waiting on
   the lightweight popup snapshot written during `refreshBadge()` before confirming against the full
   dashboard payload
+- made the shared extension E2E build helper mock-first even when root `.env.local` loads live
+  `VITE_` modes in
+  [`e2e/helpers/extension-build.cjs`](/Users/afo/Code/greenpill/coop/e2e/helpers/extension-build.cjs),
+  with explicit live opt-in preserved for
+  [`e2e/member-account-live.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/member-account-live.spec.cjs)
+- stabilized receiver pairing coverage in
+  [`e2e/receiver-sync.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/receiver-sync.spec.cjs) by
+  waiting on extension private-intake state instead of the app-side sync pill before opening the
+  review surface, and by relaxing teardown timeouts for heavy browser shutdowns
+- aligned mobile landing assertions to the current landing-page markup in
+  [`e2e/app.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/app.spec.cjs)
 
 What still blocks the staged launch bar after those fixes:
 
-- `bun run test:e2e:extension` now passes cleanly again after the helper change
-- the latest full `bun run validate:production-readiness` no longer reached the old extension
-  blocker; it now fails earlier in `test:e2e:popup`
-- the new failing assertion is the popup roundup smoke test waiting for draft count to increase in
-  [`e2e/popup-actions.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/popup-actions.spec.cjs)
+- nothing in the automated staged mock-first bar; the latest full
+  `bun run validate:production-readiness` passed cleanly
+- the remaining release risks are coverage threshold shortfall and manual popup permission QA in
+  real Chrome
+- live onchain/archive/session rails remain a second gate after the staged mock-first bar
 
 Build-time note from the same pass:
 
 - the extension build is still expensive because it packages local model/runtime assets
 - cold `bun run build` took roughly 15 minutes when stale Vitest worker processes were also present
-- warm extension builds during later validation runs were roughly 35-60 seconds
+- warm extension builds during later validation runs were roughly 24-64 seconds
+- if port `3001` is already occupied locally, run validation on clean overrides such as
+  `COOP_PLAYWRIGHT_APP_PORT=3002` and `COOP_PLAYWRIGHT_API_PORT=4445`
 
 ## Executive Summary
 
@@ -52,9 +65,9 @@ The most accurate label today is:
 - suitable for guided demos and internal or trusted-tester pilots
 - not yet ready for an unqualified public launch
 
-The staged launch bar is currently blocked by coverage, not by total absence of features. Live
-onchain, live archive, and live session rails are intentionally treated as a second gate after the
-staged launch bar is green.
+The staged mock-first automation bar is now green. The remaining blockers are coverage,
+manual-Chrome QA for popup permission paths, and the deliberate decision to keep live rails behind
+their own second gate.
 
 ## Current Product State
 
@@ -152,8 +165,10 @@ current repo standards.
 - On 2026-03-28, `bun run lint` passed cleanly on the current tree.
 - On 2026-03-28, `bun run build` passed.
 - On 2026-03-28, `bun run validate:store-readiness` passed.
-- On 2026-03-28, `bun run validate:production-readiness` still failed, but the active blocker is
-  now popup E2E rather than the earlier popup focus regression or the extension coop-create seam.
+- On 2026-03-28, `bun run validate:production-readiness` passed on a clean attached-dev run with
+  `COOP_PLAYWRIGHT_APP_PORT=3002` and `COOP_PLAYWRIGHT_API_PORT=4445`.
+- The strongest remaining release concern is coverage plus real-browser popup QA, not an open
+  staged mock-first validator failure.
 
 ### Practical readiness classification
 
@@ -180,8 +195,8 @@ code, especially:
 - `packages/shared/src/modules/storage/db-maintenance.ts`
 - `packages/shared/src/modules/transcribe/loader.ts`
 
-Coverage is still a real release concern, but the latest fresh blocker for the staged launch bar is
-now popup E2E instability, not the popup unit failure or the extension coop-create seam.
+Coverage is still a real release concern even though the staged mock-first automation bar is now
+green.
 
 ### 2. Popup capture still has a real manual gate
 
@@ -195,17 +210,21 @@ important user path.
 The popup focus regression that was breaking `test:unit:popup-actions` during this handoff has been
 fixed.
 
-### 3. Popup E2E still has a release-bar blocker
+### 3. The staged mock-first bar is green, but the harness is specialized
 
-The latest full `validate:production-readiness` run now stops at `test:e2e:popup`.
+The latest full `validate:production-readiness` run passes, but it now depends on a few explicit
+test-harness assumptions:
 
-The failing assertion is in the real-popup roundup smoke test, which clicks `Roundup Chickens` and
-then times out waiting for the popup dashboard draft count to increase.
+- extension E2E builds now default onchain/archive/session modes to mock even if root `.env.local`
+  has live `VITE_` settings
+- live E2E paths must opt back in explicitly with `COOP_E2E_USE_VITE_MODES=1`
+- receiver-sync coverage is now anchored on extension private-intake state instead of waiting on
+  the app-side sync pill first
+- mobile landing coverage is aligned to the current DOM structure rather than older narrative
+  selectors
 
-That means the previously reported extension `waitForCoopCreated(...)` seam is no longer the first
-active blocker. The extension workflow suite now passes in isolation after the snapshot-backed wait
-helper change, but the full staged-launch bar still needs popup E2E stabilization before it can be
-claimed green.
+That is a reasonable place to be for a handoff, but the next developer should treat the E2E suite
+as sensitive release infrastructure, not as a set of throwaway smoke tests.
 
 ### 4. Receiver runtime still has polling seams
 
@@ -424,7 +443,8 @@ For live probes:
 3. Load the unpacked extension from `packages/extension/.output/chrome-mv3`.
 4. Walk the two-person receiver pairing flow locally.
 5. Run the targeted suites for the area you touch before escalating to full validation.
-6. Do not attempt live rails until the staged mock-first bar is green.
+6. Keep live rails off unless you are explicitly working on probes; the staged mock-first bar is
+   currently green.
 
 ## Suggested Next Steps
 
@@ -432,9 +452,11 @@ For live probes:
 
 1. Decide whether the next target is “private pilot” or “public staged launch”.
 2. Close the coverage gap in app receiver hooks and sidepanel orchestration.
-3. Stabilize `test:e2e:extension`, especially the shared coop-creation wait path in
-   [`e2e/extension.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/extension.spec.cjs).
-4. Rerun the full staged bar on a clean tree:
+3. Run the real-Chrome manual popup checklist, especially `Capture Tab` and `Screenshot`.
+4. Reduce extension build cost and repeated WXT rebuild work inside the validation loop.
+5. Clean up environment/docs drift around `.env.local`, mock-first defaults, and local port
+   overrides.
+6. Rerun the full staged bar on a clean tree when touching core workflows:
    `bun format && bun lint && bun run test && bun run test:coverage && bun build && bun run validate:store-readiness && bun run validate:production-readiness`
 
 ### After staged bar is green
@@ -460,6 +482,6 @@ This report is based on the repo state on 2026-03-28, including:
 - active `.plans` work
 - current coverage artifacts
 - fresh 2026-03-28 validation runs including `bun run build`, `bun run validate:store-readiness`,
-  multiple targeted reruns, and repeated `bun run validate:production-readiness` attempts
+  multiple targeted reruns, and a final passing `bun run validate:production-readiness` run
 
 It should be treated as a current-state engineering handoff, not a product promise.

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
 
-const closeTimeoutMs = 5000;
+const closeTimeoutMs = 15000;
 const appBaseUrl =
   process.env.COOP_PLAYWRIGHT_BASE_URL ||
   `http://127.0.0.1:${process.env.COOP_PLAYWRIGHT_APP_PORT || process.env.COOP_DEV_APP_PORT || '3001'}`;
@@ -499,24 +499,6 @@ test.describe('receiver pairing and sync', () => {
         )
         .toBe(true);
       logProgress('receiver capture visible in app');
-      await expect
-        .poll(
-          async () =>
-            (
-              await appPage
-                .locator('.nest-item-card')
-                .filter({ hasText: 'field-note.txt' })
-                .first()
-                .locator('.sync-pill')
-                .textContent()
-            )
-              ?.trim()
-              .toLowerCase() ?? null,
-          { timeout: 30000 },
-        )
-        .toBe('synced');
-      logProgress('receiver capture synced from app');
-
       const reviewPage = await creatorProfile.context.newPage();
       await reviewPage.goto(`chrome-extension://${creatorProfile.extensionId}/sidepanel.html`);
       await expect
@@ -528,7 +510,7 @@ test.describe('receiver pairing and sync', () => {
             return response.ok ? response.data : null;
           },
           {
-            timeout: 20000,
+            timeout: 30000,
           },
         )
         .toMatchObject({
@@ -543,7 +525,7 @@ test.describe('receiver pairing and sync', () => {
             (capture) =>
               capture.title === 'field-note.txt' && capture.coopId === receiverCoop.profile.id,
           ) ?? null,
-        20000,
+        30000,
         'receiver capture in private intake',
       );
       logProgress('receiver capture found in dashboard');

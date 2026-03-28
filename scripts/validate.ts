@@ -321,6 +321,7 @@ const suites: Record<string, Suite> = {
     includes: [
       'lint',
       'build',
+      'store-readiness',
       'popup-slice',
       'unit:sidepanel-actions',
       'unit:archive-hardening',
@@ -329,7 +330,6 @@ const suites: Record<string, Suite> = {
       'unit:agent-loop',
       'unit:onchain-config',
       'unit:session-key',
-      'store-readiness',
       'e2e:extension',
       'e2e:receiver-sync',
       'e2e:agent-loop',

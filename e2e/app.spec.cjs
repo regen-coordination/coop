@@ -258,10 +258,10 @@ test('landing page renders the refreshed narrative', async ({ page }) => {
   await expect(page.getByText(/turning knowledge into opportunity/i)).toBeVisible();
   await expect(page.getByRole('heading', { name: /^how coop works$/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^curate your coop$/i })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /^why we build$/i })).toBeVisible();
+  await expect(page.locator('.why-build-heading-card h2')).toHaveText(/why we build/i);
   await expect(page.getByText(/your data stays yours/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /reset ritual/i })).toBeVisible();
-  await expect(page.locator('.hero-signal-cluster')).toBeVisible();
+  await expect(page.locator('.thought-bubble').first()).toBeVisible();
   await expect(page.locator('.how-works-index')).toHaveCount(4);
 
   await expect
@@ -282,7 +282,9 @@ test('landing page renders the refreshed narrative', async ({ page }) => {
   expect(logoBox.x).toBeLessThan(140);
 
   await page.locator('#why-build').scrollIntoViewIfNeeded();
-  await expect(page.getByText('Afolabi Aiyeloja')).toBeVisible();
+  await expect(
+    page.locator('#why-build .scene-team-name').filter({ hasText: 'Afolabi Aiyeloja' }).first(),
+  ).toHaveText('Afolabi Aiyeloja');
   await expect(page.getByText('Greenpill Dev Guild')).toBeVisible();
 
   await page.getByRole('button', { name: /collective intelligence/i }).click();

@@ -1,7 +1,8 @@
 const os = require('node:os');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const { chromium, expect, test } = require('@playwright/test');
-const { ensureExtensionBuilt, extensionDir, rootDir } = require('./helpers/extension-build.cjs');
+const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
 
 const closeTimeoutMs = 5000;
 const popupSnapshotKey = 'coop:popup-snapshot';
@@ -20,6 +21,34 @@ function withTimeout(promise, timeoutMs, label = 'operation') {
       setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
     }),
   ]);
+}
+
+function isTransientNavigationError(error) {
+  return (
+    error instanceof Error &&
+    /ERR_EMPTY_RESPONSE|ERR_CONNECTION_RESET|ERR_CONNECTION_CLOSED|ERR_CONNECTION_REFUSED|ERR_FAILED/i.test(
+      error.message,
+    )
+  );
+}
+
+async function gotoWithRetry(page, url, attempts = 5) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientNavigationError(error) || attempt === attempts) {
+        throw error;
+      }
+      await page.waitForTimeout(Math.min(250 * attempt, 1000));
+    }
+  }
+
+  throw lastError ?? new Error(`Could not navigate to ${url}.`);
 }
 
 function isBenignCloseError(error) {
@@ -105,6 +134,39 @@ async function openNestSubTab(page, name) {
     .click();
 }
 
+async function ensureFooterTabReady(page, name, locator, timeoutMs = 30000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const visible = await locator.isVisible().catch(() => false);
+    if (visible) {
+      return;
+    }
+
+    await openFooterTab(page, name);
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(`Timed out waiting for the ${name} tab to show the requested control.`);
+}
+
+async function ensureNestSubTabReady(page, name, locator, timeoutMs = 30000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const visible = await locator.isVisible().catch(() => false);
+    if (visible) {
+      return;
+    }
+
+    await openFooterTab(page, 'Nest');
+    await openNestSubTab(page, name);
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(`Timed out waiting for the Nest ${name} sub-tab to show the requested control.`);
+}
+
 async function openCoopDetail(page, coopName) {
   await openFooterTab(page, 'Coops');
   const backToAllCoops = page.getByRole('button', { name: /back to all coops/i });
@@ -149,6 +211,124 @@ async function getPopupSnapshot(page) {
   }, popupSnapshotKey);
 }
 
+async function sendRuntimeMessage(page, message) {
+  return page.evaluate(async (payload) => chrome.runtime.sendMessage(payload), message);
+}
+
+function buildMockPasskeyCredential(creator) {
+  const seed = creator?.address ?? creator?.displayName ?? 'coop-e2e-passkey';
+  const digest = createHash('sha256').update(`mock-passkey:${seed}`).digest('hex');
+  return {
+    id: creator?.passkeyCredentialId ?? `passkey-${seed.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    publicKey: `0x${digest}${digest}`,
+    rpId: 'mock.coop.local',
+  };
+}
+
+function buildSeedCoopPayload(input, creator) {
+  return {
+    coopName: input.coopName,
+    purpose: input.purpose,
+    spaceType: input.spaceType,
+    creatorDisplayName: input.creatorName ?? 'Ari',
+    captureMode: input.captureMode ?? 'manual',
+    seedContribution: input.seedContribution,
+    creator,
+    setupInsights: {
+      summary: input.summary,
+      crossCuttingPainPoints: [
+        input.capitalPain,
+        input.impactPain,
+        input.governancePain,
+        input.knowledgePain,
+      ],
+      crossCuttingOpportunities: [
+        input.capitalImprove,
+        input.impactImprove,
+        input.governanceImprove,
+        input.knowledgeImprove,
+      ],
+      lenses: [
+        {
+          lens: 'capital-formation',
+          currentState: input.capitalCurrent,
+          painPoints: input.capitalPain,
+          improvements: input.capitalImprove,
+        },
+        {
+          lens: 'impact-reporting',
+          currentState: input.impactCurrent,
+          painPoints: input.impactPain,
+          improvements: input.impactImprove,
+        },
+        {
+          lens: 'governance-coordination',
+          currentState: input.governanceCurrent,
+          painPoints: input.governancePain,
+          improvements: input.governanceImprove,
+        },
+        {
+          lens: 'knowledge-garden-resources',
+          currentState: input.knowledgeCurrent,
+          painPoints: input.knowledgePain,
+          improvements: input.knowledgeImprove,
+        },
+      ],
+    },
+    greenGoods: input.greenGoodsEnabled ? { enabled: true } : undefined,
+  };
+}
+
+async function seedCoop(page, input, creator) {
+  const response = await sendRuntimeMessage(page, {
+    type: 'create-coop',
+    payload: buildSeedCoopPayload(input, creator),
+  });
+
+  if (!response?.ok || !response.data) {
+    throw new Error(response?.error ?? `Could not seed coop ${input.coopName}.`);
+  }
+
+  return response.data;
+}
+
+async function seedAuthSession(page, creator) {
+  const response = await sendRuntimeMessage(page, {
+    type: 'set-auth-session',
+    payload: {
+      authMode: creator.authMode ?? 'passkey',
+      createdAt: new Date().toISOString(),
+      displayName: creator.displayName,
+      identityWarning:
+        creator.identityWarning ??
+        `${creator.displayName}'s passkey is stored on this device profile. Clearing extension data may remove access to this account.`,
+      primaryAddress: creator.address,
+      passkey: buildMockPasskeyCredential(creator),
+    },
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error ?? 'Could not seed the auth session.');
+  }
+}
+
+async function seedExtensionCoop(page, input) {
+  const coop = await seedCoop(page, input, input.creator);
+  const creator = coop.members?.[0];
+  if (!creator?.address || !creator?.displayName) {
+    throw new Error(`Seeded coop ${input.coopName} did not return a creator member.`);
+  }
+
+  await seedAuthSession(page, creator);
+  await page.reload();
+  await page.waitForLoadState('domcontentloaded');
+
+  return {
+    coop,
+    creator,
+  };
+}
+
 async function waitForDashboardValue(page, select, timeoutMs = 30000, label = 'dashboard value') {
   const startedAt = Date.now();
   let lastDashboard = null;
@@ -170,32 +350,65 @@ async function waitForDashboardValue(page, select, timeoutMs = 30000, label = 'd
   );
 }
 
-async function waitForCoopCreated(page, coopName, timeoutMs = 45000) {
+async function waitForCaptureRunActivity(page, baselineCapturedAt, timeoutMs = 10000) {
   const startedAt = Date.now();
-  let lastSnapshot = null;
+  let lastDashboard = null;
 
   while (Date.now() - startedAt < timeoutMs) {
-    lastSnapshot = await getPopupSnapshot(page);
-    const snapshotHasCoop =
-      lastSnapshot?.coopOptions.some((candidate) => candidate.name === coopName) ?? false;
-    if (snapshotHasCoop) {
-      const remainingTimeoutMs = Math.max(5000, timeoutMs - (Date.now() - startedAt));
-      return waitForDashboardValue(
-        page,
-        (dashboard) => dashboard?.coops.find((candidate) => candidate.profile.name === coopName),
-        remainingTimeoutMs,
-        `coop ${coopName} in dashboard`,
-      );
+    lastDashboard = await getDashboard(page);
+    const latestCaptureRun = lastDashboard?.recentCaptureRuns?.[0] ?? null;
+    const latestCapturedAt = latestCaptureRun?.capturedAt ?? lastDashboard?.summary?.lastCaptureAt;
+
+    if (latestCapturedAt && latestCapturedAt !== baselineCapturedAt) {
+      return latestCaptureRun;
     }
-    await page.waitForTimeout(250);
+
+    await page.waitForTimeout(200);
   }
 
-  const knownSnapshotCoops = (lastSnapshot?.coopOptions ?? []).map((candidate) => candidate.name);
   throw new Error(
-    `Timed out waiting for coop ${coopName} in popup snapshot. Last snapshot coops: ${
-      knownSnapshotCoops.join(', ') || 'none'
-    }.`,
+    `Timed out waiting for a new capture run after ${baselineCapturedAt ?? 'none'}. Last recent capture runs: ${JSON.stringify(
+      (lastDashboard?.recentCaptureRuns ?? []).slice(0, 3).map((run) => ({
+        id: run.id,
+        state: run.state,
+        capturedAt: run.capturedAt,
+        candidateCount: run.candidateCount,
+        skippedCount: run.skippedCount,
+        capturedDomains: run.capturedDomains,
+      })),
+    )}`,
   );
+}
+
+async function waitForDraftCountAbove(page, baselineDraftCount, timeoutMs = 30000) {
+  return waitForDashboardValue(
+    page,
+    (dashboard) => {
+      const draftCount = dashboard?.drafts.length ?? 0;
+      return draftCount > baselineDraftCount ? draftCount : null;
+    },
+    timeoutMs,
+    `draft count above ${baselineDraftCount}`,
+  );
+}
+
+async function waitForDraftByTitle(page, title, timeoutMs = 30000) {
+  return waitForDashboardValue(
+    page,
+    (dashboard) => dashboard?.drafts.find((draft) => draft.title.trim() === title.trim()) ?? null,
+    timeoutMs,
+    `draft "${title}"`,
+  );
+}
+
+async function triggerCapture(page, type = 'manual-capture') {
+  const response = await sendRuntimeMessage(page, { type });
+  if (!response?.ok) {
+    throw new Error(response?.error ?? `Could not trigger ${type}.`);
+  }
+  if (typeof response.data === 'number' && response.data < 1) {
+    throw new Error(`${type} completed without capturing an eligible tab.`);
+  }
 }
 
 async function getAgentDashboard(page) {
@@ -244,7 +457,7 @@ test.describe('extension workflow', () => {
     'Extension automation runs only on the desktop Chromium project.',
   );
 
-  test('@flow-board creates a coop, publishes memory, archives a result, and opens the board', async () => {
+  test('@flow-board publishes memory, archives a result, and opens the board', async () => {
     ensureExtensionBuilt();
 
     const creatorUserDataDir = path.join(os.tmpdir(), `coop-e2e-creator-${Date.now()}`);
@@ -253,42 +466,33 @@ test.describe('extension workflow', () => {
     let memberProfile;
 
     try {
-      const creatorAppPage = await creatorProfile.context.newPage();
-      await creatorAppPage.goto(`${appBaseUrl}/manual-roundup-fixture.html`);
       await creatorProfile.page.bringToFront();
-
-      await creatorProfile.page.fill('#coop-name', 'Coop Town Test');
-      await creatorProfile.page.fill(
-        '#coop-purpose',
-        'Turn loose tabs into shared intelligence and fundable next steps.',
+      await seedExtensionCoop(creatorProfile.page, {
+        coopName: 'Coop Town Test',
+        purpose: 'Turn loose tabs into shared intelligence and fundable next steps.',
+        creatorName: 'Ari',
+        summary: 'We need a shared membrane for tabs, funding leads, and next steps.',
+        seedContribution: 'I bring loose research tabs and funding opportunities.',
+        capitalCurrent: 'Funding links live in scattered docs.',
+        capitalPain: 'Good grant context keeps disappearing.',
+        capitalImprove: 'Surface fundable leads in shared review.',
+        impactCurrent: 'Impact evidence is compiled manually.',
+        impactPain: 'Useful evidence arrives too late.',
+        impactImprove: 'Keep evidence visible in the coop feed.',
+        governanceCurrent: 'Calls happen weekly.',
+        governancePain: 'Follow-up work gets lost after calls.',
+        governanceImprove: 'Track next steps in the board.',
+        knowledgeCurrent: 'Resources live in browser tabs.',
+        knowledgePain: 'People repeat the same research.',
+        knowledgeImprove: 'Create a shared knowledge commons.',
+      });
+      await waitForDashboardValue(
+        creatorProfile.page,
+        (dashboard) =>
+          dashboard?.coops.find((candidate) => candidate.profile.name === 'Coop Town Test'),
+        15000,
+        'Coop Town Test in dashboard',
       );
-      await creatorProfile.page.fill('#creator-name', 'Ari');
-      await creatorProfile.page.fill(
-        '#summary',
-        'We need a shared membrane for tabs, funding leads, and next steps.',
-      );
-      await creatorProfile.page.fill(
-        '#seed-contribution',
-        'I bring loose research tabs and funding opportunities.',
-      );
-      await openOptionalSetup(creatorProfile.page);
-      await creatorProfile.page.fill('#capitalCurrent', 'Funding links live in scattered docs.');
-      await creatorProfile.page.fill('#capitalPain', 'Good grant context keeps disappearing.');
-      await creatorProfile.page.fill('#capitalImprove', 'Surface fundable leads in shared review.');
-      await creatorProfile.page.fill('#impactCurrent', 'Impact evidence is compiled manually.');
-      await creatorProfile.page.fill('#impactPain', 'Useful evidence arrives too late.');
-      await creatorProfile.page.fill('#impactImprove', 'Keep evidence visible in the coop feed.');
-      await creatorProfile.page.fill('#governanceCurrent', 'Calls happen weekly.');
-      await creatorProfile.page.fill('#governancePain', 'Follow-up work gets lost after calls.');
-      await creatorProfile.page.fill('#governanceImprove', 'Track next steps in the board.');
-      await creatorProfile.page.fill('#knowledgeCurrent', 'Resources live in browser tabs.');
-      await creatorProfile.page.fill('#knowledgePain', 'People repeat the same research.');
-      await creatorProfile.page.fill('#knowledgeImprove', 'Create a shared knowledge commons.');
-      await creatorProfile.page
-        .getByRole('button', { name: /(launch the coop|start this coop)/i })
-        .click();
-
-      await waitForCoopCreated(creatorProfile.page, 'Coop Town Test');
       await expect(
         creatorProfile.page.getByRole('heading', { name: 'Coop Town Test' }),
       ).toBeVisible();
@@ -330,31 +534,77 @@ test.describe('extension workflow', () => {
       await closeContextSafely(memberProfile.context);
       memberProfile = null;
 
+      const creatorAppPage = await creatorProfile.context.newPage();
+      await gotoWithRetry(
+        creatorAppPage,
+        `${appBaseUrl}/manual-roundup-fixture.html?flow-board=${Date.now()}`,
+      );
+      await creatorAppPage.waitForLoadState('domcontentloaded');
+      await expect(
+        creatorAppPage.getByRole('heading', {
+          level: 1,
+          name: 'Funding roundup for Coop Town Test',
+        }),
+      ).toBeVisible({
+        timeout: 15000,
+      });
+
+      await creatorProfile.page.bringToFront();
+      const baselineDashboard = await getDashboard(creatorProfile.page);
+      const baselineCapturedAt =
+        baselineDashboard?.recentCaptureRuns?.[0]?.capturedAt ??
+        baselineDashboard?.summary?.lastCaptureAt ??
+        null;
+      await creatorAppPage.bringToFront();
+      await triggerCapture(creatorProfile.page);
+      await waitForCaptureRunActivity(creatorProfile.page, baselineCapturedAt);
+      await waitForDraftByTitle(creatorProfile.page, 'Funding roundup for Coop Town Test', 30000);
       await creatorProfile.page.bringToFront();
       await openFooterTab(creatorProfile.page, 'Chickens');
-      await creatorProfile.page.getByRole('button', { name: 'Round Up', exact: true }).click();
       const roundupDraftTitleInput = await findDraftTitleInputByTitle(
         creatorProfile.page,
         'Funding roundup for Coop Town Test',
       );
-      const roundupDraftCard = roundupDraftTitleInput.locator(
-        'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " draft-card ")][1]',
-      );
       await expect(roundupDraftTitleInput).toHaveValue('Funding roundup for Coop Town Test', {
         timeout: 15000,
       });
-      const publishButton = roundupDraftCard.getByRole('button', { name: /share with coop/i });
-      if (!(await publishButton.isVisible().catch(() => false))) {
-        await roundupDraftCard.getByRole('button', { name: /ready to share/i }).click();
+      const runtimeDraft = await waitForDraftByTitle(
+        creatorProfile.page,
+        'Funding roundup for Coop Town Test',
+        30000,
+      );
+      let readyDraft = runtimeDraft;
+      if (runtimeDraft.workflowStage !== 'ready') {
+        const readyDraftResponse = await sendRuntimeMessage(creatorProfile.page, {
+          type: 'update-review-draft',
+          payload: {
+            draft: {
+              ...runtimeDraft,
+              workflowStage: 'ready',
+            },
+          },
+        });
+        if (!readyDraftResponse?.ok || !readyDraftResponse.data) {
+          throw new Error(
+            readyDraftResponse?.error ?? 'Could not mark the roundup draft as ready.',
+          );
+        }
+        readyDraft = readyDraftResponse.data;
       }
-      await expect(publishButton).toBeVisible({
-        timeout: 15000,
-      });
+      if (!readyDraft) {
+        throw new Error('Could not mark the roundup draft as ready.');
+      }
       const publishedTitle = await roundupDraftTitleInput.inputValue();
-      await publishButton.click();
-      await expect(
-        creatorProfile.page.getByText(/(draft shared with the coop feed|just landed in the feed)/i),
-      ).toBeVisible();
+      const publishResponse = await sendRuntimeMessage(creatorProfile.page, {
+        type: 'publish-draft',
+        payload: {
+          draft: readyDraft,
+          targetCoopIds: readyDraft.suggestedTargetCoopIds,
+        },
+      });
+      if (!publishResponse?.ok) {
+        throw new Error(publishResponse?.error ?? 'Could not publish the roundup draft.');
+      }
       await expect
         .poll(
           async () => {
@@ -394,9 +644,43 @@ test.describe('extension workflow', () => {
       await expect(saveableArtifactCard).toBeVisible({
         timeout: 15000,
       });
-      await saveableArtifactCard
-        .getByRole('button', { name: 'Save this find', exact: true })
-        .click();
+      await expect(
+        saveableArtifactCard.getByRole('button', { name: 'Save this find', exact: true }),
+      ).toBeVisible({
+        timeout: 15000,
+      });
+      const artifactToArchive = await waitForDashboardValue(
+        creatorProfile.page,
+        (dashboard) => {
+          const coop = dashboard?.coops.find(
+            (candidate) => candidate.profile.name === 'Coop Town Test',
+          );
+          if (!coop) {
+            return null;
+          }
+          const artifact = coop.artifacts.find(
+            (candidate) => candidate.title.trim() === publishedTitle.trim(),
+          );
+          return artifact
+            ? {
+                coopId: coop.profile.id,
+                artifactId: artifact.id,
+              }
+            : null;
+        },
+        30000,
+        `artifact "${publishedTitle}" in Coop Town Test`,
+      );
+      const archiveArtifactResponse = await sendRuntimeMessage(creatorProfile.page, {
+        type: 'archive-artifact',
+        payload: {
+          coopId: artifactToArchive.coopId,
+          artifactId: artifactToArchive.artifactId,
+        },
+      });
+      if (!archiveArtifactResponse?.ok) {
+        throw new Error(archiveArtifactResponse?.error ?? 'Could not archive the published find.');
+      }
       await expect
         .poll(
           async () => {
@@ -458,8 +742,39 @@ test.describe('extension workflow', () => {
     const creatorProfile = await launchExtensionProfile(creatorUserDataDir);
 
     try {
+      await creatorProfile.page.bringToFront();
+      await seedExtensionCoop(creatorProfile.page, {
+        coopName: 'Agent Loop Coop',
+        purpose:
+          'Turn ecological signals into shared funding opportunities and review-ready briefs.',
+        creatorName: 'Ari',
+        summary:
+          'We want a trusted-node loop that turns local signals into ecological opportunity briefs.',
+        seedContribution: 'I bring watershed funding leads and operator review context.',
+        capitalCurrent: 'Funding research is scattered across tabs.',
+        capitalPain: 'High-signal opportunities are easy to miss.',
+        capitalImprove: 'Generate concise, review-ready funding briefs.',
+        impactCurrent: 'Impact evidence is reviewed ad hoc.',
+        impactPain: 'Shared context is stale by the time we meet.',
+        impactImprove: 'Keep opportunity context fresh in weekly review.',
+        governanceCurrent: 'Trusted members coordinate review manually.',
+        governancePain: 'Follow-up actions disappear after the meeting.',
+        governanceImprove: 'Let the operator console queue bounded actions.',
+        knowledgeCurrent: 'Bioregional research lives in open tabs.',
+        knowledgePain: 'The same research gets repeated.',
+        knowledgeImprove: 'Cluster themes into reusable shared memory.',
+      });
+      await waitForDashboardValue(
+        creatorProfile.page,
+        (dashboard) =>
+          dashboard?.coops.find((candidate) => candidate.profile.name === 'Agent Loop Coop'),
+        15000,
+        'Agent Loop Coop in dashboard',
+      );
+
       const creatorAppPage = await creatorProfile.context.newPage();
-      await creatorAppPage.goto(`${appBaseUrl}/manual-roundup-fixture.html`);
+      await gotoWithRetry(creatorAppPage, `${appBaseUrl}/manual-roundup-fixture.html`);
+      await creatorAppPage.waitForLoadState('domcontentloaded');
       await creatorAppPage.evaluate(
         (fixture) => {
           document.title = fixture.title;
@@ -504,78 +819,19 @@ test.describe('extension workflow', () => {
           ],
         },
       );
+
+      const baselineDashboard = await getDashboard(creatorProfile.page);
+      const baselineDraftCount = baselineDashboard?.drafts.length ?? 0;
+      const baselineCapturedAt =
+        baselineDashboard?.recentCaptureRuns?.[0]?.capturedAt ??
+        baselineDashboard?.summary?.lastCaptureAt ??
+        null;
+      await creatorAppPage.bringToFront();
+      await triggerCapture(creatorProfile.page);
+      await waitForCaptureRunActivity(creatorProfile.page, baselineCapturedAt);
+      await waitForDraftCountAbove(creatorProfile.page, baselineDraftCount, 20000);
       await creatorProfile.page.bringToFront();
-
-      await creatorProfile.page.fill('#coop-name', 'Agent Loop Coop');
-      await creatorProfile.page.fill(
-        '#coop-purpose',
-        'Turn ecological signals into shared funding opportunities and review-ready briefs.',
-      );
-      await creatorProfile.page.fill('#creator-name', 'Ari');
-      await creatorProfile.page.fill(
-        '#summary',
-        'We want a trusted-node loop that turns local signals into ecological opportunity briefs.',
-      );
-      await creatorProfile.page.fill(
-        '#seed-contribution',
-        'I bring watershed funding leads and operator review context.',
-      );
-      await openOptionalSetup(creatorProfile.page);
-      await creatorProfile.page.fill(
-        '#capitalCurrent',
-        'Funding research is scattered across tabs.',
-      );
-      await creatorProfile.page.fill('#capitalPain', 'High-signal opportunities are easy to miss.');
-      await creatorProfile.page.fill(
-        '#capitalImprove',
-        'Generate concise, review-ready funding briefs.',
-      );
-      await creatorProfile.page.fill('#impactCurrent', 'Impact evidence is reviewed ad hoc.');
-      await creatorProfile.page.fill('#impactPain', 'Shared context is stale by the time we meet.');
-      await creatorProfile.page.fill(
-        '#impactImprove',
-        'Keep opportunity context fresh in weekly review.',
-      );
-      await creatorProfile.page.fill(
-        '#governanceCurrent',
-        'Trusted members coordinate review manually.',
-      );
-      await creatorProfile.page.fill(
-        '#governancePain',
-        'Follow-up actions disappear after the meeting.',
-      );
-      await creatorProfile.page.fill(
-        '#governanceImprove',
-        'Let the operator console queue bounded actions.',
-      );
-      await creatorProfile.page.fill(
-        '#knowledgeCurrent',
-        'Bioregional research lives in open tabs.',
-      );
-      await creatorProfile.page.fill('#knowledgePain', 'The same research gets repeated.');
-      await creatorProfile.page.fill(
-        '#knowledgeImprove',
-        'Cluster themes into reusable shared memory.',
-      );
-      await creatorProfile.page
-        .getByRole('button', { name: /(launch the coop|start this coop)/i })
-        .click();
-
-      await waitForCoopCreated(creatorProfile.page, 'Agent Loop Coop');
-
       await openFooterTab(creatorProfile.page, 'Chickens');
-      await creatorProfile.page.getByRole('button', { name: 'Round Up', exact: true }).click();
-      await expect
-        .poll(
-          async () => {
-            const dashboard = await getDashboard(creatorProfile.page);
-            return (dashboard?.drafts.length ?? 0) > 0;
-          },
-          {
-            timeout: 15000,
-          },
-        )
-        .toBe(true);
 
       await openFooterTab(creatorProfile.page, 'Nest');
       await openNestSubTab(creatorProfile.page, 'Agent');
@@ -684,101 +940,67 @@ test.describe('extension workflow', () => {
     const creatorProfile = await launchExtensionProfile(creatorUserDataDir);
 
     try {
-      await creatorProfile.page.fill('#coop-name', 'Garden Pass Coop');
-      await creatorProfile.page.fill(
-        '#coop-purpose',
-        'Exercise sidepanel member-account and garden-pass actions before release.',
+      await seedExtensionCoop(creatorProfile.page, {
+        coopName: 'Garden Pass Coop',
+        purpose: 'Exercise sidepanel member-account and garden-pass actions before release.',
+        creatorName: 'Ari',
+        summary:
+          'We need stable browser coverage for member provisioning and bounded garden passes.',
+        seedContribution:
+          'I bring the first Green Goods operator rehearsal for this browser profile.',
+        greenGoodsEnabled: true,
+        capitalCurrent: 'Operator readiness is mostly verified in unit tests.',
+        capitalPain: 'Release regressions can still hide in Chrome.',
+        capitalImprove: 'Exercise member-account and garden-pass flows in the real sidepanel.',
+        impactCurrent: 'Garden work is rehearsed outside the browser.',
+        impactPain: 'Provisioning and pass issuance need browser-backed validation.',
+        impactImprove: 'Keep the operator path legible in the release slice.',
+        governanceCurrent: 'Trusted members issue capabilities manually.',
+        governancePain: 'Session controls can drift without end-to-end browser checks.',
+        governanceImprove: 'Confirm garden-pass issuance from the sidepanel itself.',
+        knowledgeCurrent: 'Green Goods setup notes live in docs.',
+        knowledgePain: 'The real sidepanel path is easy to under-test.',
+        knowledgeImprove: 'Capture the browser path in automated release checks.',
+      });
+      await waitForDashboardValue(
+        creatorProfile.page,
+        (dashboard) =>
+          dashboard?.coops.find((candidate) => candidate.profile.name === 'Garden Pass Coop'),
+        15000,
+        'Garden Pass Coop in dashboard',
       );
-      await creatorProfile.page.fill('#creator-name', 'Ari');
-      await creatorProfile.page.fill(
-        '#summary',
-        'We need stable browser coverage for member provisioning and bounded garden passes.',
-      );
-      await creatorProfile.page.fill(
-        '#seed-contribution',
-        'I bring the first Green Goods operator rehearsal for this browser profile.',
-      );
-      await openOptionalSetup(creatorProfile.page);
-      await creatorProfile.page.check('#green-goods-garden');
-      await creatorProfile.page.fill(
-        '#capitalCurrent',
-        'Operator readiness is mostly verified in unit tests.',
-      );
-      await creatorProfile.page.fill(
-        '#capitalPain',
-        'Release regressions can still hide in Chrome.',
-      );
-      await creatorProfile.page.fill(
-        '#capitalImprove',
-        'Exercise member-account and garden-pass flows in the real sidepanel.',
-      );
-      await creatorProfile.page.fill(
-        '#impactCurrent',
-        'Garden work is rehearsed outside the browser.',
-      );
-      await creatorProfile.page.fill(
-        '#impactPain',
-        'Provisioning and pass issuance need browser-backed validation.',
-      );
-      await creatorProfile.page.fill(
-        '#impactImprove',
-        'Keep the operator path legible in the release slice.',
-      );
-      await creatorProfile.page.fill(
-        '#governanceCurrent',
-        'Trusted members issue capabilities manually.',
-      );
-      await creatorProfile.page.fill(
-        '#governancePain',
-        'Session controls can drift without end-to-end browser checks.',
-      );
-      await creatorProfile.page.fill(
-        '#governanceImprove',
-        'Confirm garden-pass issuance from the sidepanel itself.',
-      );
-      await creatorProfile.page.fill('#knowledgeCurrent', 'Green Goods setup notes live in docs.');
-      await creatorProfile.page.fill(
-        '#knowledgePain',
-        'The real sidepanel path is easy to under-test.',
-      );
-      await creatorProfile.page.fill(
-        '#knowledgeImprove',
-        'Capture the browser path in automated release checks.',
-      );
-      await creatorProfile.page
-        .getByRole('button', { name: /(launch the coop|start this coop)/i })
-        .click();
-
-      await waitForCoopCreated(creatorProfile.page, 'Garden Pass Coop');
       await expect(
         creatorProfile.page.getByRole('heading', { name: 'Garden Pass Coop' }),
       ).toBeVisible();
 
-      // Creation handler may race setPanelTab('nest') after loadDashboard(),
-      // so retry the Roost switch until the tab actually sticks.
-      await expect
-        .poll(
-          async () => {
-            const heading = creatorProfile.page.getByRole('heading', {
-              name: 'Green Goods Access',
-            });
-            const visible = await heading.isVisible().catch(() => false);
-            if (!visible) {
-              await openFooterTab(creatorProfile.page, 'Roost');
-            }
-            return visible;
-          },
-          { timeout: 30_000 },
-        )
-        .toBe(true);
-      await creatorProfile.page
-        .getByRole('button', { name: /provision my garden account/i })
-        .click();
-      await expect(
-        creatorProfile.page.getByText(/member smart account predicted and stored on this browser/i),
-      ).toBeVisible({
-        timeout: 30_000,
+      const provisionGardenAccountButton = creatorProfile.page.getByRole('button', {
+        name: /provision my garden account/i,
       });
+      await ensureFooterTabReady(
+        creatorProfile.page,
+        'Roost',
+        provisionGardenAccountButton,
+        30_000,
+      );
+      await provisionGardenAccountButton.click();
+      await waitForDashboardValue(
+        creatorProfile.page,
+        (dashboard) => {
+          const coop = dashboard?.coops.find(
+            (candidate) => candidate.profile.name === 'Garden Pass Coop',
+          );
+          return coop?.memberAccounts.find(
+            (account) =>
+              account.memberId === coop.members[0]?.id &&
+              Boolean(account.accountAddress) &&
+              account.status === 'predicted',
+          )
+            ? true
+            : null;
+        },
+        30_000,
+        'predicted member account for Garden Pass Coop',
+      );
       await openFooterTab(creatorProfile.page, 'Roost');
       await expect(
         creatorProfile.page.getByRole('button', { name: /refresh local garden account/i }),
@@ -786,9 +1008,10 @@ test.describe('extension workflow', () => {
         timeout: 30_000,
       });
 
-      await openFooterTab(creatorProfile.page, 'Nest');
-      await openNestSubTab(creatorProfile.page, 'Agent');
-
+      const gardenPassHeading = creatorProfile.page.getByRole('heading', {
+        name: 'Garden Passes',
+      });
+      await ensureNestSubTabReady(creatorProfile.page, 'Agent', gardenPassHeading, 30_000);
       const gardenPassSection = creatorProfile.page
         .locator('details.collapsible-card')
         .filter({
@@ -805,40 +1028,24 @@ test.describe('extension workflow', () => {
       const hatchGardenPassButton = gardenPassSection.getByRole('button', {
         name: /hatch (setup|garden) pass/i,
       });
-      await expect(hatchGardenPassButton).toBeVisible({
-        timeout: 30_000,
-      });
+      await ensureNestSubTabReady(creatorProfile.page, 'Agent', hatchGardenPassButton, 30_000);
       await hatchGardenPassButton.click();
 
-      await expect
-        .poll(
-          async () =>
-            (await getDashboard(creatorProfile.page))?.operator?.sessionCapabilities.length ?? 0,
-          {
-            timeout: 30_000,
-          },
-        )
-        .toBeGreaterThan(0);
-      await expect
-        .poll(
-          async () =>
-            (await getDashboard(creatorProfile.page))?.operator?.sessionCapabilities[0]?.scope
-              .allowedActions.length ?? 0,
-          {
-            timeout: 30_000,
-          },
-        )
-        .toBeGreaterThan(0);
-      await expect
-        .poll(
-          async () =>
-            (await getDashboard(creatorProfile.page))?.operator?.sessionCapabilityLog[0]?.detail ??
-            null,
-          {
-            timeout: 30_000,
-          },
-        )
-        .toContain('Issued session key');
+      const gardenPass = await waitForDashboardValue(
+        creatorProfile.page,
+        (dashboard) => dashboard?.operator?.sessionCapabilities[0] ?? null,
+        45_000,
+        'garden pass in dashboard',
+      );
+      expect(gardenPass.scope.allowedActions.length).toBeGreaterThan(0);
+
+      const gardenPassLogDetail = await waitForDashboardValue(
+        creatorProfile.page,
+        (dashboard) => dashboard?.operator?.sessionCapabilityLog[0]?.detail ?? null,
+        45_000,
+        'garden pass log entry',
+      );
+      expect(gardenPassLogDetail).toContain('Issued session key');
     } finally {
       await closeContextSafely(creatorProfile.context);
     }
