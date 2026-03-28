@@ -4,6 +4,7 @@ const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir, rootDir } = require('./helpers/extension-build.cjs');
 
 const closeTimeoutMs = 5000;
+const popupSnapshotKey = 'coop:popup-snapshot';
 const appBaseUrl =
   process.env.COOP_PLAYWRIGHT_BASE_URL ||
   `http://127.0.0.1:${process.env.COOP_PLAYWRIGHT_APP_PORT || process.env.COOP_DEV_APP_PORT || '3001'}`;
@@ -141,16 +142,60 @@ async function getDashboard(page) {
   return response?.ok ? response.data : null;
 }
 
-async function waitForCoopCreated(page, coopName, timeoutMs = 30000) {
-  await expect
-    .poll(
-      async () => {
-        const dashboard = await getDashboard(page);
-        return dashboard?.coops.some((candidate) => candidate.profile.name === coopName) ?? false;
-      },
-      { timeout: timeoutMs },
-    )
-    .toBe(true);
+async function getPopupSnapshot(page) {
+  return page.evaluate(async (storageKey) => {
+    const result = await chrome.storage.local.get(storageKey);
+    return result[storageKey] ?? null;
+  }, popupSnapshotKey);
+}
+
+async function waitForDashboardValue(page, select, timeoutMs = 30000, label = 'dashboard value') {
+  const startedAt = Date.now();
+  let lastDashboard = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastDashboard = await getDashboard(page);
+    if (lastDashboard) {
+      const value = select(lastDashboard);
+      if (value) {
+        return value;
+      }
+    }
+    await page.waitForTimeout(250);
+  }
+
+  const knownCoops = (lastDashboard?.coops ?? []).map((candidate) => candidate.profile.name);
+  throw new Error(
+    `Timed out waiting for ${label}. Last dashboard coops: ${knownCoops.join(', ') || 'none'}.`,
+  );
+}
+
+async function waitForCoopCreated(page, coopName, timeoutMs = 45000) {
+  const startedAt = Date.now();
+  let lastSnapshot = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastSnapshot = await getPopupSnapshot(page);
+    const snapshotHasCoop =
+      lastSnapshot?.coopOptions.some((candidate) => candidate.name === coopName) ?? false;
+    if (snapshotHasCoop) {
+      const remainingTimeoutMs = Math.max(5000, timeoutMs - (Date.now() - startedAt));
+      return waitForDashboardValue(
+        page,
+        (dashboard) => dashboard?.coops.find((candidate) => candidate.profile.name === coopName),
+        remainingTimeoutMs,
+        `coop ${coopName} in dashboard`,
+      );
+    }
+    await page.waitForTimeout(250);
+  }
+
+  const knownSnapshotCoops = (lastSnapshot?.coopOptions ?? []).map((candidate) => candidate.name);
+  throw new Error(
+    `Timed out waiting for coop ${coopName} in popup snapshot. Last snapshot coops: ${
+      knownSnapshotCoops.join(', ') || 'none'
+    }.`,
+  );
 }
 
 async function getAgentDashboard(page) {

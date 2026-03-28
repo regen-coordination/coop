@@ -17,15 +17,18 @@ What changed during this pass:
   [`packages/extension/src/views/Popup/hooks/usePopupOverlayFocusTrap.ts`](/Users/afo/Code/greenpill/coop/packages/extension/src/views/Popup/hooks/usePopupOverlayFocusTrap.ts)
 - fixed a stale Playwright test signature in
   [`e2e/extension.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/extension.spec.cjs)
+- stabilized the extension coop-creation wait seam in
+  [`e2e/extension.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/extension.spec.cjs) by waiting on
+  the lightweight popup snapshot written during `refreshBadge()` before confirming against the full
+  dashboard payload
 
 What still blocks the staged launch bar after those fixes:
 
-- `test:e2e:extension` is flaky/non-deterministic in the full `validate:production-readiness` run
-- all three extension workflow specs failed in the last full run at the shared
-  `waitForCoopCreated(...)` poll in
-  [`e2e/extension.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/extension.spec.cjs)
-- notably, `bun run test:e2e:extension` also passed in an isolated rerun earlier in the same
-  debugging pass, which points to instability rather than a clean deterministic product failure
+- `bun run test:e2e:extension` now passes cleanly again after the helper change
+- the latest full `bun run validate:production-readiness` no longer reached the old extension
+  blocker; it now fails earlier in `test:e2e:popup`
+- the new failing assertion is the popup roundup smoke test waiting for draft count to increase in
+  [`e2e/popup-actions.spec.cjs`](/Users/afo/Code/greenpill/coop/e2e/popup-actions.spec.cjs)
 
 Build-time note from the same pass:
 
@@ -149,8 +152,8 @@ current repo standards.
 - On 2026-03-28, `bun run lint` passed cleanly on the current tree.
 - On 2026-03-28, `bun run build` passed.
 - On 2026-03-28, `bun run validate:store-readiness` passed.
-- On 2026-03-28, `bun run validate:production-readiness` still failed, now because of extension
-  E2E instability rather than the popup focus bug that initially blocked the run.
+- On 2026-03-28, `bun run validate:production-readiness` still failed, but the active blocker is
+  now popup E2E rather than the earlier popup focus regression or the extension coop-create seam.
 
 ### Practical readiness classification
 
@@ -178,7 +181,7 @@ code, especially:
 - `packages/shared/src/modules/transcribe/loader.ts`
 
 Coverage is still a real release concern, but the latest fresh blocker for the staged launch bar is
-now extension E2E instability, not the popup unit failure.
+now popup E2E instability, not the popup unit failure or the extension coop-create seam.
 
 ### 2. Popup capture still has a real manual gate
 
@@ -192,18 +195,17 @@ important user path.
 The popup focus regression that was breaking `test:unit:popup-actions` during this handoff has been
 fixed.
 
-### 3. Extension E2E is still flaky under the full release bar
+### 3. Popup E2E still has a release-bar blocker
 
-The strongest current blocker after the popup fix is `test:e2e:extension`.
+The latest full `validate:production-readiness` run now stops at `test:e2e:popup`.
 
-In the latest full `validate:production-readiness` run:
+The failing assertion is in the real-popup roundup smoke test, which clicks `Roundup Chickens` and
+then times out waiting for the popup dashboard draft count to increase.
 
-- all three extension E2E specs failed at the same `waitForCoopCreated(...)` polling seam
-- the failure happened after earlier unit and popup/browser slices were already green
-- the same extension E2E command also passed in an isolated rerun during debugging
-
-That combination strongly suggests a flaky state/setup timing issue in the extension workflow tests
-or their harness, not a simple always-broken user flow.
+That means the previously reported extension `waitForCoopCreated(...)` seam is no longer the first
+active blocker. The extension workflow suite now passes in isolation after the snapshot-backed wait
+helper change, but the full staged-launch bar still needs popup E2E stabilization before it can be
+claimed green.
 
 ### 4. Receiver runtime still has polling seams
 
