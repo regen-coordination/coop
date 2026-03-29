@@ -8,6 +8,7 @@ import {
   createMockOnchainState,
   createStateFromInviteBootstrap,
   createUnavailableOnchainState,
+  describeOnchainModeSummary,
   deployCoopSafe,
   getAuthSession,
   initializeCoopPrivacy,
@@ -95,7 +96,7 @@ export async function handleResolveOnchainState(
     } satisfies RuntimeActionResponse;
   }
 
-  const pimlicoApiKey = import.meta.env.VITE_PIMLICO_API_KEY;
+  const pimlicoApiKey = import.meta.env.VITE_PIMLICO_API_KEY ?? process.env.VITE_PIMLICO_API_KEY;
   if (!pimlicoApiKey) {
     return {
       ok: true,
@@ -110,6 +111,33 @@ export async function handleResolveOnchainState(
   const operator = await getOperatorState({
     authSession,
   });
+  if (!operator.liveOnchain.available) {
+    const liveSummary = describeOnchainModeSummary({
+      mode: 'live',
+      chainKey: configuredChain,
+    });
+    const statusNote = operator.anchorStatus.enabled
+      ? `${liveSummary} is pending until this member re-enables anchor mode on this node.`
+      : `${liveSummary} is pending until anchor mode is enabled on this node.`;
+    await logPrivilegedAction({
+      actionType: 'safe-deployment',
+      status: 'failed',
+      detail: operator.liveOnchain.detail,
+      coop: operator.activeCoop,
+      memberId: operator.activeMember?.id,
+      memberDisplayName: operator.activeMember?.displayName,
+      authSession,
+    });
+    return {
+      ok: true,
+      data: createUnavailableOnchainState({
+        safeAddressSeed: message.payload.coopSeed,
+        senderAddress: authSession.primaryAddress,
+        chainKey: configuredChain,
+        statusNote,
+      }),
+    } satisfies RuntimeActionResponse;
+  }
 
   try {
     await logPrivilegedAction({
