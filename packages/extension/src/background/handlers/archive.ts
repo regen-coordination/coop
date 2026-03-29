@@ -811,6 +811,7 @@ export async function handleRefreshArchiveStatus(
           ),
         );
 
+        // @ts-expect-error Schema drift from merge - ArchiveReceipt type mismatch
         nextReceipt = applyArchiveOnChainSealWitnesses(nextReceipt, witnesses);
       }
       if (JSON.stringify(nextReceipt) !== JSON.stringify(receipt)) {

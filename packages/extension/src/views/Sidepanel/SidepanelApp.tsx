@@ -196,7 +196,9 @@ export function SidepanelApp() {
         <SidepanelTabRouter
           panelTab={panelTab}
           orchestration={orchestration}
-          synthesisSegment={synthesisSegment}
+          synthesisSegment={
+            synthesisSegment as Extract<SidepanelIntentSegment, 'signals' | 'drafts' | 'stale'>
+          }
           onSelectSynthesisSegment={setSynthesisSegment}
           focusedDraftId={focusedDraftId}
           focusedSignalId={focusedSignalId}

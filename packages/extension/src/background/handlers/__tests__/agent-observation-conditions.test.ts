@@ -22,6 +22,7 @@ function makeDraft(overrides: Record<string, unknown> = {}) {
     id: 'draft-1',
     title: 'Review me',
     status: 'accepted',
+    workflowStage: 'ready',
     suggestedTargetCoopIds: ['coop-1'],
     provenance: {
       type: 'tab',
@@ -37,7 +38,7 @@ describe('isRitualReviewDue', () => {
     expect(
       isRitualReviewDue({
         coop: makeCoop() as never,
-        drafts: [makeDraft({ status: 'draft' })] as never[],
+        drafts: [makeDraft({ status: 'draft', workflowStage: 'candidate' })] as never[],
       }),
     ).toBe(false);
   });

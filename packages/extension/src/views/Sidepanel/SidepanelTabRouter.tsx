@@ -7,7 +7,7 @@ import { ChickensTab, CoopsTab, NestTab, RoostTab } from './tabs/index';
 export interface SidepanelTabRouterProps {
   panelTab: SidepanelTab;
   orchestration: SidepanelOrchestration;
-  synthesisSegment: SidepanelIntentSegment;
+  synthesisSegment: Extract<SidepanelIntentSegment, 'signals' | 'drafts' | 'stale'>;
   onSelectSynthesisSegment: (segment: SidepanelIntentSegment) => void;
   focusedDraftId?: string;
   focusedSignalId?: string;
