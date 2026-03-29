@@ -506,6 +506,7 @@ export function createUnavailableOnchainState(input: {
   chainKey?: CoopChainKey;
   safeAddressSeed: string;
   senderAddress?: string;
+  statusNote?: string;
 }) {
   const chainKey = input.chainKey ?? 'sepolia';
   const config = getCoopChainConfig(chainKey);
@@ -515,7 +516,9 @@ export function createUnavailableOnchainState(input: {
     safeAddress: toDeterministicAddress(`pending-safe:${input.safeAddressSeed}:${chainKey}`),
     senderAddress: input.senderAddress,
     safeCapability: 'unavailable',
-    statusNote: `${describeOnchainModeSummary({ mode: 'live', chainKey })} is unavailable until passkeys and Pimlico are configured.`,
+    statusNote:
+      input.statusNote ??
+      `${describeOnchainModeSummary({ mode: 'live', chainKey })} is unavailable until passkeys and Pimlico are configured.`,
   });
 }
 
