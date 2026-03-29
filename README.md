@@ -83,6 +83,20 @@ ERC-4337 (account abstraction), ERC-1271 (signature validation), EIP-712 (typed 
 
 ## Local Development
 
+Coop pins Node 22 in `.mise.toml`. Bun is the workspace package manager, but the docs site still
+depends on a working Node toolchain.
+
+Recommended shell bootstrap:
+
+```bash
+mise install
+eval "$(mise activate zsh)"
+node -v
+```
+
+`node -v` should report `v22.x` before you run the docs commands. If your shell still resolves an
+older Node first, fix that before running `bun run docs:dev` or `bun run docs:build`.
+
 ```bash
 bun install              # Install dependencies
 bun dev                  # Start app + extension concurrently
@@ -129,24 +143,47 @@ Coop's current release posture is mock-first.
 
 For public Chrome Web Store candidates, keep `VITE_COOP_ONCHAIN_MODE`, `VITE_COOP_ARCHIVE_MODE`, and `VITE_COOP_SESSION_MODE` on the mock-first path unless the live-rails gate is intentionally being exercised.
 
+Canonical references:
+
+- [Current Release Status](docs/reference/current-release-status.md)
+- [Testing & Validation](docs/reference/testing-and-validation.md)
+- [Demo & Deploy Runbook](docs/reference/demo-and-deploy-runbook.md)
+- [Live Rails Operator Runbook](docs/reference/live-rails-operator-runbook.md)
+
 ## Documentation
 
-- [Introduction](docs/reference/original-introduction.md)
-- [Architecture Overview](docs/reference/coop-os-architecture-vnext.md)
+Current-state docs:
+
+- [Builder Getting Started](docs/builder/getting-started.md)
+- [Architecture](docs/builder/architecture.md)
+- [Extension](docs/builder/extension.md)
+- [App](docs/builder/app.md)
+- [Environment Reference](docs/builder/environment.md)
+- [Action Domain Map](docs/reference/action-domain-map.md)
+- [Current Release Status](docs/reference/current-release-status.md)
+- [Testing & Validation](docs/reference/testing-and-validation.md)
+- [Demo & Deploy Runbook](docs/reference/demo-and-deploy-runbook.md)
+- [Receiver Pairing & Intake](docs/reference/receiver-pairing-and-intake.md)
+- [Live Rails Operator Runbook](docs/reference/live-rails-operator-runbook.md)
+- [Extension Install & Distribution](docs/reference/extension-install-and-distribution.md)
+- [Chrome Web Store Checklist](docs/reference/chrome-web-store-checklist.md)
+- [Chrome Web Store Reviewer Notes](docs/reference/chrome-web-store-reviewer-notes.md)
 - [Agent Harness](docs/reference/agent-harness.md)
+- [Agent Registry & API Server](docs/reference/erc8004-and-api.md)
+
+Historical or deep reference:
+
+- [Original Introduction](docs/reference/original-introduction.md)
+- [Product Requirements](docs/reference/product-requirements.md)
+- [Coop OS Architecture vNext](docs/reference/coop-os-architecture-vnext.md)
 - [Knowledge Sharing & Scaling](docs/reference/knowledge-sharing-and-scaling.md)
 - [Green Goods Integration](docs/reference/green-goods-integration-spec.md)
 - [Privacy & Stealth Addresses](docs/reference/privacy-and-stealth.md)
 - [Policy, Sessions & Permits](docs/reference/policy-session-permit.md)
-- [Agent Registry & API Server](docs/reference/erc8004-and-api.md)
-- [Product Requirements](docs/reference/product-requirements.md)
 - [Scoped Roadmap](docs/reference/scoped-roadmap-2026-03-11.md)
 - [EF Mandate Alignment](docs/reference/ethereum-foundation-mandate.md)
-- [Extension Install & Distribution](docs/reference/extension-install-and-distribution.md)
 - [Design Direction](docs/reference/coop-design-direction.md)
 - [Audio & Asset Ops](docs/reference/coop-audio-and-asset-ops.md)
-- [Testing & Validation](docs/reference/testing-and-validation.md)
-- [Demo & Deploy Runbook](docs/reference/demo-and-deploy-runbook.md)
 
 ## Regen Coordination Foundation
 

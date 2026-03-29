@@ -27,6 +27,9 @@ bun run validate:production-live-readiness # Opt-in live rails gate
 
 > **`bun test` vs `bun run test`**: `bun test` uses bun's built-in runner (ignores vitest config). `bun run test` runs the package.json script (vitest with proper environment). Always use `bun run test`.
 
+Docs note: the repo pins Node 22 in `.mise.toml`. If `node -v` still resolves an older version in
+your shell, activate `mise` before running `bun run docs:dev` or `bun run docs:build`.
+
 Per-package: check each package.json for available scripts.
 
 ## Architecture

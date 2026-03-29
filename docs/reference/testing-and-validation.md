@@ -8,8 +8,10 @@ slug: /reference/testing-and-validation
 Date: March 28, 2026
 
 This document maps the release-facing validation commands to the actual suite graph in
-`scripts/validate.ts`. The demo flow and deployment steps live in
-[Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
+`scripts/validate.ts`. The canonical release boundary lives in
+[Current Release Status](/reference/current-release-status). The demo flow and deployment steps live
+in [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook). Operator-only second-gate guidance
+lives in [Live Rails Operator Runbook](/reference/live-rails-operator-runbook).
 
 As of March 28, 2026, the automated mock-first release bar is green. The remaining staged-launch
 blocker is manual real-Chrome confirmation of popup `Capture Tab` and `Screenshot` success paths.
@@ -132,6 +134,25 @@ bun run test:e2e:agent-loop
 bun run test:e2e:app:mobile
 ```
 
+## Coverage Accounting
+
+The repo-wide Vitest coverage report is currently thresholded for:
+
+- `packages/shared/src`
+- `packages/app/src`
+- `packages/extension/src/runtime`
+- `packages/extension/src/views`
+
+Two important blind spots to remember when reading the aggregate percentage:
+
+- `packages/api` is discovered by the root Vitest run and its tests execute, but it is not part of
+  the current coverage totals.
+- `packages/extension/src/background` also has tests, but it is outside the current coverage
+  include list, so background-worker execution does not move the reported coverage percentage.
+
+Treat the aggregate number as a useful gate for the measured surfaces, not as a full-repo coverage
+statement.
+
 ## Local Safety Defaults
 
 Keep these defaults for normal local development:
@@ -165,6 +186,9 @@ Optional:
 
 - `COOP_ONCHAIN_PROBE_CHAIN=arbitrum`
 
+If the required env is missing, this probe prints a skip message and exits cleanly. That does not
+prove live Safe readiness.
+
 ### Session-Key Probe
 
 Use this when validating bounded Smart Session execution onchain:
@@ -182,6 +206,9 @@ Optional:
 
 - `COOP_SESSION_PROBE_CHAIN=arbitrum`
 - `COOP_SESSION_PROBE_SAFE_ADDRESS=0x...`
+
+If the required env is missing, this probe prints a skip message and exits cleanly. That does not
+prove live session-key readiness.
 
 This probe:
 
@@ -211,6 +238,13 @@ Commonly needed:
 - `VITE_COOP_TRUSTED_NODE_ARCHIVE_AGENT_PRIVATE_KEY`
 - `VITE_COOP_TRUSTED_NODE_ARCHIVE_PROOFS`
 - `VITE_COOP_TRUSTED_NODE_ARCHIVE_ALLOWS_FILECOIN_INFO=true`
+
+Important:
+
+- `bun run validate:archive-live` falls back to an in-process static delegation when the trusted-node
+  archive env is missing.
+- Treat that fallback as a wiring check only. Use real trusted-node archive env when you need an
+  actual live-archive proof.
 
 ### Full Live-Rails Gate
 
@@ -247,6 +281,9 @@ bun run validate:production-live-readiness
 ## Related Docs
 
 - [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook)
+- [Current Release Status](/reference/current-release-status)
+- [Live Rails Operator Runbook](/reference/live-rails-operator-runbook)
+- [Receiver Pairing & Intake](/reference/receiver-pairing-and-intake)
 - [Extension Install & Distribution](/reference/extension-install-and-distribution)
 - [Chrome Web Store Checklist](/reference/chrome-web-store-checklist)
 - [UI Action Coverage Map](/testing/ui-action-coverage)

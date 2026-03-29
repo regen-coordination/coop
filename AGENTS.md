@@ -29,6 +29,9 @@ bun run validate:production-live-readiness # Opt-in live rails gate
 
 **CRITICAL**: Always `bun run test`, never `bun test`. Bun's built-in runner ignores vitest config.
 
+Docs note: the repo pins Node 22 in `.mise.toml`. If `node -v` still resolves an older version in
+your shell, activate `mise` before running `bun run docs:dev` or `bun run docs:build`.
+
 ## Architecture
 
 Coop captures scattered knowledge (browser tabs, audio, photos, files, links), refines it into clear opportunities via an in-browser AI agent, and gives groups a shared space to act on what matters. Core capture, review, and local analysis stay in the browser; the repo also includes a minimal signaling/API layer for peer discovery and optional Yjs document sync. Bun monorepo.

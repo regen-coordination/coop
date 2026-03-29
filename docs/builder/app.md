@@ -55,6 +55,16 @@ the extension converts into drafts or candidates.
 The receiver shell uses the same shared sync primitives as the extension: local Dexie storage,
 Yjs-backed room state, configured signaling URLs, and the shared WebSocket sync base URL.
 
+The canonical protocol and storage description now lives in
+[Receiver Pairing & Intake](/reference/receiver-pairing-and-intake). Read that doc when you are
+changing:
+
+- pairing payload shape or expiry rules
+- receiver bridge messaging
+- HMAC envelope validation
+- member-private intake routing into **Nest**
+- receiver-origin requirements for Chrome Web Store builds
+
 ## Why This Matters For Builders
 
 Historically the docs under-described the app package because the extension was the dominant story.

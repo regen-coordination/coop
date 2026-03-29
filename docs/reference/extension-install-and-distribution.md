@@ -9,6 +9,8 @@ Date: March 28, 2026
 
 This document covers extension-specific install and rollout. The full local demo, peer pairing, and
 production deployment flow lives in [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
+The current public-release boundary lives in
+[Current Release Status](/reference/current-release-status).
 
 ## Local Developer Install
 
@@ -61,6 +63,9 @@ VITE_COOP_SIGNALING_URLS=wss://api.coop.town
 Then rebuild the extension and reload it in Chrome. The receiver bridge content script is patched at
 build time so the extension can inject on the configured production PWA origin.
 
+The canonical receiver protocol, route ownership, and member-private intake flow now live in
+[Receiver Pairing & Intake](/reference/receiver-pairing-and-intake).
+
 ## Early Access Distribution
 
 For trusted testers outside the Chrome Web Store:
@@ -97,16 +102,26 @@ Use this order:
 Release checklist:
 
 1. Set `VITE_COOP_RECEIVER_APP_URL` to the exact production HTTPS receiver origin for the release candidate.
-2. Run `bun run validate:store-readiness`.
-3. Run `bun run validate:production-readiness`.
-4. If the build enables live Safe, session-key, or archive rails, run `bun run validate:production-live-readiness`.
-5. Build `packages/extension/.output/chrome-mv3`.
-6. Record the first-run local-AI network trace for reviewer notes.
-7. Zip the extension with files at the archive root.
-8. Upload to the Chrome Web Store dashboard.
-9. Add reviewer notes for sidepanel entry, passkey setup, receiver pairing and private intake,
+2. Preferred public build command: `bun run build:extension:public-release`
+3. Preferred public validation command: `bun run validate:public-release`
+4. Also run `bun run validate:store-readiness`.
+5. If the build enables live Safe, session-key, or archive rails, use `bun run build:extension:operator-live` and `bun run validate:operator-live`.
+6. Build output lands in `packages/extension/.output/chrome-mv3`.
+7. Record the first-run local-AI network trace for reviewer notes.
+8. Zip the extension with files at the archive root.
+9. Upload to the Chrome Web Store dashboard.
+10. Add reviewer notes for sidepanel entry, passkey setup, receiver pairing and private intake,
    mock vs live modes, Smart Session limits for Green Goods actions, opt-in scheduled capture, and
    local-first data handling.
+
+`VITE_COOP_RECEIVER_APP_URL` is not just a runtime convenience. `store-readiness` validates that it
+produces the exact `host_permissions` and receiver-bridge content-script matches for the packaged
+extension, so keep it on the final production HTTPS origin for release builds.
+
+Profile overlays live at:
+
+- `config/env/profiles/public-release.env`
+- `config/env/profiles/operator-live.env`
 
 Release note for manual verification:
 
@@ -138,6 +153,8 @@ Keep the listing, reviewer notes, and privacy answers unusually clear.
 ## Related Docs
 
 - [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook)
+- [Current Release Status](/reference/current-release-status)
+- [Receiver Pairing & Intake](/reference/receiver-pairing-and-intake)
 - [Testing & Validation](/reference/testing-and-validation)
 - [Chrome Web Store Checklist](/reference/chrome-web-store-checklist)
 - [Chrome Web Store Reviewer Notes](/reference/chrome-web-store-reviewer-notes)

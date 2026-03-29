@@ -8,7 +8,10 @@ slug: /reference/demo-and-deploy-runbook
 Date: March 28, 2026
 
 This is the canonical runbook for local demos, peer pairing, and production deployment. Keep the
-other readiness docs aligned to this one.
+other readiness docs aligned to this one. For the current public-release boundary, read
+[Current Release Status](/reference/current-release-status). For the receiver protocol, read
+[Receiver Pairing & Intake](/reference/receiver-pairing-and-intake). For operator-only live rails,
+read [Live Rails Operator Runbook](/reference/live-rails-operator-runbook).
 
 ## Shared Rules
 
@@ -39,6 +42,9 @@ COOP_TUNNEL_APP_HOSTNAME=local.coop.town
 ```
 
 Other defaults are safe: sepolia, mock onchain/archive, session off.
+
+If you also need the docs site, make sure the shell is using Node 22 from `.mise.toml` before you
+run `bun run docs:dev` or `bun run docs:build`.
 
 ### Processes
 
@@ -142,6 +148,12 @@ This is the release target.
 This is the default production release bar and does not require live Safe, archive, or session
 rails.
 
+Preferred profile command:
+
+```bash
+bun run validate:public-release
+```
+
 ```bash
 bun format && bun lint
 bun run test
@@ -178,11 +190,29 @@ VITE_COOP_TRUSTED_NODE_ARCHIVE_DELEGATION_ISSUER=...
 VITE_COOP_TRUSTED_NODE_ARCHIVE_SPACE_DELEGATION=...
 ```
 
+Preferred profile commands:
+
+```bash
+bun run build:operator-live
+bun run validate:operator-live
+```
+
 After the staged launch bar is green and the live env is complete:
 
 ```bash
 bun run validate:production-live-readiness
 ```
+
+Profile files live at:
+
+- `config/env/profiles/public-release.env`
+- `config/env/profiles/operator-live.env`
+
+These profile overlays contain only non-secret mode/origin switches. Keep live credentials in the
+repo-root `.env.local`.
+
+Use [Live Rails Operator Runbook](/reference/live-rails-operator-runbook) for the exact probe env,
+skip behavior, and public-build separation rules.
 
 Session-key live execution is limited to:
 

@@ -94,6 +94,9 @@ These variables configure the trusted-node archive workflow when `VITE_COOP_ARCH
 
 These values are operator-only and must not ship in a public Chrome Web Store build.
 
+The canonical operational guidance for these values now lives in
+[Live Rails Operator Runbook](/reference/live-rails-operator-runbook).
+
 ## Development Orchestration
 
 | Variable | Values | Default | Purpose |
@@ -130,3 +133,5 @@ VITE_COOP_SIGNALING_URLS=ws://127.0.0.1:4444
   variables are baked into the extension bundle, do not set it in a public Chrome Web Store release.
 - Green Goods schema UIDs are EAS (Ethereum Attestation Service) identifiers required for the Green Goods work submission flow. Work approval and assessment UIDs ship from the canonical deployment map.
 - Green Goods impact reporting is not a direct EAS attestation flow in Coop. The protocol packages impact through Hypercert/Karma GAP workflows instead.
+- For current public release status, staged-launch blockers, and the live-rails second gate, read
+  [Current Release Status](/reference/current-release-status).

@@ -92,6 +92,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'reference/coop-os-architecture-vnext',
             'reference/agent-harness',
+            'reference/receiver-pairing-and-intake',
             'reference/agent-os-roadmap',
             'reference/knowledge-sharing-and-scaling',
             'reference/privacy-and-stealth',
@@ -117,7 +118,9 @@ const sidebars: SidebarsConfig = {
           label: 'Operations',
           collapsed: true,
           items: [
+            'reference/current-release-status',
             'reference/demo-and-deploy-runbook',
+            'reference/live-rails-operator-runbook',
             'reference/testing-and-validation',
             'reference/extension-install-and-distribution',
             'reference/chrome-web-store-checklist',
