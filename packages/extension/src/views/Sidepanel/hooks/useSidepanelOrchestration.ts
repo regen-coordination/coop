@@ -221,6 +221,7 @@ export function useSidepanelOrchestration(
     loadDashboard,
     soundPreferences,
     configuredSignalingUrls,
+    authSession,
   });
 
   // --- Sync bindings ---

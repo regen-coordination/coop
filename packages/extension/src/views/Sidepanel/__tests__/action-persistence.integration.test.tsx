@@ -618,6 +618,7 @@ function ActionPersistenceHarness(props: {
     loadDashboard,
     soundPreferences: dashboard.soundPreferences as SoundPreferences,
     configuredSignalingUrls: dashboard.runtimeConfig.signalingUrls,
+    authSession: dashboard.authSession ?? null,
   });
 
   const draftEditor = useDraftEditor({

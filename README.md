@@ -2,59 +2,128 @@
 
 ![Coop No more Chickens running loose](https://media.discordapp.net/attachments/1334366927094677575/1483276398956118127/signal-2026-03-11-173838.png?ex=69ba004b&is=69b8aecb&hm=f30d70ad2b2baa3c187601210d55b7a80b89a1e5b4cd9406b45f2f6105535d73&=&format=webp&quality=lossless&width=2240&height=298)
 
-**A browser extension and companion PWA that captures scattered knowledge, refines it into clear opportunities, and gives groups a shared space to act on what matters.**
+**A browser-first, local-first extension and companion receiver PWA for turning scattered knowledge into reviewed, shared coop memory.**
 
-You have tabs open, voice memos unsaved, photos from a whiteboard session, links shared in a chat. Some of it is a funding lead. Some is a dead end. You won't remember which by Friday. Now multiply that across your whole team.
+Coop helps groups capture what would otherwise get lost -- open tabs, voice memos, photos, files,
+and links -- then review, refine, and publish what matters. The extension is the main product
+surface. The companion PWA handles mobile and secondary-device capture. Core capture, review, local
+AI refinement, and private intake stay in the browser. The repo also includes a small signaling/API
+layer for peer discovery and optional Yjs document sync.
 
-Coop captures knowledge from wherever it lives -- browser tabs, audio recordings, photos, files, shared links -- refines it into clear opportunities, and gives groups a shared space to act on what matters. Core capture, review, and local analysis stay in the browser. The repo also includes a minimal signaling/API layer for peer discovery and optional Yjs document sync. Raw captures stay on-device until a person chooses to publish or sync.
+A coop is Coop's shared group workspace and memory layer: the place where reviewed drafts, published
+artifacts, board views, and proof material become visible to members.
+
+Today, Coop is strongest as a mock-first staged-launch product: browser capture and review are
+implemented, receiver pairing and private intake sync are implemented, local AI refinement is
+implemented, and shared coop publishing is implemented. Live Safe, live archive delegation, and
+live session-capability rails exist as separate second-gate or operator flows rather than the
+default public posture.
+
+## Current Status
+
+As of March 28, 2026:
+
+- the automated mock-first staged-launch bar is green
+- Coop is documentable and demoable in its current mock-first posture
+- the remaining public-release blocker is manual real-Chrome confirmation of popup `Capture Tab`
+  and `Screenshot` success paths
+- live Safe, archive, and session-capability rails remain a separate second gate
+
+Current release references:
+
+- [Current Release Status](docs/reference/current-release-status.md)
+- [Testing & Validation](docs/reference/testing-and-validation.md)
+- [Demo & Deploy Runbook](docs/reference/demo-and-deploy-runbook.md)
+- [Live Rails Operator Runbook](docs/reference/live-rails-operator-runbook.md)
 
 ## How It Works
 
-1. **Capture** -- Round up browser tabs with a shortcut. Record audio, snap photos, attach files, or share links from your phone via the companion PWA.
-2. **Refine** -- An in-browser AI agent analyzes captures through a 16-skill pipeline, extracting opportunities, scoring grant fit, clustering themes, and drafting briefs. All inference runs locally via WebGPU/WASM. Nothing leaves the browser.
-3. **Review** -- Members review candidates and drafts in the popup and Chickens before anything becomes shared.
-4. **Share** -- Publish to a coop -- a shared space backed by a Safe multisig on Arbitrum, syncing through Coop's local-first Yjs layer with direct y-webrtc peers and hosted y-websocket document sync. Archive actions can attach Filecoin-backed receipts via Storacha with full cryptographic provenance. Passkey identity, no wallet required.
+1. **Capture** -- Round up browser tabs with a shortcut in the extension. Record audio, snap
+   photos, attach files, or share links from your phone through the companion receiver PWA.
+2. **Refine** -- A local in-browser agent and inference cascade help turn captures into candidates,
+   drafts, and next steps. Refinement runs locally in the browser through WebGPU/WASM/heuristic
+   tiers rather than a hosted inference backend.
+3. **Review** -- Members review candidates and drafts in the popup and `Chickens` before anything
+   becomes shared coop state.
+4. **Share** -- Publish reviewed drafts into a coop -- the group's shared workspace and memory
+   layer -- sync them through Coop's local-first Yjs layer, open board and proof views, and export
+   archive or proof material. Onchain, live archive, and operator execution flows remain mode-gated
+   rather than default public behavior.
 
-In the current extension, the `Popup` handles quick capture and quick review, `Chickens` handles working candidates and drafts, `Coops` handles shared state plus archive and proof, `Roost` handles Green Goods member access and work submission, and `Nest` handles members, operator controls, and settings.
+## Main Surfaces
 
-Through its Green Goods integration, coops can also bootstrap on-chain gardens, submit member work, run operator-side approvals and assessments, and package approved work into Hypercert and Karma GAP workflows.
+In the current product:
+
+- `Popup` handles quick capture, quick review, create/join flows, and feed access
+- `Chickens` handles the working queue for candidates, drafts, and publish prep
+- `Coops` handles shared coop state, board/proof access, and archive-related actions
+- `Roost` is the Green Goods member workspace in the current UI
+- `Nest` handles members, receiver pairing, operator controls, and settings
+- `Receiver` is the mobile and secondary-device capture surface
+
+The older product story still uses "Roost" as the metaphor for human judgment. In the live UI,
+general review work now lives primarily in `Popup` and `Chickens`, while `Roost` is reserved for
+Green Goods member actions.
 
 ## Use Cases
 
-- **Community coordination groups** -- Bioregional networks, regen communities, and DAO contributor circles can pool knowledge across members and surface funding-ready opportunities without centralizing data on a single platform.
-- **Research teams tracking funding leads** -- Grant writers and research coordinators can capture evidence across dozens of sources, let the agent cluster and score it, and produce structured dossiers ready for submission.
-- **Capital formation groups** -- Assembling funding packages from scattered evidence, attestations, and contributor work logs into coherent on-chain proposals backed by verifiable provenance.
-- **Families and friends** -- Create shared memory capsules: trip planning boards, genealogy collections, community garden documentation, or any group project where everyone contributes pieces.
-- **Personal knowledge management** -- Use Coop solo as a local-first capture and archiving tool with durable Filecoin storage, zero-knowledge privacy, and no vendor lock-in.
+- **Community coordination groups** -- Bioregional networks, regen communities, and contributor
+  circles can pool knowledge across members without centralizing raw context on a single platform.
+- **Research and grant teams** -- Capture evidence across many sources, refine it locally, and turn
+  the strongest leads into reviewed drafts and coop memory.
+- **Capital formation and evidence packaging** -- Assemble attestations, work logs, and shared
+  research into coherent proposals, with stronger onchain and archive rails available when those
+  modes are intentionally enabled.
+- **Families and friends** -- Use Coop as a shared memory capsule for trips, gardens, history, or
+  any group project where everyone contributes fragments.
+- **Personal knowledge management** -- Use Coop solo as a browser-first, local-first capture and
+  review tool with optional sync, archive, and export paths.
 
 ## Key Features
 
-### Capture
-Browser tabs (extension), audio recordings, photos, files, and links (companion PWA). Cross-device receiver lets you capture on your phone and review on desktop.
+### Implemented Today
 
-### AI Agent
-16-skill pipeline running a three-tier inference cascade (WebGPU, WASM, heuristics). Opportunity extraction, grant fit scoring, theme clustering, brief drafting, and cross-session memory persistence. No API keys, no hosted inference dependency.
+- **Capture and intake** -- Browser tabs in the extension, plus audio, photos, files, and links in
+  the receiver PWA. Cross-device receiver pairing lets mobile captures land in the extension's
+  private intake before review.
+- **Review and publish** -- Popup and `Chickens` workflows for candidate review, draft editing,
+  categorization, and publish decisions.
+- **Local AI refinement** -- A 16-skill agent pipeline with a three-tier local inference cascade
+  (WebGPU, WASM, heuristics). The system is designed to work without hosted inference or API keys.
+- **Local-first sync** -- Yjs CRDT sync with y-webrtc peers, y-websocket document sync support, and
+  outbox tracking for publish-related events.
+- **Board, proof, and export paths** -- Coop board views, archive receipts, and snapshot/artifact/
+  receipt export flows are surfaced today.
+- **Passkey-first identity** -- WebAuthn-based identity with no wallet-extension-first requirement.
 
-### Sharing
-Local-first sync via Yjs CRDTs, y-webrtc, and y-websocket, plus blob relay for larger asset movement. Offline outbox queues publishes when disconnected and flushes on reconnect. Multi-coop publishing with per-coop feeds and board visualization.
+### Available With Mode Or Gate Qualifiers
 
-### Identity
-Passkey-first authentication via WebAuthn, bridged to Safe smart accounts through ERC-4337 account abstraction. No wallet extension required.
+- **Onchain rails** -- Safe/ERC-4337 flows, anchor actions, and other live onchain behavior are
+  mock-first by default and move behind a separate live gate when intentionally enabled.
+- **Archive live rails** -- Storacha/Filecoin-backed archive delegation exists, but live archive
+  credentials and trusted-node behavior are operator-only paths rather than the default public
+  release posture.
+- **Anonymity features** -- Coop's baseline privacy posture is local-first capture and explicit
+  publish. Privacy mode surfaces anonymous-publish UI and stealth-address UI. The current anonymous
+  publish path hides the author label in published artifacts; proof-backed ZK membership attachment
+  remains an integration path rather than something this README should treat as fully shipped
+  default behavior.
+- **Green Goods workflows** -- Member work submission, operator approvals and assessments, GAP
+  reconciliation, and Hypercert/Karma GAP packaging exist in the product model, with live behavior
+  depending on mode, authority, and environment.
+- **ERC-8004 / FVM registry** -- Agent identity and registry flows exist in the repo and runtime
+  model, but should be read as gated infrastructure capabilities rather than baseline public-launch
+  behavior.
 
-### Privacy
-Semaphore zero-knowledge membership proofs for anonymous publishing. ERC-5564 stealth addresses for private on-chain interactions. All captures stay local-only until explicit share.
+### Anonymity, Archiving, and Portability Notes
 
-### Archiving
-Storacha/Filecoin archive flows with verifiable receipt chains. Every archived artifact carries CID-linked provenance from capture through human review to archive receipt. Archive restore and data portability (import/export) support recovery and migration.
-
-### Governance
-Operator console for anchor node management. Policy engine with typed action bundles and approval workflows. Session permits with scoped execution permissions, time-bounded capabilities, and replay protection.
-
-### Green Goods
-Garden bootstrap and sync, member work submission, operator approvals and assessments, GAP admin reconciliation, and Hypercert or Karma GAP packaging. On-chain gardens are a bounded coordination substrate rather than an open-ended treasury surface.
-
-### On-chain Agent
-ERC-8004 agent registry integration for on-chain agent identity, capability advertisement, and reputation feedback.
+- **Local-first by default** -- Raw captures stay local until a person explicitly shares or syncs
+  them.
+- **Anonymity is not the default** -- Anonymous publish is a user-enabled path, distinct from the
+  baseline local-only capture model.
+- **Export is the primary surfaced portability path today** -- Snapshot/artifact/receipt export is
+  wired into the current UI. Restore/import primitives also exist in shared modules and tests, but
+  they are not yet presented as the primary polished end-user recovery flow.
 
 ## Architecture
 
@@ -64,22 +133,29 @@ Bun monorepo with four runtime packages:
 |---------|-------------|
 | `@coop/shared` | Schemas, flows, sync contracts, and shared modules: agent, app, archive, auth, blob, coop, erc8004, fvm, greengoods, member-account, onchain, operator, permit, policy, privacy, receiver, session, stealth, storage, transcribe |
 | `@coop/app` | Landing page + receiver PWA shell (audio, photo, file, link capture) |
-| `@coop/extension` | MV3 browser extension — popup (screen router, share menu), sidepanel (tab router, coop selector, filter popover), background handlers, offscreen workers |
+| `@coop/extension` | MV3 browser extension -- popup (screen router, share menu), sidepanel (tab router, coop selector, filter popover), background handlers, offscreen workers |
 | `@coop/api` | Hono + Bun TypeScript signaling relay with optional Yjs document sync persistence, deployed on Fly.io |
 
 Build order: shared -> app -> extension (shared is the dependency root).
 
 ## Key Principles
 
-- **Browser-First** -- The extension is the primary product surface; core capture and local analysis do not depend on hosted inference.
-- **Local-First** -- All data stays on your device until you explicitly share. Dexie for structured data, Yjs for CRDT sync.
-- **Passkey-First** -- No wallet extensions required. WebAuthn passkey identity bridged to on-chain Safe accounts.
+- **Browser-First** -- The extension is the primary product surface; core capture and local analysis
+  do not depend on hosted inference.
+- **Local-First** -- All data stays on your device until you explicitly share. Dexie for structured
+  data, Yjs for CRDT sync.
+- **Passkey-First** -- No wallet extensions required. WebAuthn passkey identity bridged to onchain
+  Safe accounts.
 - **Offline Capable** -- Works without internet, syncs when connected.
-- **Privacy by Design** -- Zero-knowledge membership proofs, stealth addresses, local-only captures by default.
+- **Explicit Sharing** -- Review and publish remain human decisions. Anonymous publish is a
+  separate user-enabled option, not the default path.
 
 ## Standards
 
-ERC-4337 (account abstraction), ERC-1271 (signature validation), EIP-712 (typed structured data), ERC-7579 (modular smart accounts), ERC-5564 (stealth addresses), ERC-8004 (on-chain agent registry), Semaphore (ZK group membership), Storacha/Filecoin (permanent archiving), Yjs CRDTs (conflict-free sync).
+ERC-4337 (account abstraction), ERC-1271 (signature validation), EIP-712 (typed structured data),
+ERC-7579 (modular smart accounts), ERC-5564 (stealth addresses), ERC-8004 (onchain agent
+registry), Semaphore (ZK group membership), Storacha/Filecoin (permanent archiving), Yjs CRDTs
+(conflict-free sync).
 
 ## Local Development
 
@@ -127,6 +203,7 @@ Single `.env.local` at the repository root (never create package-specific `.env`
 | `VITE_COOP_ONCHAIN_MODE` | On-chain mode: `mock` or `live` | `mock` |
 | `VITE_COOP_ARCHIVE_MODE` | Archive mode: `mock` or `live` | `mock` |
 | `VITE_COOP_SESSION_MODE` | Session mode: `off`, `mock`, or `live` | `off` |
+| `VITE_COOP_PRIVACY_MODE` | Toggle privacy-mode surfaces such as anonymous publish UI and stealth-address UI (`on` or `off`) | `off` |
 | `VITE_COOP_SIGNALING_URLS` | Comma-separated WebSocket signaling endpoints | `wss://api.coop.town` |
 | `VITE_COOP_RECEIVER_APP_URL` | Receiver PWA base URL | `http://127.0.0.1:3001` |
 | `VITE_PIMLICO_API_KEY` | For live Safe/ERC-4337 operations | -- |
@@ -137,11 +214,16 @@ For Playwright E2E runs, the repo starts its own local signaling server automati
 
 Coop's current release posture is mock-first.
 
-- Automated mock-first release bar: `bun run test`, `bun run test:coverage`, `bun build`, `bun run validate:store-readiness`, and `bun run validate:production-readiness`
-- Remaining public-release blocker: manual Chrome popup QA for real-click `Capture Tab` and `Screenshot`
-- Live Safe, archive, and session-key rails remain a second gate behind `bun run validate:production-live-readiness`
+- Automated mock-first release bar: `bun run test`, `bun run test:coverage`, `bun build`,
+  `bun run validate:store-readiness`, and `bun run validate:production-readiness`
+- Remaining public-release blocker: manual Chrome popup QA for real-click `Capture Tab` and
+  `Screenshot`
+- Live Safe, archive, and session-key rails remain a second gate behind
+  `bun run validate:production-live-readiness`
 
-For public Chrome Web Store candidates, keep `VITE_COOP_ONCHAIN_MODE`, `VITE_COOP_ARCHIVE_MODE`, and `VITE_COOP_SESSION_MODE` on the mock-first path unless the live-rails gate is intentionally being exercised.
+For public Chrome Web Store candidates, keep `VITE_COOP_ONCHAIN_MODE`,
+`VITE_COOP_ARCHIVE_MODE`, and `VITE_COOP_SESSION_MODE` on the mock-first path unless the
+live-rails gate is intentionally being exercised.
 
 Canonical references:
 
@@ -154,16 +236,16 @@ Canonical references:
 
 Current-state docs:
 
+- [Action Domain Map](docs/reference/action-domain-map.md)
+- [Current Release Status](docs/reference/current-release-status.md)
+- [Demo & Deploy Runbook](docs/reference/demo-and-deploy-runbook.md)
+- [Testing & Validation](docs/reference/testing-and-validation.md)
+- [Receiver Pairing & Intake](docs/reference/receiver-pairing-and-intake.md)
 - [Builder Getting Started](docs/builder/getting-started.md)
 - [Architecture](docs/builder/architecture.md)
 - [Extension](docs/builder/extension.md)
 - [App](docs/builder/app.md)
 - [Environment Reference](docs/builder/environment.md)
-- [Action Domain Map](docs/reference/action-domain-map.md)
-- [Current Release Status](docs/reference/current-release-status.md)
-- [Testing & Validation](docs/reference/testing-and-validation.md)
-- [Demo & Deploy Runbook](docs/reference/demo-and-deploy-runbook.md)
-- [Receiver Pairing & Intake](docs/reference/receiver-pairing-and-intake.md)
 - [Live Rails Operator Runbook](docs/reference/live-rails-operator-runbook.md)
 - [Extension Install & Distribution](docs/reference/extension-install-and-distribution.md)
 - [Chrome Web Store Checklist](docs/reference/chrome-web-store-checklist.md)
@@ -171,7 +253,7 @@ Current-state docs:
 - [Agent Harness](docs/reference/agent-harness.md)
 - [Agent Registry & API Server](docs/reference/erc8004-and-api.md)
 
-Historical or deep reference:
+Deep reference and architecture:
 
 - [Original Introduction](docs/reference/original-introduction.md)
 - [Product Requirements](docs/reference/product-requirements.md)
@@ -187,15 +269,20 @@ Historical or deep reference:
 
 ## Regen Coordination Foundation
 
-Coop is the browser-native coordination membrane built on ideas forming across the wider regen-coordination work:
+Coop is the browser-native coordination membrane built on ideas forming across the wider
+regen-coordination work:
 
 - Local-first collaboration over server-centric products
 - Explicit shared memory instead of fragmented chat history
 - Durable long-memory archives that communities can keep, fork, and migrate
 - Impact, governance, and capital formation as connected workflows
-- Green Goods as the on-chain substrate for gardens, attestations, and collective capital flows
+- Green Goods as the onchain substrate for gardens, attestations, and collective capital flows
 
-The goal is to make it easier for communities to move from context to coordination, from coordination to evidence, and from evidence to capital. Each coop becomes a living knowledge garden with a shared local-first memory membrane, anchor nodes running stronger inference, long-memory publishing into Filecoin, Green Goods garden bindings, and smart-account-mediated execution for proposals, attestations, and treasury flows.
+The goal is to make it easier for communities to move from context to coordination, from
+coordination to evidence, and from evidence to capital. Each coop becomes a living knowledge garden
+with a shared local-first memory membrane, stronger local analysis, long-memory publishing into
+Filecoin, Green Goods garden bindings, and smart-account-mediated execution for proposals,
+attestations, and treasury flows when those rails are intentionally enabled.
 
 ## Brand
 

@@ -42,10 +42,6 @@ describe('useCoopActions', () => {
   it('creates a coop after establishing a passkey session and onchain state', async () => {
     const loadDashboard = vi.fn(async () => undefined);
     sendRuntimeMessageMock
-      .mockResolvedValueOnce({
-        ok: true,
-        data: { passkey: { id: 'cred-1', rpId: 'coop.local' } },
-      })
       .mockResolvedValueOnce({ ok: true })
       .mockResolvedValueOnce({ ok: true, data: { chainKey: 'sepolia' } })
       .mockResolvedValueOnce({ ok: true, soundEvent: 'coop-created', data: { id: 'coop-1' } });
@@ -60,6 +56,7 @@ describe('useCoopActions', () => {
           reducedSound: false,
         },
         configuredSignalingUrls: ['wss://api.coop.town'],
+        authSession: null,
       }),
     );
 
@@ -75,12 +72,12 @@ describe('useCoopActions', () => {
     );
 
     expect(created).toEqual({ id: 'coop-1' });
-    expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(3, {
+    expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(2, {
       type: 'resolve-onchain-state',
       payload: { coopSeed: expect.stringContaining('River Coop:Ari:0xabc') },
     });
     expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(
-      4,
+      3,
       expect.objectContaining({
         type: 'create-coop',
         payload: expect.objectContaining({
@@ -102,10 +99,6 @@ describe('useCoopActions', () => {
     const setMessage = vi.fn();
     const loadDashboard = vi.fn(async () => undefined);
     sendRuntimeMessageMock
-      .mockResolvedValueOnce({
-        ok: true,
-        data: { passkey: { id: 'cred-1', rpId: 'coop.local' } },
-      })
       .mockResolvedValueOnce({ ok: true })
       .mockResolvedValueOnce({ ok: true, data: { id: 'coop-1' } })
       .mockResolvedValueOnce({ ok: false, error: 'switch failed' });
@@ -120,6 +113,7 @@ describe('useCoopActions', () => {
           reducedSound: false,
         },
         configuredSignalingUrls: ['wss://api.coop.town'],
+        authSession: null,
       }),
     );
 
@@ -134,7 +128,7 @@ describe('useCoopActions', () => {
     const switched = await act(async () => result.current.switchCoop('coop-2'));
 
     expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(
-      3,
+      2,
       expect.objectContaining({
         type: 'join-coop',
         payload: expect.objectContaining({
@@ -146,5 +140,53 @@ describe('useCoopActions', () => {
     expect(setMessage).toHaveBeenCalledWith('Joined coop.');
     expect(switched).toBe(false);
     expect(setMessage).toHaveBeenCalledWith('switch failed');
+  });
+
+  it('reuses the loaded auth session without a runtime auth roundtrip', async () => {
+    const setMessage = vi.fn();
+    const loadDashboard = vi.fn(async () => undefined);
+    const existingSession = {
+      displayName: 'Ari',
+      primaryAddress: '0xabc',
+      passkey: { id: 'cred-1', rpId: 'coop.local' },
+    };
+    sendRuntimeMessageMock
+      .mockResolvedValueOnce({ ok: true, data: { id: 'coop-1' } })
+      .mockResolvedValueOnce({ ok: false, error: 'switch failed' });
+
+    const { result } = renderHook(() =>
+      useCoopActions({
+        setMessage,
+        loadDashboard,
+        soundPreferences: {
+          enabled: true,
+          reducedMotion: false,
+          reducedSound: false,
+        },
+        configuredSignalingUrls: ['wss://api.coop.town'],
+        authSession: existingSession as never,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.joinCoop({
+        inviteCode: 'COOP-JOIN',
+        displayName: 'Ari',
+        starterNote: '',
+      } as never);
+    });
+
+    expect(createPasskeySessionMock).not.toHaveBeenCalled();
+    expect(sendRuntimeMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendRuntimeMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'join-coop',
+        payload: expect.objectContaining({
+          inviteCode: 'COOP-JOIN',
+        }),
+      }),
+    );
+    expect(sessionToMemberMock).toHaveBeenCalledWith(existingSession, 'Ari', 'member');
+    expect(loadDashboard).toHaveBeenCalledTimes(1);
   });
 });

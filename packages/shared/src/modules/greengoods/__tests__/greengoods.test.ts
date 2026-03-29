@@ -271,6 +271,7 @@ describe('Green Goods helpers', () => {
   });
 
   it('rejects duplicate Green Goods garden names before send', async () => {
+    const deployment = getGreenGoodsDeployment('arbitrum');
     const encoded = {
       topics: [
         keccak256(stringToHex('GardenMinted(uint256,address,string,string,string,string,bool)')),
@@ -294,6 +295,7 @@ describe('Green Goods helpers', () => {
         chainKey: 'arbitrum',
         name: 'live garden coop',
         client: {
+          getBlockNumber: async () => deployment.gardenTokenDeploymentBlock,
           getLogs: async () => [
             {
               data: encoded.data,

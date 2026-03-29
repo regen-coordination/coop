@@ -306,6 +306,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     loadDashboard,
     soundPreferences: dashboard?.soundPreferences ?? defaultSoundPreferences,
     configuredSignalingUrls: dashboard?.runtimeConfig.signalingUrls ?? [],
+    authSession: dashboard?.authSession ?? null,
   });
 
   const quickDraftActions = useQuickDraftActions({

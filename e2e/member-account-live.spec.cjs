@@ -367,11 +367,21 @@ function buildLiveEnv() {
   };
 }
 
-async function openFooterTab(page, name) {
-  await page
-    .locator('nav[aria-label="Sidepanel navigation"]')
-    .getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}$`, 'i') })
-    .click();
+async function enableVirtualWebAuthn(context, page, createAuthenticator = false) {
+  const cdpSession = await context.newCDPSession(page);
+  await cdpSession.send('WebAuthn.enable');
+  if (createAuthenticator) {
+    await cdpSession.send('WebAuthn.addVirtualAuthenticator', {
+      options: {
+        protocol: 'ctap2',
+        transport: 'internal',
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+  }
 }
 
 async function launchExtensionProfile(userDataDir) {
@@ -384,31 +394,75 @@ async function launchExtensionProfile(userDataDir) {
   const worker = context.serviceWorkers()[0] || (await context.waitForEvent('serviceworker'));
   const extensionId = new URL(worker.url()).host;
   const page = await context.newPage();
-  const cdpSession = await context.newCDPSession(page);
-
-  await cdpSession.send('WebAuthn.enable');
-  await cdpSession.send('WebAuthn.addVirtualAuthenticator', {
-    options: {
-      protocol: 'ctap2',
-      transport: 'internal',
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
-  await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+  await enableVirtualWebAuthn(context, page, true);
+  await page.setViewportSize({ width: 360, height: 520 });
+  await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForSelector('.popup-app', { timeout: 30_000 });
+  await page.bringToFront();
 
   return {
     context,
+    extensionId,
     page,
   };
+}
+
+async function openPopupCreateFlow(popupPage) {
+  const coopNameField = popupPage.getByPlaceholder('Community research coop');
+  if (await coopNameField.isVisible().catch(() => false)) {
+    return;
+  }
+
+  const onboardingCreateButton = popupPage.getByRole('button', {
+    name: 'Create a Coop',
+    exact: true,
+  });
+  if (await onboardingCreateButton.isVisible().catch(() => false)) {
+    await onboardingCreateButton.click();
+    await expect(coopNameField).toBeVisible();
+    return;
+  }
+
+  const createJoinButton = popupPage.getByRole('button', { name: 'Create or join', exact: true });
+  if (await createJoinButton.isVisible().catch(() => false)) {
+    await createJoinButton.click();
+    await popupPage.getByRole('menuitem', { name: 'Create Coop', exact: true }).click();
+    await expect(coopNameField).toBeVisible();
+    return;
+  }
+
+  throw new Error('Unable to open the popup create flow from the current popup state.');
+}
+
+async function createCoopViaPopup(profile, input) {
+  const popupPage = profile.page;
+
+  await popupPage.reload({ waitUntil: 'domcontentloaded' });
+  await popupPage.waitForSelector('.popup-app', { timeout: 30_000 });
+  await popupPage.bringToFront();
+  await openPopupCreateFlow(popupPage);
+  await popupPage.getByPlaceholder('Community research coop').fill(input.coopName);
+  await popupPage.getByPlaceholder('Ava').fill(input.creatorName);
+  await popupPage.getByPlaceholder('Paste or write what this coop is gathering.').fill(
+    input.purpose,
+  );
+  await popupPage.getByRole('button', { name: 'Create Coop' }).click({ noWaitAfter: true });
+  await expect
+    .poll(async () => {
+      const dashboard = await getDashboard(popupPage);
+      return dashboard?.coops?.some((coop) => coop.profile.name === input.coopName) ?? false;
+    }, {
+      timeout: 90_000,
+    })
+    .toBe(true);
 }
 
 function buildCreateGardenPayload(coop) {
   const garden = coop.greenGoods;
   const creator = coop.members[0];
   const baseSlug = (garden?.slug || 'live-garden-coop').toLowerCase();
+  const baseName = (garden?.name || coop.profile.name).trim();
   const normalizedSlug = baseSlug
     .replace(/[^a-z0-9-]+/g, '-')
     .replace(/^-+|-+$/g, '')
@@ -417,9 +471,10 @@ function buildCreateGardenPayload(coop) {
     .replace(/[^a-z0-9]/gi, '')
     .toLowerCase()
     .slice(-8);
+  const uniqueName = `${baseName} ${uniqueSuffix}`.slice(0, 72);
   return {
     coopId: coop.profile.id,
-    name: garden?.name || coop.profile.name,
+    name: uniqueName,
     slug: `${normalizedSlug}-${uniqueSuffix}`,
     description: garden?.description || coop.profile.purpose,
     location: garden?.location || undefined,
@@ -451,22 +506,11 @@ test.describe('member account live workflow', () => {
     const profile = await launchExtensionProfile(userDataDir);
 
     try {
-      await profile.page.fill('#coop-name', 'Live Garden Coop');
-      await profile.page.fill('#coop-purpose', 'Coordinate live Green Goods garden operations.');
-      await profile.page.fill('#creator-name', 'Ari');
-      await profile.page.fill(
-        '#summary',
-        'This coop runs a live Green Goods flow with a member smart account.',
-      );
-      await profile.page.fill(
-        '#seed-contribution',
-        'I bring the first on-chain garden setup and work submission.',
-      );
-      await openOptionalSetup(profile.page);
-      await profile.page.check('#green-goods-garden');
-
-      await profile.page.getByRole('button', { name: /start this coop/i }).click();
-      await expect(profile.page.getByText(/anchor mode is off/i)).toBeVisible({ timeout: 30000 });
+      await createCoopViaPopup(profile, {
+        coopName: `Anchor Bootstrap ${Date.now()}`,
+        creatorName: 'Ari',
+        purpose: 'Bootstrap a passkey session before enabling live anchor mode.',
+      });
 
       const anchorResult = await sendRuntimeMessage(profile.page, {
         type: 'set-anchor-mode',
@@ -474,10 +518,11 @@ test.describe('member account live workflow', () => {
       });
       expect(anchorResult?.ok).toBe(true);
 
-      await profile.page.getByRole('button', { name: /start this coop/i }).click();
-      await expect(profile.page.getByText(/coop created\./i)).toBeVisible({ timeout: 90000 });
-
-      await expect(profile.page.getByRole('heading', { name: 'Live Garden Coop' })).toBeVisible();
+      await createCoopViaPopup(profile, {
+        coopName: 'Live Garden Coop',
+        creatorName: 'Ari',
+        purpose: 'Coordinate live Green Goods garden operations.',
+      });
 
       await expect
         .poll(async () => {
@@ -560,12 +605,34 @@ test.describe('member account live workflow', () => {
           activeCoopName: coop.profile.name,
         });
 
-      await openFooterTab(profile.page, 'Roost');
-      await profile.page.getByRole('button', { name: /provision my garden account/i }).click();
-      await expect(
-        profile.page.getByText(/member smart account predicted and stored on this browser/i),
-      ).toBeVisible({ timeout: 30000 });
-      await expect(profile.page.getByText(/address predicted/i)).toBeVisible({ timeout: 30000 });
+      const provisionResponse = await sendRuntimeMessage(profile.page, {
+        type: 'provision-member-onchain-account',
+        payload: {
+          coopId: coop.profile.id,
+          memberId: creatorMember.id,
+        },
+      });
+      expect(provisionResponse?.ok).toBe(true);
+      await expect
+        .poll(
+          async () => {
+            const liveDashboard = await getDashboard(profile.page);
+            const liveCoop = liveDashboard?.coops.find(
+              (candidate) => candidate.profile.id === coop.profile.id,
+            );
+            const memberAccount = liveCoop?.memberAccounts.find(
+              (account) => account.memberId === creatorMember.id,
+            );
+            return (
+              memberAccount?.status === 'predicted' &&
+              /^0x[a-fA-F0-9]{40}$/.test(memberAccount.accountAddress ?? '')
+            );
+          },
+          {
+            timeout: 30000,
+          },
+        )
+        .toBe(true);
 
       if (hasImpactSchema) {
         const impactResponse = await sendRuntimeMessage(profile.page, {
