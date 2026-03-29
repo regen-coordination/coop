@@ -1,5 +1,9 @@
 # Coop Docs Community + Builder IA Revamp
 
+> Planning note: this is an internal IA/spec artifact in `packages/app/public/spec/`, not the
+> canonical current-state doc set. Use `docs/`, especially `docs/community/*`, `docs/builder/*`,
+> and `docs/reference/*`, as the source of truth for live documentation.
+
 **Status**: Active spec  
 **Created**: 2026-03-19  
 **Document Role**: Canonical spec for the docs information architecture rewrite and content translation pass
@@ -334,4 +338,3 @@ This rewrite is complete when:
 - the current long-form docs have been translated, split, or archived intentionally
 - the old `/docs/*` URLs resolve cleanly
 - the site reads like one documentation product with two modes, not two separate doc systems
-

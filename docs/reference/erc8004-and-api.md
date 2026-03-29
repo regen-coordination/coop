@@ -5,7 +5,12 @@ slug: /reference/erc8004-and-api
 
 # ERC-8004 Agent Registry & API Server
 
-Coop uses two infrastructure components that sit outside the browser but serve the local-first architecture: an on-chain agent identity and reputation system (ERC-8004) and a minimal WebSocket signaling relay (the API server). Neither stores user data. The registry provides verifiable agent identity; the relay enables peer discovery so that Yjs CRDT sync can establish direct WebRTC connections.
+Coop uses two infrastructure components that sit outside the browser but still support the
+local-first architecture: an on-chain agent identity and reputation system (ERC-8004) and a small
+API package that provides signaling, health routes, and Yjs WebSocket room sync. The registry
+provides verifiable agent identity. The API server is not a hosted inference layer or a general app
+backend, but the Yjs room endpoint can carry shared coop document updates and can persist room state
+when server-side persistence is configured.
 
 ---
 
@@ -180,7 +185,9 @@ The server is intentionally minimal. The `@coop/api` package has a single runtim
 
 ### 2.3 Deployment
 
-Production URL: `wss://signal.coop.town`
+Production signaling URL: `wss://api.coop.town`
+
+Production Yjs sync base URL: `wss://api.coop.town/yws`
 
 The Fly.io configuration (`fly.toml`):
 - App name: `coop`
@@ -197,6 +204,7 @@ The Fly.io configuration (`fly.toml`):
 | GET | `/` | WebSocket upgrade | Primary signaling endpoint |
 | GET | `/` | `c.text('okay')` | Fallback when no `Upgrade` header (monitoring probes) |
 | GET | `/health` | `c.json({ status: 'ok' })` | Health check |
+| GET | `/yws/:room` | WebSocket upgrade | Binary Yjs room sync and blob-relay transport |
 
 The WebSocket upgrade handler is mounted before the HTTP fallback, so requests with an `Upgrade: websocket` header are handled by the WebSocket path, while plain HTTP GETs fall through to the text response.
 
@@ -257,9 +265,13 @@ A stable identity key is derived from `ws.raw` (the underlying Bun `ServerWebSoc
 The protocol is compatible with [y-webrtc](https://github.com/yjs/y-webrtc)'s signaling requirements. When a coop sync room is created (`createSyncRoomConfig()`), it generates:
 
 1. A deterministic `roomId` derived from the coop ID and a room secret.
-2. Signaling URLs (defaults to `['wss://signal.coop.town']`).
+2. Signaling URLs (defaults to `['wss://api.coop.town']`, or `VITE_COOP_SIGNALING_URLS` when configured).
 
-The `WebrtcProvider` from y-webrtc connects to the signaling URL, subscribes to the room topic, and exchanges WebRTC signaling data (SDP offers, answers, ICE candidates) through the relay. Once the WebRTC data channel is established, all Yjs document updates flow directly between peers without touching the server.
+The `WebrtcProvider` from y-webrtc connects to the signaling URL, subscribes to the room topic, and exchanges WebRTC signaling data (SDP offers, answers, ICE candidates) through the relay. Once the WebRTC data channel is established, direct peer sync can carry Yjs updates without further involvement from the signaling relay.
+
+Coop also creates a `WebsocketProvider` for the same room using the `wss://api.coop.town/yws` base
+URL by default. In practice, current shared-state sync can travel over both direct peer links and
+the Yjs WebSocket room path.
 
 ### 2.9 ICE Server Configuration
 
@@ -275,7 +287,8 @@ The `@coop/api` package exports ICE configuration used by the WebRTC provider:
 
 The `@coop/api` package exports its config module (not the server) to other packages via `"exports": { ".": "./config.ts" }`. This provides:
 
-- `defaultSignalingUrls` -- `['wss://signal.coop.town']`
+- `defaultSignalingUrls` -- `['wss://api.coop.town']`
+- `defaultWebsocketSyncUrl` -- `wss://api.coop.town/yws`
 - `defaultIceServers` -- Google STUN servers
 - `parseSignalingUrls(raw?)` -- Parse comma-separated URL strings
 - `filterUsableSignalingUrls(urls)` -- Validate URL protocols (ws, wss, http, https)
@@ -287,9 +300,10 @@ These are re-exported by the shared sync module (`@coop/shared`) for use by the 
 
 The server is deliberately thin. Coop's local-first architecture means:
 
-- **No user data passes through the server.** The relay sees topic names and opaque signaling payloads. Yjs document content is encrypted end-to-end via WebRTC.
-- **No authentication.** Topic names are derived from secrets shared during coop creation/invitation. Only peers who know the room secret can subscribe to the correct topic.
-- **No persistence.** The server holds no state beyond the in-memory `TopicRegistry`. If the server restarts, clients reconnect and re-subscribe.
+- **The signaling relay only sees topic names and signaling payloads.** That path is still just peer discovery.
+- **The Yjs room endpoint can carry shared coop document updates.** This is current runtime behavior when the `WebsocketProvider` is active.
+- **Authentication is room-secret based, not account-based.** Topic names and room IDs are derived from coop secrets shared during coop creation and invitation.
+- **Persistence is optional and server-side.** The `TopicRegistry` is in-memory only. The `/yws/:room` path persists room state only when `YJS_PERSIST_DIR` is configured on the server.
 - **No business logic.** All knowledge processing, agent execution, and data storage happen in the browser.
 
 ---
@@ -300,12 +314,12 @@ The server is deliberately thin. Coop's local-first architecture means:
 
 The full path from coop creation to peer sync:
 
-1. A coop is created with `createSyncRoomConfig()`, which generates a `roomId` and stores the signaling URLs (default: `wss://signal.coop.town`).
-2. The extension's `WebrtcProvider` connects to the signaling server and subscribes to the `roomId` topic.
-3. When a second peer joins (via invite code containing the room secret), it derives the same `roomId`, connects to the same signaling server, and subscribes to the same topic.
-4. The signaling server relays WebRTC offers/answers/ICE candidates between the two peers.
-5. A direct WebRTC data channel is established. Yjs document updates flow peer-to-peer.
-6. The signaling server plays no further role until a new peer joins or an existing peer reconnects.
+1. A coop is created with `createSyncRoomConfig()`, which generates a `roomId` and stores signaling URLs (default: `wss://api.coop.town`).
+2. The extension or receiver opens a `WebrtcProvider` for that room and exchanges offers, answers, and ICE candidates through the signaling relay.
+3. The same runtime also opens a `WebsocketProvider` against the `wss://api.coop.town/yws` base URL for the same `roomId`.
+4. Direct peers sync over WebRTC when available.
+5. The Yjs WebSocket room keeps shared state moving when direct peer transport is missing, degraded, or reconnecting.
+6. Blob-relay traffic can also use the WebSocket-backed transport when that provider is present.
 
 ### 3.2 ERC-8004 in the Agent Lifecycle
 
@@ -344,8 +358,12 @@ All configuration is in the root `.env.local`:
 | `VITE_COOP_CHAIN` | Selects contract addresses (`arbitrum` or `sepolia`) |
 | `VITE_COOP_ONCHAIN_MODE` | Controls mock vs. live for ERC-8004 operations |
 | `VITE_PIMLICO_API_KEY` | Required for live Safe/4337 transaction execution |
+| `VITE_COOP_SIGNALING_URLS` | Overrides the default signaling URL list used by y-webrtc |
+| `YJS_PERSIST_DIR` | Server-only env var enabling file-backed Yjs room persistence on `/yws/:room` |
 
-The signaling URL is not configured via env var. It defaults to `wss://signal.coop.town` and can be overridden per sync room at creation time or via a comma-separated string parsed by `parseSignalingUrls()`.
+The Yjs WebSocket base URL is code-configured today through `defaultWebsocketSyncUrl`
+(`wss://api.coop.town/yws`). The signaling URL list is env-configurable through
+`VITE_COOP_SIGNALING_URLS`.
 
 ---
 

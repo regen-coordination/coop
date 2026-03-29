@@ -5,8 +5,11 @@ slug: /reference/coop-os-architecture-vnext
 
 # Coop V1 Build Plan
 
-> Current-state note: this long-form build plan predates the current surface ownership model. Use
-> [Action Domain Map](/reference/action-domain-map) when you need the live extension action map.
+> Current-state note: this long-form build plan predates the current surface ownership model and the
+> current release posture. References here to a general-review `Roost`, the older signaling host, or
+> landing-only app behavior describe an earlier build phase. Use
+> [Action Domain Map](/reference/action-domain-map), [Builder App](/builder/app), and
+> [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook) for current behavior.
 
 **Status**: Canonical v1 plan
 **Updated**: 2026-03-15
@@ -78,7 +81,7 @@ The tone should be:
 Chicken metaphors should make the product easier to understand:
 
 - tabs are `Loose Chickens`
-- the human review step is called the `Roost`
+- the human review step is talked about as the `Roost` in early brand language
 - the shared feed is the `Coop Feed`
 - creating a coop is `Launching the Coop`
 - a success sound is the `Rooster Call`
@@ -166,7 +169,7 @@ These were not part of the locked prototype loop. Items marked *(since shipped)*
 - local file or folder ingest
 - PDF library ingest
 - app-level capture outside the browser
-- ~~self-hosted signaling infrastructure~~ *(since shipped — y-webrtc signaling on Fly.io at signal.coop.town)*
+- ~~self-hosted signaling infrastructure~~ *(since shipped — signaling and Yjs sync on Fly.io at `api.coop.town`)*
 - full React Flow editing *(read-only board view shipped; full editing remains a non-goal)*
 - automatic archival of raw browsing exhaust
 - full archive browsing and retrieval UI

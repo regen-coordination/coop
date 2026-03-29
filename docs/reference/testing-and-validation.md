@@ -5,11 +5,14 @@ slug: /reference/testing-and-validation
 
 # Coop Testing And Validation
 
-Date: March 27, 2026
+Date: March 28, 2026
 
 This document maps the release-facing validation commands to the actual suite graph in
 `scripts/validate.ts`. The demo flow and deployment steps live in
 [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
+
+As of March 28, 2026, the automated mock-first release bar is green. The remaining staged-launch
+blocker is manual real-Chrome confirmation of popup `Capture Tab` and `Screenshot` success paths.
 
 ## Core Commands
 

@@ -5,7 +5,7 @@ slug: /reference/chrome-web-store-reviewer-notes
 
 # Chrome Web Store Reviewer Notes Template
 
-Date: March 20, 2026
+Date: March 28, 2026
 
 Use this template when submitting the Coop extension for Chrome Web Store review.
 
@@ -41,9 +41,10 @@ user explicitly publishes or syncs it.
 The extension uses an exact origin allowlist for the receiver bridge. The release build should list
 only:
 
-- `http://127.0.0.1/*`
-- `http://localhost/*`
-- release-specific receiver origin, if configured for that build
+- the exact production receiver origin for that release candidate (for example `https://coop.town/*`)
+
+Localhost receiver origins are valid for developer builds only and should not appear in a Chrome
+Web Store submission build.
 
 ### Data handling
 

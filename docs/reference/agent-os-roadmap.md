@@ -33,7 +33,7 @@ The agent runs a fully autonomous observe→plan→act loop in the extension's o
 | WebLLM Bridge | `extension/src/runtime/agent-webllm-bridge.ts` | ~120 | WebLLM worker communication |
 | Domain Model | `shared/src/modules/agent/agent.ts` | ~430 | Observations, plans, skills, drafts, memory |
 
-**14 registered skills** in `packages/extension/src/skills/`, each a directory with `skill.json` manifest and `SKILL.md` instruction file. Skills declare dependencies via `depends` field; the harness topologically sorts them with alphabetical tie-breaking.
+**16 registered skills** in `packages/extension/src/skills/`, each a directory with `skill.json` manifest and `SKILL.md` instruction file. Skills declare dependencies via `depends` field; the harness topologically sorts them with alphabetical tie-breaking.
 
 **Three-tier inference cascade:**
 
@@ -51,7 +51,7 @@ The agent runs a fully autonomous observe→plan→act loop in the extension's o
 
 #### Shared Domain
 
-18 modules in `packages/shared/src/modules/` with barrel exports through `@coop/shared`:
+20 modules in `packages/shared/src/modules/` with barrel exports through `@coop/shared`:
 
 | Module | Domain |
 |--------|--------|
@@ -59,10 +59,12 @@ The agent runs a fully autonomous observe→plan→act loop in the extension's o
 | `app` | App shell logic |
 | `archive` | Storacha/Filecoin upload and lifecycle |
 | `auth` | Passkey-first identity + onchain auth |
+| `blob` | Media compression and binary relay transport |
 | `coop` | Core flow board, review, sync, and publish logic |
 | `erc8004` | ERC-8004 on-chain agent registry |
 | `fvm` | Filecoin VM interactions |
 | `greengoods` | Green Goods garden bootstrap and sync |
+| `member-account` | Passkey-backed member account helpers |
 | `onchain` | Safe creation, ERC-4337, contract interactions, provider factory |
 | `operator` | Anchor/trusted-node runtime behavior |
 | `permit` | Execution permits with replay protection |
@@ -72,6 +74,7 @@ The agent runs a fully autonomous observe→plan→act loop in the extension's o
 | `session` | Scoped execution permissions, time-bounded capabilities |
 | `stealth` | ERC-5564 stealth addresses (secp256k1) |
 | `storage` | Dexie + Yjs local persistence |
+| `transcribe` | Local audio transcription flows |
 
 All domain types are Zod schemas in `contracts/schema.ts`, inferred with `z.infer<>`.
 

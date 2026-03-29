@@ -55,23 +55,21 @@ For the full variable reference, see [Environment Reference](/builder/environmen
 | `@coop/shared` | Shared contracts, modules, storage, policy, sync, archive, identity |
 | `@coop/app` | Landing plus receiver PWA shell |
 | `@coop/extension` | MV3 extension runtime and primary product surface |
-| `@coop/api` | Minimal signaling relay and API routes |
+| `@coop/api` | Signaling relay plus Yjs WebSocket sync routes |
 | `@coop/docs` | This Docusaurus site |
 
 ## Running The Docs Site
 
-The docs live in `docs/` and now serve from `/`.
+Use the root workspace scripts so the docs app picks up the repo's shared toolchain:
 
 ```bash
-cd docs
-bun run start
+bun run docs:dev
+bun run docs:build
+bun run docs:serve
 ```
 
-Build it with:
-
-```bash
-bun run build
-```
+`bun run docs:build` writes generated output to `docs/build`. Treat that directory as generated
+output, not canonical source content.
 
 ## Development Tools
 
@@ -87,11 +85,14 @@ Use the workspace scripts rather than package-local ad hoc commands:
 ```bash
 bun format && bun lint
 bun run test
+bun run test:coverage
 bun build
+bun run validate list
 bun run validate smoke
 bun run validate core-loop
-bun run validate full
-bun run validate list          # discover all available suites
+bun run validate:store-readiness
+bun run validate:production-readiness
+bun run validate:production-live-readiness
 ```
 
 ## Where To Read Next

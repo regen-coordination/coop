@@ -44,7 +44,12 @@ const sidebars: SidebarsConfig = {
     builderDoc('builder/architecture'),
     builderDoc('builder/extension'),
     builderDoc('builder/app'),
-    builderDoc('builder/agentic-harness'),
+    {
+      type: 'link',
+      label: 'Agent Harness',
+      href: '/reference/agent-harness',
+      className: builderClassName,
+    },
     builderDoc('builder/p2p-functionality'),
     builderDoc('builder/onchain-identity'),
     {

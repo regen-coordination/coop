@@ -5,7 +5,7 @@ slug: /reference/chrome-web-store-checklist
 
 # Chrome Web Store Submission Checklist
 
-Date: March 27, 2026
+Date: March 28, 2026
 
 ## Build And Audit
 
@@ -15,7 +15,7 @@ Date: March 27, 2026
    `bun run validate:store-readiness`, `bun run validate:production-readiness`.
 3. Only if the candidate enables live Safe, session-key, or archive rails and the live env
    contract is complete, run `bun run validate:production-live-readiness`.
-5. Confirm the extension zip is created from `packages/extension/.output/chrome-mv3` with files at the archive root.
+4. Confirm the extension zip is created from `packages/extension/.output/chrome-mv3` with files at the archive root.
 
 ## Manual Verification
 
@@ -26,6 +26,9 @@ Date: March 27, 2026
 5. Verify scheduled capture works for `30-min` and `60-min`.
 6. Verify the built extension surface does not expose remote knowledge-skill import.
 7. Use DevTools on first local-AI initialization and record the actual model-download endpoints.
+
+As of March 28, 2026, the manual popup `Capture Tab` and `Screenshot` success check remains the
+last staged-launch blocker after the automated bar passes.
 
 ## Listing And Policy Artifacts
 

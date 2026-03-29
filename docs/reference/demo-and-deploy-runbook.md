@@ -5,7 +5,7 @@ slug: /reference/demo-and-deploy-runbook
 
 # Coop Demo And Deploy Runbook
 
-Date: March 27, 2026
+Date: March 28, 2026
 
 This is the canonical runbook for local demos, peer pairing, and production deployment. Keep the
 other readiness docs aligned to this one.
@@ -157,6 +157,10 @@ Manual staged-launch checks still include:
 - popup screenshot review edit/save and cancel paths
 - sidepanel create, Chickens review, publish, board/archive, and receiver pairing flows
 - confirmation that public builds do not embed operator-only signing material
+- confirmation that remote knowledge-skill import remains quarantined in the shipped build
+
+As of March 28, 2026, those popup success-path checks are the remaining public-release blocker after
+the automated staged-launch bar.
 
 ### Live Modes
 
@@ -197,10 +201,8 @@ Human-confirmed only:
 
 ### Filecoin / FVM Registry
 
-The Filecoin registry contract currently lives in
-[CoopRegistry.sol](/Users/afo/Code/greenpill/coop/packages/contracts/src/CoopRegistry.sol) and is
-published with Foundry from
-[DeployRegistry.s.sol](/Users/afo/Code/greenpill/coop/packages/contracts/script/DeployRegistry.s.sol).
+The Filecoin registry contract currently lives in `packages/contracts/src/CoopRegistry.sol` and is
+published with Foundry from `packages/contracts/script/DeployRegistry.s.sol`.
 
 Preferred deployment path using a Foundry keystore account:
 
@@ -227,8 +229,7 @@ After deployment:
 1. Record the deployed registry address.
 2. Set `VITE_COOP_FVM_CHAIN` to `filecoin-calibration` or `filecoin`.
 3. Set `VITE_COOP_FVM_REGISTRY_ADDRESS` to the deployed contract address.
-4. Update the deployment map in
-   [fvm.ts](/Users/afo/Code/greenpill/coop/packages/shared/src/modules/fvm/fvm.ts).
+4. Update the deployment map in `packages/shared/src/modules/fvm/fvm.ts`.
 
 Current implementation note:
 

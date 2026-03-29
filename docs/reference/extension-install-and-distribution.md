@@ -5,7 +5,7 @@ slug: /reference/extension-install-and-distribution
 
 # Coop Extension Install And Distribution
 
-Date: March 27, 2026
+Date: March 28, 2026
 
 This document covers extension-specific install and rollout. The full local demo, peer pairing, and
 production deployment flow lives in [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
@@ -72,8 +72,9 @@ For trusted testers outside the Chrome Web Store:
 Commands:
 
 ```bash
-bun run --filter @coop/extension build
-cd packages/extension/.output/chrome-mv3
+cd packages/extension
+bun run build
+cd .output/chrome-mv3
 zip -r ../coop-extension.zip .
 ```
 
@@ -114,6 +115,8 @@ Release note for manual verification:
   flows.
 - Successful popup `Capture Tab` and `Screenshot` saves still need a real-click manual check in
   Chrome because the popup `activeTab` grant is not reproducible under Playwright.
+- Remote knowledge-skill import remains quarantined from the shipped build and should stay that way
+  unless the dedicated re-enable checklist is completed.
 
 Do not ship `VITE_COOP_FVM_OPERATOR_KEY` in a public Chrome Web Store build. The current Filecoin
 registry registration path is suitable only for operator-controlled builds because `VITE_` env vars

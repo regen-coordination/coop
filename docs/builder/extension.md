@@ -53,9 +53,9 @@ graph TB
 ### Popup
 
 The popup is a self-contained multi-screen application orchestrated by the `usePopupOrchestration` hook.
-`PopupScreenRouter` handles eight screens: home, chickens (drafts), feed, create coop, join coop,
-draft detail, no-coop, and profile. A footer nav bar provides three primary tabs: Home, Chickens, and
-Feed. Supporting UI includes the share menu, onboarding hero, artifact dialog, and theme picker.
+`PopupScreenRouter` currently handles eight screens: `home`, `drafts`, `feed`, `create`, `join`,
+`draft-detail`, `no-coop`, and `profile`. The footer navigation centers on home, drafts, and feed.
+Supporting UI includes the share menu, onboarding hero, artifact dialog, and theme picker.
 
 Plain-language role: quick capture and quick review.
 
@@ -66,15 +66,18 @@ The sidepanel is the primary workspace surface, organized into four tabs via `Si
 - **Roost** for Green Goods member access, member-account provisioning, and work submission
 - **Chickens** for candidates, working drafts, and publish prep
 - **Coops** for shared coop state, archive, board, and proof views
-- **Nest** for members, receiver pairing and intake, operator controls, and settings
+- **Nest** for members, receiver pairing and intake, operator controls, and settings, with current
+  sub-tabs `Members`, `Agent`, and `Settings`
 
-The older product story still uses **Roost** as the metaphor for the human review step. The current
-UI no longer uses the sidepanel `Roost` tab as the main general draft-review queue.
+The older product story still uses **Roost** as the metaphor for the human review step. In the
+current UI, that general review work lives in the popup and `Chickens`, while the sidepanel `Roost`
+tab is the Green Goods member workspace.
 
 ### UI Catalog
 
 A standalone UI catalog (`vite.catalog.config.ts`, served on port 3099) provides an isolated
 development environment for building and reviewing extension components outside the extension runtime.
+Run it from the repo root with `bunx vite --config packages/extension/vite.catalog.config.ts`.
 
 ## What The Extension Owns
 
@@ -84,7 +87,7 @@ The extension is the home for:
 - popup and Chickens review workflows
 - coop creation and join flows
 - feed and board publishing actions
-- sync bindings and signaling configuration
+- sync bindings, signaling configuration, and WebSocket room sync
 - operator, policy, permit, and session controls
 - Green Goods member and operator workflows
 - agent harness and inference worker runtime
@@ -119,7 +122,7 @@ unusually clear.
 ## Builder Advice
 
 - test the sidepanel and the offscreen/runtime path together when changing sync or agent behavior
-- use the UI catalog (`bun run dev:catalog` or `vite.catalog.config.ts`) to iterate on components in isolation
+- use `bunx vite --config packages/extension/vite.catalog.config.ts` to iterate on components in isolation
 - keep the extension as the primary product surface unless a task explicitly moves responsibilities
 - avoid pushing shared-domain logic into background-only helpers when it belongs in `@coop/shared`
 - test popup screens via `PopupApp.test.tsx` and sidepanel tabs via their respective test files under `tabs/__tests__/`
