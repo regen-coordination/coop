@@ -8,36 +8,45 @@ slug: /builder/environment
 Coop uses a single root `.env.local` file. Never create package-specific env files. All `VITE_`
 prefixed variables are baked into bundles at build time by Vite -- rebuild after changes.
 
-## Core Configuration
+## Core Runtime Configuration
 
 | Variable | Values | Default | Purpose |
 | --- | --- | --- | --- |
-| `VITE_COOP_CHAIN` | `sepolia`, `arbitrum` | `sepolia` | Target blockchain network |
-| `VITE_COOP_ONCHAIN_MODE` | `mock`, `live` | `mock` | Whether onchain operations hit real contracts |
-| `VITE_COOP_ARCHIVE_MODE` | `mock`, `live` | `mock` | Whether archive operations use real Storacha/Filecoin |
-| `VITE_COOP_SESSION_MODE` | `mock`, `live`, `off` | `off` | Session key and bounded execution mode |
-| `VITE_COOP_PRIVACY_MODE` | `on`, `off` | `off` | Enable Semaphore ZK membership proofs |
+| `VITE_COOP_CHAIN` | `sepolia`, `arbitrum` | `sepolia` | Target chain for onchain state and explorer links |
+| `VITE_COOP_ONCHAIN_MODE` | `mock`, `live` | `mock` | Whether onchain operations hit live Safe or contract flows |
+| `VITE_COOP_ARCHIVE_MODE` | `mock`, `live` | `mock` | Whether archive operations use live trusted-node delegation material |
+| `VITE_COOP_SESSION_MODE` | `mock`, `live`, `off` | `off` | Smart Session and bounded execution mode |
+| `VITE_COOP_PRIVACY_MODE` | `on`, `off` | `off` | Enable Semaphore-backed privacy flows |
 | `VITE_COOP_PROVIDER_MODE` | `kohaku`, `standard` | `standard` | Onchain provider strategy |
-| `VITE_COOP_LOCAL_ENHANCEMENT` | any string, `off` | enabled | Local AI enhancement via WebGPU/WASM (disabled only when set to `off`) |
+| `VITE_COOP_LOCAL_ENHANCEMENT` | any string, `off` | enabled | Local AI enhancement toggle for in-browser analysis |
 
-## Connectivity
+## Sync And Receiver Configuration
 
 | Variable | Values | Default | Purpose |
 | --- | --- | --- | --- |
-| `VITE_COOP_SIGNALING_URLS` | Comma-separated WSS URLs | `wss://api.coop.town` | Signaling relay endpoints for P2P discovery |
-| `VITE_COOP_RECEIVER_APP_URL` | URL | `http://127.0.0.1:3001` | Receiver PWA base URL |
+| `VITE_COOP_SIGNALING_URLS` | Comma-separated ws/wss/http/https URLs | `wss://api.coop.town` | Signaling URLs passed into y-webrtc room setup |
+| `VITE_COOP_RECEIVER_APP_URL` | URL | `http://127.0.0.1:3001` | Receiver PWA base URL and receiver-bridge host-permission source |
 | `VITE_COOP_TURN_URLS` | Comma-separated TURN URIs | -- | TURN relay servers for NAT traversal |
 | `VITE_COOP_TURN_USERNAME` | String | -- | TURN authentication username |
 | `VITE_COOP_TURN_CREDENTIAL` | String | -- | TURN authentication credential |
 
-## Live Operations
+Notes:
+
+- `bun dev` injects `VITE_COOP_RECEIVER_APP_URL` and `VITE_COOP_SIGNALING_URLS` for the extension
+  watcher so local dev can point at the active app and API processes.
+- `VITE_COOP_RECEIVER_APP_URL` is also used to derive the receiver bridge content-script matches in
+  the extension manifest.
+- For Chrome Web Store validation, `VITE_COOP_RECEIVER_APP_URL` must be the exact production HTTPS
+  receiver origin. `http://127.0.0.1:3001` and `http://localhost` are valid only for local builds.
+
+## Live Onchain Requirements
 
 | Variable | Values | Default | Purpose |
 | --- | --- | --- | --- |
-| `VITE_PIMLICO_API_KEY` | API key | -- | Pimlico RPC for live Safe/ERC-4337 operations |
-| `VITE_PIMLICO_SPONSORSHIP_POLICY_ID` | Policy ID | -- | Pimlico gas sponsorship policy for bundled transactions |
+| `VITE_PIMLICO_API_KEY` | API key | -- | Required for live Safe/ERC-4337 and session-key execution |
+| `VITE_PIMLICO_SPONSORSHIP_POLICY_ID` | Policy ID | -- | Optional Pimlico gas sponsorship policy |
 
-## FVM / Agent Registry (ERC-8004)
+## Filecoin / ERC-8004 Registry
 
 These variables configure the Filecoin Virtual Machine integration for on-chain agent registry:
 
@@ -57,15 +66,16 @@ forge script script/DeployRegistry.s.sol:DeployRegistry \
   --account "GreenGoods deployer"
 ```
 
-The deploy script also accepts `DEPLOYER_PRIVATE_KEY=0x...` when you do not want to use a Foundry keystore signer.
+The deploy script also accepts `DEPLOYER_PRIVATE_KEY=0x...` when you do not want to use a Foundry
+keystore signer.
 
-## Green Goods Integration
+## Green Goods
 
 | Variable | Values | Default | Purpose |
 | --- | --- | --- | --- |
 | `VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID` | `0x...` (64-char hex) | -- | EAS schema UID for Green Goods work attestations |
 
-## Trusted Node Archive
+## Trusted-Node Archive
 
 These variables configure the trusted-node archive workflow when `VITE_COOP_ARCHIVE_MODE=live`:
 
@@ -82,13 +92,23 @@ These variables configure the trusted-node archive workflow when `VITE_COOP_ARCH
 | `VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_URL` | Optional Lotus/Filecoin JSON-RPC URL for independent sealing witnesses |
 | `VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_TOKEN` | Optional bearer token for the Filecoin witness RPC |
 
-## Development
+These values are operator-only and must not ship in a public Chrome Web Store build.
+
+The canonical operational guidance for these values now lives in
+[Live Rails Operator Runbook](/reference/live-rails-operator-runbook).
+
+## Development Orchestration
 
 | Variable | Values | Default | Purpose |
 | --- | --- | --- | --- |
 | `COOP_TUNNEL_NAME` | Cloudflare tunnel name | -- | Named tunnel identifier for `cloudflared` |
 | `COOP_TUNNEL_API_HOSTNAME` | Hostname | -- | Public hostname for the API tunnel (e.g. `dev-api.coop.town`) |
 | `COOP_TUNNEL_APP_HOSTNAME` | Hostname | -- | Public hostname for the app tunnel (e.g. `local.coop.town`) |
+| `COOP_DEV_APP_PORT` | Port | `3001` | Local app dev port |
+| `COOP_DEV_API_PORT` | Port | `4444` | Local API dev port |
+| `COOP_DEV_DOCS_PORT` | Port | `3003` | Local docs dev port |
+| `COOP_DEV_EXTENSION_PORT` | Port | `3020` | WXT dev server port |
+| `COOP_EXTENSION_SOURCEMAP` | `1` or unset | unset | Build source maps for extension dist when needed |
 
 ## Typical Local Setup
 
@@ -103,11 +123,15 @@ VITE_COOP_SIGNALING_URLS=ws://127.0.0.1:4444
 
 ## Notes
 
-- `bun dev` automatically configures `VITE_COOP_SIGNALING_URLS` and `VITE_COOP_RECEIVER_APP_URL` for the extension build, providing both local and production signaling URLs for fallback.
-- TURN credentials are only needed when peers cannot establish direct WebRTC connections (corporate firewalls, symmetric NAT). Without TURN, blob sync falls back to the yws WebSocket relay.
-- Trusted node archive variables are only needed by operators running in anchor mode with live archive enabled.
-- FVM variables are only needed when interacting with the ERC-8004 on-chain agent registry on Filecoin.
+- The shared sync layer also uses the API package's base WebSocket document-sync URL
+  (`wss://api.coop.town/yws`) under the hood. That base URL is code-configured today rather than
+  exposed as a user-set frontend env var.
+- TURN credentials are only needed when peers cannot establish direct WebRTC connections.
+- Trusted-node archive variables are only needed by operators running with live archive enabled.
+- FVM variables are only needed when interacting with the ERC-8004 agent registry on Filecoin.
 - `VITE_COOP_FVM_OPERATOR_KEY` is only appropriate for operator-controlled builds. Because all `VITE_`
   variables are baked into the extension bundle, do not set it in a public Chrome Web Store release.
 - Green Goods schema UIDs are EAS (Ethereum Attestation Service) identifiers required for the Green Goods work submission flow. Work approval and assessment UIDs ship from the canonical deployment map.
 - Green Goods impact reporting is not a direct EAS attestation flow in Coop. The protocol packages impact through Hypercert/Karma GAP workflows instead.
+- For current public release status, staged-launch blockers, and the live-rails second gate, read
+  [Current Release Status](/reference/current-release-status).

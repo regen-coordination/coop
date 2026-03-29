@@ -10,6 +10,10 @@ slug: /reference/knowledge-sharing-and-scaling
 **Scope**: Knowledge flow, agent feedback loop, Yjs scaling, long-term storage
 **Audience**: Core contributors, protocol reviewers, grant evaluators
 
+> Current-state note: this assessment predates the final surface/action map. Historical references
+> to "the Roost" describe the local draft-review step that now lives primarily in the popup and
+> `Chickens`. For the current product map, use [Action Domain Map](/reference/action-domain-map).
+
 ---
 
 ## 1. Executive Summary
@@ -31,9 +35,9 @@ CAPTURE → DRAFT → PUBLISH → SYNC → FEED → ARCHIVE
    │         │        │        │       │        │
    │         │        │        │       │        └─ Storacha/Filecoin (CID-addressed, cryptographic proof)
    │         │        │        │       └────────── CoopSharedState.artifacts[] (Yjs Y.Doc)
-   │         │        │        └────────────────── y-indexeddb + y-webrtc (P2P mesh, max 8 peers)
+   │         │        │        └────────────────── y-indexeddb + Yjs transport layer (y-webrtc + y-websocket)
    │         │        └─────────────────────────── publishDraftToCoops() → sibling Artifact per coop
-   │         └──────────────────────────────────── ReviewDraft in Dexie (local-only, "the Roost")
+   │         └──────────────────────────────────── ReviewDraft in Dexie (local-only, popup + Chickens)
    └────────────────────────────────────────────── Browser tabs, mobile receiver, agent observations
 ```
 
@@ -74,7 +78,8 @@ Publishing is an explicit, user-initiated action that moves local knowledge into
 2. **Create sibling artifacts**: One `Artifact` per target coop (same `originId`, different `targetCoopId`)
 3. **Write to Y.Doc**: `updateCoopState()` appends artifacts, rebuilds `reviewBoard` index
 4. **Update memory profile**: Increment domain/tag/category counts, trim exemplar artifacts to 12 most recent
-5. **Sync to peers**: Y.Doc update propagates via y-indexeddb (local) and y-webrtc (remote)
+5. **Sync to peers**: Y.Doc update propagates through y-indexeddb (local), y-webrtc (direct peers),
+   and y-websocket room sync
 
 ```typescript
 Artifact {
@@ -95,7 +100,8 @@ Two-layer real-time synchronization:
 | Layer | Transport | Purpose | Config |
 |-------|-----------|---------|--------|
 | **y-indexeddb** | Browser IndexedDB | Local persistence across page reloads | Room ID: `coop-room-{hash(coopId:roomSecret)}` |
-| **y-webrtc** | WebRTC data channels + BroadcastChannel | P2P sync between browser instances | Password: `roomSecret`, max 8 peers |
+| **y-webrtc** | WebRTC data channels + BroadcastChannel | Direct browser-to-browser sync | Password: `roomSecret`, max 8 peers |
+| **y-websocket** | `wss://api.coop.town/yws/:room` | Server-assisted room sync and blob relay transport | Base URL from `defaultWebsocketSyncUrl`; optional server persistence via `YJS_PERSIST_DIR` |
 
 Room ID derivation:
 ```typescript

@@ -18,23 +18,29 @@ bun run test:e2e             # Run all Playwright E2E tests
 bun build                    # Build everything (shared → app → extension)
 bun run validate smoke       # Quick confidence run
 bun run validate core-loop   # Main extension workflow validation
-bun run validate full        # Full local pass before demos or merges
+bun run validate full        # Full local pass before demos or bigger merges
 bun run validate list        # List all available validation suites
+bun run validate:store-readiness        # Chrome Web Store readiness gate
+bun run validate:production-readiness   # Mock-first release readiness gate
+bun run validate:production-live-readiness # Opt-in live rails gate
 ```
 
 > **`bun test` vs `bun run test`**: `bun test` uses bun's built-in runner (ignores vitest config). `bun run test` runs the package.json script (vitest with proper environment). Always use `bun run test`.
+
+Docs note: the repo pins Node 22 in `.mise.toml`. If `node -v` still resolves an older version in
+your shell, activate `mise` before running `bun run docs:dev` or `bun run docs:build`.
 
 Per-package: check each package.json for available scripts.
 
 ## Architecture
 
-Coop captures scattered knowledge (browser tabs, audio, photos, files, links), refines it into clear opportunities via an in-browser AI agent, and gives groups a shared space to act on what matters. Bun monorepo.
+Coop captures scattered knowledge (browser tabs, audio, photos, files, links), refines it into clear opportunities via an in-browser AI agent, and gives groups a shared space to act on what matters. Core capture, review, and local analysis stay in the browser; the repo also includes a minimal signaling/API layer for peer discovery and optional Yjs document sync. Bun monorepo.
 
 ### Product Loop
 1. **Capture**: Browser tabs (extension) + audio, photos, files, links (companion PWA)
 2. **Refine**: In-browser agent with 16-skill pipeline (WebGPU/WASM, no cloud)
 3. **Review**: Members review candidates and drafts in the popup and Chickens before anything becomes shared
-4. **Share**: Publish to a coop (Safe multisig on Arbitrum, P2P sync via Yjs + y-webrtc, archived to Filecoin via Storacha)
+4. **Share**: Publish to a coop (Safe multisig on Arbitrum, local-first sync via Yjs with y-webrtc peers and y-websocket document sync, archived to Filecoin via Storacha when requested)
 
 ### Extension Surface Map
 - `Popup`: quick capture and quick review
@@ -57,22 +63,26 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 4. **api** (`@coop/api`) → Hono + Bun API server (Fly.io deployed)
 
 ### Shared Modules
-- `auth`: Passkey-first identity + onchain auth
-- `coop`: Core flow board, review, and publish logic
-- `storage`: Dexie + Yjs local persistence
-- `archive`: Storacha/Filecoin upload and lifecycle
-- `onchain`: Safe creation, ERC-4337, contract interactions, provider factory, signatures
-- `receiver`: PWA receiver and cross-device sync
-- `privacy`: Semaphore ZK membership proofs + anonymous publishing
-- `stealth`: ERC-5564 stealth addresses (secp256k1)
 - `agent`: Agent harness, skills, observation triggers, inference cascade, cross-session memory persistence
+- `app`: Shared app-shell helpers
+- `archive`: Storacha/Filecoin upload and lifecycle
+- `auth`: Passkey-first identity + onchain auth
+- `blob`: Binary relay for media and file transport
+- `coop`: Core flow board, review, publish logic, and sync wiring
+- `erc8004`: ERC-8004 on-chain agent registry integration
+- `fvm`: Filecoin VM registry support
+- `greengoods`: Green Goods garden maintenance, member work submission, operator approvals, and Hypercert packaging
+- `member-account`: Member smart-account provisioning and execution
+- `onchain`: Safe creation, ERC-4337, contract interactions, provider factory, signatures
 - `operator`: Anchor/trusted-node runtime behavior
 - `policy`: Action approval workflows, typed action bundles
-- `session`: Scoped execution permissions, time-bounded capabilities
 - `permit`: Execution permits with replay protection
-- `greengoods`: Green Goods garden maintenance, member work submission, operator approvals, and Hypercert packaging
-- `erc8004`: ERC-8004 on-chain agent registry integration
-- `app`: App shell logic
+- `privacy`: Semaphore ZK membership proofs + anonymous publishing
+- `receiver`: PWA receiver and cross-device sync
+- `session`: Scoped execution permissions, time-bounded capabilities
+- `stealth`: ERC-5564 stealth addresses (secp256k1)
+- `storage`: Dexie + Yjs local persistence
+- `transcribe`: Audio transcription and loader capability detection
 
 ## Key Patterns
 
@@ -88,7 +98,7 @@ import { createCoop, joinCoop } from '@coop/shared'; // correct
 - Production: `arbitrum` (Arbitrum One)
 - Modes: `VITE_COOP_ONCHAIN_MODE` (mock | live), `VITE_COOP_ARCHIVE_MODE` (mock | live)
 
-**Local Persistence**: Dexie for structured data, Yjs for CRDT sync, y-webrtc for peer transport.
+**Local Persistence**: Dexie for structured data, Yjs for CRDT sync, y-webrtc for direct peer transport, and y-websocket for server-assisted document sync.
 
 **Error Handling**: Never swallow errors. Surface failures to the user.
 
@@ -101,7 +111,7 @@ import { createCoop, joinCoop } from '@coop/shared'; // correct
 
 **Dependency Rules**:
 - Internal deps use `workspace:*` (never `workspace:^`)
-- `bun.lockb` is binary — never manually merge, always regenerate: `git checkout --theirs bun.lockb && bun install`
+- `bun.lock` is generated — never hand-edit it; regenerate with `bun install`
 - Pin exact versions: viem, permissionless, react, dexie, yjs (breaking changes between minors)
 - Use ranges for dev deps: vitest `^`, typescript `~`, @types/* `^`
 - Install in the correct package, never root for package-specific needs

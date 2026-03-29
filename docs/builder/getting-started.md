@@ -9,10 +9,21 @@ This page is the builder onramp for the whole monorepo, not only the extension.
 
 ## Prerequisites
 
-- Node.js 20 or newer
+- Node.js 22 from the repo's `.mise.toml`
 - Bun for workspace installs and scripts
 - Chrome or Chromium for extension development
 - an optional phone or second device if you want to test the receiver flow
+
+Recommended toolchain bootstrap:
+
+```bash
+mise install
+eval "$(mise activate zsh)"
+node -v
+```
+
+`node -v` should report `v22.x` before you run the docs commands. If your shell still resolves an
+older Node first, `bun run docs:build` can fail even though the repo has a Bun workspace.
 
 ## Bootstrap The Repo
 
@@ -55,22 +66,28 @@ For the full variable reference, see [Environment Reference](/builder/environmen
 | `@coop/shared` | Shared contracts, modules, storage, policy, sync, archive, identity |
 | `@coop/app` | Landing plus receiver PWA shell |
 | `@coop/extension` | MV3 extension runtime and primary product surface |
-| `@coop/api` | Minimal signaling relay and API routes |
+| `@coop/api` | Signaling relay plus Yjs WebSocket sync routes |
 | `@coop/docs` | This Docusaurus site |
 
 ## Running The Docs Site
 
-The docs live in `docs/` and now serve from `/`.
+Use the root workspace scripts so the docs app picks up the repo's shared toolchain:
 
 ```bash
-cd docs
-bun run start
+bun run docs:dev
+bun run docs:build
+bun run docs:serve
 ```
 
-Build it with:
+`bun run docs:build` writes generated output to `docs/build`. Treat that directory as generated
+output, not canonical source content.
+
+If docs builds fail with an older Node version, activate `mise` in the current shell and retry:
 
 ```bash
-bun run build
+eval "$(mise activate zsh)"
+node -v
+bun run docs:build
 ```
 
 ## Development Tools
@@ -87,11 +104,14 @@ Use the workspace scripts rather than package-local ad hoc commands:
 ```bash
 bun format && bun lint
 bun run test
+bun run test:coverage
 bun build
+bun run validate list
 bun run validate smoke
 bun run validate core-loop
-bun run validate full
-bun run validate list          # discover all available suites
+bun run validate:store-readiness
+bun run validate:production-readiness
+bun run validate:production-live-readiness
 ```
 
 ## Where To Read Next
@@ -99,3 +119,4 @@ bun run validate list          # discover all available suites
 - Read [How To Contribute](/builder/how-to-contribute) for repo rules and validation expectations.
 - Read [Coop Architecture](/builder/architecture) for the package and data model split.
 - Read [Coop Extension](/builder/extension) and [Coop App](/builder/app) for runtime-specific details.
+- Read [Current Release Status](/reference/current-release-status) for the current release boundary.

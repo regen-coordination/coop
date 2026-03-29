@@ -5,8 +5,10 @@ slug: /reference/original-introduction
 
 # Coop
 
-> Historical note: this introduction is preserved for origin-story context. For the current surface
-> map and Green Goods scope, use [Action Domain Map](/reference/action-domain-map).
+> Historical note: this introduction is preserved for origin-story context. It predates the current
+> release posture and runtime split. For current behavior, use
+> [Action Domain Map](/reference/action-domain-map), [Builder Architecture](/builder/architecture),
+> and [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
 
 > No more chickens loose.
 
@@ -14,20 +16,25 @@ slug: /reference/original-introduction
 
 You have tabs open, voice memos unsaved, photos from a whiteboard session, links shared in a chat. Some of it is a funding lead. Some is a dead end. You won't remember which by Friday. Now multiply that across your whole team.
 
-Coop captures knowledge from wherever it lives (browser tabs, audio recordings, photos, files, shared links), refines it into clear opportunities, and gives groups a shared space to act on what matters. It runs entirely in the browser. No cloud, no servers, no data leaving your device until you decide to share it.
+Coop captures knowledge from wherever it lives (browser tabs, audio recordings, photos, files,
+shared links), refines it into clear opportunities, and gives groups a shared space to act on what
+matters. Core capture and local analysis run in the browser. Shared state still uses a small sync
+layer and only leaves your device when you publish or sync it.
 
 ## How it works
 
 1. **Capture**: Round up browser tabs with a shortcut. Record audio, snap photos, attach files, or share links from your phone via the companion PWA.
 2. **Refine**: An in-browser AI agent analyzes captures through a 16-skill pipeline, extracting opportunities, scoring grant fit, clustering themes, and drafting briefs. All inference runs locally via WebGPU/WASM. Nothing leaves the browser.
 3. **Review**: Members review candidates and drafts in the popup and Chickens before anything becomes shared.
-4. **Share**: Publish to a coop, a shared space backed by a Safe multisig on Arbitrum, syncing peer-to-peer over WebRTC. Shared artifacts are permanently archived to Filecoin via Storacha with full cryptographic provenance. Passkey identity, no wallet required.
+4. **Share**: Publish to a coop, a shared space backed by a Safe multisig on Arbitrum, syncing
+   through Coop's local-first Yjs layer and archived to Filecoin via Storacha when a group requests
+   durable proof. Passkey identity, no wallet required.
 
 Through its Green Goods integration, coops can also bootstrap on-chain gardens, submit member work, run operator-side approvals and assessments, and package approved work into Hypercert and Karma GAP workflows.
 
 ## Key Principles
 
-- **Browser-First**: The extension is the primary product surface; no cloud servers required
+- **Browser-First**: The extension is the primary product surface; core capture and refine flows do not require hosted inference
 - **Local-First**: All data stays local until you explicitly share
 - **Passkey-First**: No wallet extensions required; WebAuthn passkey identity bridged to on-chain accounts
 - **Offline Capable**: Works without internet, syncs when connected
@@ -37,7 +44,7 @@ Through its Green Goods integration, coops can also bootstrap on-chain gardens, 
 
 | Package | Description |
 |---------|-------------|
-| `@coop/shared` | Schemas, flows, sync contracts, and 16 domain modules |
+| `@coop/shared` | Schemas, flows, sync contracts, and 20 exported domain modules |
 | `@coop/app` | Landing page + receiver PWA (audio, photo, file, link capture) |
 | `@coop/extension` | MV3 browser extension (popup, sidepanel, background, offscreen) |
 | `@coop/api` | Hono + Bun API server (Fly.io deployed) |
@@ -62,7 +69,7 @@ bun dev                # Start app + extension concurrently
 bun dev:api            # Start API server
 bun run test           # Run tests
 bun build              # Build everything
-bun run validate full  # Validate before merging
+bun run validate:production-readiness  # Staged-launch validation
 ```
 
 ## Learn More
@@ -70,7 +77,7 @@ bun run validate full  # Validate before merging
 - [Builder Getting Started](/builder/getting-started)
 - [Architecture Overview](/builder/architecture)
 - [P2P Functionality](/builder/p2p-functionality)
-- [Agentic Harness](/builder/agentic-harness)
+- [Browser-Native Agent Harness](/reference/agent-harness)
 - [Privacy & Security](/privacy-security)
 - [Reference: Policy, Sessions & Permits](/reference/policy-session-permit)
 - [Reference: ERC-8004 & API Server](/reference/erc8004-and-api)

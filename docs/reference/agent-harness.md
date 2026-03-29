@@ -5,7 +5,10 @@ slug: /reference/agent-harness
 
 # Browser-Native Agent Harness
 
-Coop runs a fully autonomous agent loop inside the browser extension, with no cloud APIs, no server inference, and no data leaving the device. The agent observes local knowledge, plans skill execution, runs small language models in-browser, and proposes actions for human approval.
+Coop runs a browser-native agent loop inside the extension. Raw captures, observation building, and
+model inference stay local to the device. The agent observes local knowledge, plans skill
+execution, runs small language models in-browser, and proposes actions for human approval before
+anything becomes shared.
 
 This is the only known production implementation that combines in-browser LLM inference, a structured observe→plan→act loop, typed skill execution, and human-in-the-loop approval in a single browser extension.
 
@@ -82,7 +85,7 @@ Small models (0.5B parameters) produce unreliable JSON. The harness compensates 
 
 ## Skill System
 
-### Executable Skills (14 registered)
+### Executable Skills (16 registered)
 
 Each skill is a directory containing a `skill.json` manifest and `SKILL.md` instruction file:
 
@@ -100,6 +103,8 @@ packages/extension/src/skills/
 ├── green-goods-work-approval/
 ├── green-goods-assessment/
 ├── green-goods-gap-admin-sync/
+├── memory-insight-synthesizer/
+├── tab-router/
 ├── erc8004-register/           # Register skills on-chain (ERC-8004)
 └── erc8004-feedback/            # On-chain agent feedback (ERC-8004)
 ```
@@ -168,6 +173,10 @@ The agent can import external knowledge from any URL following the SKILL.md conv
 
 **Scope:** Knowledge skills are imported globally. Each coop can override the enable/disable state per-skill via `CoopKnowledgeSkillOverride`.
 
+**Release note:** remote knowledge-skill import remains quarantined from the shipped Chrome Web
+Store-compliant build. Treat this section as a description of the harness capability in the repo,
+not a claim that arbitrary remote `SKILL.md` import is enabled in public distribution.
+
 ## Observability
 
 ### Structured Logging
@@ -205,9 +214,9 @@ The agent never acts without authorization. Three approval tiers:
 
 | Mode | Behavior | Example Skills |
 |------|----------|----------------|
-| `advisory` | Output recorded, no action proposed | opportunity-extractor, review-digest |
-| `proposal` | Action queued for human approval in operator console | publish-readiness-check, green-goods-work-approval |
-| `auto-run-eligible` | Executes automatically if user enables auto-run for that skill | green-goods-garden-bootstrap, archive refresh |
+| `advisory` | Output recorded, no action proposed | opportunity-extractor, tab-router, review-digest |
+| `proposal` | Action queued for human approval in operator console | publish-readiness-check, green-goods-work-approval, green-goods-assessment |
+| `auto-run-eligible` | Executes automatically if user enables auto-run for that skill | green-goods-garden-bootstrap, green-goods-garden-sync, erc8004-register |
 
 Auto-run is opt-in per skill via the `autoRunSkillIds` setting. Users toggle individual skills in the operator console.
 

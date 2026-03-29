@@ -12,8 +12,10 @@ slug: /reference/product-requirements
 ---
 
 > Historical note: this document preserves a broad audit draft of the product, but it predates the
-> current extension action map. Treat [Action Domain Map](/reference/action-domain-map) and the
-> current surface docs as canonical when a detail here conflicts with the live UI.
+> current extension action map. References below to a generic `Home` tab or a draft-review `Roost`
+> describe earlier UI assumptions. Treat [Action Domain Map](/reference/action-domain-map),
+> [Builder Extension](/builder/extension), and [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook)
+> as canonical when a detail here conflicts with the live UI.
 
 ## 1. Product Vision
 
@@ -85,7 +87,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 **So that** my group has a shared space to coordinate around knowledge.
 
 **Flow**:
-1. Open extension sidepanel → Home tab
+1. Open the extension create flow from the current popup or `Nest`
 2. Fill "Create Coop" form:
    - Coop name (required)
    - Purpose statement (required)
@@ -120,7 +122,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 **So that** I can share them with people I want to join my coop.
 
 **Flow**:
-1. Home tab → Click "Generate invite"
+1. Open the current invite controls in `Nest`
 2. Select invite type: `member` or `trusted`
 3. Background worker:
    - Embeds full coop bootstrap snapshot in invite
@@ -144,7 +146,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 **So that** I can participate in the community's knowledge work.
 
 **Flow**:
-1. Open extension sidepanel → Home tab
+1. Open the current join flow from the popup or `Nest`
 2. Paste invite code into "Join" form
 3. Enter display name + seed contribution
 4. Background worker:
@@ -154,7 +156,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
    - Applies join to Yjs doc
    - Creates seed artifact
    - Connects sync providers
-5. Success: Sound event, redirect to Roost
+5. Success: Sound event, redirect to the main working surfaces
 
 **Acceptance Criteria**:
 - Member appears in coop member list
@@ -303,10 +305,10 @@ Handles all business logic, storage, and message routing for the extension. Not 
    - Confidence score (if local inference ran)
    - Suggested category
 3. Actions per candidate:
-   - Promote to draft (moves to Roost)
+   - Promote to draft (moves into the current popup and `Chickens` draft flow)
    - Dismiss (remove from queue)
 4. If local inference is enabled:
-   - Auto-promoted candidates appear directly in Roost as "candidate" stage drafts
+   - Auto-promoted candidates appear directly in the working draft flow as "candidate" stage drafts
 
 **Acceptance Criteria**:
 - Candidates sorted by capture time (newest first)
@@ -428,7 +430,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 **Acceptance Criteria**:
 - Only `ready` drafts can be published
 - Published artifact visible to all coop members via CRDT sync
-- Draft removed from Roost after publishing
+- Draft removed from the working draft flow after publishing
 - Receiver-origin drafts respect privacy constraints
 
 ---
@@ -622,7 +624,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 **So that** I can capture content on the go and sync it to my desktop.
 
 **Flow**:
-1. Extension: Generate pairing link (Home tab or Settings)
+1. Extension: Generate pairing link from the current `Nest` pairing controls
 2. Mobile: Open Receiver PWA → Pair route
 3. Enter pairing code via:
    - Paste nest code (`coop-receiver:...`)
@@ -740,17 +742,19 @@ Handles all business logic, storage, and message routing for the extension. Not 
 | `ritual-review-due` | Weekly review cadence triggered |
 | `green-goods-*` | Garden operations needed |
 
-**Agent Skills** (14 registered, execution order):
+**Agent Skills** (16 registered, execution order):
 1. `opportunity-extractor`: Identifies funding/opportunity signals
 2. `grant-fit-scorer`: Scores grant fit
 3. `capital-formation-brief`: Generates capital formation summaries
 4. `review-digest`: Creates review digests
 5. `ecosystem-entity-extractor`: Extracts entity references
 6. `theme-clusterer`: Groups related content
-7. `publish-readiness-check`: Validates draft quality
-8. `green-goods-*`: Garden automation (5 skills)
-9. `erc8004-register`: Registers coop as ERC-8004 agent identity on-chain
-10. `erc8004-feedback`: Submits reputation feedback after archive anchor or peer sync
+7. `memory-insight-synthesizer`: Builds memory-oriented synthesis artifacts
+8. `tab-router`: Routes captured tabs toward the right downstream flows
+9. `publish-readiness-check`: Validates draft quality
+10. `green-goods-*`: Garden automation (5 skills)
+11. `erc8004-register`: Registers coop as ERC-8004 agent identity on-chain
+12. `erc8004-feedback`: Submits reputation feedback after archive anchor or peer sync
 
 **Flow**:
 1. Observation created → Agent cycle triggered
@@ -895,7 +899,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 |-------|------|-------------|
 | `idle` | Default | Extension ready, no pending work |
 | `watching` | Active | Capture in progress (manual or scheduled) |
-| `review-needed` | Badge | Drafts waiting in Roost for review |
+| `review-needed` | Badge | Drafts waiting in the popup and `Chickens` review flow |
 | `error-offline` | Warning | Permissions, sync, or model issue |
 
 ---
@@ -1049,7 +1053,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 | `VITE_COOP_ARCHIVE_MODE` | `mock`, `live` | `mock` | Storacha upload mode |
 | `VITE_COOP_SESSION_MODE` | `mock`, `live`, `off` | `off` | Smart session mode |
 | `VITE_PIMLICO_API_KEY` | API key | | ERC-4337 bundler |
-| `VITE_STORACHA_ISSUER_URL` | URL | | Archive delegation |
+| `VITE_COOP_TRUSTED_NODE_ARCHIVE_SPACE_DELEGATION` | String | | Trusted-node archive delegation proof |
 | `VITE_COOP_SIGNALING_URLS` | CSV of URLs | | WebRTC signaling servers |
 | `VITE_COOP_RECEIVER_APP_URL` | URL | `https://coop.town` | Receiver PWA URL |
 | `VITE_COOP_LOCAL_ENHANCEMENT` | `on`, `off` | `on` | Local inference toggle |
@@ -1067,7 +1071,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 - [ ] `bun run validate receiver-slice`: Receiver pairing + sync
 
 ### Should Pass
-- [ ] `bun run validate full`: All suites including receiver-hardening
+- [ ] `bun run validate:production-readiness`: Staged-launch release bar
 - [ ] Manual test: Create coop → invite → join → capture → review → publish → archive → board
 - [ ] Manual test: Receiver pairing → audio capture → sync → convert to draft → publish
 - [ ] Accessibility audit: keyboard navigation through all flows

@@ -5,8 +5,9 @@ slug: /builder/p2p-functionality
 
 # P2P Functionality
 
-Coop's sync story is local-first replication with peer-to-peer transport, not "ship every state
-change through a central app server."
+Coop's sync story is local-first replication. It uses direct peer transport where available, but
+the current runtime also maintains a hosted Yjs document-sync path so shared state can keep moving
+when direct browser connectivity is poor.
 
 ## The Stack
 
@@ -15,8 +16,9 @@ The current sync layer combines:
 - Yjs for CRDT state
 - y-indexeddb for local persistence
 - y-webrtc for direct browser-to-browser transport
-- a lightweight signaling relay so peers can discover each other
-- WebSocket Yjs document sync (`wss://api.coop.town/yws`) as a server-side fallback when peer-to-peer connections are unavailable
+- a lightweight signaling relay for peer discovery, configured from `VITE_COOP_SIGNALING_URLS`
+- y-websocket document sync using the `wss://api.coop.town/yws` base URL (the runtime appends the
+  room ID)
 - blob relay for binary asset transport (photos, audio, files) via WebRTC data channels, running alongside but separate from CRDT sync
 - an outbox pattern for offline-first publish reliability with automatic retry
 
@@ -41,18 +43,25 @@ sequenceDiagram
 
 ## What Syncs And What Does Not
 
-Shared coop state syncs across peers. Local draft and intake state does not become shared just
-because it exists in the browser.
+Shared coop state syncs across the coop transport layer. Local draft and intake state does not
+become shared just because it exists in the browser.
 
 This distinction is essential to Coop's product model:
 
 - shared artifacts, membership state, and archive receipts can replicate
 - local review material can stay device-local until publish
 
-## Room Model
+## Room Model And Server Role
 
-Sync rooms are derived from coop identity and room secrets. The signaling server helps establish the
-connection, but it is not the long-term owner of the shared data.
+Sync rooms are derived from coop identity and room secrets.
+
+- y-webrtc uses the room ID plus signaling URLs for peer discovery
+- y-websocket uses the same room ID at the `/yws/:room` endpoint
+- the checked-in API deployment supports optional persisted room state only when `YJS_PERSIST_DIR`
+  is set
+
+`packages/api/fly.toml` does not currently set `YJS_PERSIST_DIR`, so durable server-side Yjs room
+persistence should be treated as an available capability, not a guaranteed production property.
 
 ## Current Constraints
 

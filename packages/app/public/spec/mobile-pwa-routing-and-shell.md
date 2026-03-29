@@ -1,5 +1,9 @@
 # Coop Mobile PWA Routing And Shell
 
+> Planning note: this is an internal routing/spec artifact in `packages/app/public/spec/`, not the
+> canonical current-state doc. Use `docs/builder/app.md` and `docs/builder/architecture.md` for the
+> live package and route description.
+
 Date: March 17, 2026
 
 This spec defines how `packages/app` should behave across desktop web, mobile web, and installed

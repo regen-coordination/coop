@@ -67,7 +67,7 @@ const config: Config = {
             from: ['/docs/architecture/coop-os-architecture-vnext'],
           },
           {
-            to: '/builder/agentic-harness',
+            to: '/reference/agent-harness',
             from: ['/docs/architecture/agent-harness'],
           },
           {

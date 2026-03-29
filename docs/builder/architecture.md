@@ -15,8 +15,8 @@ browser surfaces.
 | --- | --- |
 | Extension | Primary node for capture, review, publish, sync, and operator work |
 | App | Public landing plus receiver PWA shell |
-| API server | Signaling relay and minimal support routes |
-| Shared package | Schemas, flows, storage, identity, archive, policy, onchain, privacy, agent modules |
+| API server | Signaling relay, health routes, and Yjs WebSocket sync |
+| Shared package | Schemas, flows, storage, identity, archive, policy, onchain, privacy, agent, and media modules |
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#5a7d10', 'primaryTextColor': '#4f2e1f', 'primaryBorderColor': '#6b4a36', 'lineColor': '#6b4a36', 'secondaryColor': '#fcf5ef', 'tertiaryColor': '#fff8f2'}}}%%
@@ -79,7 +79,8 @@ Coop deliberately uses different storage layers for different jobs:
 - Dexie on top of IndexedDB for structured local persistence
 - Yjs for shared CRDT state
 - y-indexeddb for local persistence of Yjs docs
-- y-webrtc for peer-to-peer transport
+- y-webrtc for direct browser-to-browser transport
+- y-websocket for server-assisted document sync and relay-backed blob transport
 - Filecoin-backed archive flows for durable receipts and provenance
 
 ## The Product Loop In Architecture Terms
@@ -87,7 +88,7 @@ Coop deliberately uses different storage layers for different jobs:
 1. Capture enters as tabs, receiver assets, or observations.
 2. Local draft state lives in Dexie until a human publishes.
 3. Publish writes shared artifacts into the coop's Yjs-backed state.
-4. Sync propagates that state across peers.
+4. Sync propagates that state across peers through the combined Yjs transport layer.
 5. Optional archive actions attach durable receipts to artifacts and snapshots.
 
 ## Current Extension Surface Ownership
@@ -112,6 +113,7 @@ Some of the most important shared modules are:
 - `storage` for Dexie and Yjs persistence
 - `archive` for Storacha and Filecoin flows
 - `blob` for media compression and peer-to-peer binary relay via WebRTC data channels
+- `member-account` for passkey-backed member account state and onchain helpers
 - `policy`, `session`, `permit`, and `operator` for bounded execution
 - `agent` for observations, skills, and local automation
 - `receiver` for the app-side capture and pairing model
@@ -121,7 +123,7 @@ Some of the most important shared modules are:
 - `greengoods` for Green Goods garden maintenance, member work submission, operator approvals, GAP admin sync, and Hypercert packaging
 - `onchain` for Safe creation, ERC-4337, Kernel member accounts, and Safe co-signers
 - `fvm` for Filecoin VM interactions
-- `transcribe` for audio transcription
+- `transcribe` for local audio transcription flows
 
 ### Cross-Cutting: Design Tokens
 

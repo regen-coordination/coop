@@ -5,10 +5,13 @@ slug: /reference/demo-and-deploy-runbook
 
 # Coop Demo And Deploy Runbook
 
-Date: March 27, 2026
+Date: March 28, 2026
 
 This is the canonical runbook for local demos, peer pairing, and production deployment. Keep the
-other readiness docs aligned to this one.
+other readiness docs aligned to this one. For the current public-release boundary, read
+[Current Release Status](/reference/current-release-status). For the receiver protocol, read
+[Receiver Pairing & Intake](/reference/receiver-pairing-and-intake). For operator-only live rails,
+read [Live Rails Operator Runbook](/reference/live-rails-operator-runbook).
 
 ## Shared Rules
 
@@ -39,6 +42,9 @@ COOP_TUNNEL_APP_HOSTNAME=local.coop.town
 ```
 
 Other defaults are safe: sepolia, mock onchain/archive, session off.
+
+If you also need the docs site, make sure the shell is using Node 22 from `.mise.toml` before you
+run `bun run docs:dev` or `bun run docs:build`.
 
 ### Processes
 
@@ -142,6 +148,12 @@ This is the release target.
 This is the default production release bar and does not require live Safe, archive, or session
 rails.
 
+Preferred profile command:
+
+```bash
+bun run validate:public-release
+```
+
 ```bash
 bun format && bun lint
 bun run test
@@ -157,6 +169,10 @@ Manual staged-launch checks still include:
 - popup screenshot review edit/save and cancel paths
 - sidepanel create, Chickens review, publish, board/archive, and receiver pairing flows
 - confirmation that public builds do not embed operator-only signing material
+- confirmation that remote knowledge-skill import remains quarantined in the shipped build
+
+As of March 28, 2026, those popup success-path checks are the remaining public-release blocker after
+the automated staged-launch bar.
 
 ### Live Modes
 
@@ -174,11 +190,29 @@ VITE_COOP_TRUSTED_NODE_ARCHIVE_DELEGATION_ISSUER=...
 VITE_COOP_TRUSTED_NODE_ARCHIVE_SPACE_DELEGATION=...
 ```
 
+Preferred profile commands:
+
+```bash
+bun run build:operator-live
+bun run validate:operator-live
+```
+
 After the staged launch bar is green and the live env is complete:
 
 ```bash
 bun run validate:production-live-readiness
 ```
+
+Profile files live at:
+
+- `config/env/profiles/public-release.env`
+- `config/env/profiles/operator-live.env`
+
+These profile overlays contain only non-secret mode/origin switches. Keep live credentials in the
+repo-root `.env.local`.
+
+Use [Live Rails Operator Runbook](/reference/live-rails-operator-runbook) for the exact probe env,
+skip behavior, and public-build separation rules.
 
 Session-key live execution is limited to:
 
@@ -197,10 +231,8 @@ Human-confirmed only:
 
 ### Filecoin / FVM Registry
 
-The Filecoin registry contract currently lives in
-[CoopRegistry.sol](/Users/afo/Code/greenpill/coop/packages/contracts/src/CoopRegistry.sol) and is
-published with Foundry from
-[DeployRegistry.s.sol](/Users/afo/Code/greenpill/coop/packages/contracts/script/DeployRegistry.s.sol).
+The Filecoin registry contract currently lives in `packages/contracts/src/CoopRegistry.sol` and is
+published with Foundry from `packages/contracts/script/DeployRegistry.s.sol`.
 
 Preferred deployment path using a Foundry keystore account:
 
@@ -227,8 +259,7 @@ After deployment:
 1. Record the deployed registry address.
 2. Set `VITE_COOP_FVM_CHAIN` to `filecoin-calibration` or `filecoin`.
 3. Set `VITE_COOP_FVM_REGISTRY_ADDRESS` to the deployed contract address.
-4. Update the deployment map in
-   [fvm.ts](/Users/afo/Code/greenpill/coop/packages/shared/src/modules/fvm/fvm.ts).
+4. Update the deployment map in `packages/shared/src/modules/fvm/fvm.ts`.
 
 Current implementation note:
 

@@ -20,21 +20,28 @@ bun run test:e2e             # Run all Playwright E2E tests
 bun build                    # Build everything (shared -> app -> extension)
 bun run validate smoke       # Quick confidence run
 bun run validate core-loop   # Main extension workflow validation
-bun run validate full        # Full local pass before demos or merges
+bun run validate full        # Full local pass before demos or bigger merges
+bun run validate list        # List all available validation suites
+bun run validate:store-readiness        # Chrome Web Store readiness gate
+bun run validate:production-readiness   # Mock-first release readiness gate
+bun run validate:production-live-readiness # Opt-in live rails gate
 ```
 
 **CRITICAL**: Always `bun run test`, never `bun test`. Bun's built-in runner ignores vitest config.
 
+Docs note: the repo pins Node 22 in `.mise.toml`. If `node -v` still resolves an older version in
+your shell, activate `mise` before running `bun run docs:dev` or `bun run docs:build`.
+
 ## Architecture
 
-Coop captures scattered knowledge (browser tabs, audio, photos, files, links), refines it into clear opportunities via an in-browser AI agent, and gives groups a shared space to act on what matters. Bun monorepo.
+Coop captures scattered knowledge (browser tabs, audio, photos, files, links), refines it into clear opportunities via an in-browser AI agent, and gives groups a shared space to act on what matters. Core capture, review, and local analysis stay in the browser; the repo also includes a minimal signaling/API layer for peer discovery and optional Yjs document sync. Bun monorepo.
 
 ### Product Loop
 
 1. **Capture**: Browser tabs (extension) + audio, photos, files, links (companion PWA)
 2. **Refine**: In-browser agent with 16-skill pipeline (WebGPU/WASM, no cloud)
 3. **Review**: Members review candidates and drafts in the popup and Chickens before anything becomes shared
-4. **Share**: Publish to a coop (Safe multisig on Arbitrum, P2P sync via Yjs + y-webrtc, archived to Filecoin via Storacha)
+4. **Share**: Publish to a coop (Safe multisig on Arbitrum, local-first sync via Yjs with y-webrtc peers and y-websocket document sync, archived to Filecoin via Storacha when requested)
 
 ### Extension Surface Map
 
@@ -61,7 +68,7 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 
 ### Shared Modules
 
-`auth` (passkey identity), `coop` (flow board/review/publish), `storage` (Dexie + Yjs), `archive` (Storacha/Filecoin), `onchain` (Safe/ERC-4337), `receiver` (PWA sync), `privacy` (Semaphore ZK), `stealth` (ERC-5564), `agent` (harness/skills/inference), `operator` (trusted-node), `policy` (action approval), `session` (scoped permissions), `permit` (execution permits), `greengoods` (garden, member, and operator coordination), `erc8004` (agent registry), `app` (shell logic).
+`agent` (harness/skills/inference), `app` (shared shell logic), `archive` (Storacha/Filecoin), `auth` (passkey identity), `blob` (binary relay), `coop` (flow board/review/publish), `erc8004` (agent registry), `fvm` (Filecoin VM integration), `greengoods` (garden, member, and operator coordination), `member-account` (Kernel member accounts), `onchain` (Safe/ERC-4337), `operator` (trusted-node), `permit` (execution permits), `policy` (action approval), `privacy` (Semaphore ZK), `receiver` (PWA sync), `session` (scoped permissions), `stealth` (ERC-5564), `storage` (Dexie + Yjs), `transcribe` (audio transcription).
 
 ## Key Patterns
 
@@ -120,7 +127,7 @@ Safe + ERC-4337 + passkey auth. Chain set by `VITE_COOP_CHAIN` (default: `sepoli
 
 ### Local Persistence
 
-Dexie for structured data, Yjs for CRDT sync, y-webrtc for peer transport.
+Dexie for structured data, Yjs for CRDT sync, y-webrtc for direct peer transport, y-websocket for server-assisted document sync.
 
 ## Environment
 
@@ -167,8 +174,8 @@ Canonical feature-pack layout:
 
 Lane ownership:
 
-- Claude: `ui` and `qa` pass 1
-- Codex: `state`, `api`, `contracts`, and `qa` pass 2
+- Claude: `ui` and `qa` pass 2
+- Codex: `state`, `api`, `contracts`, and `qa` pass 1
 - Both: `docs` via dedicated docs-drift lanes
 
 QA handoff branches:

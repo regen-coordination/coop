@@ -12,10 +12,29 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   Reflect.deleteProperty(globalThis, 'chrome');
 });
 
 // --- Mocks ---
+
+vi.mock('@coop/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@coop/shared')>();
+  return {
+    ...actual,
+    getAuthSession: vi.fn().mockResolvedValue({
+      displayName: 'Mina',
+      primaryAddress: '0x1111111111111111111111111111111111111111',
+      passkey: {
+        credentialId: 'credential-1',
+        rpId: 'coop.test',
+        publicKey: 'public-key',
+        counter: 0,
+      },
+    }),
+    deployCoopSafe: vi.fn(),
+  };
+});
 
 vi.mock('../../context', () => ({
   db: {
@@ -33,7 +52,7 @@ vi.mock('../../context', () => ({
   },
   syncCaptureAlarm: vi.fn(),
   configuredChain: 'sepolia',
-  configuredOnchainMode: 'mock',
+  configuredOnchainMode: 'live',
   notifyExtensionEvent: vi.fn(),
   ensureReceiverSyncOffscreenDocument: vi.fn(),
 }));
@@ -46,6 +65,17 @@ vi.mock('../../operator', () => ({
   getOperatorState: vi.fn().mockResolvedValue({
     authSession: null,
     anchorCapability: null,
+    anchorStatus: {
+      enabled: false,
+      active: false,
+      detail:
+        'Anchor mode is off. Live archive, Safe actions, and archive follow-up stay disabled.',
+    },
+    liveOnchain: {
+      available: false,
+      detail:
+        'Live Safe deployments are unavailable because anchor mode is off for this member context.',
+    },
     activeCoop: undefined,
     activeMember: undefined,
   }),
@@ -58,9 +88,12 @@ vi.mock('../agent', () => ({
   ensureOnboardingBurst: vi.fn().mockResolvedValue(undefined),
 }));
 
-const { handleCreateCoop, handleJoinCoop, handleSetAnchorMode } = await import('../coop');
+const { handleCreateCoop, handleJoinCoop, handleResolveOnchainState, handleSetAnchorMode } =
+  await import('../coop');
 const { saveState, setLocalSetting } = await import('../../context');
+const { getOperatorState, logPrivilegedAction } = await import('../../operator');
 const { ensureOnboardingBurst } = await import('../agent');
+const shared = await import('@coop/shared');
 
 describe('coop handlers', () => {
   it('creates a coop with valid input and persists state', async () => {
@@ -115,6 +148,59 @@ describe('coop handlers', () => {
       memberId: expect.any(String),
       reason: 'coop-create-first',
     });
+  });
+
+  it('returns a deferred live onchain state when anchor mode is off', async () => {
+    vi.stubEnv('VITE_PIMLICO_API_KEY', 'pim_test_key');
+    vi.mocked(getOperatorState).mockResolvedValueOnce({
+      authSession: {
+        displayName: 'Mina',
+        primaryAddress: '0x1111111111111111111111111111111111111111',
+      },
+      anchorCapability: null,
+      anchorStatus: {
+        enabled: false,
+        active: false,
+        detail:
+          'Anchor mode is off. Live archive, Safe actions, and archive follow-up stay disabled.',
+      },
+      liveOnchain: {
+        available: false,
+        detail:
+          'Live Safe deployments are unavailable because anchor mode is off for this member context.',
+      },
+      activeCoop: undefined,
+      activeMember: undefined,
+      actionLog: [],
+      activeContext: {
+        activeCoopId: undefined,
+        activeMemberId: undefined,
+      },
+      liveArchive: {
+        available: false,
+        detail:
+          'Live archive uploads are unavailable because anchor mode is off for this member context.',
+      },
+    });
+
+    const result = await handleResolveOnchainState({
+      type: 'resolve-onchain-state',
+      payload: { coopSeed: 'coop-seed' },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      safeCapability: 'unavailable',
+      senderAddress: '0x1111111111111111111111111111111111111111',
+    });
+    expect(result.data?.statusNote).toContain('pending until anchor mode is enabled on this node');
+    expect(vi.mocked(shared.deployCoopSafe)).not.toHaveBeenCalled();
+    expect(vi.mocked(logPrivilegedAction)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'safe-deployment',
+        status: 'failed',
+      }),
+    );
   });
 
   it('rejects anchor mode toggle when no auth session exists', async () => {
