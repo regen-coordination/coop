@@ -34,6 +34,17 @@ bun install
 bun run dev:extension
 ```
 
+For local live Sepolia rehearsals without editing `.env.local`:
+
+```bash
+bun run dev:app
+bun run dev:api
+bun run dev:extension:local-live-sepolia
+```
+
+That profile enables live onchain/archive/session rails while keeping the receiver and signaling
+origins local to your machine.
+
 Optional supporting processes:
 
 ```bash
@@ -120,6 +131,7 @@ extension, so keep it on the final production HTTPS origin for release builds.
 
 Profile overlays live at:
 
+- `config/env/profiles/local-live-sepolia.env`
 - `config/env/profiles/public-release.env`
 - `config/env/profiles/operator-live.env`
 

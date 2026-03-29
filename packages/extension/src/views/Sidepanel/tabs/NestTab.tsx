@@ -76,48 +76,20 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
     <section className="stack">
       {coopTags.length > 0 || activeCoop ? (
         <SidepanelSubheader>
-          {coopTags.length > 0 ? (
-            <PopupSubheader ariaLabel="Filter by coop" tags={coopTags} />
-          ) : null}
+          <div className="sidepanel-action-row">
+            {coopTags.length > 0 ? (
+              <PopupSubheader ariaLabel="Filter by coop" tags={coopTags} />
+            ) : null}
 
-          {activeCoop ? (
-            <div className="sidepanel-action-row">
-              <Tooltip content="Refresh">
-                {({ targetProps }) => (
-                  <button
-                    {...targetProps}
-                    className="popup-icon-button"
-                    aria-label="Refresh"
-                    onClick={() => void loadDashboard()}
-                    type="button"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M21 2v6h-6" />
-                      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-                      <path d="M3 22v-6h6" />
-                      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-                    </svg>
-                  </button>
-                )}
-              </Tooltip>
-              {nestSubTab === 'members' ? (
-                <Tooltip content="Invite member">
+            {activeCoop ? (
+              <>
+                <Tooltip content="Refresh">
                   {({ targetProps }) => (
                     <button
                       {...targetProps}
                       className="popup-icon-button"
-                      aria-label="Invite member"
-                      onClick={() => createInvite('member')}
+                      aria-label="Refresh"
+                      onClick={() => void loadDashboard()}
                       type="button"
                     >
                       <svg
@@ -131,17 +103,47 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <line x1="19" y1="8" x2="19" y2="14" />
-                        <line x1="22" y1="11" x2="16" y2="11" />
+                        <path d="M21 2v6h-6" />
+                        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                        <path d="M3 22v-6h6" />
+                        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
                       </svg>
                     </button>
                   )}
                 </Tooltip>
-              ) : null}
-            </div>
-          ) : null}
+                {nestSubTab === 'members' ? (
+                  <Tooltip content="Invite member">
+                    {({ targetProps }) => (
+                      <button
+                        {...targetProps}
+                        className="popup-icon-button"
+                        aria-label="Invite member"
+                        onClick={() => createInvite('member')}
+                        type="button"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <line x1="19" y1="8" x2="19" y2="14" />
+                          <line x1="22" y1="11" x2="16" y2="11" />
+                        </svg>
+                      </button>
+                    )}
+                  </Tooltip>
+                ) : null}
+              </>
+            ) : null}
+          </div>
 
           {/* --- Sub-tab pill bar (only with active coop) --- */}
           {activeCoop ? (

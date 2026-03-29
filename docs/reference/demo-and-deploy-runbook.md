@@ -43,6 +43,18 @@ COOP_TUNNEL_APP_HOSTNAME=local.coop.town
 
 Other defaults are safe: sepolia, mock onchain/archive, session off.
 
+If you want live Sepolia rehearsals against local receiver + signaling while developing the
+extension, use the profile commands instead of editing `.env.local`:
+
+```bash
+bun run dev:app
+bun run dev:api
+bun run dev:extension:local-live-sepolia
+```
+
+That profile lives at `config/env/profiles/local-live-sepolia.env` and only overrides the
+mode/origin values baked into the extension bundle.
+
 If you also need the docs site, make sure the shell is using Node 22 from `.mise.toml` before you
 run `bun run docs:dev` or `bun run docs:build`.
 
@@ -205,6 +217,7 @@ bun run validate:production-live-readiness
 
 Profile files live at:
 
+- `config/env/profiles/local-live-sepolia.env`
 - `config/env/profiles/public-release.env`
 - `config/env/profiles/operator-live.env`
 

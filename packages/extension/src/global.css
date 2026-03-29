@@ -205,7 +205,7 @@ img {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.3rem;
   padding: 0.75rem 1rem;
 }
 
@@ -231,6 +231,42 @@ img {
   color: var(--coop-brown-soft);
   opacity: 0.7;
   line-height: 1.4;
+}
+
+.coop-card__purpose {
+  font-size: 0.78rem;
+  color: var(--coop-brown-soft);
+  opacity: 0.8;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.coop-card__members-row {
+  display: flex;
+  gap: 0.2rem;
+  margin-top: 0.1rem;
+}
+
+.coop-card__member-pip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--coop-mist);
+  color: var(--coop-brown);
+  font-size: 0.6rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.coop-card__member-pip--overflow {
+  background: var(--coop-brown-8);
+  font-size: 0.55rem;
 }
 
 .panel-card,
@@ -956,6 +992,11 @@ button.sidepanel-header__brand {
   overflow: visible;
 }
 
+.sidepanel-action-row > .popup-subheader {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---- Sidepanel scrollable content ---- */
 
 .sidepanel-content {
@@ -965,6 +1006,7 @@ button.sidepanel-header__brand {
   padding: 0.5rem 0.75rem;
   display: grid;
   gap: 1rem;
+  align-content: start;
   scrollbar-width: none;
   -ms-overflow-style: none;
   overflow-wrap: break-word;
@@ -1074,15 +1116,18 @@ button.sidepanel-header__brand {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.3rem 0.65rem;
+  padding: 0.25rem 0.5rem;
   border-radius: var(--coop-radius-pill);
   border: 1px solid var(--coop-line);
   background: var(--coop-surface-elevated);
   color: var(--coop-brown-soft);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   transition: background-color var(--coop-ease), border-color var(--coop-ease);
 }
@@ -1245,6 +1290,25 @@ button.sidepanel-header__brand {
 }
 
 /* ---- Notification banners ---- */
+
+/* ---- Banner overlay (covers subheader, no content shift) ---- */
+
+.sidepanel-banner-overlay {
+  position: sticky;
+  top: 0;
+  z-index: 2; /* above subheader z-index: 1 */
+  height: 0;
+  overflow: visible;
+  margin: -0.5rem -0.75rem 0;
+}
+
+.sidepanel-banner-overlay > .notification-banner {
+  margin: 0.5rem 0.75rem;
+}
+
+.sidepanel-banner-overlay:empty {
+  display: none;
+}
 
 .notification-banner {
   display: flex;

@@ -141,9 +141,7 @@ function hasMatchingBuild(signature, minBuiltAtMs) {
   }
 
   const cachedBuildMtimeMs = fs.statSync(manifestPath).mtimeMs;
-  return (
-    cachedBuildMtimeMs >= minBuiltAtMs && cachedBuildMtimeMs >= latestBuiltOutputMtimeMs()
-  );
+  return cachedBuildMtimeMs >= minBuiltAtMs && cachedBuildMtimeMs >= latestBuiltOutputMtimeMs();
 }
 
 function removeStaleLockIfNeeded() {

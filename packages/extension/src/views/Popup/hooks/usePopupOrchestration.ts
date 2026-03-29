@@ -587,6 +587,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       if (windowId != null) {
         await chrome.sidePanel.open({ windowId });
         updateWorkspaceFallbackState(true);
+        window.close();
         return;
       }
     } catch {
@@ -594,6 +595,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     }
 
     await chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html') });
+    window.close();
   }
 
   async function toggleWorkspaceFallback(windowId: number, targetCoopId?: string) {
@@ -616,48 +618,26 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       return;
     }
 
-    if (openingWorkspace) {
-      if (targetCoopId && targetCoopId !== dashboard?.activeCoopId) {
-        const ctxResponse = await sendRuntimeMessage({
-          type: 'set-active-coop',
-          payload: { coopId: targetCoopId },
-        });
-        if (!ctxResponse.ok) {
-          setMessage(ctxResponse.error ?? 'Could not open the selected coop in full view.');
-          return;
-        }
-        await loadDashboard();
+    // From the popup, the sidepanel button is always an open action.
+    // After opening we close the popup so the user lands in the sidepanel.
+    if (targetCoopId && targetCoopId !== dashboard?.activeCoopId) {
+      const ctxResponse = await sendRuntimeMessage({
+        type: 'set-active-coop',
+        payload: { coopId: targetCoopId },
+      });
+      if (!ctxResponse.ok) {
+        setMessage(ctxResponse.error ?? 'Could not open the selected coop in full view.');
+        return;
       }
+      await loadDashboard();
+    }
 
-      try {
-        await chrome.sidePanel.open({ windowId });
-        updateWorkspaceFallbackState(true);
-      } catch {
-        await toggleWorkspaceFallback(windowId, targetCoopId);
-      }
-    } else {
-      try {
-        const response = await sendRuntimeMessage<PopupSidepanelState>({
-          type: 'toggle-sidepanel',
-          payload: { windowId },
-        });
-        if (response.ok && response.data) {
-          setWorkspaceState(response.data);
-          return;
-        }
-        if (isCompatibilitySidepanelError(response.error)) {
-          await toggleWorkspaceFallback(windowId);
-          return;
-        }
-        setMessage(response.error ?? 'Could not toggle the sidepanel.');
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        if (isCompatibilitySidepanelError(detail)) {
-          await toggleWorkspaceFallback(windowId);
-          return;
-        }
-        setMessage(detail || 'Could not toggle the sidepanel.');
-      }
+    try {
+      await chrome.sidePanel.open({ windowId });
+      updateWorkspaceFallbackState(true);
+      window.close();
+    } catch {
+      await toggleWorkspaceFallback(windowId, targetCoopId);
     }
   }
 

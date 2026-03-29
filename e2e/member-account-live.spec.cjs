@@ -444,17 +444,20 @@ async function createCoopViaPopup(profile, input) {
   await openPopupCreateFlow(popupPage);
   await popupPage.getByPlaceholder('Community research coop').fill(input.coopName);
   await popupPage.getByPlaceholder('Ava').fill(input.creatorName);
-  await popupPage.getByPlaceholder('Paste or write what this coop is gathering.').fill(
-    input.purpose,
-  );
+  await popupPage
+    .getByPlaceholder('Paste or write what this coop is gathering.')
+    .fill(input.purpose);
   await popupPage.getByRole('button', { name: 'Create Coop' }).click({ noWaitAfter: true });
   await expect
-    .poll(async () => {
-      const dashboard = await getDashboard(popupPage);
-      return dashboard?.coops?.some((coop) => coop.profile.name === input.coopName) ?? false;
-    }, {
-      timeout: 90_000,
-    })
+    .poll(
+      async () => {
+        const dashboard = await getDashboard(popupPage);
+        return dashboard?.coops?.some((coop) => coop.profile.name === input.coopName) ?? false;
+      },
+      {
+        timeout: 90_000,
+      },
+    )
     .toBe(true);
 }
 

@@ -201,25 +201,27 @@ export function SidepanelApp() {
           <>
             {message ? <div className="panel-card helper-text">{message}</div> : null}
 
-            {agentDelta?.focusIntent ? (
-              <NotificationBanner
-                id={`agent-delta-${agentDelta.emittedAt}`}
-                message={agentDelta.message}
-                actionLabel="Open"
-                onAction={() =>
-                  void applySidepanelIntent(agentDelta.focusIntent as SidepanelIntent)
-                }
-              />
-            ) : null}
+            <div className="sidepanel-banner-overlay">
+              {agentDelta?.focusIntent ? (
+                <NotificationBanner
+                  id={`agent-delta-${agentDelta.emittedAt}`}
+                  message={agentDelta.message}
+                  actionLabel="Open"
+                  onAction={() =>
+                    void applySidepanelIntent(agentDelta.focusIntent as SidepanelIntent)
+                  }
+                />
+              ) : null}
 
-            {(dashboard?.summary.pendingDrafts ?? 0) > 0 && (
-              <NotificationBanner
-                id={`roundup-${dashboard?.summary.lastCaptureAt ?? 'none'}`}
-                message={`${dashboard?.summary.pendingDrafts} chicken${dashboard?.summary.pendingDrafts === 1 ? '' : 's'} waiting for review.`}
-                actionLabel="Review"
-                onAction={() => setPanelTab('chickens')}
-              />
-            )}
+              {(dashboard?.summary.pendingDrafts ?? 0) > 0 && (
+                <NotificationBanner
+                  id={`roundup-${dashboard?.summary.lastCaptureAt ?? 'none'}`}
+                  message={`${dashboard?.summary.pendingDrafts} chicken${dashboard?.summary.pendingDrafts === 1 ? '' : 's'} waiting for review.`}
+                  actionLabel="Review"
+                  onAction={() => setPanelTab('chickens')}
+                />
+              )}
+            </div>
 
             <SidepanelTabRouter
               panelTab={panelTab}

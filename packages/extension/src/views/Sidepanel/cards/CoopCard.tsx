@@ -64,6 +64,16 @@ function ChevronRight() {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers — display
+// ---------------------------------------------------------------------------
+
+const MAX_VISIBLE_MEMBERS = 4;
+
+function getInitials(name: string): string {
+  return name.slice(0, 2).toUpperCase();
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -71,6 +81,9 @@ export function CoopCard({ coop, currentMemberId, onClick }: CoopCardProps) {
   const { sharedFinds, archiveReceipts, pendingDrafts } = computeStats(coop);
   const lastActivity = resolveLastActivity(coop);
   const memberCount = coop.members.length;
+  const purpose = coop.profile.purpose;
+  const visibleMembers = coop.members.slice(0, MAX_VISIBLE_MEMBERS);
+  const overflowCount = memberCount - MAX_VISIBLE_MEMBERS;
 
   return (
     <button className="panel-card coop-card-button" onClick={onClick} type="button">
@@ -78,6 +91,11 @@ export function CoopCard({ coop, currentMemberId, onClick }: CoopCardProps) {
         <strong className="coop-card__name">{coop.profile.name}</strong>
         <ChevronRight />
       </span>
+      {purpose ? (
+        <span className="coop-card__purpose">
+          {purpose.length > 60 ? `${purpose.slice(0, 60)}…` : purpose}
+        </span>
+      ) : null}
       <span className="coop-card__stat-line">
         {sharedFinds} shared · {archiveReceipts} saved
       </span>
@@ -90,6 +108,20 @@ export function CoopCard({ coop, currentMemberId, onClick }: CoopCardProps) {
         {formatCoopSpaceTypeLabel(coop.profile.spaceType)}
         {lastActivity ? ` · ${formatRelativeTime(lastActivity)}` : ''}
       </span>
+      {visibleMembers.length > 0 ? (
+        <span className="coop-card__members-row">
+          {visibleMembers.map((m) => (
+            <span key={m.id} className="coop-card__member-pip" title={m.displayName}>
+              {getInitials(m.displayName)}
+            </span>
+          ))}
+          {overflowCount > 0 ? (
+            <span className="coop-card__member-pip coop-card__member-pip--overflow">
+              +{overflowCount}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
     </button>
   );
 }
