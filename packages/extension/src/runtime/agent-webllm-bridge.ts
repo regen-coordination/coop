@@ -1,4 +1,5 @@
 const WEBLLM_MODEL_ID = 'Qwen2-0.5B-Instruct-q4f16_1-MLC';
+const WEBLLM_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 
 type CompletionResult = {
   provider: 'webllm';
@@ -33,13 +34,16 @@ type CreateWebWorkerMLCEngine = (
 export class AgentWebLlmBridge {
   private worker: Worker | null = null;
   private enginePromise: Promise<WebLlmEngine> | null = null;
+  private engineReady = false;
+  private engineEpoch = 0;
   private lastError: string | undefined;
   private initProgress = 0;
   private initMessage = '';
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
 
   get status() {
     return {
-      ready: this.enginePromise !== null && !this.lastError,
+      ready: this.engineReady && !this.lastError,
       initProgress: this.initProgress,
       initMessage: this.initMessage,
       error: this.lastError,
@@ -48,10 +52,12 @@ export class AgentWebLlmBridge {
   }
 
   private async ensureEngine() {
+    this.bumpIdleTimer();
     if (this.enginePromise) {
       return this.enginePromise;
     }
 
+    const epoch = this.engineEpoch;
     this.enginePromise = (async () => {
       const workerUrl =
         typeof chrome !== 'undefined' && chrome.runtime?.getURL
@@ -69,15 +75,29 @@ export class AgentWebLlmBridge {
           this.initMessage = report.text ?? this.initMessage;
         },
       });
-    })().catch((error) => {
-      this.lastError = error instanceof Error ? error.message : 'WebLLM initialization failed.';
-      this.enginePromise = null;
-      this.worker?.terminate();
-      this.worker = null;
-      throw error;
-    });
+    })()
+      .then((engine) => {
+        if (epoch === this.engineEpoch) {
+          this.engineReady = true;
+        }
+        return engine;
+      })
+      .catch((error) => {
+        if (epoch === this.engineEpoch) {
+          this.lastError = error instanceof Error ? error.message : 'WebLLM initialization failed.';
+          this.enginePromise = null;
+          this.engineReady = false;
+          this.worker?.terminate();
+          this.worker = null;
+        }
+        throw error;
+      });
 
     return this.enginePromise;
+  }
+
+  prewarm() {
+    void this.ensureEngine().catch(() => {});
   }
 
   async complete(input: {
@@ -98,6 +118,7 @@ export class AgentWebLlmBridge {
       response_format: { type: 'json_object' },
     });
     const output = response.choices?.[0]?.message?.content ?? '';
+    this.bumpIdleTimer();
 
     return {
       provider: 'webllm',
@@ -107,10 +128,25 @@ export class AgentWebLlmBridge {
     };
   }
 
+  private bumpIdleTimer() {
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+    }
+    this.idleTimer = setTimeout(() => {
+      this.teardown();
+    }, WEBLLM_IDLE_TIMEOUT_MS);
+  }
+
   teardown() {
+    this.engineEpoch += 1;
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
     this.worker?.terminate();
     this.worker = null;
     this.enginePromise = null;
+    this.engineReady = false;
     this.lastError = undefined;
     this.initProgress = 0;
     this.initMessage = '';

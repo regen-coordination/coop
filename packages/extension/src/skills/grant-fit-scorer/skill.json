@@ -4,7 +4,7 @@
   "description": "Score extracted opportunities against coop purpose, rituals, and archive history.",
   "runtime": "extension-offscreen",
   "model": "transformers",
-  "triggers": ["high-confidence-draft", "receiver-backlog"],
+  "triggers": ["high-confidence-draft", "receiver-backlog", "audio-transcript-ready"],
   "inputSchemaRef": "agent-observation",
   "outputSchemaRef": "grant-fit-scorer-output",
   "allowedTools": ["read-observation-context", "read-coop-context", "list-related-artifacts"],
@@ -12,6 +12,7 @@
   "requiredCapabilities": [],
   "approvalMode": "advisory",
   "timeoutMs": 30000,
+  "maxTokens": 420,
   "depends": ["opportunity-extractor"],
   "skipWhen": "no-candidates",
   "provides": ["scores"]

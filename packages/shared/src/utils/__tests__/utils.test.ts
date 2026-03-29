@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { assertHexString, createId, hashJson } from '../index';
+import {
+  assertHexString,
+  createId,
+  hashJson,
+  sanitizeTextForInference,
+  sanitizeValueForInference,
+} from '../index';
 
 describe('assertHexString', () => {
   it('returns the value when given a valid hex string', () => {
@@ -79,5 +85,50 @@ describe('hashJson', () => {
     expect(hashJson('hello')).toBe(hashJson('hello'));
     expect(hashJson(42)).toBe(hashJson(42));
     expect(hashJson(null)).not.toBe(hashJson(undefined));
+  });
+});
+
+describe('sanitizeTextForInference', () => {
+  it('redacts secrets, emails, phone numbers, and tracking parameters inline', () => {
+    const sanitized = sanitizeTextForInference(
+      'Contact jane@example.com or 415-555-0199. Bearer abc123 token=secret https://example.com/grants?id=42&utm_source=newsletter&access_token=supersecret',
+    );
+
+    expect(sanitized).toContain('[redacted-email]');
+    expect(sanitized).toContain('[redacted-phone]');
+    expect(sanitized).toContain('Bearer [redacted-token]');
+    expect(sanitized).toContain('token=[redacted]');
+    expect(sanitized).toContain('https://example.com/grants?id=42');
+    expect(sanitized).not.toContain('jane@example.com');
+    expect(sanitized).not.toContain('415-555-0199');
+    expect(sanitized).not.toContain('access_token=supersecret');
+    expect(sanitized).not.toContain('utm_source=newsletter');
+  });
+});
+
+describe('sanitizeValueForInference', () => {
+  it('redacts sensitive object keys recursively and truncates strings', () => {
+    const sanitized = sanitizeValueForInference(
+      {
+        title: 'Grant lead',
+        access_token: 'secret-token',
+        nested: {
+          password: 'really-secret',
+          note: 'Email jane@example.com about the proposal draft tomorrow morning.',
+        },
+      },
+      { maxStringWords: 4 },
+    ) as {
+      access_token: string;
+      nested: {
+        password: string;
+        note: string;
+      };
+    };
+
+    expect(sanitized.access_token).toBe('[redacted]');
+    expect(sanitized.nested.password).toBe('[redacted]');
+    expect(sanitized.nested.note).toContain('[redacted-email]');
+    expect(sanitized.nested.note.split(/\s+/u).length).toBeLessThanOrEqual(4);
   });
 });

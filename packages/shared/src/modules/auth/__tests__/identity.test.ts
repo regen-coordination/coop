@@ -45,6 +45,7 @@ describe('passkey identity helpers', () => {
         id: record.passkey.id,
         publicKey: record.passkey.publicKey,
       },
+      getFn: expect.any(Function),
       rpId: 'coop.override',
     });
     expect(owner).toEqual({
@@ -77,6 +78,14 @@ describe('passkey identity helpers', () => {
     expect(result.record.displayName).toBe('Ari');
     expect(result.record.passkey.id).toBe('credential-1');
     expect(result.record.ownerAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(accountMocks.toWebAuthnAccount).toHaveBeenLastCalledWith({
+      credential: {
+        id: 'credential-1',
+        publicKey: '0x1234abcd',
+      },
+      getFn: expect.any(Function),
+      rpId: 'coop.local',
+    });
     expect(result.owner).toEqual({
       address: '0x1111111111111111111111111111111111111111',
     });

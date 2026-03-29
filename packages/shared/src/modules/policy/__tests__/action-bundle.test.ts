@@ -5,6 +5,7 @@ import {
   buildGreenGoodsCreateAssessmentPayload,
   buildGreenGoodsCreateGardenPayload,
   buildGreenGoodsCreateGardenPoolsPayload,
+  buildGreenGoodsMintHypercertPayload,
   buildGreenGoodsSetGardenDomainsPayload,
   buildGreenGoodsSubmitWorkApprovalPayload,
   buildGreenGoodsSyncGapAdminsPayload,
@@ -459,8 +460,6 @@ describe('action-bundle', () => {
         maxGardeners: 0,
         weightScheme: 'linear',
         domains: ['agro'],
-        operatorAddresses: [],
-        gardenerAddresses: [],
       });
     });
 
@@ -1772,6 +1771,97 @@ describe('action-bundle', () => {
         expect(result.ok).toBe(false);
         if (!result.ok) {
           expect(result.reason).toContain('does not match scoped coop');
+        }
+      });
+    });
+
+    describe('green-goods-mint-hypercert', () => {
+      it('accepts a valid Hypercert packaging payload', () => {
+        const gardenAddress = '0x1111111111111111111111111111111111111111';
+        const result = resolveScopedActionPayload({
+          actionClass: 'green-goods-mint-hypercert',
+          payload: buildGreenGoodsMintHypercertPayload({
+            coopId: 'coop-1',
+            gardenAddress,
+            title: 'Season one stewardship package',
+            description: 'Approved Green Goods work bundled into a Hypercert.',
+            workScopes: ['planting'],
+            impactScopes: ['ecosystem restoration'],
+            allowlist: [
+              {
+                address: '0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa',
+                units: 60_000_000,
+                label: 'Lead steward',
+              },
+              {
+                address: '0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB',
+                units: 40_000_000,
+                label: 'Field operator',
+              },
+            ],
+            attestations: [
+              {
+                uid: `0x${'11'.repeat(32)}`,
+                workUid: `0x${'aa'.repeat(32)}`,
+                title: 'Watershed planting day',
+                domain: 'agro',
+                workScope: ['planting'],
+                gardenerAddress: '0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa',
+                gardenerName: 'Ari',
+                mediaUrls: ['ipfs://photo-1'],
+                metrics: {
+                  trees_planted: { value: 120, unit: 'count' },
+                },
+                createdAt: 1_711_929_600,
+                approvedAt: 1_711_936_800,
+                approvedBy: '0x3333333333333333333333333333333333333333',
+                feedback: 'Verified in the field.',
+                actionType: 'planting',
+              },
+            ],
+          }),
+          expectedCoopId: 'coop-1',
+        });
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.targetIds).toContain(gardenAddress);
+          expect(result.targetIds).toContain(`0x${'11'.repeat(32)}`);
+          expect(result.targetIds).toContain('0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa');
+        }
+      });
+
+      it('rejects Hypercert packages whose allowlist does not total 100000000 units', () => {
+        const gardenAddress = '0x1111111111111111111111111111111111111111';
+        const result = resolveScopedActionPayload({
+          actionClass: 'green-goods-mint-hypercert',
+          payload: buildGreenGoodsMintHypercertPayload({
+            coopId: 'coop-1',
+            gardenAddress,
+            title: 'Broken package',
+            description: 'This should be rejected.',
+            allowlist: [
+              {
+                address: '0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa',
+                units: 99,
+              },
+            ],
+            attestations: [
+              {
+                uid: `0x${'11'.repeat(32)}`,
+                workUid: `0x${'aa'.repeat(32)}`,
+                title: 'Watershed planting day',
+                gardenerAddress: '0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa',
+                createdAt: 1_711_929_600,
+                approvedAt: 1_711_936_800,
+              },
+            ],
+          }),
+        });
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.reason).toContain('invalid "allowlist"');
         }
       });
     });

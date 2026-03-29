@@ -4,7 +4,7 @@
   "description": "Extract ecological, community, and capital-formation opportunity candidates from local knowledge.",
   "runtime": "extension-offscreen",
   "model": "transformers",
-  "triggers": ["high-confidence-draft", "receiver-backlog"],
+  "triggers": ["high-confidence-draft", "receiver-backlog", "audio-transcript-ready"],
   "inputSchemaRef": "agent-observation",
   "outputSchemaRef": "opportunity-extractor-output",
   "allowedTools": ["read-observation-context", "read-coop-context", "list-related-drafts"],
@@ -12,6 +12,7 @@
   "requiredCapabilities": [],
   "approvalMode": "advisory",
   "timeoutMs": 30000,
+  "maxTokens": 520,
   "depends": [],
   "provides": ["candidates"]
 }

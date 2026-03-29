@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
@@ -17,6 +17,7 @@
       "@coop/shared/*": ["packages/shared/src/*"],
       "@coop/api": ["packages/api/config.ts"]
     },
-    "types": ["chrome", "node"]
+    "types": ["chrome", "node", "vite/client", "@testing-library/jest-dom/vitest"],
+    "skipLibCheck": true
   }
 }

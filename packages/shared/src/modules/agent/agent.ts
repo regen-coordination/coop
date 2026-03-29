@@ -4,13 +4,16 @@ import type {
   AgentObservationTrigger,
   AgentPlan,
   AgentPlanStep,
+  AgentPlanStepEvaluationContract,
   AgentProvider,
   ArtifactCategory,
   CapitalFormationBriefOutput,
+  MemoryInsightOutput,
   OpportunityCandidate,
   PublishReadinessCheckOutput,
   ReviewDigestOutput,
   ReviewDraft,
+  SkillEvaluationAttempt,
   SkillManifest,
   SkillOutputSchemaRef,
   SkillRun,
@@ -30,11 +33,14 @@ import {
   greenGoodsGardenBootstrapOutputSchema,
   greenGoodsGardenSyncOutputSchema,
   greenGoodsWorkApprovalOutputSchema,
+  memoryInsightOutputSchema,
   opportunityExtractorOutputSchema,
   publishReadinessCheckOutputSchema,
   reviewDigestOutputSchema,
+  skillEvaluationAttemptSchema,
   skillManifestSchema,
   skillRunSchema,
+  tabRouterOutputSchema,
   themeClustererOutputSchema,
 } from '../../contracts/schema';
 import { createId, hashJson, nowIso, slugify, truncateWords } from '../../utils';
@@ -43,9 +49,11 @@ export const skillOutputSchemas: Record<
   SkillOutputSchemaRef,
   { parse: (value: unknown) => unknown }
 > = {
+  'tab-router-output': tabRouterOutputSchema,
   'opportunity-extractor-output': opportunityExtractorOutputSchema,
   'grant-fit-scorer-output': grantFitScorerOutputSchema,
   'capital-formation-brief-output': capitalFormationBriefOutputSchema,
+  'memory-insight-output': memoryInsightOutputSchema,
   'review-digest-output': reviewDigestOutputSchema,
   'ecosystem-entity-extractor-output': ecosystemEntityExtractorOutputSchema,
   'theme-clusterer-output': themeClustererOutputSchema,
@@ -142,6 +150,7 @@ export function createAgentPlanStep(input: {
   provider: AgentProvider;
   summary: string;
   startedAt?: string;
+  evaluationContract?: AgentPlanStepEvaluationContract;
 }): AgentPlanStep {
   return agentPlanStepSchema.parse({
     id: createId('agent-step'),
@@ -150,6 +159,7 @@ export function createAgentPlanStep(input: {
     status: 'pending',
     summary: input.summary,
     startedAt: input.startedAt,
+    evaluationContract: input.evaluationContract,
   });
 }
 
@@ -280,6 +290,17 @@ export function createSkillRun(input: {
     startedAt: input.startedAt ?? nowIso(),
     outputSchemaRef: input.skill.outputSchemaRef,
     notes: input.notes,
+    evaluationAttempts: [],
+  });
+}
+
+export function appendSkillRunEvaluationAttempt(run: SkillRun, attempt: SkillEvaluationAttempt) {
+  return skillRunSchema.parse({
+    ...run,
+    evaluationAttempts: [
+      ...(run.evaluationAttempts ?? []),
+      skillEvaluationAttemptSchema.parse(attempt),
+    ],
   });
 }
 
@@ -357,6 +378,7 @@ export function createAgentGeneratedDraft(input: {
     previewImageUrl: undefined,
     status: 'draft',
     workflowStage: input.workflowStage ?? 'candidate',
+    attachments: [],
     provenance: {
       type: 'agent',
       observationId: input.observationId,
@@ -413,6 +435,30 @@ export function createReviewDigestDraft(input: {
     tags: input.output.tags,
     category: 'insight',
     confidence: 0.76,
+  });
+}
+
+export function createMemoryInsightDraft(input: {
+  observationId: string;
+  planId: string;
+  skillRunId: string;
+  skillId: string;
+  coopId: string;
+  output: MemoryInsightOutput['insights'][number];
+}) {
+  return createAgentGeneratedDraft({
+    observationId: input.observationId,
+    planId: input.planId,
+    skillRunId: input.skillRunId,
+    skillId: input.skillId,
+    coopId: input.coopId,
+    title: buildAgentDraftTitle('Memory insight', input.output.title),
+    summary: input.output.summary,
+    whyItMatters: input.output.whyItMatters,
+    suggestedNextStep: input.output.suggestedNextStep,
+    tags: input.output.tags,
+    category: input.output.category,
+    confidence: input.output.confidence,
   });
 }
 

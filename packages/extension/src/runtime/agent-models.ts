@@ -2,20 +2,38 @@ import type {
   AgentProvider,
   CapitalFormationBriefOutput,
   EcosystemEntityExtractorOutput,
+  Erc8004FeedbackOutput,
+  Erc8004RegistrationOutput,
   GrantFitScorerOutput,
   GreenGoodsAssessmentOutput,
   GreenGoodsGapAdminSyncOutput,
   GreenGoodsWorkApprovalOutput,
+  MemoryInsightOutput,
   OpportunityExtractorOutput,
   PublishReadinessCheckOutput,
   ReviewDigestOutput,
   SkillOutputSchemaRef,
+  TabRouterOutput,
   ThemeClustererOutput,
 } from '@coop/shared';
 import { validateSkillOutput } from '@coop/shared';
+import { AGENT_SKILL_TIMEOUT_MS } from './agent-config';
 import { AgentWebLlmBridge } from './agent-webllm-bridge';
+import { resolveOnnxRuntimeWasmPaths } from './onnx-assets';
 
 const TRANSFORMERS_MODEL_ID = 'onnx-community/Qwen2.5-0.5B-Instruct';
+const TRANSFORMERS_COLD_START_FALLBACK_SCHEMAS = new Set<SkillOutputSchemaRef>([
+  'tab-router-output',
+  'opportunity-extractor-output',
+  'grant-fit-scorer-output',
+  'ecosystem-entity-extractor-output',
+  'theme-clusterer-output',
+]);
+const WEBLLM_COLD_START_FALLBACK_SCHEMAS = new Set<SkillOutputSchemaRef>([
+  'capital-formation-brief-output',
+  'review-digest-output',
+  'memory-insight-output',
+]);
 
 type TextGenerationPipeline = (
   messages: Array<{ role: string; content: string }>,
@@ -23,7 +41,34 @@ type TextGenerationPipeline = (
 ) => Promise<Array<{ generated_text: string | Array<{ content?: string }> }>>;
 
 let transformersPipelinePromise: Promise<TextGenerationPipeline> | null = null;
+let transformersPipelineReady = false;
+let transformersPipelineEpoch = 0;
 const webLlmBridge = new AgentWebLlmBridge();
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${timeoutMs}ms.`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+function warmTransformersPipeline() {
+  void ensureTransformersPipeline().catch(() => {
+    transformersPipelinePromise = null;
+    transformersPipelineReady = false;
+  });
+}
 
 export function extractJsonBlock(raw: string) {
   const trimmed = raw.trim();
@@ -148,29 +193,52 @@ function parseValidatedOutput<T>(schemaRef: SkillOutputSchemaRef, raw: string) {
   return validateSkillOutput<T>(schemaRef, JSON.parse(repairJson(extractJsonBlock(raw))));
 }
 
+function parseValidatedJson<T>(validate: (value: unknown) => T, raw: string) {
+  return validate(JSON.parse(repairJson(extractJsonBlock(raw))));
+}
+
 async function ensureTransformersPipeline() {
   if (transformersPipelinePromise) {
     return transformersPipelinePromise;
   }
 
+  const epoch = transformersPipelineEpoch;
   transformersPipelinePromise = (async () => {
     const { pipeline, env } = await import('@huggingface/transformers');
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    // Load ONNX WASM from CDN instead of bundling the 22 MB binary
-    env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
+    if (env.backends.onnx.wasm) {
+      env.backends.onnx.wasm.wasmPaths = resolveOnnxRuntimeWasmPaths();
+    }
 
-    return (await pipeline('text-generation', TRANSFORMERS_MODEL_ID, {
+    // biome-ignore lint/suspicious/noExplicitAny: pipeline overloads produce an unrepresentable union
+    return (await (pipeline as any)('text-generation', TRANSFORMERS_MODEL_ID, {
       dtype: 'q4',
       device: 'wasm',
     })) as TextGenerationPipeline;
-  })();
+  })()
+    .then((loadedPipeline) => {
+      if (epoch === transformersPipelineEpoch) {
+        transformersPipelineReady = true;
+      }
+      return loadedPipeline;
+    })
+    .catch((error) => {
+      if (epoch === transformersPipelineEpoch) {
+        transformersPipelineReady = false;
+      }
+      throw error;
+    });
 
   return transformersPipelinePromise;
 }
 
 function heuristicOutput(schemaRef: SkillOutputSchemaRef, rawContext: string) {
   switch (schemaRef) {
+    case 'tab-router-output':
+      return {
+        routings: [],
+      } satisfies TabRouterOutput;
     case 'opportunity-extractor-output':
       return {
         candidates: [
@@ -205,6 +273,22 @@ function heuristicOutput(schemaRef: SkillOutputSchemaRef, rawContext: string) {
         targetCoopIds: [],
         supportingCandidateIds: [],
       } satisfies CapitalFormationBriefOutput;
+    case 'memory-insight-output':
+      return {
+        insights: [
+          {
+            title: 'Local routing insight',
+            summary:
+              rawContext.slice(0, 220) || 'Recent routed tabs suggest a reusable local insight.',
+            whyItMatters: 'A compact local insight helps the member decide what to review next.',
+            suggestedNextStep:
+              'Review the routed tabs and decide whether this should stay local or be polished.',
+            tags: ['insight', 'routing'],
+            category: 'insight',
+            confidence: 0.68,
+          },
+        ],
+      } satisfies MemoryInsightOutput;
     case 'review-digest-output':
       return {
         title: 'Weekly review digest',
@@ -284,25 +368,48 @@ function heuristicOutput(schemaRef: SkillOutputSchemaRef, rawContext: string) {
         removeAdmins: [],
         rationale: 'Heuristic GAP admin sync detected no changes.',
       } satisfies GreenGoodsGapAdminSyncOutput;
+    case 'erc8004-registration-output':
+      return {
+        agentURI: 'data:application/json;base64,e30=',
+        metadata: [],
+        rationale: 'Heuristic ERC-8004 registration payload.',
+      } satisfies Erc8004RegistrationOutput;
+    case 'erc8004-feedback-output':
+      return {
+        targetAgentId: 1,
+        value: 1,
+        tag1: 'coop',
+        tag2: 'feedback',
+        rationale: 'Heuristic ERC-8004 feedback payload.',
+      } satisfies Erc8004FeedbackOutput;
   }
 }
 
 async function runTransformers<T>(input: {
   prompt: string;
   schemaRef: SkillOutputSchemaRef;
+  maxTokens?: number;
   retryContext?: string;
 }) {
   const start = Date.now();
-  const pipeline = await ensureTransformersPipeline();
+  const pipeline = await withTimeout(
+    ensureTransformersPipeline(),
+    AGENT_SKILL_TIMEOUT_MS,
+    'Transformers pipeline initialization',
+  );
   const promptWithRetry = input.retryContext
     ? `${input.prompt}\n\n${input.retryContext}`
     : input.prompt;
-  const result = await pipeline([{ role: 'user', content: promptWithRetry }], {
-    max_new_tokens: 512,
-    temperature: 0.2,
-    do_sample: false,
-    return_full_text: false,
-  });
+  const result = await withTimeout(
+    pipeline([{ role: 'user', content: promptWithRetry }], {
+      max_new_tokens: input.maxTokens ?? 512,
+      temperature: 0.2,
+      do_sample: false,
+      return_full_text: false,
+    }),
+    AGENT_SKILL_TIMEOUT_MS,
+    'Transformers completion',
+  );
   const output =
     Array.isArray(result) && result[0]?.generated_text
       ? typeof result[0].generated_text === 'string'
@@ -320,25 +427,100 @@ async function runTransformers<T>(input: {
   };
 }
 
+async function runTransformersStructured<T>(input: {
+  prompt: string;
+  validate: (value: unknown) => T;
+  maxTokens?: number;
+  retryContext?: string;
+}) {
+  const start = Date.now();
+  const pipeline = await withTimeout(
+    ensureTransformersPipeline(),
+    AGENT_SKILL_TIMEOUT_MS,
+    'Transformers pipeline initialization',
+  );
+  const promptWithRetry = input.retryContext
+    ? `${input.prompt}\n\n${input.retryContext}`
+    : input.prompt;
+  const result = await withTimeout(
+    pipeline([{ role: 'user', content: promptWithRetry }], {
+      max_new_tokens: input.maxTokens ?? 512,
+      temperature: 0.2,
+      do_sample: false,
+      return_full_text: false,
+    }),
+    AGENT_SKILL_TIMEOUT_MS,
+    'Transformers completion',
+  );
+  const output =
+    Array.isArray(result) && result[0]?.generated_text
+      ? typeof result[0].generated_text === 'string'
+        ? result[0].generated_text
+        : Array.isArray(result[0].generated_text)
+          ? (result[0].generated_text[result[0].generated_text.length - 1]?.content ?? '')
+          : ''
+      : '';
+
+  return {
+    provider: 'transformers' as const,
+    model: TRANSFORMERS_MODEL_ID,
+    output: parseValidatedJson(input.validate, output),
+    durationMs: Date.now() - start,
+  };
+}
+
 async function runWebLlm<T>(input: {
   system: string;
   prompt: string;
   schemaRef: SkillOutputSchemaRef;
+  maxTokens?: number;
   retryContext?: string;
 }) {
   const promptWithRetry = input.retryContext
     ? `${input.prompt}\n\n${input.retryContext}`
     : input.prompt;
-  const result = await webLlmBridge.complete({
-    system: input.system,
-    prompt: promptWithRetry,
-    temperature: 0.2,
-    maxTokens: 700,
-  });
+  const result = await withTimeout(
+    webLlmBridge.complete({
+      system: input.system,
+      prompt: promptWithRetry,
+      temperature: 0.2,
+      maxTokens: input.maxTokens ?? 700,
+    }),
+    AGENT_SKILL_TIMEOUT_MS,
+    'WebLLM completion',
+  );
   return {
     provider: result.provider,
     model: result.model,
     output: parseValidatedOutput<T>(input.schemaRef, result.output),
+    durationMs: result.durationMs,
+  };
+}
+
+async function runWebLlmStructured<T>(input: {
+  system: string;
+  prompt: string;
+  validate: (value: unknown) => T;
+  maxTokens?: number;
+  retryContext?: string;
+}) {
+  const promptWithRetry = input.retryContext
+    ? `${input.prompt}\n\n${input.retryContext}`
+    : input.prompt;
+  const result = await withTimeout(
+    webLlmBridge.complete({
+      system: input.system,
+      prompt: promptWithRetry,
+      temperature: 0.2,
+      maxTokens: input.maxTokens ?? 700,
+    }),
+    AGENT_SKILL_TIMEOUT_MS,
+    'WebLLM completion',
+  );
+  return {
+    provider: result.provider,
+    model: result.model,
+    output: parseValidatedJson(input.validate, result.output),
     durationMs: result.durationMs,
   };
 }
@@ -363,6 +545,7 @@ export async function completeSkillOutput<T>(input: {
   system: string;
   prompt: string;
   heuristicContext: string;
+  maxTokens?: number;
 }): Promise<{ provider: AgentProvider; model?: string; output: T; durationMs: number }> {
   const fallback = () => ({
     provider: 'heuristic' as const,
@@ -371,6 +554,29 @@ export async function completeSkillOutput<T>(input: {
     durationMs: 0,
   });
 
+  // Keep first-pass local inference responsive. If the Transformers pipeline is
+  // still cold, warm it in the background and fall back to a local heuristic
+  // for schemas that already have deterministic heuristic support.
+  if (
+    input.preferredProvider === 'transformers' &&
+    TRANSFORMERS_COLD_START_FALLBACK_SCHEMAS.has(input.schemaRef)
+  ) {
+    if (!transformersPipelineReady) {
+      warmTransformersPipeline();
+      return fallback();
+    }
+  }
+
+  if (
+    input.preferredProvider === 'webllm' &&
+    WEBLLM_COLD_START_FALLBACK_SCHEMAS.has(input.schemaRef)
+  ) {
+    if (!webLlmBridge.status.ready) {
+      webLlmBridge.prewarm();
+      return fallback();
+    }
+  }
+
   try {
     if (input.preferredProvider === 'webllm') {
       try {
@@ -378,14 +584,19 @@ export async function completeSkillOutput<T>(input: {
           system: input.system,
           prompt: input.prompt,
           schemaRef: input.schemaRef,
+          maxTokens: input.maxTokens,
         });
       } catch (firstError) {
+        if (firstError instanceof Error && /timed out/i.test(firstError.message)) {
+          throw firstError;
+        }
         // Retry once with error context
         try {
           return await runWebLlm<T>({
             system: input.system,
             prompt: input.prompt,
             schemaRef: input.schemaRef,
+            maxTokens: input.maxTokens,
             retryContext: formatRetryContext(firstError),
           });
         } catch {
@@ -399,12 +610,14 @@ export async function completeSkillOutput<T>(input: {
         return await runTransformers<T>({
           prompt: `${input.system}\n\n${input.prompt}`,
           schemaRef: input.schemaRef,
+          maxTokens: input.maxTokens,
         });
       } catch (firstError) {
         try {
           return await runTransformers<T>({
             prompt: `${input.system}\n\n${input.prompt}`,
             schemaRef: input.schemaRef,
+            maxTokens: input.maxTokens,
             retryContext: formatRetryContext(firstError),
           });
         } catch {
@@ -422,6 +635,89 @@ export async function completeSkillOutput<T>(input: {
       return await runTransformers<T>({
         prompt: `${input.system}\n\n${input.prompt}`,
         schemaRef: input.schemaRef,
+        maxTokens: input.maxTokens,
+      });
+    } catch {
+      return fallback();
+    }
+  }
+
+  return fallback();
+}
+
+export async function completeStructuredOutput<T>(input: {
+  preferredProvider: AgentProvider;
+  system: string;
+  prompt: string;
+  maxTokens?: number;
+  validate: (value: unknown) => T;
+  fallback: () => T;
+}): Promise<{ provider: AgentProvider; model?: string; output: T; durationMs: number }> {
+  const fallback = () => ({
+    provider: 'heuristic' as const,
+    model: undefined,
+    output: input.fallback(),
+    durationMs: 0,
+  });
+
+  try {
+    if (input.preferredProvider === 'webllm') {
+      try {
+        return await runWebLlmStructured<T>({
+          system: input.system,
+          prompt: input.prompt,
+          validate: input.validate,
+          maxTokens: input.maxTokens,
+        });
+      } catch (firstError) {
+        if (firstError instanceof Error && /timed out/i.test(firstError.message)) {
+          throw firstError;
+        }
+        try {
+          return await runWebLlmStructured<T>({
+            system: input.system,
+            prompt: input.prompt,
+            validate: input.validate,
+            maxTokens: input.maxTokens,
+            retryContext: formatRetryContext(firstError),
+          });
+        } catch {
+          // Both attempts failed — fall through to next provider
+        }
+      }
+    }
+
+    if (input.preferredProvider === 'transformers') {
+      try {
+        return await runTransformersStructured<T>({
+          prompt: `${input.system}\n\n${input.prompt}`,
+          validate: input.validate,
+          maxTokens: input.maxTokens,
+        });
+      } catch (firstError) {
+        try {
+          return await runTransformersStructured<T>({
+            prompt: `${input.system}\n\n${input.prompt}`,
+            validate: input.validate,
+            maxTokens: input.maxTokens,
+            retryContext: formatRetryContext(firstError),
+          });
+        } catch {
+          // Both attempts failed — fall through to heuristic
+        }
+      }
+      return fallback();
+    }
+  } catch {
+    // Fall through to the next provider or heuristic fallback.
+  }
+
+  if (input.preferredProvider === 'webllm') {
+    try {
+      return await runTransformersStructured<T>({
+        prompt: `${input.system}\n\n${input.prompt}`,
+        validate: input.validate,
+        maxTokens: input.maxTokens,
       });
     } catch {
       return fallback();
@@ -432,5 +728,8 @@ export async function completeSkillOutput<T>(input: {
 }
 
 export function teardownAgentModels() {
+  transformersPipelineEpoch += 1;
+  transformersPipelinePromise = null;
+  transformersPipelineReady = false;
   webLlmBridge.teardown();
 }

@@ -1,14 +1,24 @@
 const { defineConfig, devices } = require('@playwright/test');
 
+const attachedDevMode = process.env.COOP_PLAYWRIGHT_DEV === '1';
+const reuseExistingServer = process.env.COOP_PLAYWRIGHT_REUSE_EXISTING_SERVER === '1';
+const appPort = process.env.COOP_PLAYWRIGHT_APP_PORT || process.env.COOP_DEV_APP_PORT || '3001';
+const apiPort = process.env.COOP_PLAYWRIGHT_API_PORT || process.env.COOP_DEV_API_PORT || '4444';
+const appBaseUrl = process.env.COOP_PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${appPort}`;
+
 module.exports = defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
   use: {
-    baseURL: 'http://127.0.0.1:3001',
+    baseURL: appBaseUrl,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.01,
+    },
   },
   projects: [
     {
@@ -24,18 +34,20 @@ module.exports = defineConfig({
       },
     },
   ],
-  webServer: [
-    {
-      command: 'bun run --filter @coop/app dev --host 127.0.0.1 --port 3001',
-      url: 'http://127.0.0.1:3001',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
-    },
-    {
-      command: 'bun run --filter @coop/api start',
-      url: 'http://127.0.0.1:4444',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
-    },
-  ],
+  webServer: attachedDevMode
+    ? undefined
+    : [
+        {
+          command: `bun run --filter @coop/app dev --host 127.0.0.1 --port ${appPort} --strictPort`,
+          url: `http://127.0.0.1:${appPort}`,
+          reuseExistingServer,
+          timeout: 120_000,
+        },
+        {
+          command: `HOST=127.0.0.1 PORT=${apiPort} bun run --filter @coop/api dev`,
+          url: `http://127.0.0.1:${apiPort}`,
+          reuseExistingServer,
+          timeout: 120_000,
+        },
+      ],
 });

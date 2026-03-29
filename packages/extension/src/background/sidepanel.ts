@@ -1,0 +1,79 @@
+import type { PopupSidepanelState, SidepanelIntent } from '../runtime/messages';
+import { notifySidepanelIntent } from '../runtime/messages';
+import { isSidepanelOpen, setPendingSidepanelIntent, setSidepanelWindowState } from './context';
+
+type SidepanelLifecycleInfo = {
+  windowId: number;
+  tabId?: number;
+  path?: string;
+};
+
+type SidepanelApi = typeof chrome.sidePanel & {
+  close?: (options: { windowId?: number; tabId?: number }) => Promise<void>;
+  onOpened?: {
+    addListener: (callback: (info: SidepanelLifecycleInfo) => void) => void;
+  };
+  onClosed?: {
+    addListener: (callback: (info: SidepanelLifecycleInfo) => void) => void;
+  };
+};
+
+let registeredLifecycleListeners = false;
+
+function getSidepanelApi(): SidepanelApi {
+  return chrome.sidePanel as SidepanelApi;
+}
+
+export function registerSidepanelLifecycleListeners() {
+  if (registeredLifecycleListeners) {
+    return;
+  }
+
+  registeredLifecycleListeners = true;
+  const sidePanelApi = getSidepanelApi();
+
+  sidePanelApi.onOpened?.addListener?.((info) => {
+    void setSidepanelWindowState(info.windowId, true);
+  });
+
+  sidePanelApi.onClosed?.addListener?.((info) => {
+    void setSidepanelWindowState(info.windowId, false);
+  });
+}
+
+export async function getPopupSidepanelState(windowId: number): Promise<PopupSidepanelState> {
+  const sidePanelApi = getSidepanelApi();
+  return {
+    open: await isSidepanelOpen(windowId),
+    canClose: typeof sidePanelApi.close === 'function',
+  };
+}
+
+export async function togglePopupSidepanel(windowId: number): Promise<PopupSidepanelState> {
+  const sidePanelApi = getSidepanelApi();
+  const wasOpen = await isSidepanelOpen(windowId);
+
+  if (wasOpen && typeof sidePanelApi.close === 'function') {
+    await sidePanelApi.close({ windowId });
+    await setSidepanelWindowState(windowId, false);
+    return {
+      open: false,
+      canClose: true,
+    };
+  }
+
+  // Open first to stay within user gesture chain
+  await sidePanelApi.open({ windowId });
+  await setSidepanelWindowState(windowId, true);
+  return {
+    open: true,
+    canClose: typeof sidePanelApi.close === 'function',
+  };
+}
+
+export async function focusCoopSidepanel(windowId: number, intent: SidepanelIntent) {
+  await setPendingSidepanelIntent(intent);
+  await notifySidepanelIntent(intent);
+  await getSidepanelApi().open({ windowId });
+  await setSidepanelWindowState(windowId, true);
+}

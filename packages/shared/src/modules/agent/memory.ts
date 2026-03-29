@@ -1,35 +1,120 @@
 import { type AgentMemory, agentMemorySchema } from '../../contracts/schema';
 import { createId, hashJson, nowIso } from '../../utils';
-import type { CoopDexie } from '../storage/db';
+import {
+  type CoopDexie,
+  deleteAgentMemories,
+  listAgentMemories,
+  saveAgentMemory,
+} from '../storage/db';
 
 export async function createAgentMemory(
   db: CoopDexie,
-  input: Omit<AgentMemory, 'id' | 'createdAt' | 'contentHash' | 'domain'> & {
-    createdAt?: string;
-    domain?: string;
-  },
+  input: Omit<AgentMemory, 'id' | 'createdAt' | 'contentHash' | 'domain' | 'scope'> &
+    Partial<Pick<AgentMemory, 'scope'>> & {
+      createdAt?: string;
+      domain?: string;
+    },
 ): Promise<AgentMemory> {
   const memory: AgentMemory = {
     ...input,
+    scope: input.scope ?? 'coop',
     id: createId('agent-memory'),
-    contentHash: hashJson({ content: input.content, coopId: input.coopId }),
+    contentHash: hashJson({
+      content: input.content,
+      scope: input.scope ?? 'coop',
+      coopId: input.coopId,
+      memberId: input.memberId,
+    }),
     createdAt: input.createdAt ?? nowIso(),
     domain: input.domain ?? 'general',
   };
   const validated = agentMemorySchema.parse(memory);
-  await db.agentMemories.put(validated);
+  await saveAgentMemory(db, validated);
   return validated;
+}
+
+type MemoryQueryScope =
+  | string
+  | {
+      scope?: AgentMemory['scope'];
+      coopId?: string;
+      memberId?: string;
+    };
+
+const STALE_MEMORY_RELATIVE_GAP_MS = 30 * 24 * 60 * 60 * 1000;
+
+function memoryTypePriority(memory: AgentMemory) {
+  if (memory.scope === 'member') {
+    return 0;
+  }
+
+  switch (memory.type) {
+    case 'skill-pattern':
+      return 1;
+    case 'observation-outcome':
+      return 2;
+    case 'decision-context':
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+function sortMemoriesForSkill(memories: AgentMemory[]) {
+  const latestCreatedAt = memories.reduce<number>((latest, memory) => {
+    const createdAt = Date.parse(memory.createdAt);
+    return Number.isFinite(createdAt) ? Math.max(latest, createdAt) : latest;
+  }, 0);
+
+  return [...memories].sort((left, right) => {
+    const leftCreatedAt = Date.parse(left.createdAt);
+    const rightCreatedAt = Date.parse(right.createdAt);
+    const leftIsStale =
+      latestCreatedAt > 0 &&
+      Number.isFinite(leftCreatedAt) &&
+      latestCreatedAt - leftCreatedAt > STALE_MEMORY_RELATIVE_GAP_MS;
+    const rightIsStale =
+      latestCreatedAt > 0 &&
+      Number.isFinite(rightCreatedAt) &&
+      latestCreatedAt - rightCreatedAt > STALE_MEMORY_RELATIVE_GAP_MS;
+
+    if (leftIsStale !== rightIsStale) {
+      return leftIsStale ? 1 : -1;
+    }
+
+    const priorityDelta = memoryTypePriority(left) - memoryTypePriority(right);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    return right.createdAt.localeCompare(left.createdAt);
+  });
+}
+
+function filterMemoriesByScope(memories: AgentMemory[], scope: MemoryQueryScope) {
+  if (typeof scope === 'string') {
+    return memories.filter((memory) => memory.scope === 'coop' && memory.coopId === scope);
+  }
+
+  if ((scope.scope ?? 'coop') === 'member') {
+    return memories.filter(
+      (memory) =>
+        memory.scope === 'member' &&
+        memory.memberId === scope.memberId &&
+        (!scope.coopId || memory.coopId === scope.coopId || !memory.coopId),
+    );
+  }
+
+  return memories.filter((memory) => memory.scope === 'coop' && memory.coopId === scope.coopId);
 }
 
 export async function queryRecentMemories(
   db: CoopDexie,
-  coopId: string,
+  scope: MemoryQueryScope,
   options?: { limit?: number; domain?: string; type?: AgentMemory['type'] },
 ): Promise<AgentMemory[]> {
   const limit = options?.limit ?? 10;
-
-  const collection = db.agentMemories.where('coopId').equals(coopId);
-  let results = await collection.toArray();
+  let results = filterMemoriesByScope(await listAgentMemories(db), scope);
 
   if (options?.domain) {
     results = results.filter((m) => m.domain === options.domain);
@@ -45,16 +130,21 @@ export async function queryRecentMemories(
 
 export async function pruneExpiredMemories(db: CoopDexie): Promise<number> {
   const now = nowIso();
-  const expired = await db.agentMemories.where('expiresAt').below(now).toArray();
+  const expired = (await listAgentMemories(db)).filter(
+    (memory) => typeof memory.expiresAt === 'string' && memory.expiresAt < now,
+  );
 
   if (expired.length === 0) return 0;
 
-  await db.agentMemories.bulkDelete(expired.map((m) => m.id));
+  await deleteAgentMemories(
+    db,
+    expired.map((memory) => memory.id),
+  );
   return expired.length;
 }
 
 export async function deduplicateMemories(db: CoopDexie, coopId: string): Promise<number> {
-  const memories = await db.agentMemories.where('coopId').equals(coopId).toArray();
+  const memories = await queryRecentMemories(db, coopId, { limit: Number.MAX_SAFE_INTEGER });
 
   const byHash = new Map<string, AgentMemory[]>();
   for (const m of memories) {
@@ -75,37 +165,54 @@ export async function deduplicateMemories(db: CoopDexie, coopId: string): Promis
 
   if (toDelete.length === 0) return 0;
 
-  await db.agentMemories.bulkDelete(toDelete);
+  await deleteAgentMemories(db, toDelete);
   return toDelete.length;
 }
 
 export async function queryMemoriesForSkill(
   db: CoopDexie,
-  coopId: string,
+  scope: string | { coopId: string; memberId?: string },
   _trigger?: string,
   options?: { limit?: number },
 ): Promise<AgentMemory[]> {
   const limit = options?.limit ?? 8;
+  const coopId = typeof scope === 'string' ? scope : scope.coopId;
+  const memberId = typeof scope === 'string' ? undefined : scope.memberId;
 
-  // Fetch skill-pattern and observation-outcome first (most relevant to skill execution)
-  const [skillPatterns, outcomes, general] = await Promise.all([
-    queryRecentMemories(db, coopId, { type: 'skill-pattern', limit }),
-    queryRecentMemories(db, coopId, { type: 'observation-outcome', limit }),
-    queryRecentMemories(db, coopId, { limit }),
-  ]);
+  const [memberMemories, coopSkillPatterns, coopOutcomes, coopDecisionContext, coopGeneral] =
+    await Promise.all([
+      memberId
+        ? queryRecentMemories(
+            db,
+            {
+              scope: 'member',
+              memberId,
+            },
+            { limit },
+          )
+        : Promise.resolve([]),
+      queryRecentMemories(db, { scope: 'coop', coopId }, { type: 'skill-pattern', limit }),
+      queryRecentMemories(db, { scope: 'coop', coopId }, { type: 'observation-outcome', limit }),
+      queryRecentMemories(db, { scope: 'coop', coopId }, { type: 'decision-context', limit }),
+      queryRecentMemories(db, { scope: 'coop', coopId }, { limit }),
+    ]);
 
-  // Merge, deduplicate by id, cap at limit
   const seen = new Set<string>();
   const merged: AgentMemory[] = [];
 
-  for (const memory of [...skillPatterns, ...outcomes, ...general]) {
+  for (const memory of [
+    ...memberMemories,
+    ...coopSkillPatterns,
+    ...coopOutcomes,
+    ...coopDecisionContext,
+    ...coopGeneral,
+  ]) {
     if (seen.has(memory.id)) continue;
     seen.add(memory.id);
     merged.push(memory);
-    if (merged.length >= limit) break;
   }
 
-  return merged;
+  return sortMemoriesForSkill(merged).slice(0, limit);
 }
 
 export async function enforceMemoryLimit(
@@ -113,7 +220,7 @@ export async function enforceMemoryLimit(
   coopId: string,
   maxEntries = 500,
 ): Promise<number> {
-  const memories = await db.agentMemories.where('coopId').equals(coopId).toArray();
+  const memories = await queryRecentMemories(db, coopId, { limit: Number.MAX_SAFE_INTEGER });
 
   if (memories.length <= maxEntries) return 0;
 
@@ -123,6 +230,6 @@ export async function enforceMemoryLimit(
   const excess = memories.length - maxEntries;
   const toDelete = memories.slice(0, excess).map((m) => m.id);
 
-  await db.agentMemories.bulkDelete(toDelete);
+  await deleteAgentMemories(db, toDelete);
   return toDelete.length;
 }

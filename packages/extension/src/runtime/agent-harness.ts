@@ -77,6 +77,8 @@ export type SkillExecutionContext = {
   scores: Array<unknown>;
   draft?: unknown;
   coop?: unknown;
+  capture?: unknown;
+  receipt?: unknown;
 };
 
 export const skipConditions: Record<string, (ctx: SkillExecutionContext) => boolean> = {
@@ -92,6 +94,67 @@ export function shouldSkipSkill(skipWhen: string | undefined, ctx: SkillExecutio
   return condition ? condition(ctx) : false;
 }
 
+function readNestedBoolean(source: unknown, path: string[]) {
+  let current = source;
+  for (const key of path) {
+    if (!current || typeof current !== 'object' || !(key in current)) {
+      return false;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return Boolean(current);
+}
+
+function readNestedString(source: unknown, path: string[]) {
+  let current = source;
+  for (const key of path) {
+    if (!current || typeof current !== 'object' || !(key in current)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return typeof current === 'string' && current.length > 0 ? current : undefined;
+}
+
+function readNestedNumber(source: unknown, path: string[]) {
+  let current = source;
+  for (const key of path) {
+    if (!current || typeof current !== 'object' || !(key in current)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return typeof current === 'number' && Number.isFinite(current) ? current : undefined;
+}
+
+export const requiredCapabilityChecks: Record<string, (ctx: SkillExecutionContext) => boolean> = {
+  'coop-context': (ctx) => Boolean(ctx.coop),
+  'draft-context': (ctx) => Boolean(ctx.draft),
+  'capture-context': (ctx) => Boolean(ctx.capture),
+  'receipt-context': (ctx) => Boolean(ctx.receipt),
+  'opportunity-candidates': (ctx) => ctx.candidates.length > 0,
+  'grant-fit-scores': (ctx) => ctx.scores.length > 0,
+  'green-goods-enabled': (ctx) => readNestedBoolean(ctx.coop, ['greenGoods', 'enabled']),
+  'green-goods-garden-linked': (ctx) =>
+    Boolean(readNestedString(ctx.coop, ['greenGoods', 'gardenAddress'])),
+  'safe-deployed': (ctx) =>
+    readNestedString(ctx.coop, ['onchainState', 'safeCapability']) === 'executed',
+  'agent-identity': (ctx) => Boolean(readNestedNumber(ctx.coop, ['agentIdentity', 'agentId'])),
+};
+
+export function getMissingRequiredCapabilities(
+  requiredCapabilities: string[] | undefined,
+  ctx: SkillExecutionContext,
+) {
+  if (!requiredCapabilities?.length) {
+    return [];
+  }
+  return requiredCapabilities.filter((capability) => {
+    const check = requiredCapabilityChecks[capability];
+    return check ? !check(ctx) : true;
+  });
+}
+
 export function isTrustedNodeRole(role: Member['role'] | undefined | null): boolean {
   return role ? trustedNodeRoles.has(role) : false;
 }
@@ -104,7 +167,45 @@ export function selectSkillIdsForObservation(
     .filter((manifest) => manifest.triggers.includes(observation.trigger))
     .filter((manifest) => observation.draftId || manifest.id !== 'publish-readiness-check');
 
-  return topologicalSortSkills(filtered).map((manifest) => manifest.id);
+  const ordered = topologicalSortSkills(filtered);
+  const preferredOrderByTrigger: Partial<Record<AgentObservation['trigger'], string[]>> = {
+    'high-confidence-draft': [
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'publish-readiness-check',
+      'ecosystem-entity-extractor',
+      'theme-clusterer',
+    ],
+    'receiver-backlog': [
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'ecosystem-entity-extractor',
+    ],
+    'audio-transcript-ready': [
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'ecosystem-entity-extractor',
+    ],
+  };
+  const preferredOrder = preferredOrderByTrigger[observation.trigger];
+  if (!preferredOrder) {
+    return ordered.map((manifest) => manifest.id);
+  }
+
+  const rank = new Map(preferredOrder.map((skillId, index) => [skillId, index] as const));
+  return [...ordered]
+    .sort((left, right) => {
+      const leftRank = rank.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+      const rightRank = rank.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
+      }
+      return 0;
+    })
+    .map((manifest) => manifest.id);
 }
 
 export function isAgentObservationVisible(input: {

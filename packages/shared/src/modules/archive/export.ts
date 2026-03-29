@@ -4,6 +4,7 @@ import type {
   CoopSharedState,
   ReviewDraft,
 } from '../../contracts/schema';
+import { nowIso } from '../../utils';
 
 export function exportReviewDraftJson(draft: ReviewDraft) {
   return JSON.stringify(
@@ -48,6 +49,10 @@ export function exportArchiveReceiptTextBundle(receipt: ArchiveReceipt) {
     `Root CID: ${receipt.rootCid}`,
     `Gateway: ${receipt.gatewayUrl}`,
     `Filecoin status: ${receipt.filecoinStatus}`,
+    `Content encoding: ${receipt.contentEncoding ?? 'plain-json'}`,
+    receipt.encryption
+      ? `Archive encryption: ${receipt.encryption.algorithm} (${receipt.encryption.keyDerivation})`
+      : null,
     `Delegation issuer: ${receipt.delegationIssuer}`,
     receipt.delegation ? `Delegation mode: ${receipt.delegation.mode}` : null,
     receipt.delegation?.issuerUrl ? `Delegation source: ${receipt.delegation.issuerUrl}` : null,
@@ -57,6 +62,18 @@ export function exportArchiveReceiptTextBundle(receipt: ArchiveReceipt) {
       : null,
     receipt.filecoinInfo?.deals.length
       ? `Deals: ${receipt.filecoinInfo.deals.map((deal) => deal.dealId ?? 'pending').join(', ')}`
+      : null,
+    receipt.filecoinInfo?.deals.some((deal) => deal.dataAggregationProofCid)
+      ? `Deal proof CIDs: ${receipt.filecoinInfo.deals
+          .map((deal) => deal.dataAggregationProofCid)
+          .filter(Boolean)
+          .join(', ')}`
+      : null,
+    receipt.filecoinInfo?.deals.some((deal) => deal.onChainSealWitnessCid)
+      ? `On-chain seal witness CIDs: ${receipt.filecoinInfo.deals
+          .map((deal) => deal.onChainSealWitnessCid)
+          .filter(Boolean)
+          .join(', ')}`
       : null,
     receipt.followUp?.lastRefreshedAt
       ? `Last follow-up refresh: ${receipt.followUp.lastRefreshedAt}`
@@ -71,7 +88,7 @@ export function exportCoopSnapshotJson(state: CoopSharedState) {
   return JSON.stringify(
     {
       type: 'coop-snapshot',
-      exportedAt: new Date().toISOString(),
+      exportedAt: nowIso(),
       snapshot: state,
     },
     null,

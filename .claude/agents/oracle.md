@@ -14,6 +14,7 @@ disallowedTools:
   - Edit
 permissionMode: plan
 memory: project
+effort: max
 maxTurns: 30
 ---
 
@@ -32,12 +33,14 @@ Use when:
 ## Coop Context
 
 Key documentation to consult:
-- `docs/coop-os-architecture-vnext.md` — Canonical v1 build plan
-- `docs/current-state-2026-03-11.md` — Implementation gaps
-- `docs/scoped-roadmap-2026-03-11.md` — Phased roadmap
-- `docs/testing-and-validation.md` — Validation suites
+- `docs/reference/coop-os-architecture-vnext.md` — Canonical v1 build plan
+- `docs/reference/agent-os-roadmap.md` — Known issues and architecture evolution
+- `docs/reference/scoped-roadmap-2026-03-11.md` — Phased roadmap
+- `docs/reference/testing-and-validation.md` — Validation suites
 
 Key domains: Yjs/CRDTs, Safe/ERC-4337, Storacha/Filecoin, MV3 extension APIs, passkey/WebAuthn.
+
+Update your agent memory as you discover codepaths, patterns, library locations, and key architectural decisions. This builds up institutional knowledge across conversations.
 
 ## Output Contract
 

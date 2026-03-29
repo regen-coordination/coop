@@ -1,0 +1,37 @@
+# Supply-chain hardening for the Coop monorepo.
+#
+# Bun >=1.1 blocks dependency lifecycle scripts by default.
+# Trusted packages are allowlisted in package.json
+# "trustedDependencies" (the only mechanism Bun supports for this).
+# This file adds complementary install-time hardening.
+
+[install]
+# In CI, set BUN_FROZEN_LOCKFILE=1 to enforce lockfile integrity.
+# Locally we keep this off so `bun install` can update the lockfile
+# after intentional dependency changes.
+
+# Peer dependency warnings should not silently install unexpected
+# transitive packages.
+peer = false
+
+[install.lockfile]
+# Keep the default text-based bun.lock (v1) so diffs are
+# human-reviewable. No yarn.lock mirror needed.
+
+# ---------------------------------------------------------------------------
+# Lifecycle script policy
+# ---------------------------------------------------------------------------
+# Bun blocks all dependency lifecycle scripts unless the package
+# appears in package.json "trustedDependencies". Currently:
+#
+#   @biomejs/biome  -- downloads the platform-specific CLI binary
+#                      via `node scripts/postinstall.js`.
+#
+# Audit process:
+#   1. Run `bun pm untrusted` to list blocked scripts.
+#   2. Inspect the script source in node_modules/<pkg>/.
+#   3. If safe, run `bun pm trust <pkg>` (adds to package.json).
+#   4. Document the rationale in this comment block.
+#
+# Do NOT add packages to trustedDependencies without review.
+# ---------------------------------------------------------------------------

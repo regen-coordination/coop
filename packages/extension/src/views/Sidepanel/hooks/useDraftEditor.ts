@@ -11,11 +11,12 @@ import { useState } from 'react';
 import { playCoopSound } from '../../../runtime/audio';
 import type { InferenceBridge } from '../../../runtime/inference-bridge';
 import { sendRuntimeMessage } from '../../../runtime/messages';
+import type { SidepanelTab } from '../sidepanel-tabs';
 
 export function useDraftEditor(deps: {
   activeCoop: CoopSharedState | undefined;
   setMessage: (msg: string) => void;
-  setPanelTab: (tab: string) => void;
+  setPanelTab: (tab: SidepanelTab) => void;
   loadDashboard: () => Promise<void>;
   soundPreferences: SoundPreferences;
   inferenceBridgeRef: React.RefObject<InferenceBridge | null>;
@@ -80,12 +81,13 @@ export function useDraftEditor(deps: {
       return null;
     }
 
+    const savedDraft = response.data;
     setDraftEdits((current) => ({
       ...current,
-      [draft.id]: response.data,
+      [draft.id]: savedDraft,
     }));
     await loadDashboard();
-    return response.data;
+    return savedDraft;
   }
 
   async function refineDraft(draft: ReviewDraft, task: RefineTask) {
@@ -193,16 +195,17 @@ export function useDraftEditor(deps: {
       return;
     }
 
+    const movedDraft = response.data;
     setDraftEdits((current) => ({
       ...current,
-      [response.data.id]: response.data,
+      [movedDraft.id]: movedDraft,
     }));
     setMessage(
       workflowStage === 'ready'
         ? 'Pocket Coop find moved into an editable draft.'
         : 'Pocket Coop find moved into hatching review.',
     );
-    setPanelTab(workflowStage === 'ready' ? 'Roost' : 'Flock Meeting');
+    setPanelTab('chickens');
     await loadDashboard();
   }
 
@@ -284,12 +287,13 @@ export function useDraftEditor(deps: {
       setMessage(response.error ?? 'Could not update the save mark.');
       return;
     }
+    const updatedDraft = response.data;
     setDraftEdits((current) => ({
       ...current,
-      [draft.id]: response.data,
+      [draft.id]: updatedDraft,
     }));
     setMessage(
-      isArchiveWorthy(response.data) ? 'Draft marked worth saving.' : 'Draft save mark removed.',
+      isArchiveWorthy(updatedDraft) ? 'Draft marked worth saving.' : 'Draft save mark removed.',
     );
     await loadDashboard();
   }

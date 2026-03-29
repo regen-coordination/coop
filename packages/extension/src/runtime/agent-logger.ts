@@ -119,6 +119,9 @@ export async function logSkillComplete(input: {
   durationMs: number;
   retryCount?: number;
   skipped?: boolean;
+  confidenceBefore?: number;
+  confidenceAfter?: number;
+  confidenceDelta?: number;
 }): Promise<void> {
   await agentLog({
     spanType: 'skill',
@@ -134,6 +137,11 @@ export async function logSkillComplete(input: {
       durationMs: input.durationMs,
       retryCount: input.retryCount ?? 0,
       skipped: input.skipped ?? false,
+      ...(input.confidenceBefore !== undefined && {
+        confidenceBefore: input.confidenceBefore,
+        confidenceAfter: input.confidenceAfter,
+        confidenceDelta: input.confidenceDelta,
+      }),
     },
   });
 }

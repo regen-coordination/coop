@@ -135,7 +135,7 @@ describe('selectKnowledgeSkills', () => {
   function makeObservation(overrides: Partial<AgentObservation> = {}): AgentObservation {
     return {
       id: overrides.id ?? 'obs-1',
-      trigger: overrides.trigger ?? 'tab-capture',
+      trigger: overrides.trigger ?? 'high-confidence-draft',
       status: overrides.status ?? 'pending',
       title: overrides.title ?? 'New tab captured',
       summary: overrides.summary ?? 'User opened a page about Ethereum gas fees',
@@ -259,6 +259,34 @@ describe('selectKnowledgeSkills', () => {
 
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result[0].id).toBe('skill-reenable');
+  });
+
+  it('uses per-coop trigger-pattern overrides without leaking them across coops', async () => {
+    const skill = makeSkill({
+      id: 'skill-salmon',
+      name: 'watershed-playbook',
+      triggerPatterns: ['river'],
+      enabled: true,
+    });
+    await saveKnowledgeSkill(db, skill);
+    await saveCoopKnowledgeSkillOverride(db, {
+      id: 'override-3',
+      coopId: 'coop-1',
+      knowledgeSkillId: 'skill-salmon',
+      enabled: true,
+      triggerPatterns: ['salmon'],
+    });
+
+    const obs = makeObservation({
+      title: 'Salmon restoration briefing',
+      summary: 'Field notes on watershed recovery',
+    });
+
+    const coopOverrideResult = await selectKnowledgeSkills(obs, 'coop-1', db);
+    const otherCoopResult = await selectKnowledgeSkills(obs, 'coop-2', db);
+
+    expect(coopOverrideResult.map((entry) => entry.id)).toContain('skill-salmon');
+    expect(otherCoopResult.map((entry) => entry.id)).not.toContain('skill-salmon');
   });
 
   it('returns at most 3 skills', async () => {

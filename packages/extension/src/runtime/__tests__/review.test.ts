@@ -66,6 +66,7 @@ function buildTabDraft(targetCoopIds: string[]): ReviewDraft {
     rationale: 'Tab pipeline draft',
     status: 'draft',
     workflowStage: 'ready',
+    attachments: [],
     provenance: {
       type: 'tab',
       interpretationId: 'interp-1',

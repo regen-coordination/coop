@@ -193,7 +193,10 @@ describe('board app routes', () => {
         'Open the board from the extension sidepanel so it can hand off a member-scoped snapshot.',
       ),
     ).toBeVisible();
-    expect(screen.getByText('Back to landing')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Back to landing' })).toHaveAttribute(
+      'href',
+      '/landing',
+    );
     expect(screen.getByTestId('board-empty-nest')).toBeVisible();
   });
 
@@ -218,7 +221,10 @@ describe('board app routes', () => {
     window.history.pushState({}, '', `/board/${snapshot.coopId}`);
 
     const writeTextMock = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText: writeTextMock } });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: writeTextMock },
+    });
 
     await act(async () => {
       render(<RootApp initialBoardSnapshot={snapshot} />);

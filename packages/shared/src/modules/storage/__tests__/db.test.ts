@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import 'fake-indexeddb/auto';
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   ActionBundle,
   ActionLogEntry,
@@ -14,14 +17,22 @@ import type {
   SessionCapability,
   SessionCapabilityLogEntry,
   SkillRun,
+  TabRouting,
   TrustedNodeArchiveConfig,
 } from '../../../contracts/schema';
 import { createMockPasskeyIdentity } from '../../auth/identity';
 import { createCoop } from '../../coop/flows';
+import {
+  hydrateCoopDoc,
+  mergeCoopDocUpdates,
+  readCoopState,
+  writeCoopState,
+} from '../../coop/sync';
 import { createReceiverCapture, createReceiverDeviceIdentity } from '../../receiver/capture';
 import { createReceiverPairingPayload, toReceiverPairingRecord } from '../../receiver/pairing';
 import {
   type CoopDexie,
+  clearDerivedKeyCache,
   createCoopDb,
   deleteEncryptedSessionMaterial,
   findAgentObservationByFingerprint,
@@ -40,6 +51,7 @@ import {
   getSessionCapability,
   getSkillRun,
   getSoundPreferences,
+  getTabRoutingByExtractAndCoop,
   getTrustedNodeArchiveConfig,
   getUiPreferences,
   isReplayIdRecorded,
@@ -59,12 +71,16 @@ import {
   listReceiverCaptures,
   listReceiverPairings,
   listRecordedReplayIds,
+  listReviewDrafts,
   listSessionCapabilities,
   listSessionCapabilitiesByCoopId,
   listSessionCapabilityLogEntries,
   listSkillRuns,
   listSkillRunsByPlanId,
+  listTabCandidates,
+  listTabRoutings,
   loadCoopState,
+  mergeCoopStateUpdate,
   recordReplayId,
   saveActionBundle,
   saveActionLogEntry,
@@ -79,6 +95,8 @@ import {
   saveSessionCapability,
   saveSessionCapabilityLogEntry,
   saveSkillRun,
+  saveTabCandidate,
+  saveTabRouting,
   setActionPolicies,
   setActiveReceiverPairing,
   setAnchorCapability,
@@ -96,6 +114,9 @@ import {
 } from '../db';
 
 const databases: CoopDexie[] = [];
+
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
 
 /** Create a uniquely-named Dexie instance and track it for cleanup. */
 function freshDb(): CoopDexie {
@@ -160,6 +181,7 @@ function buildReviewDraft(overrides: Partial<ReviewDraft> = {}): ReviewDraft {
     rationale: 'High confidence draft.',
     status: 'draft',
     workflowStage: 'ready',
+    attachments: [],
     provenance: {
       type: 'tab',
       interpretationId: 'interp-1',
@@ -330,6 +352,27 @@ function buildSkillRun(overrides: Partial<SkillRun> = {}): SkillRun {
   };
 }
 
+function buildTabRouting(overrides: Partial<TabRouting> = {}): TabRouting {
+  return {
+    id: `routing:${crypto.randomUUID()}`,
+    sourceCandidateId: 'candidate-1',
+    extractId: 'extract-1',
+    coopId: 'coop-1',
+    relevanceScore: 0.22,
+    matchedRitualLenses: ['capital-formation'],
+    category: 'insight',
+    tags: ['routing'],
+    rationale: 'Relevant to the coop.',
+    suggestedNextStep: 'Review locally.',
+    archiveWorthinessHint: false,
+    provider: 'transformers',
+    status: 'routed',
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
 afterEach(async () => {
   while (databases.length > 0) {
     const db = databases.pop();
@@ -360,6 +403,67 @@ describe('coop Dexie storage', () => {
     expect(loaded?.artifacts).toHaveLength(created.state.artifacts.length);
   });
 
+  it('merges incremental peer updates without clobbering newer local coop writes', async () => {
+    const db = freshDb();
+    const created = createCoop({
+      coopName: 'Merge Coop',
+      purpose: 'Keep local saves and synced peer updates together.',
+      creatorDisplayName: 'Rae',
+      captureMode: 'manual',
+      seedContribution: 'I care about preserving merged coop state.',
+      setupInsights: buildSetupInsights(),
+    });
+
+    await saveCoopState(db, created.state);
+
+    const seededRecord = await db.coopDocs.get(created.state.profile.id);
+    const peerDoc = hydrateCoopDoc(seededRecord?.encodedState);
+    let peerUpdate: Uint8Array | undefined;
+
+    peerDoc.on('update', (update) => {
+      peerUpdate = peerUpdate ? mergeCoopDocUpdates([peerUpdate, update]) : update;
+    });
+
+    try {
+      const localState = {
+        ...created.state,
+        artifacts: [
+          ...created.state.artifacts,
+          {
+            ...created.state.artifacts[0],
+            id: 'artifact-local',
+            title: 'Local publish survives',
+          },
+        ],
+      };
+
+      await saveCoopState(db, localState);
+
+      const peerState = readCoopState(peerDoc);
+      writeCoopState(peerDoc, {
+        ...peerState,
+        artifacts: [
+          ...peerState.artifacts,
+          {
+            ...peerState.artifacts[0],
+            id: 'artifact-peer',
+            title: 'Peer sync survives',
+          },
+        ],
+      });
+
+      expect(peerUpdate).toBeDefined();
+      await mergeCoopStateUpdate(db, created.state.profile.id, peerUpdate as Uint8Array);
+
+      const loaded = await loadCoopState(db, created.state.profile.id);
+      expect(loaded?.artifacts.map((artifact) => artifact.id).sort()).toEqual(
+        expect.arrayContaining(['artifact-local', 'artifact-peer']),
+      );
+    } finally {
+      peerDoc.destroy();
+    }
+  });
+
   it('returns null when loading a non-existent coop', async () => {
     const db = freshDb();
     expect(await loadCoopState(db, 'non-existent')).toBeNull();
@@ -386,6 +490,33 @@ describe('review draft persistence', () => {
   it('returns undefined for a non-existent draft', async () => {
     const db = freshDb();
     expect(await getReviewDraft(db, 'no-such-draft')).toBeUndefined();
+  });
+
+  it('falls back to the redacted draft when an encrypted payload is corrupted', async () => {
+    const db = freshDb();
+    const draft = buildReviewDraft();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await saveReviewDraft(db, draft);
+    await db.encryptedLocalPayloads.update(`review-draft:${draft.id}`, {
+      ciphertext: 'AA==',
+    });
+
+    const loaded = await getReviewDraft(db, draft.id);
+    const listed = await listReviewDrafts(db);
+
+    expect(loaded).toMatchObject({
+      id: draft.id,
+      title: 'Encrypted review draft',
+      summary: 'Encrypted local review content.',
+    });
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({
+      id: draft.id,
+      title: 'Encrypted review draft',
+      summary: 'Encrypted local review content.',
+    });
+    expect(warn).toHaveBeenCalled();
   });
 
   it('updates an existing review draft with a patch', async () => {
@@ -455,6 +586,10 @@ describe('settings persistence', () => {
       localInferenceOptIn: true,
       preferredExportMethod: 'file-picker',
       heartbeatEnabled: true,
+      agentCadenceMinutes: 64,
+      excludedCategories: ['email', 'banking', 'health'],
+      customExcludedDomains: [],
+      captureOnClose: false,
     });
 
     expect(await getUiPreferences(db)).toEqual({
@@ -462,6 +597,34 @@ describe('settings persistence', () => {
       localInferenceOptIn: true,
       preferredExportMethod: 'file-picker',
       heartbeatEnabled: true,
+      agentCadenceMinutes: 64,
+      excludedCategories: ['email', 'banking', 'health'],
+      customExcludedDomains: [],
+      captureOnClose: false,
+    });
+  });
+
+  it('defaults agentCadenceMinutes to 64 when absent', async () => {
+    const db = freshDb();
+    await db.settings.put({
+      key: 'ui-preferences',
+      value: {
+        notificationsEnabled: true,
+        localInferenceOptIn: false,
+        preferredExportMethod: 'download',
+        heartbeatEnabled: true,
+      },
+    });
+
+    expect(await getUiPreferences(db)).toEqual({
+      notificationsEnabled: true,
+      localInferenceOptIn: false,
+      preferredExportMethod: 'download',
+      heartbeatEnabled: true,
+      agentCadenceMinutes: 64,
+      excludedCategories: ['email', 'banking', 'health'],
+      customExcludedDomains: [],
+      captureOnClose: false,
     });
   });
 
@@ -495,7 +658,7 @@ describe('settings persistence', () => {
     });
 
     expect(await getSoundPreferences(db)).toEqual({
-      enabled: false,
+      enabled: true,
       reducedMotion: false,
       reducedSound: false,
     });
@@ -620,6 +783,8 @@ describe('trusted node archive config persistence', () => {
       proofs: [],
       allowsFilecoinInfo: false,
       expirationSeconds: 600,
+      filecoinWitnessRpcUrl: 'https://lotus.example/rpc/v1',
+      filecoinWitnessRpcToken: 'token-1',
     };
 
     await setTrustedNodeArchiveConfig(db, config);
@@ -627,6 +792,7 @@ describe('trusted node archive config persistence', () => {
 
     expect(loaded).not.toBeNull();
     expect(loaded?.spaceDid).toBe('did:key:z1234');
+    expect(loaded?.filecoinWitnessRpcUrl).toBe('https://lotus.example/rpc/v1');
   });
 
   it('returns null when stored value does not match schema', async () => {
@@ -837,6 +1003,37 @@ describe('receiver capture persistence', () => {
   it('returns null from getReceiverCaptureBlob for a non-existent capture', async () => {
     const db = freshDb();
     expect(await getReceiverCaptureBlob(db, 'missing')).toBeNull();
+  });
+
+  it('returns null from getReceiverCaptureBlob when the encrypted blob payload is corrupted', async () => {
+    const db = freshDb();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const device = createReceiverDeviceIdentity('Phone');
+    const pairing = toReceiverPairingRecord(
+      createReceiverPairingPayload({
+        coopId: 'coop-1',
+        coopDisplayName: 'Test Coop',
+        memberId: 'member-1',
+        memberDisplayName: 'Tester',
+      }),
+      NOW,
+    );
+    const blob = new Blob(['audio data'], { type: 'audio/webm' });
+    const capture = createReceiverCapture({
+      deviceId: device.id,
+      kind: 'audio',
+      blob,
+      pairing,
+      title: 'Test capture',
+    });
+
+    await saveReceiverCapture(db, capture, blob);
+    await db.encryptedLocalPayloads.update(`receiver-blob:${capture.id}`, {
+      ciphertext: 'AA==',
+    });
+
+    await expect(getReceiverCaptureBlob(db, capture.id)).resolves.toBeNull();
+    expect(warn).toHaveBeenCalled();
   });
 
   it('updates an existing receiver capture with a patch', async () => {
@@ -1516,5 +1713,126 @@ describe('skill run persistence', () => {
 
     const limited = await listSkillRuns(db, 2);
     expect(limited).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Derived-key cache (PBKDF2 performance)
+// ---------------------------------------------------------------------------
+
+function buildTabCandidate(
+  overrides: Partial<import('../../../contracts/schema').TabCandidate> = {},
+): import('../../../contracts/schema').TabCandidate {
+  return {
+    id: `cand-${crypto.randomUUID()}`,
+    tabId: 1,
+    windowId: 1,
+    url: 'https://example.com/test',
+    canonicalUrl: 'https://example.com/test',
+    title: 'Test Page',
+    domain: 'example.com',
+    capturedAt: NOW,
+    ...overrides,
+  };
+}
+
+describe('derived-key cache', () => {
+  afterEach(() => {
+    clearDerivedKeyCache();
+  });
+
+  it('caches PBKDF2 keys so repeated hydration of the same record avoids re-derivation', async () => {
+    const db = freshDb();
+    const candidate = buildTabCandidate();
+    await saveTabCandidate(db, candidate);
+
+    // First hydration (cold cache)
+    const first = await listTabCandidates(db);
+
+    // Second hydration (warm cache) — same data, key should be cached
+    const second = await listTabCandidates(db);
+
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    expect(first[0].url).toBe(candidate.url);
+    expect(second[0].url).toBe(candidate.url);
+    // Both return identical data, confirming the cache doesn't corrupt results
+    expect(first[0].title).toBe(second[0].title);
+  });
+
+  it('clearDerivedKeyCache resets the cache so the next derivation is a cache miss', async () => {
+    const db = freshDb();
+    const candidate = buildTabCandidate();
+    await saveTabCandidate(db, candidate);
+
+    // Populate the cache
+    await listTabCandidates(db);
+
+    // Clear it
+    clearDerivedKeyCache();
+
+    // Should still work (re-derives from scratch)
+    const result = await listTabCandidates(db);
+    expect(result).toHaveLength(1);
+    expect(result[0].url).toBe(candidate.url);
+  });
+
+  it('saves and round-trips multiple tab candidates through encryption', async () => {
+    const db = freshDb();
+    const candidates = Array.from({ length: 5 }, (_, i) =>
+      buildTabCandidate({
+        capturedAt: new Date(Date.parse(NOW) + i * 1000).toISOString(),
+      }),
+    );
+
+    for (const candidate of candidates) {
+      await saveTabCandidate(db, candidate);
+    }
+
+    const result = await listTabCandidates(db);
+    expect(result).toHaveLength(5);
+    // Ordered by capturedAt descending
+    expect(result[0].capturedAt).toBe(candidates[4].capturedAt);
+  });
+
+  it('respects the limit parameter in listTabCandidates', async () => {
+    const db = freshDb();
+    const candidates = Array.from({ length: 10 }, (_, i) =>
+      buildTabCandidate({
+        capturedAt: new Date(Date.parse(NOW) + i * 1000).toISOString(),
+      }),
+    );
+
+    for (const candidate of candidates) {
+      await saveTabCandidate(db, candidate);
+    }
+
+    const limited = await listTabCandidates(db, 3);
+    expect(limited).toHaveLength(3);
+
+    const unlimited = await listTabCandidates(db);
+    expect(unlimited).toHaveLength(10);
+  });
+});
+
+describe('tab routing persistence', () => {
+  it('deduplicates by extractId + coopId by updating in place', async () => {
+    const db = freshDb();
+    const first = buildTabRouting();
+    await saveTabRouting(db, first);
+
+    await saveTabRouting(db, {
+      ...first,
+      relevanceScore: 0.31,
+      status: 'drafted',
+      updatedAt: LATER,
+    });
+
+    const stored = await getTabRoutingByExtractAndCoop(db, first.extractId, first.coopId);
+    expect(stored).toBeDefined();
+    expect(stored?.id).toBe(first.id);
+    expect(stored?.relevanceScore).toBe(0.31);
+    expect(stored?.status).toBe('drafted');
+    expect(await listTabRoutings(db, { coopId: first.coopId })).toHaveLength(1);
   });
 });

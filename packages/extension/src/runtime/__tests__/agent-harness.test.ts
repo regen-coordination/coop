@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type SkillExecutionContext,
   filterAgentDashboardState,
+  getMissingRequiredCapabilities,
   isTrustedNodeRole,
   selectSkillIdsForObservation,
   shouldSkipSkill,
@@ -75,6 +76,7 @@ function makeDraft(overrides: Partial<ReviewDraft> = {}): ReviewDraft {
     previewImageUrl: overrides.previewImageUrl,
     status: overrides.status ?? 'draft',
     workflowStage: overrides.workflowStage ?? 'ready',
+    attachments: overrides.attachments ?? [],
     archiveWorthiness: overrides.archiveWorthiness,
     provenance:
       overrides.provenance ??
@@ -241,6 +243,47 @@ describe('shouldSkipSkill', () => {
   });
 });
 
+describe('getMissingRequiredCapabilities', () => {
+  it('returns missing capabilities for absent required context', () => {
+    expect(
+      getMissingRequiredCapabilities(['coop-context', 'draft-context', 'capture-context'], {
+        candidates: [],
+        scores: [],
+      }),
+    ).toEqual(['coop-context', 'draft-context', 'capture-context']);
+  });
+
+  it('recognizes nested coop capabilities and unknown capabilities', () => {
+    expect(
+      getMissingRequiredCapabilities(
+        [
+          'green-goods-enabled',
+          'green-goods-garden-linked',
+          'safe-deployed',
+          'agent-identity',
+          'unknown-capability',
+        ],
+        {
+          candidates: [{ id: 'candidate-1' }],
+          scores: [{ id: 'score-1' }],
+          coop: {
+            greenGoods: {
+              enabled: true,
+              gardenAddress: '0xgarden',
+            },
+            onchainState: {
+              safeCapability: 'executed',
+            },
+            agentIdentity: {
+              agentId: 42,
+            },
+          },
+        },
+      ),
+    ).toEqual(['unknown-capability']);
+  });
+});
+
 describe('agent harness helpers', () => {
   it('treats creator and trusted roles as trusted-node operators', () => {
     expect(isTrustedNodeRole('creator')).toBe(true);
@@ -258,13 +301,46 @@ describe('agent harness helpers', () => {
       coopId: 'coop-1',
       captureId: 'capture-1',
     });
-    // Topological sort: no-depends skills alphabetically first,
-    // then chain: opportunity-extractor → grant-fit-scorer → capital-formation-brief
+    // Capture-derived work should run the opportunity chain before optional enrichers.
     expect(selectSkillIdsForObservation(receiverBacklog, manifests)).toEqual([
-      'ecosystem-entity-extractor',
       'opportunity-extractor',
       'grant-fit-scorer',
       'capital-formation-brief',
+      'ecosystem-entity-extractor',
+    ]);
+
+    const audioTranscriptReady = createAgentObservation({
+      trigger: 'audio-transcript-ready',
+      title: 'Voice note transcribed',
+      summary: 'Transcript is ready for synthesis.',
+      coopId: 'coop-1',
+      captureId: 'capture-1',
+      payload: {
+        transcriptText: 'EPA grant requires a local match.',
+      },
+    });
+    expect(selectSkillIdsForObservation(audioTranscriptReady, manifests)).toEqual([
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'ecosystem-entity-extractor',
+    ]);
+
+    const highConfidenceDraft = createAgentObservation({
+      trigger: 'high-confidence-draft',
+      title: 'High-confidence draft',
+      summary: 'Funding lead ready for helper review.',
+      coopId: 'coop-1',
+      draftId: 'draft-1',
+      extractId: 'extract-1',
+    });
+    expect(selectSkillIdsForObservation(highConfidenceDraft, manifests)).toEqual([
+      'opportunity-extractor',
+      'grant-fit-scorer',
+      'capital-formation-brief',
+      'publish-readiness-check',
+      'ecosystem-entity-extractor',
+      'theme-clusterer',
     ]);
 
     const ritualReview = createAgentObservation({

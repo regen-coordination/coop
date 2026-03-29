@@ -1,3 +1,5 @@
+import { resolveOnnxRuntimeWasmPaths } from './onnx-assets';
+
 /**
  * Inference worker -- runs a local text-generation model in a dedicated
  * Web Worker so the sidepanel UI stays responsive.
@@ -40,6 +42,7 @@ let currentStatus: StatusResponse = { type: 'status', status: 'idle' };
 // cooperative cancellation — the model checks the flag between generation steps.
 let stoppingCriteria: { interrupt(): void; reset(): void } | null = null;
 let stoppingCriteriaList: { criteria: unknown[] } | null = null;
+let inferenceWorkerStarted = false;
 
 async function ensureModel() {
   if (pipeline) return;
@@ -59,28 +62,46 @@ async function ensureModel() {
     // Configure for worker context
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    // Load ONNX WASM from CDN instead of bundling the 22 MB binary
-    env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
+    if (env.backends.onnx.wasm) {
+      env.backends.onnx.wasm.wasmPaths = resolveOnnxRuntimeWasmPaths();
+    }
 
-    pipeline = await createPipeline('text-generation', MODEL_ID, {
-      dtype: 'q4',
-      device: 'wasm',
-      progress_callback: (progress: { progress?: number; status?: string }) => {
-        if (progress?.progress !== undefined) {
-          const msg: InferenceWorkerResponse = {
-            type: 'init-progress',
-            progress: progress.progress,
-            message: progress.status || 'Downloading model weights...',
-          };
-          self.postMessage(msg);
-        }
-      },
-    });
+    const progressCallback = (progress: { progress?: number; status?: string }) => {
+      if (progress?.progress !== undefined) {
+        const msg: InferenceWorkerResponse = {
+          type: 'init-progress',
+          progress: progress.progress,
+          message: progress.status || 'Downloading model weights...',
+        };
+        self.postMessage(msg);
+      }
+    };
+
+    const hasWebGpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
+    if (hasWebGpu) {
+      try {
+        pipeline = (await createPipeline('text-generation', MODEL_ID, {
+          dtype: 'q4',
+          device: 'webgpu',
+          progress_callback: progressCallback,
+        })) as unknown as typeof pipeline;
+      } catch {
+        // WebGPU pipeline failed — fall back to WASM
+        pipeline = null;
+      }
+    }
+    if (!pipeline) {
+      pipeline = (await createPipeline('text-generation', MODEL_ID, {
+        dtype: 'q4',
+        device: 'wasm',
+        progress_callback: progressCallback,
+      })) as unknown as typeof pipeline;
+    }
 
     // Set up the reusable stopping criteria for cooperative cancellation.
     stoppingCriteria = new InterruptableStoppingCriteria();
     stoppingCriteriaList = new StoppingCriteriaList();
-    stoppingCriteriaList.push(
+    (stoppingCriteriaList as unknown as { push(c: unknown): void }).push(
       stoppingCriteria as unknown as InstanceType<typeof InterruptableStoppingCriteria>,
     );
 
@@ -108,6 +129,7 @@ async function handleRefine(id: string, prompt: string, maxTokens: number) {
 
     const messages = [{ role: 'user', content: prompt }];
 
+    if (!pipeline) throw new Error('Inference pipeline not initialized');
     const result = await pipeline(messages, {
       max_new_tokens: maxTokens,
       temperature: 0.3,
@@ -156,30 +178,38 @@ async function handleRefine(id: string, prompt: string, maxTokens: number) {
   }
 }
 
-self.onmessage = (event: MessageEvent<InferenceWorkerRequest>) => {
-  const msg = event.data;
-
-  switch (msg.type) {
-    case 'init':
-      ensureModel().catch((e) => {
-        self.postMessage({ type: 'status', status: 'failed', error: String(e) });
-      });
-      break;
-
-    case 'refine':
-      handleRefine(msg.id, msg.prompt, msg.maxTokens ?? DEFAULT_MAX_TOKENS).catch((e) => {
-        self.postMessage({ type: 'refine-error', id: msg.id, error: String(e) });
-      });
-      break;
-
-    case 'cancel':
-      // InterruptableStoppingCriteria cooperatively stops generation
-      // between decode steps — the next token check will bail out.
-      stoppingCriteria?.interrupt();
-      break;
-
-    case 'status':
-      self.postMessage(currentStatus);
-      break;
+export function startInferenceWorker() {
+  if (inferenceWorkerStarted) {
+    return;
   }
-};
+
+  inferenceWorkerStarted = true;
+
+  self.onmessage = (event: MessageEvent<InferenceWorkerRequest>) => {
+    const msg = event.data;
+
+    switch (msg.type) {
+      case 'init':
+        ensureModel().catch((e) => {
+          self.postMessage({ type: 'status', status: 'failed', error: String(e) });
+        });
+        break;
+
+      case 'refine':
+        handleRefine(msg.id, msg.prompt, msg.maxTokens ?? DEFAULT_MAX_TOKENS).catch((e) => {
+          self.postMessage({ type: 'refine-error', id: msg.id, error: String(e) });
+        });
+        break;
+
+      case 'cancel':
+        // InterruptableStoppingCriteria cooperatively stops generation
+        // between decode steps — the next token check will bail out.
+        stoppingCriteria?.interrupt();
+        break;
+
+      case 'status':
+        self.postMessage(currentStatus);
+        break;
+    }
+  };
+}

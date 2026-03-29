@@ -20,9 +20,11 @@ import {
   createId,
   extractDomain,
   hashText,
+  nowIso,
   truncateWords,
   unique,
 } from '../../utils';
+import type { TranscriptionSegment } from '../transcribe/types';
 
 export interface PageSignalInput {
   candidate: TabCandidate;
@@ -62,6 +64,113 @@ const categoryKeywords: Record<ArtifactCategory, string[]> = {
   'next-step': ['next step', 'action', 'todo', 'follow up'],
 };
 
+const DEDUPE_STOPWORDS = new Set([
+  'about',
+  'after',
+  'also',
+  'before',
+  'brief',
+  'for',
+  'from',
+  'into',
+  'local',
+  'more',
+  'over',
+  'that',
+  'their',
+  'them',
+  'then',
+  'they',
+  'this',
+  'those',
+  'through',
+  'update',
+  'updates',
+  'using',
+  'with',
+  'your',
+]);
+
+const DEDUPE_BOILERPLATE_TOKENS = new Set([
+  'account',
+  'article',
+  'click',
+  'cookie',
+  'cookies',
+  'follow',
+  'login',
+  'newsletter',
+  'page',
+  'print',
+  'privacy',
+  'read',
+  'share',
+  'sign',
+  'subscribe',
+  'terms',
+]);
+
+function tokenizeExtractDedupeText(value: string, minLength = 4) {
+  return (
+    compactWhitespace(value)
+      .toLowerCase()
+      .replace(/-/g, '')
+      .replace(/https?:\/\/\S+/g, ' ')
+      .match(/[a-z0-9]+/g)
+      ?.filter(
+        (token) =>
+          token.length >= minLength &&
+          !DEDUPE_STOPWORDS.has(token) &&
+          !DEDUPE_BOILERPLATE_TOKENS.has(token),
+      ) ?? []
+  );
+}
+
+function extractDedupeSignal(extract: ReadablePageExtract) {
+  const titleTokens = unique(tokenizeExtractDedupeText(extract.cleanedTitle, 3));
+  const contentTokens = unique(
+    tokenizeExtractDedupeText(
+      [
+        extract.metaDescription,
+        ...extract.topHeadings,
+        ...extract.leadParagraphs,
+        ...extract.salientTextBlocks,
+      ]
+        .filter(Boolean)
+        .join(' '),
+      4,
+    ),
+  );
+
+  return {
+    titleTokens: new Set(titleTokens),
+    contentTokens: new Set(contentTokens),
+  };
+}
+
+function countSharedTokens(left: Set<string>, right: Set<string>) {
+  let shared = 0;
+  for (const token of left) {
+    if (right.has(token)) {
+      shared += 1;
+    }
+  }
+  return shared;
+}
+
+function jaccardSimilarity(left: Set<string>, right: Set<string>) {
+  if (left.size === 0 || right.size === 0) {
+    return 0;
+  }
+
+  const shared = countSharedTokens(left, right);
+  if (shared === 0) {
+    return 0;
+  }
+
+  return shared / (left.size + right.size - shared);
+}
+
 export function buildReadablePageExtract(input: PageSignalInput): ReadablePageExtract {
   const headings = unique((input.headings ?? []).map(compactWhitespace))
     .filter(Boolean)
@@ -92,8 +201,51 @@ export function buildReadablePageExtract(input: PageSignalInput): ReadablePageEx
     salientTextBlocks,
     textHash,
     previewImageUrl: input.previewImageUrl,
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso(),
   };
+}
+
+export function arePageExtractsNearDuplicates(
+  left: ReadablePageExtract,
+  right: ReadablePageExtract,
+) {
+  if (left.id === right.id) {
+    return true;
+  }
+
+  if (left.canonicalUrl === right.canonicalUrl || left.textHash === right.textHash) {
+    return true;
+  }
+
+  if (left.domain !== right.domain) {
+    return false;
+  }
+
+  const leftSignal = extractDedupeSignal(left);
+  const rightSignal = extractDedupeSignal(right);
+
+  if (leftSignal.contentTokens.size < 10 || rightSignal.contentTokens.size < 10) {
+    return false;
+  }
+
+  const sharedTitle = countSharedTokens(leftSignal.titleTokens, rightSignal.titleTokens);
+  const sharedContent = countSharedTokens(leftSignal.contentTokens, rightSignal.contentTokens);
+  const contentSimilarity = jaccardSimilarity(leftSignal.contentTokens, rightSignal.contentTokens);
+  const titleSimilarity = jaccardSimilarity(leftSignal.titleTokens, rightSignal.titleTokens);
+  const titlesMatch =
+    sharedTitle > 0 &&
+    sharedTitle === leftSignal.titleTokens.size &&
+    sharedTitle === rightSignal.titleTokens.size;
+
+  if (titlesMatch && contentSimilarity >= 0.6 && sharedContent >= 10) {
+    return true;
+  }
+
+  if (titleSimilarity >= 0.72 && contentSimilarity >= 0.68 && sharedContent >= 10) {
+    return true;
+  }
+
+  return contentSimilarity >= 0.84 && sharedContent >= 14;
 }
 
 export function detectLocalEnhancementAvailability(input?: {
@@ -104,7 +256,7 @@ export function detectLocalEnhancementAvailability(input?: {
   if (!input?.prefersLocalModels) {
     return localEnhancementAvailabilitySchema.parse({
       status: 'stubbed',
-      reason: 'Local enhancement is opt-in and disabled by default.',
+      reason: 'Local enhancement is available locally and currently turned off.',
       model: 'Qwen2 0.5B (planned)',
     });
   }
@@ -385,13 +537,14 @@ export function shapeReviewDraft(
     previewImageUrl: extract.previewImageUrl,
     status: 'draft',
     workflowStage: 'ready',
+    attachments: [],
     provenance: {
       type: 'tab',
       interpretationId: interpretation.id,
       extractId: extract.id,
       sourceCandidateId: extract.sourceCandidateId,
     },
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso(),
   };
 }
 
@@ -419,10 +572,63 @@ export function runPassivePipeline(input: {
   return { extract, drafts };
 }
 
+export interface TranscriptInferenceResult {
+  category: ArtifactCategory;
+  confidence: number;
+  tags: string[];
+}
+
+/**
+ * Infer category, confidence, and tags from transcript text using the same
+ * keyword-based heuristics the tab pipeline uses for page extracts.
+ *
+ * This is a standalone adapter that does NOT require coop state -- it applies
+ * `categoryKeywords` matching and basic keyword extraction directly to the
+ * transcript content.
+ */
+export function inferFromTranscript(input: {
+  transcriptText: string;
+  title: string;
+  segments?: TranscriptionSegment[];
+}): TranscriptInferenceResult {
+  const haystack = [input.title, input.transcriptText].join(' ').toLowerCase();
+
+  // Category classification: same keyword map as classifyCategory
+  const ordered = Object.entries(categoryKeywords)
+    .map(([category, keywords]) => ({
+      category: artifactCategorySchema.parse(category),
+      score: keywords.filter((keyword) => haystack.includes(keyword)).length,
+    }))
+    .sort((left, right) => right.score - left.score);
+
+  const category: ArtifactCategory = ordered[0]?.score ? ordered[0].category : 'insight';
+
+  // Confidence: baseline of 0.42 (above metadata-only 0.34), scaled by keyword hits
+  const topScore = ordered[0]?.score ?? 0;
+  const confidence = clamp(0.42 + topScore * 0.06, 0.42, 0.82);
+
+  // Tag extraction: pull words > 4 chars from title + transcript + segments
+  const segmentWords = (input.segments ?? [])
+    .flatMap((segment) => segment.text.split(/\s+/))
+    .map((word) => word.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+    .filter((word) => word.length > 4);
+
+  const transcriptWords = [
+    ...input.title.split(/[\s/]+/),
+    ...input.transcriptText.split(/\s+/).slice(0, 80),
+  ]
+    .map((word) => word.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+    .filter((word) => word.length > 4);
+
+  const tags = unique([...transcriptWords, ...segmentWords]).slice(0, 6);
+
+  return { category, confidence, tags };
+}
+
 export function buildMemoryProfileSeed(profile?: Partial<CoopMemoryProfile>): CoopMemoryProfile {
   return {
     version: 1,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso(),
     topDomains: profile?.topDomains ?? [],
     topTags: profile?.topTags ?? [],
     categoryStats: profile?.categoryStats ?? [],

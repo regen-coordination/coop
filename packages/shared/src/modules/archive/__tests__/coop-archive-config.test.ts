@@ -130,6 +130,8 @@ describe('mergeCoopArchiveConfig', () => {
       agentPrivateKey: 'MgCY...key',
       spaceDelegation: 'delegation-proof-abc',
       proofs: ['proof-1'],
+      filecoinWitnessRpcUrl: 'https://lotus.example/rpc/v1',
+      filecoinWitnessRpcToken: 'token-1',
     });
 
     const merged = mergeCoopArchiveConfig(publicConfig, secrets);
@@ -147,6 +149,8 @@ describe('mergeCoopArchiveConfig', () => {
     expect(merged.agentPrivateKey).toBe('MgCY...key');
     expect(merged.spaceDelegation).toBe('delegation-proof-abc');
     expect(merged.proofs).toEqual(['proof-1']);
+    expect(merged.filecoinWitnessRpcUrl).toBe('https://lotus.example/rpc/v1');
+    expect(merged.filecoinWitnessRpcToken).toBe('token-1');
   });
 
   it('works with minimal secrets (no agentPrivateKey)', () => {

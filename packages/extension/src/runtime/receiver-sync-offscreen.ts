@@ -11,7 +11,6 @@ import {
   markReceiverCaptureSyncFailed,
   patchReceiverSyncEnvelope,
 } from '@coop/shared';
-import { AGENT_LOOP_POLL_INTERVAL_MS } from './agent-config';
 import { runAgentCycle } from './agent-runner';
 import type {
   ReceiverSyncConfigResponse,
@@ -30,7 +29,8 @@ type ReceiverBinding = {
   timer?: number;
 };
 
-const pollIntervalMs = 1500;
+/** Heartbeat interval — fallback in case message-driven wake misses an event. */
+const heartbeatIntervalMs = 10_000;
 const bindings = new Map<string, ReceiverBinding>();
 let refreshPromise: Promise<void> | null = null;
 
@@ -352,12 +352,27 @@ void reportReceiverSyncRuntime({
   hasRtcPeerConnection: hasRtcPeerConnection(),
 });
 void refreshBindings();
+
+// Heartbeat fallback: refresh bindings periodically in case message-driven
+// wake misses an event. 10s is a ~7x improvement over the previous 1.5s poll.
 window.setInterval(() => {
   void refreshBindings();
-}, pollIntervalMs);
-window.setInterval(() => {
-  void runAgentCycle();
-}, AGENT_LOOP_POLL_INTERVAL_MS);
+}, heartbeatIntervalMs);
+
+chrome.runtime.onMessage.addListener(
+  (message: { type?: string; payload?: { force?: boolean; reason?: string } }) => {
+    if (message.type === 'run-agent-cycle-if-pending') {
+      void runAgentCycle({
+        force: Boolean(message.payload?.force),
+        reason: message.payload?.reason,
+      });
+    }
+    // Message-driven wake: background worker sends this when pairings change.
+    if (message.type === 'refresh-receiver-bindings') {
+      void refreshBindings();
+    }
+  },
+);
 
 window.addEventListener('unload', () => {
   for (const binding of bindings.values()) {

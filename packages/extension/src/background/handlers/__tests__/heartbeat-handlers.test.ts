@@ -3,18 +3,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // --- Mocks for @coop/shared ---
 
 const mockFindByFingerprint = vi.fn();
+const mockListReviewDraftsByWorkflowStage = vi.fn();
 const mockSaveObservation = vi.fn();
 const mockPruneExpiredMemories = vi.fn().mockResolvedValue(0);
+const mockPruneSensitiveLocalData = vi.fn().mockResolvedValue({
+  staleCandidateCount: 0,
+  staleExtractCount: 0,
+  orphanedBlobCount: 0,
+  stalePayloadCount: 0,
+});
 const mockDeduplicateMemories = vi.fn().mockResolvedValue(0);
 const mockEnforceMemoryLimit = vi.fn().mockResolvedValue(0);
+const mockCreateObservation = vi.fn((input: Record<string, unknown>) => ({
+  id: 'generated-observation',
+  status: 'pending',
+  createdAt: new Date().toISOString(),
+  fingerprint: `fp:${String(input.trigger ?? 'unknown')}:${String(input.draftId ?? '')}`,
+  ...input,
+}));
 
-vi.mock('@coop/shared', async () => {
-  const actual = await vi.importActual<typeof import('@coop/shared')>('@coop/shared');
+vi.mock('@coop/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@coop/shared')>();
   return {
     ...actual,
+    createAgentObservation: mockCreateObservation,
     findAgentObservationByFingerprint: mockFindByFingerprint,
+    listReviewDraftsByWorkflowStage: mockListReviewDraftsByWorkflowStage,
     saveAgentObservation: mockSaveObservation,
     pruneExpiredMemories: mockPruneExpiredMemories,
+    pruneSensitiveLocalData: mockPruneSensitiveLocalData,
     deduplicateMemories: mockDeduplicateMemories,
     enforceMemoryLimit: mockEnforceMemoryLimit,
   };
@@ -45,16 +62,16 @@ function createTable(defaultData: unknown[] = []) {
 
 const reviewDraftsTable = createTable();
 const agentObservationsTable = createTable();
-const knowledgeSkillsTable = createTable();
 const mockGetCoops = vi.fn().mockResolvedValue([]);
+const mockNotifyExtensionEvent = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../context', () => ({
   db: {
     reviewDrafts: reviewDraftsTable,
     agentObservations: agentObservationsTable,
-    knowledgeSkills: knowledgeSkillsTable,
   },
   getCoops: mockGetCoops,
+  notifyExtensionEvent: mockNotifyExtensionEvent,
   uiPreferences: {
     heartbeatEnabled: true,
     notificationsEnabled: true,
@@ -63,16 +80,16 @@ vi.mock('../../context', () => ({
   },
 }));
 
+vi.mock('../../dashboard', () => ({
+  refreshBadge: vi.fn().mockResolvedValue(undefined),
+}));
+
 const { handleAgentHeartbeat } = await import('../heartbeat');
 
 // --- Helpers ---
 
 function hoursAgo(hours: number): string {
   return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-}
-
-function daysAgo(days: number): string {
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 }
 
 function mockWhereChain(table: ReturnType<typeof createTable>, data: unknown[]) {
@@ -88,7 +105,7 @@ describe('handleAgentHeartbeat', () => {
     // Default: no data
     mockWhereChain(reviewDraftsTable, []);
     mockWhereChain(agentObservationsTable, []);
-    knowledgeSkillsTable.toArray.mockResolvedValue([]);
+    mockListReviewDraftsByWorkflowStage.mockResolvedValue([]);
     mockGetCoops.mockResolvedValue([]);
   });
 
@@ -109,7 +126,7 @@ describe('handleAgentHeartbeat', () => {
       category: 'insight',
       confidence: 0.9,
     };
-    mockWhereChain(reviewDraftsTable, [staleDraft]);
+    mockListReviewDraftsByWorkflowStage.mockResolvedValue([staleDraft]);
     mockFindByFingerprint.mockResolvedValue(undefined);
 
     await handleAgentHeartbeat();
@@ -131,7 +148,7 @@ describe('handleAgentHeartbeat', () => {
       category: 'insight',
       confidence: 0.8,
     };
-    mockWhereChain(reviewDraftsTable, [freshDraft]);
+    mockListReviewDraftsByWorkflowStage.mockResolvedValue([freshDraft]);
 
     await handleAgentHeartbeat();
 
@@ -140,7 +157,7 @@ describe('handleAgentHeartbeat', () => {
 
   it('skips drafts that are not in ready stage (filtered by indexed query)', async () => {
     // With indexed query, non-ready drafts won't be returned at all
-    mockWhereChain(reviewDraftsTable, []);
+    mockListReviewDraftsByWorkflowStage.mockResolvedValue([]);
 
     await handleAgentHeartbeat();
 
@@ -158,7 +175,7 @@ describe('handleAgentHeartbeat', () => {
       category: 'insight',
       confidence: 0.85,
     };
-    mockWhereChain(reviewDraftsTable, [staleDraft]);
+    mockListReviewDraftsByWorkflowStage.mockResolvedValue([staleDraft]);
     mockFindByFingerprint.mockResolvedValue({ id: 'existing-obs', trigger: 'stale-draft' });
 
     await handleAgentHeartbeat();
@@ -198,46 +215,6 @@ describe('handleAgentHeartbeat', () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  // --- B2.3: Knowledge skill freshness ---
-
-  it('logs a warning for knowledge skills with stale fetchedAt', async () => {
-    const staleSkill = {
-      id: 'skill-1',
-      name: 'Old Skill',
-      url: 'https://example.com/skill',
-      fetchedAt: daysAgo(10),
-      enabled: true,
-    };
-    knowledgeSkillsTable.toArray.mockResolvedValue([staleSkill]);
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    await handleAgentHeartbeat();
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('stale knowledge skill'),
-      expect.objectContaining({ id: 'skill-1' }),
-    );
-  });
-
-  it('ignores skills fetched recently', async () => {
-    const freshSkill = {
-      id: 'skill-2',
-      name: 'Fresh Skill',
-      url: 'https://example.com/skill',
-      fetchedAt: daysAgo(2),
-      enabled: true,
-    };
-    knowledgeSkillsTable.toArray.mockResolvedValue([freshSkill]);
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    await handleAgentHeartbeat();
-
-    expect(warnSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining('stale knowledge skill'),
-      expect.anything(),
-    );
-  });
-
   // --- B3: heartbeatEnabled preference ---
 
   it('skips all checks when heartbeatEnabled is false', async () => {
@@ -256,7 +233,7 @@ describe('handleAgentHeartbeat', () => {
       category: 'insight',
       confidence: 0.9,
     };
-    mockWhereChain(reviewDraftsTable, [staleDraft]);
+    mockListReviewDraftsByWorkflowStage.mockResolvedValue([staleDraft]);
 
     await handleAgentHeartbeat();
 

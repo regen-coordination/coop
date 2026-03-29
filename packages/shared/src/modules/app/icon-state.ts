@@ -1,48 +1,64 @@
 import type { ExtensionIconState } from '../../contracts/schema';
 
 export interface IconStateInput {
-  pendingDrafts: number;
-  watching: boolean;
-  offline: boolean;
-  missingPermission: boolean;
-  syncError: boolean;
+  hasCoop: boolean;
+  agentActive: boolean;
+  pendingAttention: number;
+  blocked: boolean;
 }
 
+/**
+ * Derive the extension icon state from runtime signals.
+ *
+ * Priority (highest wins):
+ *  1. blocked  — critical issue preventing usage (red)
+ *  2. setup    — no coop exists yet (muted green)
+ *  3. attention — items waiting for the user (orange)
+ *  4. working  — agent actively processing (blue)
+ *  5. ready    — healthy, nothing to do (green)
+ */
 export function deriveExtensionIconState(input: IconStateInput): ExtensionIconState {
-  if (input.offline || input.missingPermission || input.syncError) {
-    return 'error-offline';
-  }
-  if (input.pendingDrafts > 0) {
-    return 'review-needed';
-  }
-  if (input.watching) {
-    return 'watching';
-  }
-  return 'idle';
+  if (input.blocked) return 'blocked';
+  if (!input.hasCoop) return 'setup';
+  if (input.pendingAttention > 0) return 'attention';
+  if (input.agentActive) return 'working';
+  return 'ready';
 }
 
 export function extensionIconStateLabel(state: ExtensionIconState) {
   switch (state) {
-    case 'idle':
-      return 'Idle';
-    case 'watching':
-      return 'Watching';
-    case 'review-needed':
-      return 'Review Needed';
-    case 'error-offline':
-      return 'Error / Offline';
+    case 'setup':
+      return 'Setup';
+    case 'ready':
+      return 'Ready';
+    case 'working':
+      return 'Working';
+    case 'attention':
+      return 'Attention';
+    case 'blocked':
+      return 'Blocked';
+    default: {
+      const _exhaustive: never = state;
+      return _exhaustive;
+    }
   }
 }
 
 export function extensionIconBadge(state: ExtensionIconState) {
   switch (state) {
-    case 'idle':
-      return { text: 'IDLE', color: '#4f2e1f' };
-    case 'watching':
-      return { text: 'SCAN', color: '#5a7d10' };
-    case 'review-needed':
-      return { text: 'ROST', color: '#fd8a01' };
-    case 'error-offline':
-      return { text: 'ERR', color: '#a63b20' };
+    case 'setup':
+      return { text: '', color: '#5a7d10' };
+    case 'ready':
+      return { text: '', color: '#5a7d10' };
+    case 'working':
+      return { text: '', color: '#3b82f6' };
+    case 'attention':
+      return { text: '', color: '#fd8a01' };
+    case 'blocked':
+      return { text: '', color: '#a63b20' };
+    default: {
+      const _exhaustive: never = state;
+      return _exhaustive;
+    }
   }
 }

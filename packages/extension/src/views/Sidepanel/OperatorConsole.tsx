@@ -9,6 +9,8 @@ import type {
   DelegatedActionClass,
   ExecutionPermit,
   GreenGoodsAssessmentRequest,
+  GreenGoodsHypercertMintRequest,
+  GreenGoodsMemberBinding,
   GreenGoodsWorkApprovalRequest,
   IntegrationMode,
   PermitLogEntry,
@@ -87,6 +89,8 @@ type OperatorConsoleProps = {
   skillRuns: SkillRun[];
   skillManifests: SkillManifest[];
   autoRunSkillIds: string[];
+  activeCoopId?: string;
+  activeCoopName?: string;
   onRunAgentCycle(): void | Promise<void>;
   onApprovePlan(planId: string): void | Promise<void>;
   onRejectPlan(planId: string): void | Promise<void>;
@@ -97,6 +101,7 @@ type OperatorConsoleProps = {
     coopName: string;
     enabled: boolean;
     gardenAddress?: string;
+    memberBindings?: Array<GreenGoodsMemberBinding & { memberDisplayName: string }>;
   };
   onQueueGreenGoodsWorkApproval?(
     coopId: string,
@@ -107,6 +112,11 @@ type OperatorConsoleProps = {
     request: GreenGoodsAssessmentRequest,
   ): void | Promise<void>;
   onQueueGreenGoodsGapAdminSync?(coopId: string): void | Promise<void>;
+  onQueueGreenGoodsHypercertMint?(
+    coopId: string,
+    request: GreenGoodsHypercertMintRequest,
+  ): void | Promise<void>;
+  onQueueGreenGoodsMemberSync?(coopId: string): void | Promise<void>;
   memories?: AgentMemory[];
 };
 
@@ -120,12 +130,18 @@ export function OperatorConsole(props: OperatorConsoleProps) {
         onToggleSkillAutoRun={props.onToggleSkillAutoRun}
       />
 
-      <GardenRequestsSection
-        greenGoodsContext={props.greenGoodsContext}
-        onQueueGreenGoodsWorkApproval={props.onQueueGreenGoodsWorkApproval}
-        onQueueGreenGoodsAssessment={props.onQueueGreenGoodsAssessment}
-        onQueueGreenGoodsGapAdminSync={props.onQueueGreenGoodsGapAdminSync}
-      />
+      {props.greenGoodsContext?.enabled ? (
+        <GardenRequestsSection
+          greenGoodsContext={props.greenGoodsContext}
+          actionQueue={props.actionQueue}
+          actionHistory={props.actionHistory}
+          onQueueGreenGoodsWorkApproval={props.onQueueGreenGoodsWorkApproval}
+          onQueueGreenGoodsAssessment={props.onQueueGreenGoodsAssessment}
+          onQueueGreenGoodsGapAdminSync={props.onQueueGreenGoodsGapAdminSync}
+          onQueueGreenGoodsHypercertMint={props.onQueueGreenGoodsHypercertMint}
+          onQueueGreenGoodsMemberSync={props.onQueueGreenGoodsMemberSync}
+        />
+      ) : null}
 
       <AgentObservationsSection
         agentObservations={props.agentObservations}

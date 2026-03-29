@@ -1,6 +1,8 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { type CoopDexie, createCoopDb } from '../../storage/db';
+import Dexie from 'dexie';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type CoopDexie, createCoopDb, getAgentMemory, listAgentMemories } from '../../storage/db';
 import {
   createAgentMemory,
   deduplicateMemories,
@@ -12,8 +14,15 @@ import {
 
 let db: CoopDexie;
 
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
+
 beforeEach(async () => {
   db = createCoopDb(`test-memory-${crypto.randomUUID()}`);
+});
+
+afterEach(async () => {
+  await db.delete();
 });
 
 /* ---------------------------------------------------------------------------
@@ -41,7 +50,10 @@ describe('createAgentMemory', () => {
     // Verify it was persisted
     const stored = await db.agentMemories.get(memory.id);
     expect(stored).toBeDefined();
-    expect(stored?.content).toBe(memory.content);
+    expect(stored?.content).toBe('Encrypted local memory');
+
+    const hydrated = await getAgentMemory(db, memory.id);
+    expect(hydrated?.content).toBe(memory.content);
   });
 
   it('uses provided createdAt when given', async () => {
@@ -153,6 +165,27 @@ describe('queryRecentMemories', () => {
     expect(results[2].content).toBe('Memory A');
   });
 
+  it('falls back to the redacted memory when an encrypted payload is corrupted', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const memory = await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'observation-outcome',
+      content: 'Memory A',
+      confidence: 0.8,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    await db.encryptedLocalPayloads.update(`agent-memory:${memory.id}`, {
+      ciphertext: 'AA==',
+    });
+
+    const results = await queryRecentMemories(db, 'coop-1');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].content).toBe('Encrypted local memory');
+    expect(warn).toHaveBeenCalled();
+  });
+
   it('respects the limit option', async () => {
     await seedMemories();
 
@@ -162,8 +195,8 @@ describe('queryRecentMemories', () => {
   });
 
   it('defaults limit to 10', async () => {
-    // Seed 12 memories
-    for (let i = 0; i < 12; i++) {
+    // Seed just over the default limit to keep the coverage path fast.
+    for (let i = 0; i < 11; i++) {
       await createAgentMemory(db, {
         coopId: 'coop-many',
         type: 'observation-outcome',
@@ -176,7 +209,7 @@ describe('queryRecentMemories', () => {
     const results = await queryRecentMemories(db, 'coop-many');
 
     expect(results).toHaveLength(10);
-  });
+  }, 25_000);
 });
 
 /* ---------------------------------------------------------------------------
@@ -213,7 +246,7 @@ describe('pruneExpiredMemories', () => {
 
     expect(deleted).toBe(1);
 
-    const remaining = await db.agentMemories.toArray();
+    const remaining = await listAgentMemories(db);
     expect(remaining).toHaveLength(2);
     expect(remaining.map((m) => m.content).sort()).toEqual([
       'No expiry memory',
@@ -270,7 +303,7 @@ describe('deduplicateMemories', () => {
 
     expect(deleted).toBe(1);
 
-    const remaining = await db.agentMemories.where('coopId').equals('coop-1').toArray();
+    const remaining = (await listAgentMemories(db)).filter((memory) => memory.coopId === 'coop-1');
     expect(remaining).toHaveLength(2);
 
     // The surviving duplicate should be the newer one
@@ -320,13 +353,15 @@ describe('enforceMemoryLimit', () => {
 
     expect(deleted).toBe(2);
 
-    const remaining = await db.agentMemories.where('coopId').equals('coop-limit').toArray();
+    const remaining = (await listAgentMemories(db)).filter(
+      (memory) => memory.coopId === 'coop-limit',
+    );
     expect(remaining).toHaveLength(3);
 
     // The surviving memories should be the 3 newest
     const contents = remaining.map((m) => m.content).sort();
     expect(contents).toEqual(['Memory 2', 'Memory 3', 'Memory 4']);
-  });
+  }, 15_000);
 
   it('returns 0 when under the limit', async () => {
     await createAgentMemory(db, {
@@ -400,8 +435,79 @@ describe('queryMemoriesForSkill', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('returns member memories before coop memories', async () => {
+    await createAgentMemory(db, {
+      scope: 'coop',
+      coopId: 'coop-1',
+      type: 'skill-pattern',
+      content: 'Coop pattern',
+      confidence: 0.8,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      scope: 'coop',
+      coopId: 'coop-1',
+      type: 'observation-outcome',
+      content: 'Coop outcome',
+      confidence: 0.7,
+      createdAt: '2026-01-02T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      scope: 'member',
+      memberId: 'member-1',
+      type: 'user-feedback',
+      content: 'Member preference',
+      confidence: 0.9,
+      createdAt: '2026-01-03T00:00:00.000Z',
+    });
+
+    const results = await queryMemoriesForSkill(
+      db,
+      { coopId: 'coop-1', memberId: 'member-1' },
+      'test-skill',
+      { limit: 5 },
+    );
+
+    expect(results.map((memory) => memory.content)).toEqual([
+      'Member preference',
+      'Coop pattern',
+      'Coop outcome',
+    ]);
+  });
+
+  it('prefers fresh memories over stale type-priority memories when the age gap is large', async () => {
+    await createAgentMemory(db, {
+      scope: 'member',
+      memberId: 'member-1',
+      type: 'user-feedback',
+      content: 'Old member preference',
+      confidence: 0.9,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      scope: 'coop',
+      coopId: 'coop-1',
+      type: 'domain-pattern',
+      content: 'Fresh coop signal',
+      confidence: 0.7,
+      createdAt: '2026-03-15T00:00:00.000Z',
+    });
+
+    const results = await queryMemoriesForSkill(
+      db,
+      { coopId: 'coop-1', memberId: 'member-1' },
+      'test-skill',
+      { limit: 5 },
+    );
+
+    expect(results.map((memory) => memory.content).slice(0, 2)).toEqual([
+      'Fresh coop signal',
+      'Old member preference',
+    ]);
+  });
+
   it('respects the limit option', async () => {
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 6; i++) {
       await createAgentMemory(db, {
         coopId: 'coop-limit',
         type: 'observation-outcome',
@@ -414,11 +520,82 @@ describe('queryMemoriesForSkill', () => {
     const results = await queryMemoriesForSkill(db, 'coop-limit', 'test-skill', { limit: 5 });
 
     expect(results.length).toBeLessThanOrEqual(5);
-  });
+  }, 15_000);
 
   it('returns empty array for unknown coopId', async () => {
     const results = await queryMemoriesForSkill(db, 'nonexistent', 'test-skill');
 
     expect(results).toEqual([]);
+  });
+
+  it('includes decision-context memories in results', async () => {
+    await createAgentMemory(db, {
+      coopId: 'coop-dc',
+      type: 'decision-context',
+      content: 'Decision: Routed extract to coop-dc\nRationale: High relevance',
+      confidence: 0.85,
+      domain: 'routing',
+      createdAt: '2026-01-05T00:00:00.000Z',
+    });
+    await createAgentMemory(db, {
+      coopId: 'coop-dc',
+      type: 'skill-pattern',
+      content: 'Existing pattern',
+      confidence: 0.7,
+      createdAt: '2026-01-04T00:00:00.000Z',
+    });
+
+    const results = await queryMemoriesForSkill(db, 'coop-dc', 'test-skill');
+
+    const types = results.map((m) => m.type);
+    expect(types).toContain('decision-context');
+    expect(types).toContain('skill-pattern');
+    expect(results.map((m) => m.content)).toContain(
+      'Decision: Routed extract to coop-dc\nRationale: High relevance',
+    );
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * decision-context memory type
+ * --------------------------------------------------------------------------- */
+
+describe('decision-context memory type', () => {
+  it('creates and retrieves a decision-context memory', async () => {
+    const memory = await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'decision-context',
+      content: 'Decision: Scored 3 grant candidates\nRationale: Strong alignment',
+      confidence: 0.9,
+      domain: 'funding',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    });
+
+    expect(memory.id).toMatch(/^agent-memory-/);
+    expect(memory.type).toBe('decision-context');
+    expect(memory.domain).toBe('funding');
+    expect(memory.confidence).toBe(0.9);
+  });
+
+  it('can be queried by type filter', async () => {
+    await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'decision-context',
+      content: 'Decision: Draft ready for publish',
+      confidence: 0.85,
+      domain: 'publishing',
+    });
+    await createAgentMemory(db, {
+      coopId: 'coop-1',
+      type: 'observation-outcome',
+      content: 'Observed something',
+      confidence: 0.7,
+    });
+
+    const results = await queryRecentMemories(db, 'coop-1', { type: 'decision-context' });
+
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe('decision-context');
+    expect(results[0].content).toBe('Decision: Draft ready for publish');
   });
 });

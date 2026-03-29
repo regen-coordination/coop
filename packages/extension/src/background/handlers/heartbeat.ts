@@ -4,22 +4,23 @@ import {
   deduplicateMemories,
   enforceMemoryLimit,
   findAgentObservationByFingerprint,
+  listReviewDraftsByWorkflowStage,
   pruneExpiredMemories,
+  pruneSensitiveLocalData,
   saveAgentObservation,
 } from '@coop/shared';
-import { db, getCoops, uiPreferences } from '../context';
+import { db, getCoops, notifyExtensionEvent, uiPreferences } from '../context';
+import { refreshBadge } from '../dashboard';
 
 // --- Constants ---
 
 const STALE_DRAFT_THRESHOLD_MS = 48 * 60 * 60 * 1000;
 const UNREVIEWED_OBSERVATION_THRESHOLD_MS = 24 * 60 * 60 * 1000;
-const STALE_SKILL_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
-
 // --- Heartbeat Handler ---
 
 /**
  * Periodic heartbeat handler that runs lightweight DB checks
- * for stale drafts, unreviewed observations, and knowledge skill freshness.
+ * for stale drafts, unreviewed observations, and local memory maintenance.
  * No inference or content scripts -- just housekeeping queries.
  */
 export async function handleAgentHeartbeat(): Promise<void> {
@@ -28,25 +29,28 @@ export async function handleAgentHeartbeat(): Promise<void> {
   }
 
   const now = Date.now();
+  let changed = false;
 
   // 1. Stale drafts: ready drafts older than 48h
-  await checkStaleDrafts(now);
+  changed = (await checkStaleDrafts(now)) > 0 || changed;
 
   // 2. Unreviewed observations: pending observations older than 24h
-  await checkUnreviewedObservations(now);
+  changed = (await checkUnreviewedObservations(now)) > 0 || changed;
 
-  // 3. Knowledge skill freshness: skills not fetched in 7 days
-  await checkStaleKnowledgeSkills(now);
-
-  // 4. Memory maintenance: prune expired, enforce limits
+  // 3. Memory maintenance: prune expired, enforce limits
   await maintainAgentMemories();
+
+  if (changed) {
+    await refreshBadge();
+  }
 }
 
 // --- Stale Drafts ---
 
-async function checkStaleDrafts(now: number): Promise<void> {
-  const drafts = await db.reviewDrafts.where('workflowStage').equals('ready').toArray();
+async function checkStaleDrafts(now: number): Promise<number> {
+  const drafts = await listReviewDraftsByWorkflowStage(db, 'ready');
   const threshold = now - STALE_DRAFT_THRESHOLD_MS;
+  let createdCount = 0;
 
   for (const draft of drafts) {
     const createdAtMs = new Date(draft.createdAt).getTime();
@@ -73,14 +77,18 @@ async function checkStaleDrafts(now: number): Promise<void> {
     }
 
     await saveAgentObservation(db, observation);
+    createdCount += 1;
   }
+
+  return createdCount;
 }
 
 // --- Unreviewed Observations ---
 
-async function checkUnreviewedObservations(now: number): Promise<void> {
+async function checkUnreviewedObservations(now: number): Promise<number> {
   const observations = await db.agentObservations.where('status').equals('pending').toArray();
   const threshold = now - UNREVIEWED_OBSERVATION_THRESHOLD_MS;
+  let notifiedCount = 0;
 
   for (const observation of observations) {
     const createdAtMs = new Date(observation.createdAt).getTime();
@@ -88,46 +96,49 @@ async function checkUnreviewedObservations(now: number): Promise<void> {
       continue;
     }
 
+    const state =
+      now - createdAtMs >= 72 * 60 * 60 * 1000
+        ? '72h'
+        : now - createdAtMs >= UNREVIEWED_OBSERVATION_THRESHOLD_MS
+          ? '24h'
+          : 'pending';
+
     console.warn('[heartbeat] unreviewed agent observation older than 24h', {
       id: observation.id,
       trigger: observation.trigger,
       createdAt: observation.createdAt,
     });
+    await notifyExtensionEvent({
+      eventKind: 'stale-observation',
+      entityId: observation.id,
+      state,
+      title: state === '72h' ? 'Observation still waiting' : 'Observation awaiting review',
+      message:
+        state === '72h'
+          ? `A proactive observation has been waiting for review since ${new Date(observation.createdAt).toLocaleString()}.`
+          : 'A proactive observation has been waiting for review for over 24 hours.',
+      intent: {
+        tab: 'chickens',
+        segment: 'stale',
+        coopId: observation.coopId,
+        observationId: observation.id,
+      },
+    });
+    notifiedCount += 1;
   }
+
+  return notifiedCount;
 }
 
 // --- Agent Memory Maintenance ---
 
 async function maintainAgentMemories(): Promise<void> {
   await pruneExpiredMemories(db);
+  await pruneSensitiveLocalData(db);
 
   const coops = await getCoops();
   for (const coop of coops) {
     await deduplicateMemories(db, coop.profile.id);
     await enforceMemoryLimit(db, coop.profile.id);
-  }
-}
-
-// --- Knowledge Skill Freshness ---
-
-async function checkStaleKnowledgeSkills(now: number): Promise<void> {
-  const skills = await db.knowledgeSkills.toArray();
-  const threshold = now - STALE_SKILL_THRESHOLD_MS;
-
-  for (const skill of skills) {
-    if (!skill.fetchedAt) {
-      continue;
-    }
-
-    const fetchedAtMs = new Date(skill.fetchedAt).getTime();
-    if (fetchedAtMs > threshold) {
-      continue;
-    }
-
-    console.warn('[heartbeat] stale knowledge skill not fetched in over 7 days', {
-      id: skill.id,
-      name: skill.name,
-      fetchedAt: skill.fetchedAt,
-    });
   }
 }

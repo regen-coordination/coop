@@ -1,0 +1,20 @@
+{
+  "id": "feedback",
+  "description": "ERC-8004 feedback should produce a valid feedback entry with target, value, tags, and rationale.",
+  "output": {
+    "targetAgentId": 42,
+    "value": 1,
+    "tag1": "archive",
+    "tag2": "self-attestation",
+    "rationale": "A successful archive anchor warrants a positive self-attestation to build the agent's onchain reputation."
+  },
+  "assertions": [
+    { "type": "field-present", "path": "targetAgentId" },
+    { "type": "field-present", "path": "tag1" },
+    { "type": "field-present", "path": "tag2" },
+    { "type": "field-present", "path": "rationale" },
+    { "type": "number-range", "path": "value", "min": -128, "max": 127 },
+    { "type": "semantic-word-count", "path": "rationale", "threshold": 6 },
+    { "type": "string-min-length", "path": "tag1", "threshold": 2 }
+  ]
+}

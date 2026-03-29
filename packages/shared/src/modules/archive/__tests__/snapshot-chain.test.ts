@@ -65,6 +65,7 @@ function createTestReceipt(
     uploadedAt: '2026-03-13T14:00:00.000Z',
     filecoinStatus: 'pending',
     delegationIssuer: 'trusted-node-demo',
+    contentEncoding: 'plain-json',
     anchorStatus: 'pending',
     ...overrides,
   };

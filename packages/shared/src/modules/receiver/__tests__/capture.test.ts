@@ -67,10 +67,10 @@ describe('receiver capture helpers', () => {
       memberId: 'member-1',
       memberDisplayName: 'Mina',
       signalingUrls: ['ws://127.0.0.1:4444'],
-      issuedAt: '2026-03-11T18:00:00.000Z',
-      expiresAt: '2026-03-18T18:00:00.000Z',
+      issuedAt: '2030-03-11T18:00:00.000Z',
+      expiresAt: '2030-03-18T18:00:00.000Z',
     });
-    const pairing = toReceiverPairingRecord(payload, '2026-03-11T18:05:00.000Z');
+    const pairing = toReceiverPairingRecord(payload, '2030-03-11T18:05:00.000Z');
     const blob = createMockBlob('receiver capture', 'text/plain');
     const capture = createReceiverCapture({
       deviceId: device.id,
@@ -78,7 +78,7 @@ describe('receiver capture helpers', () => {
       blob,
       fileName: 'field-note.txt',
       pairing,
-      createdAt: '2026-03-11T18:10:00.000Z',
+      createdAt: '2030-03-11T18:10:00.000Z',
     });
     const asset = await blobToReceiverSyncAsset(capture, blob);
     const envelope = await createReceiverSyncEnvelope(capture, asset, pairing);

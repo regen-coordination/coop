@@ -1,12 +1,17 @@
 import {
+  type ArchiveRecoveryRecord,
   type CoopSharedState,
   applyArchiveAnchor,
+  applyArchiveOnChainSealWitnesses,
   applyArchiveReceiptFollowUp,
+  applyArchiveRecoveryRecord,
   coopArchiveConfigSchema,
   createArchiveBundle,
   createArchiveReceiptFromUpload,
+  createArchiveRecoveryRecord,
   createMockArchiveReceipt,
   createStorachaArchiveClient,
+  doesArchiveReceiptNeedOnChainSealWitness,
   encodeArchiveAnchorCalldata,
   encodeFvmRegisterArchiveCalldata,
   exportArchiveReceiptJson,
@@ -17,15 +22,20 @@ import {
   exportSnapshotTextBundle,
   getAnchorCapability,
   getAuthSession,
+  getCoopBlob,
   getFvmChainConfig,
   isArchiveReceiptRefreshable,
   issueArchiveDelegation,
+  listArchiveRecoveryRecords,
   nowIso,
   provisionStorachaSpace,
-  recordArchiveReceipt,
+  type recordArchiveReceipt,
+  removeArchiveRecoveryRecord,
   removeCoopArchiveSecrets,
+  requestArchiveOnChainSealWitness,
   requestArchiveReceiptFilecoinInfo,
   retrieveArchiveBundle,
+  setArchiveRecoveryRecord,
   setCoopArchiveSecrets,
   updateArchiveReceipt,
   uploadArchiveBundleToStoracha,
@@ -56,6 +66,157 @@ import { logPrivilegedAction } from '../operator';
 import { emitAgentObservationIfMissing } from './agent';
 import { createOwnerSafeExecutionContext } from './session';
 
+async function resolveArchiveBundleBlobBytes(input: {
+  coop: CoopSharedState;
+  scope: 'artifact' | 'snapshot';
+  artifactIds?: string[];
+}) {
+  const targetArtifactIds =
+    input.scope === 'snapshot'
+      ? new Set(input.coop.artifacts.map((artifact) => artifact.id))
+      : new Set(input.artifactIds ?? []);
+  const missingBlobIds = new Set<string>();
+  const blobBytes = new Map<string, Uint8Array>();
+
+  for (const artifact of input.coop.artifacts) {
+    if (!targetArtifactIds.has(artifact.id)) {
+      continue;
+    }
+
+    for (const attachment of artifact.attachments) {
+      if (attachment.archiveCid || blobBytes.has(attachment.blobId)) {
+        continue;
+      }
+
+      const blob = await getCoopBlob(db, attachment.blobId);
+      if (!blob) {
+        missingBlobIds.add(attachment.blobId);
+        continue;
+      }
+
+      blobBytes.set(attachment.blobId, blob.bytes);
+    }
+  }
+
+  if (missingBlobIds.size > 0) {
+    throw new Error(
+      `Archive is missing local blob data for attachment(s): ${[...missingBlobIds].join(', ')}`,
+    );
+  }
+
+  return blobBytes.size > 0 ? blobBytes : undefined;
+}
+
+async function createArchiveBundleForCoop(input: {
+  coop: CoopSharedState;
+  scope: 'artifact' | 'snapshot';
+  artifactIds?: string[];
+}) {
+  const blobBytes = await resolveArchiveBundleBlobBytes(input);
+  return createArchiveBundle({
+    scope: input.scope,
+    state: input.coop,
+    artifactIds: input.artifactIds,
+    blobs: blobBytes,
+  });
+}
+
+async function reconcilePendingArchiveRecoveriesForCoop(coop: CoopSharedState): Promise<{
+  coop: CoopSharedState;
+  appliedRecoveries: ArchiveRecoveryRecord[];
+}> {
+  const recoveries = await listArchiveRecoveryRecords(db, coop.profile.id);
+  if (recoveries.length === 0) {
+    return { coop, appliedRecoveries: [] };
+  }
+
+  let nextState = coop;
+  let changed = false;
+
+  for (const recovery of recoveries) {
+    const updated = applyArchiveRecoveryRecord(nextState, recovery);
+    if (updated !== nextState) {
+      changed = true;
+    }
+    nextState = updated;
+  }
+
+  if (changed) {
+    try {
+      await saveState(nextState);
+    } catch (error) {
+      throw new Error(
+        'Pending archive recovery could not be reconciled into local state. Resolve local storage issues before retrying archive actions.',
+        { cause: error },
+      );
+    }
+  }
+
+  for (const recovery of recoveries) {
+    await removeArchiveRecoveryRecord(db, recovery.id);
+  }
+
+  return {
+    coop: nextState,
+    appliedRecoveries: recoveries,
+  };
+}
+
+async function loadArchiveReadyCoop(coopId: string) {
+  const coops = await getCoops();
+  const coop = coops.find((item) => item.profile.id === coopId);
+  if (!coop) {
+    return null;
+  }
+
+  return reconcilePendingArchiveRecoveriesForCoop(coop);
+}
+
+function describeArchiveRecoveryFailure(recoveryId: string) {
+  return `Archive upload completed remotely, but local receipt persistence failed. Recovery record ${recoveryId} was saved locally and will be retried automatically on the next archive action.`;
+}
+
+async function persistArchiveReceiptLocally(input: {
+  coop: CoopSharedState;
+  receipt: Awaited<ReturnType<typeof createArchiveReceiptForBundle>>['receipt'];
+  artifactIds?: string[];
+  blobUploads?: Parameters<typeof recordArchiveReceipt>[3];
+}) {
+  const recovery = createArchiveRecoveryRecord({
+    coopId: input.coop.profile.id,
+    receipt: input.receipt,
+    artifactIds: input.artifactIds,
+    blobUploads: input.blobUploads,
+  });
+
+  try {
+    await setArchiveRecoveryRecord(db, recovery);
+  } catch (error) {
+    throw new Error(
+      'Archive upload completed remotely, but the local recovery record could not be written.',
+      { cause: error },
+    );
+  }
+
+  const nextState = applyArchiveRecoveryRecord(input.coop, recovery);
+  try {
+    await saveState(nextState);
+  } catch (error) {
+    throw new Error(describeArchiveRecoveryFailure(recovery.id), { cause: error });
+  }
+
+  try {
+    await removeArchiveRecoveryRecord(db, recovery.id);
+  } catch (error) {
+    console.warn(
+      `[archive] Saved archive receipt ${input.receipt.id} but could not clear recovery record ${recovery.id}.`,
+      error,
+    );
+  }
+
+  return { nextState, recovery };
+}
+
 export async function createArchiveReceiptForBundle(input: {
   coop: CoopSharedState;
   bundle: ReturnType<typeof createArchiveBundle>;
@@ -66,11 +227,13 @@ export async function createArchiveReceiptForBundle(input: {
 
   try {
     if (configuredArchiveMode === 'mock') {
-      return createMockArchiveReceipt({
-        bundle: input.bundle,
-        delegationIssuer: 'trusted-node-demo',
-        artifactIds: input.artifactIds,
-      });
+      return {
+        receipt: createMockArchiveReceipt({
+          bundle: input.bundle,
+          delegationIssuer: 'trusted-node-demo',
+          artifactIds: input.artifactIds,
+        }),
+      };
     }
 
     await logPrivilegedAction({
@@ -120,21 +283,28 @@ export async function createArchiveReceiptForBundle(input: {
       bundle: input.bundle,
       delegation,
       client,
+      blobBytes: input.bundle.blobBytes,
+      archiveConfig,
     });
 
-    return createArchiveReceiptFromUpload({
-      bundle: input.bundle,
-      delegationIssuer: delegation.delegationIssuer,
-      delegationIssuerUrl: delegation.issuerUrl,
-      delegationAudienceDid: upload.audienceDid,
-      delegationMode: 'live',
-      allowsFilecoinInfo: delegation.allowsFilecoinInfo,
-      artifactIds: input.artifactIds,
-      rootCid: upload.rootCid,
-      shardCids: upload.shardCids,
-      pieceCids: upload.pieceCids,
-      gatewayUrl: upload.gatewayUrl,
-    });
+    return {
+      receipt: createArchiveReceiptFromUpload({
+        bundle: input.bundle,
+        delegationIssuer: delegation.delegationIssuer,
+        delegationIssuerUrl: delegation.issuerUrl,
+        delegationAudienceDid: upload.audienceDid,
+        delegationMode: 'live',
+        allowsFilecoinInfo: delegation.allowsFilecoinInfo,
+        artifactIds: input.artifactIds,
+        rootCid: upload.rootCid,
+        shardCids: upload.shardCids,
+        pieceCids: upload.pieceCids,
+        gatewayUrl: upload.gatewayUrl,
+        contentEncoding: upload.contentEncoding,
+        encryption: upload.encryption,
+      }),
+      blobUploads: upload.blobUploads ?? upload.blobCids,
+    };
   } catch (error) {
     const detail = describeArchiveLiveFailure(error);
     await setRuntimeHealth({
@@ -161,19 +331,48 @@ export async function createArchiveReceiptForBundle(input: {
 export async function handleArchiveArtifact(
   message: Extract<RuntimeRequest, { type: 'archive-artifact' }>,
 ) {
-  const coops = await getCoops();
-  const coop = coops.find((item) => item.profile.id === message.payload.coopId);
-  if (!coop) {
+  let archiveReady: Awaited<ReturnType<typeof loadArchiveReadyCoop>>;
+  try {
+    archiveReady = await loadArchiveReadyCoop(message.payload.coopId);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Archive recovery reconciliation failed.',
+    } satisfies RuntimeActionResponse;
+  }
+  if (!archiveReady) {
     return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
   }
-  const bundle = createArchiveBundle({
-    scope: 'artifact',
-    state: coop,
-    artifactIds: [message.payload.artifactId],
-  });
-  let receipt: Awaited<ReturnType<typeof createArchiveReceiptForBundle>>;
+  const { coop, appliedRecoveries } = archiveReady;
+  const artifact = coop.artifacts.find((item) => item.id === message.payload.artifactId);
+  if (!artifact) {
+    return { ok: false, error: 'Artifact not found.' } satisfies RuntimeActionResponse;
+  }
+  const recoveredArtifactArchive = appliedRecoveries.find((recovery) =>
+    recovery.artifactIds.includes(message.payload.artifactId),
+  );
+  if (recoveredArtifactArchive) {
+    await notifyExtensionEvent({
+      eventKind: 'archive-artifact',
+      entityId: message.payload.artifactId,
+      state: recoveredArtifactArchive.receipt.id,
+      title: 'Artifact archive recovered',
+      message: `${artifact.title} archive receipt was recovered from a pending local record.`,
+    });
+    await refreshBadge();
+    return {
+      ok: true,
+      data: recoveredArtifactArchive.receipt,
+    } satisfies RuntimeActionResponse;
+  }
+  let archiveResult: Awaited<ReturnType<typeof createArchiveReceiptForBundle>>;
   try {
-    receipt = await createArchiveReceiptForBundle({
+    const bundle = await createArchiveBundleForCoop({
+      coop,
+      scope: 'artifact',
+      artifactIds: [message.payload.artifactId],
+    });
+    archiveResult = await createArchiveReceiptForBundle({
       coop,
       bundle,
       artifactIds: [message.payload.artifactId],
@@ -192,8 +391,53 @@ export async function handleArchiveArtifact(
       error: detail,
     } satisfies RuntimeActionResponse;
   }
-  const nextState = recordArchiveReceipt(coop, receipt, [message.payload.artifactId]);
-  await saveState(nextState);
+  let nextState: CoopSharedState;
+  try {
+    const persisted = await persistArchiveReceiptLocally({
+      coop,
+      receipt: archiveResult.receipt,
+      artifactIds: [message.payload.artifactId],
+      blobUploads: archiveResult.blobUploads,
+    });
+    nextState = persisted.nextState;
+  } catch (error) {
+    const detail =
+      error instanceof Error
+        ? error.message
+        : 'Archive upload completed remotely, but local receipt persistence failed.';
+
+    await setRuntimeHealth({
+      syncError: true,
+      lastSyncError: detail,
+    });
+    if (configuredArchiveMode === 'live') {
+      const authSession = await getAuthSession(db);
+      const member = resolveReceiverPairingMember(coop, authSession);
+      await logPrivilegedAction({
+        actionType: 'archive-upload',
+        status: 'failed',
+        detail,
+        coop,
+        memberId: member?.id,
+        memberDisplayName: member?.displayName,
+        authSession,
+        artifactId: message.payload.artifactId,
+        receiptId: archiveResult.receipt.id,
+        archiveScope: archiveResult.receipt.scope,
+      });
+    }
+    await notifyExtensionEvent({
+      eventKind: 'archive-artifact',
+      entityId: message.payload.artifactId,
+      state: 'recovery-pending',
+      title: 'Artifact archive needs recovery',
+      message: detail,
+    });
+    return {
+      ok: false,
+      error: detail,
+    } satisfies RuntimeActionResponse;
+  }
   await setRuntimeHealth({
     syncError: false,
     lastSyncError: undefined,
@@ -210,21 +454,21 @@ export async function handleArchiveArtifact(
       memberDisplayName: member?.displayName,
       authSession,
       artifactId: message.payload.artifactId,
-      receiptId: receipt.id,
-      archiveScope: receipt.scope,
+      receiptId: archiveResult.receipt.id,
+      archiveScope: archiveResult.receipt.scope,
     });
   }
   await notifyExtensionEvent({
     eventKind: 'archive-artifact',
     entityId: message.payload.artifactId,
-    state: receipt.id,
+    state: archiveResult.receipt.id,
     title: 'Artifact archived',
-    message: `${coop.artifacts.find((a) => a.id === message.payload.artifactId)?.title ?? 'Artifact'} was archived and stored locally.`,
+    message: `${artifact.title} was archived and stored locally.`,
   });
   await refreshBadge();
   return {
     ok: true,
-    data: receipt,
+    data: archiveResult.receipt,
   } satisfies RuntimeActionResponse;
 }
 
@@ -260,18 +504,43 @@ export async function handleSetArtifactArchiveWorthiness(
 export async function handleArchiveSnapshot(
   message: Extract<RuntimeRequest, { type: 'archive-snapshot' }>,
 ) {
-  const coops = await getCoops();
-  const coop = coops.find((item) => item.profile.id === message.payload.coopId);
-  if (!coop) {
+  let archiveReady: Awaited<ReturnType<typeof loadArchiveReadyCoop>>;
+  try {
+    archiveReady = await loadArchiveReadyCoop(message.payload.coopId);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Archive recovery reconciliation failed.',
+    } satisfies RuntimeActionResponse;
+  }
+  if (!archiveReady) {
     return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
   }
-  const bundle = createArchiveBundle({
-    scope: 'snapshot',
-    state: coop,
-  });
-  let receipt: Awaited<ReturnType<typeof createArchiveReceiptForBundle>>;
+  const { coop, appliedRecoveries } = archiveReady;
+  const recoveredSnapshot = appliedRecoveries.find(
+    (recovery) => recovery.receipt.scope === 'snapshot',
+  );
+  if (recoveredSnapshot) {
+    await notifyExtensionEvent({
+      eventKind: 'archive-snapshot',
+      entityId: message.payload.coopId,
+      state: recoveredSnapshot.receipt.id,
+      title: 'Snapshot archive recovered',
+      message: `${coop.profile.name} snapshot receipt was recovered from a pending local record.`,
+    });
+    await refreshBadge();
+    return {
+      ok: true,
+      data: recoveredSnapshot.receipt,
+    } satisfies RuntimeActionResponse;
+  }
+  let archiveResult: Awaited<ReturnType<typeof createArchiveReceiptForBundle>>;
   try {
-    receipt = await createArchiveReceiptForBundle({
+    const bundle = await createArchiveBundleForCoop({
+      coop,
+      scope: 'snapshot',
+    });
+    archiveResult = await createArchiveReceiptForBundle({
       coop,
       bundle,
     });
@@ -289,8 +558,51 @@ export async function handleArchiveSnapshot(
       error: detail,
     } satisfies RuntimeActionResponse;
   }
-  const nextState = recordArchiveReceipt(coop, receipt);
-  await saveState(nextState);
+  let nextState: CoopSharedState;
+  try {
+    const persisted = await persistArchiveReceiptLocally({
+      coop,
+      receipt: archiveResult.receipt,
+      blobUploads: archiveResult.blobUploads,
+    });
+    nextState = persisted.nextState;
+  } catch (error) {
+    const detail =
+      error instanceof Error
+        ? error.message
+        : 'Archive upload completed remotely, but local receipt persistence failed.';
+
+    await setRuntimeHealth({
+      syncError: true,
+      lastSyncError: detail,
+    });
+    if (configuredArchiveMode === 'live') {
+      const authSession = await getAuthSession(db);
+      const member = resolveReceiverPairingMember(coop, authSession);
+      await logPrivilegedAction({
+        actionType: 'archive-upload',
+        status: 'failed',
+        detail,
+        coop,
+        memberId: member?.id,
+        memberDisplayName: member?.displayName,
+        authSession,
+        receiptId: archiveResult.receipt.id,
+        archiveScope: archiveResult.receipt.scope,
+      });
+    }
+    await notifyExtensionEvent({
+      eventKind: 'archive-snapshot',
+      entityId: message.payload.coopId,
+      state: 'recovery-pending',
+      title: 'Snapshot archive needs recovery',
+      message: detail,
+    });
+    return {
+      ok: false,
+      error: detail,
+    } satisfies RuntimeActionResponse;
+  }
   await setRuntimeHealth({
     syncError: false,
     lastSyncError: undefined,
@@ -306,32 +618,40 @@ export async function handleArchiveSnapshot(
       memberId: member?.id,
       memberDisplayName: member?.displayName,
       authSession,
-      receiptId: receipt.id,
-      archiveScope: receipt.scope,
+      receiptId: archiveResult.receipt.id,
+      archiveScope: archiveResult.receipt.scope,
     });
   }
   await notifyExtensionEvent({
     eventKind: 'archive-snapshot',
     entityId: message.payload.coopId,
-    state: receipt.id,
+    state: archiveResult.receipt.id,
     title: 'Snapshot archived',
     message: `${coop.profile.name} snapshot archived and receipt stored.`,
   });
   await refreshBadge();
   return {
     ok: true,
-    data: receipt,
+    data: archiveResult.receipt,
   } satisfies RuntimeActionResponse;
 }
 
 export async function handleRefreshArchiveStatus(
   message: Extract<RuntimeRequest, { type: 'refresh-archive-status' }>,
 ) {
-  const coops = await getCoops();
-  const coop = coops.find((item) => item.profile.id === message.payload.coopId);
-  if (!coop) {
+  let archiveReady: Awaited<ReturnType<typeof loadArchiveReadyCoop>>;
+  try {
+    archiveReady = await loadArchiveReadyCoop(message.payload.coopId);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Archive recovery reconciliation failed.',
+    } satisfies RuntimeActionResponse;
+  }
+  if (!archiveReady) {
     return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
   }
+  const { coop } = archiveReady;
 
   if (configuredArchiveMode !== 'live') {
     return {
@@ -342,10 +662,15 @@ export async function handleRefreshArchiveStatus(
 
   const authSession = await getAuthSession(db);
   const member = resolveReceiverPairingMember(coop, authSession);
+  const archiveConfig = await resolveArchiveConfigForCoop(coop.profile.id, coop);
+  const requireOnChainSealWitness = Boolean(archiveConfig?.filecoinWitnessRpcUrl);
   const candidates = coop.archiveReceipts.filter((receipt) =>
     message.payload.receiptId
-      ? receipt.id === message.payload.receiptId && isArchiveReceiptRefreshable(receipt)
-      : isArchiveReceiptRefreshable(receipt),
+      ? receipt.id === message.payload.receiptId &&
+        (isArchiveReceiptRefreshable(receipt) ||
+          (requireOnChainSealWitness && doesArchiveReceiptNeedOnChainSealWitness(receipt)))
+      : isArchiveReceiptRefreshable(receipt) ||
+        (requireOnChainSealWitness && doesArchiveReceiptNeedOnChainSealWitness(receipt)),
   );
 
   if (candidates.length === 0) {
@@ -420,8 +745,6 @@ export async function handleRefreshArchiveStatus(
   let updatedCount = 0;
   let failedCount = 0;
 
-  const archiveConfig = await resolveArchiveConfigForCoop(coop.profile.id, coop);
-
   for (const receipt of candidates) {
     try {
       if (!archiveConfig) {
@@ -450,10 +773,46 @@ export async function handleRefreshArchiveStatus(
         delegation,
         client,
       });
-      const nextReceipt = applyArchiveReceiptFollowUp({
+      let nextReceipt = applyArchiveReceiptFollowUp({
         receipt,
         filecoinInfo,
       });
+      if (
+        archiveConfig.filecoinWitnessRpcUrl &&
+        nextReceipt.filecoinStatus === 'sealed' &&
+        nextReceipt.filecoinInfo
+      ) {
+        const witnessRpcUrl = archiveConfig.filecoinWitnessRpcUrl;
+        const pieceCid = nextReceipt.filecoinInfo.pieceCid ?? nextReceipt.pieceCids[0];
+        if (!pieceCid) {
+          throw new Error(
+            'Sealed archive receipt has no piece CID for on-chain witness verification.',
+          );
+        }
+
+        const witnesses = await Promise.all(
+          nextReceipt.filecoinInfo.deals.flatMap((deal) =>
+            deal.dealId
+              ? [
+                  requestArchiveOnChainSealWitness({
+                    pieceCid,
+                    dealId: deal.dealId,
+                    provider: deal.provider,
+                    rpcUrl: witnessRpcUrl,
+                    rpcToken: archiveConfig.filecoinWitnessRpcToken,
+                  }).then((witness) => ({
+                    aggregate: deal.aggregate,
+                    dealId: deal.dealId as string,
+                    proof: witness.proof,
+                    proofCid: witness.proofCid,
+                  })),
+                ]
+              : [],
+          ),
+        );
+
+        nextReceipt = applyArchiveOnChainSealWitnesses(nextReceipt, witnesses);
+      }
       if (JSON.stringify(nextReceipt) !== JSON.stringify(receipt)) {
         updatedCount += 1;
       }
@@ -514,11 +873,19 @@ export async function handleRefreshArchiveStatus(
 export async function handleRetrieveArchiveBundle(
   message: Extract<RuntimeRequest, { type: 'retrieve-archive-bundle' }>,
 ): Promise<RuntimeActionResponse> {
-  const coops = await getCoops();
-  const coop = coops.find((item) => item.profile.id === message.payload.coopId);
-  if (!coop) {
+  let archiveReady: Awaited<ReturnType<typeof loadArchiveReadyCoop>>;
+  try {
+    archiveReady = await loadArchiveReadyCoop(message.payload.coopId);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Archive recovery reconciliation failed.',
+    } satisfies RuntimeActionResponse;
+  }
+  if (!archiveReady) {
     return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
   }
+  const { coop } = archiveReady;
 
   const receipt = coop.archiveReceipts.find((r) => r.id === message.payload.receiptId);
   if (!receipt) {
@@ -526,7 +893,8 @@ export async function handleRetrieveArchiveBundle(
   }
 
   try {
-    const result = await retrieveArchiveBundle(receipt);
+    const archiveConfig = await resolveArchiveConfigForCoop(coop.profile.id, coop);
+    const result = await retrieveArchiveBundle(receipt, archiveConfig ?? undefined);
     return { ok: true, data: result } satisfies RuntimeActionResponse;
   } catch (error) {
     return {
@@ -545,8 +913,13 @@ export async function pollUnsealedArchiveReceipts() {
 
   for (const coop of coops) {
     if (polled >= maxPerCycle) break;
-
-    const refreshable = coop.archiveReceipts.filter(isArchiveReceiptRefreshable);
+    const archiveConfig = await resolveArchiveConfigForCoop(coop.profile.id, coop);
+    const requireOnChainSealWitness = Boolean(archiveConfig?.filecoinWitnessRpcUrl);
+    const refreshable = coop.archiveReceipts.filter(
+      (receipt) =>
+        isArchiveReceiptRefreshable(receipt) ||
+        (requireOnChainSealWitness && doesArchiveReceiptNeedOnChainSealWitness(receipt)),
+    );
     if (refreshable.length === 0) continue;
 
     const batch = refreshable.slice(0, maxPerCycle - polled);
@@ -624,7 +997,11 @@ export async function handleSetCoopArchiveConfig(
     archiveConfig: validatedConfig,
   } satisfies CoopSharedState;
   await saveState(nextState);
-  await setCoopArchiveSecrets(db, payload.coopId, payload.secrets);
+  await setCoopArchiveSecrets(db, payload.coopId, {
+    ...payload.secrets,
+    coopId: payload.coopId,
+    proofs: payload.secrets.proofs ?? [],
+  });
   return { ok: true } satisfies RuntimeActionResponse;
 }
 
@@ -661,11 +1038,19 @@ export async function handleAnchorArchiveCid(
     } satisfies RuntimeActionResponse;
   }
 
-  const coops = await getCoops();
-  const coop = coops.find((item) => item.profile.id === input.coopId);
-  if (!coop) {
+  let archiveReady: Awaited<ReturnType<typeof loadArchiveReadyCoop>>;
+  try {
+    archiveReady = await loadArchiveReadyCoop(input.coopId);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Archive recovery reconciliation failed.',
+    } satisfies RuntimeActionResponse;
+  }
+  if (!archiveReady) {
     return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
   }
+  const { coop } = archiveReady;
 
   const receipt = coop.archiveReceipts.find((r) => r.id === input.receiptId);
   if (!receipt) {
@@ -854,11 +1239,19 @@ export async function handleExportArtifact(
 export async function handleFvmRegistration(
   input: Extract<RuntimeRequest, { type: 'fvm-register-archive' }>['payload'],
 ): Promise<RuntimeActionResponse> {
-  const coops = await getCoops();
-  const coop = coops.find((item) => item.profile.id === input.coopId);
-  if (!coop) {
+  let archiveReady: Awaited<ReturnType<typeof loadArchiveReadyCoop>>;
+  try {
+    archiveReady = await loadArchiveReadyCoop(input.coopId);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Archive recovery reconciliation failed.',
+    } satisfies RuntimeActionResponse;
+  }
+  if (!archiveReady) {
     return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
   }
+  const { coop } = archiveReady;
 
   const receipt = coop.archiveReceipts.find((r) => r.id === input.receiptId);
   if (!receipt) {

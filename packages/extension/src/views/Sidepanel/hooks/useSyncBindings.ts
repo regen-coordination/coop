@@ -1,9 +1,12 @@
 import {
+  type BlobRelayTransport,
   type CoopSharedState,
   buildIceServers,
   connectSyncProviders,
+  createBlobRelayTransport,
   createCoopDoc,
   hashJson,
+  mergeCoopDocUpdates,
   readCoopState,
   summarizeSyncTransportHealth,
   writeCoopState,
@@ -17,6 +20,8 @@ type SyncBinding = {
   lastHash: string;
   healthTimer?: number;
   timer?: number;
+  blobRelay?: BlobRelayTransport;
+  pendingUpdates: Uint8Array[];
 };
 
 export function useSyncBindings(deps: {
@@ -62,6 +67,7 @@ export function useSyncBindings(deps: {
         const binding: SyncBinding = {
           doc,
           lastHash: nextHash,
+          pendingUpdates: [],
           disconnect() {
             if (binding.timer) {
               window.clearTimeout(binding.timer);
@@ -76,7 +82,7 @@ export function useSyncBindings(deps: {
         };
 
         const reportSyncHealth = async () => {
-          const health = summarizeSyncTransportHealth(providers.webrtc);
+          const health = summarizeSyncTransportHealth(providers.webrtc, providers.websocket);
           await sendRuntimeMessage({
             type: 'report-sync-health',
             payload: {
@@ -95,12 +101,12 @@ export function useSyncBindings(deps: {
           }, delay);
         };
 
-        let disposeSyncHealth: (() => void) | undefined;
+        const onProviderSignal = () => scheduleSyncHealthReport();
+        const onProviderDisconnect = () => scheduleSyncHealthReport(1200);
+        const disposers: (() => void)[] = [];
 
         if (providers.webrtc) {
           const provider = providers.webrtc;
-          const onProviderSignal = () => scheduleSyncHealthReport();
-          const onProviderDisconnect = () => scheduleSyncHealthReport(1200);
 
           provider.on('status', onProviderSignal);
           provider.on('synced', onProviderSignal);
@@ -116,8 +122,7 @@ export function useSyncBindings(deps: {
             connection.on('disconnect', onProviderDisconnect);
           }
 
-          scheduleSyncHealthReport(2500);
-          disposeSyncHealth = () => {
+          disposers.push(() => {
             provider.off('status', onProviderSignal);
             provider.off('synced', onProviderSignal);
             provider.off('peers', onProviderSignal);
@@ -125,25 +130,67 @@ export function useSyncBindings(deps: {
               connection.off('connect', onProviderSignal);
               connection.off('disconnect', onProviderDisconnect);
             }
+          });
+        }
+
+        if (providers.websocket) {
+          const wsProvider = providers.websocket;
+          wsProvider.on('status', onProviderSignal);
+          disposers.push(() => {
+            wsProvider.off('status', onProviderSignal);
+          });
+
+          // Create blob relay transport for WS fallback when WebRTC is unavailable.
+          // The relay is created once the WS connection is established.
+          const tryCreateRelay = () => {
+            const relay = createBlobRelayTransport(wsProvider);
+            if (relay) {
+              binding.blobRelay = relay;
+            }
           };
-        } else {
+          if (wsProvider.wsconnected) {
+            tryCreateRelay();
+          } else {
+            const onWsConnect = ({ status }: { status: string }) => {
+              if (status === 'connected') {
+                tryCreateRelay();
+                wsProvider.off('status', onWsConnect);
+              }
+            };
+            wsProvider.on('status', onWsConnect);
+            disposers.push(() => wsProvider.off('status', onWsConnect));
+          }
+        }
+
+        scheduleSyncHealthReport(2500);
+        const disposeSyncHealth = () => {
+          for (const dispose of disposers) dispose();
+        };
+
+        if (!providers.webrtc && !providers.websocket) {
           void reportSyncHealth();
         }
 
-        const onDocUpdate = () => {
+        const onDocUpdate = (update: Uint8Array) => {
+          binding.pendingUpdates.push(update);
           if (binding.timer) {
             window.clearTimeout(binding.timer);
           }
           binding.timer = window.setTimeout(async () => {
             const nextState = readCoopState(doc);
             const remoteHash = hashJson(nextState);
+            const docUpdate = mergeCoopDocUpdates(binding.pendingUpdates);
+            binding.pendingUpdates = [];
             if (remoteHash === binding.lastHash) {
               return;
             }
             binding.lastHash = remoteHash;
             const persist = await sendRuntimeMessage({
               type: 'persist-coop-state',
-              payload: { state: nextState },
+              payload: {
+                coopId: coop.profile.id,
+                docUpdate,
+              },
             });
             if (!persist.ok) {
               await sendRuntimeMessage({

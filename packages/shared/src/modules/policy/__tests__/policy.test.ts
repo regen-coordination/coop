@@ -4,13 +4,14 @@ import {
   createDefaultPolicies,
   createPolicy,
   findMatchingPolicy,
+  isDeprecatedPolicyActionClass,
   isPolicyExpired,
   updatePolicy,
   upsertPolicyForActionClass,
 } from '../policy';
 
 const FIXED_NOW = '2026-03-12T00:00:00.000Z';
-const ACTION_CLASS_COUNT = policyActionClassSchema.options.length;
+const ACTION_CLASS_COUNT = policyActionClassSchema.options.length - 1;
 
 describe('policy', () => {
   describe('createDefaultPolicies', () => {
@@ -24,6 +25,8 @@ describe('policy', () => {
       expect(classes).toContain('refresh-archive-status');
       expect(classes).toContain('publish-ready-draft');
       expect(classes).toContain('safe-deployment');
+      expect(classes).toContain('green-goods-mint-hypercert');
+      expect(classes).not.toContain('green-goods-submit-impact-report');
     });
 
     it('all default policies have approvalRequired=true', () => {
@@ -50,6 +53,13 @@ describe('policy', () => {
       expect(policy.expiresAt).toBeUndefined();
       expect(policy.coopId).toBeUndefined();
       expect(policy.memberId).toBeUndefined();
+    });
+  });
+
+  describe('isDeprecatedPolicyActionClass', () => {
+    it('marks the legacy direct impact-report action as deprecated', () => {
+      expect(isDeprecatedPolicyActionClass('green-goods-submit-impact-report')).toBe(true);
+      expect(isDeprecatedPolicyActionClass('green-goods-submit-work-submission')).toBe(false);
     });
   });
 

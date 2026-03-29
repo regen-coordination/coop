@@ -47,58 +47,67 @@ Use **TodoWrite** for visibility when available. If unavailable, keep a Markdown
 
 ### Phase 2: Plan Structure
 
-Use kebab-case: `[descriptive-name].todo.md` in `.plans/`
+For new feature work, use a feature pack under `.plans/features/<feature-slug>/`.
+
+```text
+.plans/features/<feature-slug>/
+  spec.md
+  context.md
+  lanes/
+    ui.claude.todo.md
+    state.codex.todo.md
+    api.codex.todo.md
+    contracts.codex.todo.md
+    docs.claude.todo.md
+    docs.codex.todo.md
+  qa/
+    qa-codex.todo.md
+    qa-claude.todo.md
+  eval/
+    implementation-notes.md
+    qa-report.md
+```
+
+Use:
+
+- `spec.md` for the canonical feature brief
+- `context.md` for relevant docs/codepaths/constraints
+- `lanes/*.todo.md` for agent-owned implementation work
+- `lanes/docs.*.todo.md` for recurring doc-drift maintenance when needed
+- `qa/*.todo.md` for sequential QA passes
+- `eval/*.md` for implementation notes and final QA results
+
+Legacy flat `.plans/*.todo.md` files are tolerated for old work, but new features should not use the flat layout.
+
+Each lane file should include frontmatter so automations can filter by agent, lane, status, and handoff branch.
 
 ```markdown
-# [Feature Name]
+---
+feature: receiver-shell-polish
+title: Receiver shell polish state lane
+lane: state
+agent: codex
+status: ready
+source_branch: feature/receiver-shell-polish
+work_branch: codex/state/receiver-shell-polish
+depends_on:
+  - ../spec.md
+skills:
+  - state-logic
+  - shared
+updated: 2026-03-26
+---
+```
 
-**GitHub Issue**: #[number]
-**Branch**: `feature/branch-name`
-**Status**: ACTIVE | BLOCKED | IMPLEMENTED | SUPERSEDED
-**Supersedes**: [link to old plan if applicable]
-**Created**: YYYY-MM-DD
-**Last Updated**: YYYY-MM-DD
+Sequential QA uses handoff branches:
 
-## Decision Log
+- `handoff/qa-codex/<feature-slug>` starts QA pass 1
+- `handoff/qa-claude/<feature-slug>` starts QA pass 2
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| 1 | Choice made | Why this over alternatives |
+Scaffold a new feature pack with:
 
-## Requirements Coverage
-
-| Requirement | Planned Step | Status |
-|-------------|--------------|--------|
-| User can X  | Step 3       |        |
-
-## CLAUDE.md Compliance
-- [ ] Modules in shared package
-- [ ] Barrel imports from @coop/shared
-- [ ] Single root .env only
-
-## Impact Analysis
-
-### Files to Modify
-- `path/to/file.ts` - Description
-
-### Files to Create
-- `path/to/new-file.ts`
-
-## Test Strategy
-- **Unit tests**: What gets tested, expected coverage delta
-- **Integration tests**: Cross-package or workflow tests needed
-- **E2E tests**: User-facing flows to verify
-
-## Implementation Steps
-
-### Step 1: [Action]
-**Files**: `path/to/file.ts`
-**Details**: Specific changes
-
-## Validation
-- [ ] TypeScript passes
-- [ ] Tests pass
-- [ ] Build succeeds
+```bash
+bun run plans scaffold <feature-slug> --title "<Feature Title>"
 ```
 
 ### Task Decomposition Rules
@@ -235,9 +244,9 @@ Plans with >15 locked decisions likely need splitting. Separate **vision/archite
 
 | Document Type | Decision Count | Location |
 |---------------|---------------|----------|
-| Architecture spec | Unlimited | `docs/specs/` or issue |
-| Implementation plan | 5-15 decisions | `.plans/` |
-| Task checklist | 0 decisions | `.plans/*.todo.md` |
+| Architecture spec | Unlimited | `docs/reference/` or issue |
+| Feature brief | 5-15 decisions | `.plans/features/<feature-slug>/spec.md` |
+| Lane checklist | 0 decisions | `.plans/features/<feature-slug>/lanes/*.todo.md` |
 
 ### Decision Log Best Practice
 
@@ -299,7 +308,7 @@ This gives Claude and future contributors unambiguous constraints without readin
 - **Plan proliferation** — Never have 2+ active plans for the same feature. When a new plan supersedes an old one, delete the old one immediately
 - **Missing test strategy** — Every feature plan needs a "Test Strategy" section
 - **Write-only plans** — Plans that are never updated after creation become misleading. Update status or add divergence notes as work progresses
-- **Mixed content in `.plans/`** — Meeting notes, audit snapshots, and team prompts are not plans. Keep `.plans/` for actionable implementation specs only
+- **Mixed content in `.plans/`** — Meeting notes, audit snapshots, and team prompts are not plans. Keep `.plans/` for actionable specs, lane plans, QA, and evaluation files only
 
 ## Validation Commands
 

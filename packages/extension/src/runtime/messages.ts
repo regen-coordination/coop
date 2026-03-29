@@ -9,6 +9,8 @@ import type {
   Artifact,
   AuthSession,
   CaptureMode,
+  CaptureRunRecord,
+  CoopKnowledgeSkillOverride,
   CoopSharedState,
   CoopSpaceType,
   DelegatedActionClass,
@@ -16,8 +18,10 @@ import type {
   ExtensionIconState,
   GreenGoodsAssessmentRequest,
   GreenGoodsWorkApprovalRequest,
+  GreenGoodsWorkSubmissionOutput,
   IntegrationMode,
   InviteType,
+  KnowledgeSkill,
   LocalInferenceCapability,
   LocalPasskeyIdentity,
   Member,
@@ -41,6 +45,7 @@ import type {
   SoundEvent,
   SoundPreferences,
   TabCandidate,
+  TabRouting,
   UiPreferences,
 } from '@coop/shared';
 
@@ -48,21 +53,104 @@ export interface RuntimeSummary {
   iconState: ExtensionIconState;
   iconLabel: string;
   pendingDrafts: number;
+  routedTabs: number;
+  insightDrafts: number;
+  pendingActions: number;
+  staleObservationCount: number;
+  pendingAttentionCount: number;
   coopCount: number;
   syncState: string;
+  syncLabel: string;
+  syncDetail: string;
+  syncTone: 'ok' | 'warning' | 'error';
   lastCaptureAt?: string;
   captureMode: CaptureMode;
+  agentCadenceMinutes: UiPreferences['agentCadenceMinutes'];
   localEnhancement: string;
   localInferenceOptIn: boolean;
   activeCoopId?: string;
+  pendingOutboxCount: number;
+}
+
+export interface PopupSidepanelState {
+  open: boolean;
+  canClose: boolean;
+}
+
+export const POPUP_SNAPSHOT_KEY = 'coop:popup-snapshot';
+
+export interface PopupSnapshot {
+  hasCoops: boolean;
+  coopCount: number;
+  coopOptions: Array<{ id: string; name: string }>;
+  activeCoopId?: string;
+  syncLabel: string;
+  syncTone: 'ok' | 'warning' | 'error';
+  syncDetail: string;
+  draftCount: number;
+  routedSignalCount: number;
+  staleObservationCount: number;
+  artifactCount: number;
+  lastCaptureAt?: string;
+  recentDraftTitles: string[];
+  cachedAt: string;
 }
 
 export interface CoopBadgeSummary {
   coopId: string;
   coopName: string;
   pendingDrafts: number;
+  routedTabs: number;
+  insightDrafts: number;
   artifactCount: number;
   pendingActions: number;
+  pendingAttentionCount: number;
+}
+
+export type SidepanelIntentTab = 'roost' | 'chickens' | 'coops' | 'nest';
+export type SidepanelIntentSegment = 'signals' | 'drafts' | 'stale' | 'summary' | 'agent';
+
+export interface SidepanelIntent {
+  tab: SidepanelIntentTab;
+  segment?: SidepanelIntentSegment;
+  coopId?: string;
+  draftId?: string;
+  signalId?: string;
+  observationId?: string;
+  emittedAt?: string;
+}
+
+export interface ProactiveSignalSupport {
+  id: string;
+  kind: 'memory' | 'draft' | 'artifact';
+  title: string;
+  detail: string;
+}
+
+export interface ProactiveSignalTarget {
+  coopId: string;
+  coopName: string;
+  relevanceScore: number;
+  rationale: string;
+  suggestedNextStep: string;
+  matchedRitualLenses: string[];
+}
+
+export interface ProactiveSignal {
+  id: string;
+  sourceCandidateId: string;
+  extractId: string;
+  title: string;
+  url: string;
+  domain: string;
+  category: TabRouting['category'];
+  tags: string[];
+  archiveWorthinessHint: boolean;
+  draftId?: string;
+  topRelevanceScore: number;
+  targetCoops: ProactiveSignalTarget[];
+  support: ProactiveSignalSupport[];
+  updatedAt: string;
 }
 
 export interface DashboardResponse {
@@ -71,6 +159,8 @@ export interface DashboardResponse {
   coopBadges: CoopBadgeSummary[];
   drafts: ReviewDraft[];
   candidates: TabCandidate[];
+  tabRoutings: TabRouting[];
+  proactiveSignals: ProactiveSignal[];
   summary: RuntimeSummary;
   soundPreferences: SoundPreferences;
   uiPreferences: UiPreferences;
@@ -106,6 +196,7 @@ export interface DashboardResponse {
     sessionCapabilities: SessionCapability[];
     sessionCapabilityLog: SessionCapabilityLogEntry[];
   };
+  recentCaptureRuns: CaptureRunRecord[];
 }
 
 export interface ReceiverSyncConfigResponse {
@@ -129,6 +220,17 @@ export interface ReceiverSyncRuntimeStatus {
   activeBindingKeys: string[];
 }
 
+export interface PopupPreparedCapture {
+  kind: 'audio' | 'photo' | 'file';
+  dataBase64: string;
+  mimeType: string;
+  fileName?: string;
+  title: string;
+  note: string;
+  sourceUrl?: string;
+  durationSeconds?: number;
+}
+
 export interface AgentDashboardResponse {
   observations: AgentObservation[];
   plans: AgentPlan[];
@@ -138,15 +240,57 @@ export interface AgentDashboardResponse {
   memories: AgentMemory[];
 }
 
+export interface AgentDashboardKnowledgeSkill {
+  skill: KnowledgeSkill;
+  override?: CoopKnowledgeSkillOverride;
+  effectiveEnabled: boolean;
+  effectiveTriggerPatterns: string[];
+  freshness: 'fresh' | 'stale' | 'never-fetched';
+}
+
 export type RuntimeRequest =
   | { type: 'get-auth-session' }
   | { type: 'set-auth-session'; payload: AuthSession | null }
   | { type: 'get-dashboard' }
+  | { type: 'get-sidepanel-state'; payload: { windowId: number } }
+  | { type: 'toggle-sidepanel'; payload: { windowId: number } }
+  | { type: 'set-sidepanel-intent'; payload: SidepanelIntent }
+  | { type: 'consume-sidepanel-intent' }
   | { type: 'get-receiver-sync-config' }
   | { type: 'get-receiver-sync-runtime' }
   | { type: 'manual-capture' }
   | { type: 'capture-active-tab' }
+  | { type: 'prepare-visible-screenshot' }
   | { type: 'capture-visible-screenshot' }
+  | {
+      type: 'capture-file';
+      payload: {
+        fileName: string;
+        mimeType: string;
+        dataBase64: string;
+        byteSize: number;
+      };
+    }
+  | {
+      type: 'create-note-draft';
+      payload: {
+        text: string;
+      };
+    }
+  | {
+      type: 'capture-audio';
+      payload: {
+        dataBase64: string;
+        mimeType: string;
+        durationSeconds: number;
+        fileName: string;
+      };
+    }
+  | {
+      type: 'save-popup-capture';
+      payload: PopupPreparedCapture;
+    }
+  | { type: 'clear-sensitive-local-data' }
   | { type: 'get-ui-preferences' }
   | { type: 'set-ui-preferences'; payload: UiPreferences }
   | {
@@ -196,6 +340,26 @@ export type RuntimeRequest =
       payload: { coopId: string; inviteType: InviteType; createdBy: string };
     }
   | {
+      type: 'revoke-invite';
+      payload: { coopId: string; inviteId: string; revokedBy: string };
+    }
+  | {
+      type: 'update-coop-profile';
+      payload: {
+        coopId: string;
+        name?: string;
+        purpose?: string;
+        captureMode?: CaptureMode;
+      };
+    }
+  | {
+      type: 'leave-coop';
+      payload: {
+        coopId: string;
+        memberId: string;
+      };
+    }
+  | {
       type: 'set-active-receiver-pairing';
       payload: { pairingId: string };
     }
@@ -206,6 +370,24 @@ export type RuntimeRequest =
         displayName: string;
         seedContribution: string;
         member?: Member;
+      };
+    }
+  | {
+      type: 'provision-member-onchain-account';
+      payload: {
+        coopId: string;
+        memberId: string;
+      };
+    }
+  | {
+      type: 'submit-green-goods-work-submission';
+      payload: {
+        coopId: string;
+        memberId: string;
+        submission: Pick<
+          GreenGoodsWorkSubmissionOutput,
+          'actionUid' | 'title' | 'feedback' | 'metadataCid' | 'mediaCids'
+        >;
       };
     }
   | {
@@ -260,7 +442,7 @@ export type RuntimeRequest =
   | { type: 'set-anchor-mode'; payload: { enabled: boolean } }
   | { type: 'set-capture-mode'; payload: { captureMode: CaptureMode } }
   | { type: 'set-active-coop'; payload: { coopId: string } }
-  | { type: 'persist-coop-state'; payload: { state: CoopSharedState } }
+  | { type: 'persist-coop-state'; payload: { coopId: string; docUpdate: Uint8Array } }
   | { type: 'report-sync-health'; payload: { syncError: boolean; note?: string } }
   | {
       type: 'resolve-onchain-state';
@@ -290,6 +472,12 @@ export type RuntimeRequest =
     }
   | {
       type: 'queue-green-goods-gap-admin-sync';
+      payload: {
+        coopId: string;
+      };
+    }
+  | {
+      type: 'queue-green-goods-member-sync';
       payload: {
         coopId: string;
       };
@@ -365,6 +553,8 @@ export type RuntimeRequest =
   | { type: 'export-agent-manifest'; payload: { coopId: string } }
   | { type: 'export-agent-log'; payload: { coopId: string; traceId?: string } }
   | { type: 'get-agent-identity'; payload: { coopId: string } }
+  | { type: 'get-agent-reputation'; payload: { coopId: string; agentId: number } }
+  | { type: 'get-agent-feedback-history'; payload: { coopId: string; agentId: number } }
   | { type: 'get-privacy-identity'; payload: { coopId: string; memberId: string } }
   | { type: 'get-stealth-meta-address'; payload: { coopId: string } }
   | { type: 'get-membership-commitments'; payload: { coopId: string } }
@@ -391,6 +581,8 @@ export type RuntimeRequest =
           agentPrivateKey?: string;
           spaceDelegation: string;
           proofs?: string[];
+          filecoinWitnessRpcUrl?: string;
+          filecoinWitnessRpcToken?: string;
         };
       };
     }
@@ -432,23 +624,95 @@ export async function sendRuntimeMessage<T = unknown>(message: RuntimeRequest) {
 }
 
 /**
- * Messages pushed from the background service worker to the sidepanel.
+ * Messages pushed from the background service worker to the popup/sidepanel.
  * These are fire-and-forget notifications, not request/response pairs.
+ *
+ * Agent event types are modeled on the AG-UI (Agent-User Interaction Protocol)
+ * event taxonomy, adapted for Chrome extension message passing.
+ * See: https://docs.ag-ui.com/concepts/events
  */
-export type BackgroundNotification = { type: 'DASHBOARD_UPDATED' };
 
-/**
- * Notify the sidepanel that dashboard-relevant state has changed.
- * Silently ignores the expected "Receiving end does not exist" error
- * (when no sidepanel listener is open) but warns on unexpected failures.
- */
+export interface AgentCycleStartedEvent {
+  type: 'AGENT_CYCLE_STARTED';
+  traceId: string;
+  reason: string;
+  pendingObservationCount: number;
+  emittedAt: string;
+}
+
+export interface AgentCycleFinishedEvent {
+  type: 'AGENT_CYCLE_FINISHED';
+  traceId: string;
+  processedCount: number;
+  draftCount: number;
+  errorCount: number;
+  durationMs: number;
+  emittedAt: string;
+}
+
+export interface AgentStateDeltaEvent {
+  type: 'AGENT_STATE_DELTA';
+  routedTabs: number;
+  insightDrafts: number;
+  reviewDigests: number;
+  pendingActions: number;
+  message: string;
+  focusIntent?: SidepanelIntent;
+  emittedAt: string;
+}
+
+export interface SidepanelIntentEvent {
+  type: 'SIDEPANEL_INTENT';
+  intent: SidepanelIntent;
+  emittedAt: string;
+}
+
+export interface AgentCycleErrorEvent {
+  type: 'AGENT_CYCLE_ERROR';
+  traceId: string;
+  error: string;
+  emittedAt: string;
+}
+
+export type AgentEvent =
+  | AgentCycleStartedEvent
+  | AgentCycleFinishedEvent
+  | AgentStateDeltaEvent
+  | AgentCycleErrorEvent;
+
+export type BackgroundNotification =
+  | { type: 'DASHBOARD_UPDATED' }
+  | SidepanelIntentEvent
+  | AgentEvent;
+
+/** Fire-and-forget push to any open popup or sidepanel. Suppresses "Receiving end does not exist". */
+function sendBackgroundNotification(msg: BackgroundNotification, label: string): Promise<void> {
+  return chrome.runtime.sendMessage(msg).catch((err: unknown) => {
+    const detail = err instanceof Error ? err.message : String(err);
+    if (!detail.includes('Receiving end does not exist')) {
+      console.warn(`[${label}] unexpected error:`, err);
+    }
+  });
+}
+
+/** Notify the popup/sidepanel that dashboard-relevant state has changed. */
 export function notifyDashboardUpdated(): Promise<void> {
-  return chrome.runtime
-    .sendMessage({ type: 'DASHBOARD_UPDATED' } satisfies BackgroundNotification)
-    .catch((err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err);
-      if (!message.includes('Receiving end does not exist')) {
-        console.warn('[notifyDashboardUpdated] unexpected error:', err);
-      }
-    });
+  return sendBackgroundNotification({ type: 'DASHBOARD_UPDATED' }, 'notifyDashboardUpdated');
+}
+
+/** Push an agent lifecycle event to any open popup or sidepanel. */
+export function notifyAgentEvent(event: AgentEvent): Promise<void> {
+  return sendBackgroundNotification(event, 'notifyAgentEvent');
+}
+
+/** Push a sidepanel navigation intent to any open sidepanel instance. */
+export function notifySidepanelIntent(intent: SidepanelIntent): Promise<void> {
+  return sendBackgroundNotification(
+    {
+      type: 'SIDEPANEL_INTENT',
+      intent,
+      emittedAt: new Date().toISOString(),
+    },
+    'notifySidepanelIntent',
+  );
 }

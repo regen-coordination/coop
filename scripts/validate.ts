@@ -25,6 +25,11 @@ interface CompositeSuite {
 type Suite = LeafSuite | CompositeSuite;
 
 const suites: Record<string, Suite> = {
+  typecheck: {
+    description:
+      'Fast tsc --noEmit across all packages (~5-10s). Catches type errors without building.',
+    steps: [{ label: 'typecheck', command: ['bun', 'run', 'typecheck'] }],
+  },
   lint: {
     description: 'Biome static checks across the workspace.',
     steps: [{ label: 'lint', command: ['bun', 'run', 'lint'] }],
@@ -49,8 +54,14 @@ const suites: Record<string, Suite> = {
     description: 'Mobile landing-page Playwright checks.',
     steps: [{ label: 'e2e:app:mobile', command: ['bun', 'run', 'test:e2e:app:mobile'] }],
   },
+  'e2e:popup': {
+    description:
+      'Focused popup browser smoke coverage for roundup, screenshot gating, file/audio review, and post-failure recovery.',
+    steps: [{ label: 'e2e:popup', command: ['bun', 'run', 'test:e2e:popup'] }],
+  },
   'e2e:extension': {
-    description: 'Two-profile extension core-loop Playwright flow in mock onchain/archive mode.',
+    description:
+      'Extension browser workflows for member join, board/archive handoff, trusted-helper runs, and mock-path sidepanel onchain actions.',
     steps: [
       {
         label: 'e2e:extension',
@@ -87,6 +98,40 @@ const suites: Record<string, Suite> = {
       },
     ],
   },
+  'e2e:sync': {
+    description:
+      'Focused extension sync browser coverage for popup sync resilience and degraded-state recovery.',
+    steps: [{ label: 'e2e:sync', command: ['bun', 'run', 'test:e2e:sync'] }],
+  },
+  'unit:popup-actions': {
+    description:
+      'Popup action matrix coverage for popup flows, capture preflight, and popup-specific state transitions.',
+    steps: [{ label: 'unit:popup-actions', command: ['bun', 'run', 'test:unit:popup-actions'] }],
+  },
+  'unit:sidepanel-actions': {
+    description:
+      'Sidepanel action persistence coverage for refreshed dashboard state, shell wiring, and dashboard hook behavior.',
+    steps: [
+      { label: 'unit:sidepanel-actions', command: ['bun', 'run', 'test:unit:sidepanel-actions'] },
+    ],
+  },
+  'unit:archive-hardening': {
+    description:
+      'Archive persistence coverage for receipt recovery, blob upload reconciliation, and coop archive config UI state.',
+    steps: [
+      { label: 'unit:archive-hardening', command: ['bun', 'run', 'test:unit:archive-hardening'] },
+    ],
+  },
+  'unit:sync-hardening': {
+    description:
+      'Deterministic sync coverage for shared transport health, receiver replication, receiver invite persistence, popup sync semantics, and dashboard hook summaries.',
+    steps: [{ label: 'unit:sync-hardening', command: ['bun', 'run', 'test:unit:sync-hardening'] }],
+  },
+  'unit:onchain-ui': {
+    description:
+      'Mock-path onchain coverage for extension-side passkey helpers, operator console states, and sidepanel member-account/session actions.',
+    steps: [{ label: 'unit:onchain-ui', command: ['bun', 'run', 'test:unit:onchain-ui'] }],
+  },
   'unit:onchain-config': {
     description:
       'Targeted Vitest coverage for onchain schema normalization, chain config resolution, and Pimlico/Safe helpers.',
@@ -112,9 +157,28 @@ const suites: Record<string, Suite> = {
       'Archive probe that issues local trusted-node delegation material from repo-root env or an in-process fallback.',
     steps: [{ label: 'probe:archive-live', command: ['bun', 'run', 'probe:archive-live'] }],
   },
+  quick: {
+    description: 'Fastest useful validation: typecheck + lint (~15s). No build or tests.',
+    includes: ['typecheck', 'lint'],
+  },
+  'popup-slice': {
+    description:
+      'Popup validation slice: popup action unit coverage plus popup browser smoke coverage.',
+    includes: ['unit:popup-actions', 'e2e:popup'],
+  },
   smoke: {
     description: 'Fast confidence pass for shared logic and package builds.',
     includes: ['unit', 'build'],
+  },
+  'sync-hardening': {
+    description:
+      'Sync hardening validation: targeted sync unit coverage plus browser sync rehearsal.',
+    includes: ['unit:sync-hardening', 'e2e:sync'],
+  },
+  'onchain-ui': {
+    description:
+      'Onchain UI validation: targeted mock-path onchain extension coverage without live RPC dependencies.',
+    includes: ['unit:onchain-ui'],
   },
   landing: {
     description: 'Landing-page validation on desktop and mobile.',
@@ -182,6 +246,11 @@ const suites: Record<string, Suite> = {
       'Targeted Vitest coverage for agent contracts, skill registry loading, provider fallback, and operator-console agent controls.',
     steps: [{ label: 'unit:agent-loop', command: ['bun', 'run', 'test:unit:agent-loop'] }],
   },
+  'unit:agent-eval': {
+    description:
+      'Skill eval fixture coverage and structural/semantic assertion pass across all registered skills.',
+    steps: [{ label: 'unit:agent-eval', command: ['bun', 'run', 'test:unit:agent-eval'] }],
+  },
   'local-inference': {
     description: 'Local inference validation: lint, targeted inference unit tests, build.',
     includes: ['lint', 'unit:local-inference', 'build'],
@@ -205,10 +274,32 @@ const suites: Record<string, Suite> = {
       },
     ],
   },
+  'unit:store-readiness': {
+    description:
+      'Targeted Vitest coverage for encrypted local storage, packaged ONNX runtime assets, and scheduled capture alarm dispatch.',
+    steps: [
+      { label: 'unit:store-readiness', command: ['bun', 'run', 'test:unit:store-readiness'] },
+    ],
+  },
+  'unit:extension-dist': {
+    description:
+      'Built-output MV3 service-worker safety validation that requires a fresh extension dist.',
+    steps: [{ label: 'unit:extension-dist', command: ['bun', 'run', 'test:unit:extension-dist'] }],
+  },
+  'audit:store-readiness': {
+    description:
+      'Post-build Chrome Web Store audit for manifest drift, remote executable URLs, bundle budgets, and required release docs.',
+    steps: [{ label: 'audit:store-readiness', command: ['bun', 'run', 'test:store-readiness'] }],
+  },
   'delegated-execution': {
     description:
       'Delegated execution validation: lint, targeted grant unit tests, policy tests, build.',
     includes: ['lint', 'unit:delegated-execution', 'unit:agent-policy', 'build'],
+  },
+  'store-readiness': {
+    description:
+      'Chrome Web Store readiness validation: build, targeted storage/runtime tests, built-output safety checks, and dist/document audits.',
+    includes: ['build', 'unit:store-readiness', 'unit:extension-dist', 'audit:store-readiness'],
   },
   'agent-loop': {
     description:
@@ -216,6 +307,7 @@ const suites: Record<string, Suite> = {
     includes: [
       'lint',
       'unit:agent-loop',
+      'unit:agent-eval',
       'unit:local-inference',
       'unit:agent-policy',
       'unit:delegated-execution',
@@ -225,10 +317,16 @@ const suites: Record<string, Suite> = {
   },
   'production-readiness': {
     description:
-      'Final pre-demo production slice: lint, build, targeted agent/onchain/session tests, extension and receiver E2E, plus mobile app coverage.',
+      'Expanded pre-release slice: lint, build, popup and sidepanel action coverage, archive and sync hardening, targeted agent/onchain/session tests, extension/receiver E2E, and mobile app coverage.',
     includes: [
       'lint',
       'build',
+      'store-readiness',
+      'popup-slice',
+      'unit:sidepanel-actions',
+      'unit:archive-hardening',
+      'sync-hardening',
+      'onchain-ui',
       'unit:agent-loop',
       'unit:onchain-config',
       'unit:session-key',
@@ -238,13 +336,20 @@ const suites: Record<string, Suite> = {
       'e2e:app:mobile',
     ],
   },
+  'production-live-readiness': {
+    description:
+      'Production-readiness plus opt-in live probes for shared-wallet, session-key, and archive rails.',
+    includes: ['production-readiness', 'arbitrum-safe-live', 'session-key-live', 'archive-live'],
+  },
   full: {
-    description: 'Full local validation pass used before demos or bigger merges.',
+    description:
+      'Full local validation pass used before demos or bigger merges, including popup browser coverage.',
     includes: [
       'lint',
       'unit',
       'build',
       'landing',
+      'popup-slice',
       'e2e:extension',
       'e2e:receiver-sync',
       'e2e:agent-loop',

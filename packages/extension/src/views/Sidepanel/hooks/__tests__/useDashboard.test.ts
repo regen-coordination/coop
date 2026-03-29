@@ -25,6 +25,8 @@ vi.mock('../../../../runtime/config', () => ({
   resolveConfiguredArchiveMode: () => 'mock',
   resolveConfiguredOnchainMode: () => 'mock',
   resolveConfiguredSessionMode: () => 'passkey',
+  resolveConfiguredProviderMode: () => 'auto',
+  resolveConfiguredPrivacyMode: () => 'off',
   resolveReceiverAppUrl: () => 'https://app.test',
   parseConfiguredSignalingUrls: () => [],
 }));
@@ -53,25 +55,42 @@ function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
       coops: [],
       drafts: [],
       candidates: [],
+      tabRoutings: [],
+      proactiveSignals: [],
       summary: {
-        iconState: 'idle',
+        iconState: 'setup',
         iconLabel: 'Coop',
         pendingDrafts: 0,
+        routedTabs: 0,
+        insightDrafts: 0,
+        pendingActions: 0,
+        staleObservationCount: 0,
+        pendingAttentionCount: 0,
         coopCount: 0,
         syncState: 'idle',
+        syncLabel: 'Idle',
+        syncDetail: 'Idle',
+        syncTone: 'ok',
+        agentCadenceMinutes: 64,
         captureMode: 'manual',
         localEnhancement: 'none',
-        localInferenceOptIn: false,
+        localInferenceOptIn: true,
+        pendingOutboxCount: 0,
       },
       soundPreferences: {
         enabled: true,
-        volume: 0.5,
-        roosterCallEnabled: true,
-        softCluckEnabled: true,
+        reducedMotion: false,
+        reducedSound: false,
       },
       uiPreferences: {
         notificationsEnabled: true,
-        localInferenceOptIn: false,
+        localInferenceOptIn: true,
+        preferredExportMethod: 'download',
+        heartbeatEnabled: true,
+        agentCadenceMinutes: 64,
+        excludedCategories: [],
+        customExcludedDomains: [],
+        captureOnClose: false,
       },
       authSession: null,
       identities: [],
@@ -82,6 +101,8 @@ function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
         onchainMode: 'mock',
         archiveMode: 'mock',
         sessionMode: 'passkey',
+        providerMode: 'auto',
+        privacyMode: 'off',
         receiverAppUrl: 'https://app.test',
         signalingUrls: [],
       },
@@ -103,6 +124,7 @@ function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
         sessionCapabilities: [],
         sessionCapabilityLog: [],
       },
+      recentCaptureRuns: [],
       ...overrides,
     },
   };
@@ -117,6 +139,7 @@ function makeAgentDashboardResponse() {
       skillRuns: [],
       manifests: [],
       autoRunSkillIds: [],
+      memories: [],
     },
   };
 }
@@ -155,6 +178,44 @@ describe('useDashboard', () => {
 
     expect(sendMessageMock).toHaveBeenCalledWith({ type: 'get-dashboard' });
     expect(sendMessageMock).toHaveBeenCalledWith({ type: 'get-agent-dashboard' });
+  });
+
+  it('keeps sync summary labels and tones from the dashboard payload', async () => {
+    sendMessageMock.mockImplementation((msg: { type: string }) => {
+      switch (msg.type) {
+        case 'get-dashboard':
+          return Promise.resolve(
+            makeDashboardResponse({
+              summary: {
+                ...makeDashboardResponse().data.summary,
+                syncState:
+                  'No signaling server connection. Shared sync is currently limited to this browser profile.',
+                syncLabel: 'Local',
+                syncDetail:
+                  'No signaling server connection. Shared sync is currently limited to this browser profile.',
+                syncTone: 'warning',
+              },
+            }),
+          );
+        case 'get-agent-dashboard':
+          return Promise.resolve(makeAgentDashboardResponse());
+        case 'get-action-policies':
+          return Promise.resolve(makePoliciesResponse());
+        default:
+          return Promise.resolve({ ok: false, error: 'Unknown' });
+      }
+    });
+
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => {
+      expect(result.current.dashboard?.summary.syncLabel).toBe('Local');
+    });
+
+    expect(result.current.dashboard?.summary.syncTone).toBe('warning');
+    expect(result.current.dashboard?.summary.syncDetail).toContain(
+      'Shared sync is currently limited to this browser profile.',
+    );
   });
 
   it('registers a chrome.runtime.onMessage listener on mount', async () => {
@@ -254,5 +315,28 @@ describe('useDashboard', () => {
     });
 
     expect(sendMessageMock).toHaveBeenCalledWith({ type: 'get-dashboard' });
+  });
+
+  it('captures dashboard load failures in message state', async () => {
+    sendMessageMock.mockImplementation((msg: { type: string }) => {
+      switch (msg.type) {
+        case 'get-dashboard':
+          return Promise.resolve({ ok: false, error: 'Dashboard unavailable.' });
+        case 'get-agent-dashboard':
+          return Promise.resolve(makeAgentDashboardResponse());
+        case 'get-action-policies':
+          return Promise.resolve(makePoliciesResponse());
+        default:
+          return Promise.resolve({ ok: false, error: 'Unknown' });
+      }
+    });
+
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => {
+      expect(result.current.message).toBe('Dashboard unavailable.');
+    });
+
+    expect(result.current.dashboard).toBeNull();
   });
 });

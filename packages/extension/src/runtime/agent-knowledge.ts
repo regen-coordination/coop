@@ -9,8 +9,24 @@ import {
   nowIso,
   saveKnowledgeSkill,
 } from '@coop/shared';
+import { parseSkillMarkdown } from './skill-markdown';
 
 const db = createCoopDb('coop-extension');
+
+export function normalizeKnowledgeSkillTriggerPatterns(triggerPatterns: string[]) {
+  return triggerPatterns
+    .map((pattern) => pattern.trim())
+    .filter(
+      (pattern, index, patterns) => pattern.length > 0 && patterns.indexOf(pattern) === index,
+    );
+}
+
+export function resolveKnowledgeSkillTriggerPatterns(
+  skill: KnowledgeSkill,
+  override?: CoopKnowledgeSkillOverride,
+) {
+  return override?.triggerPatterns ?? skill.triggerPatterns;
+}
 
 // ---------------------------------------------------------------------------
 // 1. Parse SKILL.md format (YAML frontmatter + markdown body)
@@ -20,47 +36,10 @@ export function parseSkillMd(raw: string): {
   frontmatter: { name: string; description: string };
   body: string;
 } {
-  const trimmed = raw.trim();
-
-  if (!trimmed.startsWith('---')) {
-    return {
-      frontmatter: { name: '', description: '' },
-      body: trimmed,
-    };
-  }
-
-  const closingIndex = trimmed.indexOf('---', 3);
-  if (closingIndex === -1) {
-    // Opening delimiter but no closing delimiter — treat entire content as body
-    return {
-      frontmatter: { name: '', description: '' },
-      body: trimmed,
-    };
-  }
-
-  const frontmatterBlock = trimmed.slice(3, closingIndex).trim();
-  const body = trimmed.slice(closingIndex + 3).trim();
-
-  let name = '';
-  let description = '';
-
-  for (const line of frontmatterBlock.split('\n')) {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex === -1) continue;
-
-    const key = line.slice(0, colonIndex).trim();
-    const value = line.slice(colonIndex + 1).trim();
-
-    if (key === 'name') {
-      name = value;
-    } else if (key === 'description') {
-      description = value;
-    }
-  }
-
+  const parsed = parseSkillMarkdown(raw);
   return {
-    frontmatter: { name, description },
-    body,
+    frontmatter: parsed.frontmatter,
+    body: parsed.body,
   };
 }
 
@@ -102,19 +81,29 @@ export async function fetchKnowledgeSkill(url: string): Promise<{
 
 export async function importKnowledgeSkill(url: string): Promise<KnowledgeSkill> {
   const { name, description, content } = await fetchKnowledgeSkill(url);
+  const existing = (await listKnowledgeSkills(db)).find((skill) => skill.url === url);
 
-  const skill: KnowledgeSkill = {
-    id: createId('knowledge-skill'),
-    url,
-    name: name || deriveNameFromUrl(url),
-    description,
-    domain: 'general',
-    content,
-    contentHash: hashJson(content),
-    fetchedAt: nowIso(),
-    enabled: true,
-    triggerPatterns: [],
-  };
+  const skill: KnowledgeSkill = existing
+    ? {
+        ...existing,
+        name: name || existing.name || deriveNameFromUrl(url),
+        description,
+        content,
+        contentHash: hashJson(content),
+        fetchedAt: nowIso(),
+      }
+    : {
+        id: createId('knowledge-skill'),
+        url,
+        name: name || deriveNameFromUrl(url),
+        description,
+        domain: 'general',
+        content,
+        contentHash: hashJson(content),
+        fetchedAt: nowIso(),
+        enabled: true,
+        triggerPatterns: [],
+      };
 
   await saveKnowledgeSkill(db, skill);
   return skill;
@@ -128,15 +117,13 @@ export async function refreshKnowledgeSkill(skillId: string): Promise<KnowledgeS
   const existing = await getKnowledgeSkill(db, skillId);
   if (!existing) return null;
 
-  const { content } = await fetchKnowledgeSkill(existing.url);
+  const { name, description, content } = await fetchKnowledgeSkill(existing.url);
   const newHash = hashJson(content);
-
-  if (newHash === existing.contentHash) {
-    return existing;
-  }
 
   const updated: KnowledgeSkill = {
     ...existing,
+    name: name || existing.name,
+    description,
     content,
     contentHash: newHash,
     fetchedAt: nowIso(),
@@ -194,19 +181,22 @@ export async function selectKnowledgeSkills(
     overrides = await listCoopKnowledgeSkillOverrides(store, coopId);
   }
 
-  const overrideMap = new Map(overrides.map((o) => [o.knowledgeSkillId, o.enabled]));
+  const overrideMap = new Map(overrides.map((override) => [override.knowledgeSkillId, override]));
 
   // Resolve effective enabled state and score each skill
   const searchText = `${observation.title} ${observation.summary}`.toLowerCase();
 
   const scored = allSkills
     .filter((skill) => {
-      // Override takes precedence over global default
-      const overrideEnabled = overrideMap.get(skill.id);
-      return overrideEnabled !== undefined ? overrideEnabled : skill.enabled;
+      const override = overrideMap.get(skill.id);
+      return override?.enabled ?? skill.enabled;
     })
     .map((skill) => {
-      const score = scoreSkillRelevance(skill, searchText);
+      const score = scoreSkillRelevance(
+        skill,
+        searchText,
+        resolveKnowledgeSkillTriggerPatterns(skill, overrideMap.get(skill.id)),
+      );
       return { skill, score };
     })
     .filter((entry) => entry.score > 0)
@@ -220,10 +210,14 @@ export async function selectKnowledgeSkills(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function scoreSkillRelevance(skill: KnowledgeSkill, searchText: string): number {
+function scoreSkillRelevance(
+  skill: KnowledgeSkill,
+  searchText: string,
+  triggerPatterns: string[],
+): number {
   let score = 0;
 
-  for (const pattern of skill.triggerPatterns) {
+  for (const pattern of triggerPatterns) {
     const lowerPattern = pattern.toLowerCase();
     if (searchText.includes(lowerPattern)) {
       score += 1;

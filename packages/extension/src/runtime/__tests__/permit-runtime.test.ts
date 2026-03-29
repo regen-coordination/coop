@@ -14,6 +14,7 @@ describe('permit runtime helpers', () => {
       credential: {
         id: 'credential-1',
         publicKey: `0x${'11'.repeat(32)}`,
+        rpId: 'coop.test',
       },
     });
 

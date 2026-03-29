@@ -1,6 +1,13 @@
+import * as DataSegment from '@web3-storage/data-segment';
 import { describe, expect, it } from 'vitest';
 import { archiveReceiptSchema } from '../../../contracts/schema';
 import { summarizeArchiveFilecoinInfo } from '../archive';
+import {
+  createArchiveDataAggregationProofArtifact,
+  parseArchiveDataAggregationProof,
+  parseArchiveInclusionProof,
+  verifyArchiveDataAggregationProofArtifact,
+} from '../verification';
 
 describe('inclusion proof storage', () => {
   const fixedTimestamp = '2026-03-14T00:00:00.000Z';
@@ -159,5 +166,126 @@ describe('inclusion proof storage', () => {
       JSON.stringify({ subtree: ['a', 'b'], index: 1 }),
     );
     expect(parsed.filecoinInfo?.aggregates[0].inclusionProofAvailable).toBe(true);
+  });
+
+  it('round-trips real inclusion proofs that contain BigInt offsets and Uint8Array nodes', () => {
+    const piece = DataSegment.Piece.fromPayload(new Uint8Array(65).fill(9));
+    const aggregate = DataSegment.Aggregate.build({ pieces: [piece] });
+    const proof = aggregate.resolveProof(piece.link);
+    if (proof.error) {
+      throw proof.error;
+    }
+
+    const result = summarizeArchiveFilecoinInfo(
+      {
+        piece: piece.link.toString(),
+        aggregates: [
+          {
+            aggregate: aggregate.link.toString(),
+            inclusion: {
+              subtree: proof.ok[0],
+              index: proof.ok[1],
+            },
+          },
+        ],
+        deals: [],
+      },
+      fixedTimestamp,
+    );
+
+    const serialized = result.aggregates[0]?.inclusionProof;
+    expect(serialized).toBeDefined();
+    const parsed = parseArchiveInclusionProof(serialized ?? '');
+    const resolved = DataSegment.Inclusion.resolveAggregate(parsed, piece.link);
+
+    expect(resolved.error).toBeUndefined();
+    expect(resolved.ok?.toString()).toBe(aggregate.link.toString());
+  });
+
+  it('stores and verifies canonical data aggregation proofs for sealed deals', () => {
+    const piece = DataSegment.Piece.fromPayload(new Uint8Array(65).fill(5));
+    const aggregate = DataSegment.Aggregate.build({ pieces: [piece] });
+    const proof = aggregate.resolveProof(piece.link);
+    if (proof.error) {
+      throw proof.error;
+    }
+
+    const result = summarizeArchiveFilecoinInfo(
+      {
+        piece: piece.link.toString(),
+        aggregates: [
+          {
+            aggregate: aggregate.link.toString(),
+            inclusion: {
+              subtree: proof.ok[0],
+              index: proof.ok[1],
+            },
+          },
+        ],
+        deals: [
+          {
+            aggregate: aggregate.link.toString(),
+            provider: 'f01234',
+            aux: { dataSource: { dealID: 44 } },
+          },
+        ],
+      },
+      fixedTimestamp,
+    );
+
+    const storedDeal = result.deals[0];
+    expect(storedDeal?.dataAggregationProof).toBeDefined();
+    expect(storedDeal?.dataAggregationProofCid).toBeDefined();
+
+    const verification = verifyArchiveDataAggregationProofArtifact({
+      aggregateCid: aggregate.link.toString(),
+      pieceCid: piece.link.toString(),
+      dealId: '44',
+      serializedProof: storedDeal?.dataAggregationProof ?? '',
+      proofCid: storedDeal?.dataAggregationProofCid,
+    });
+
+    expect(verification.ok).toBe(true);
+
+    const decoded = parseArchiveDataAggregationProof(storedDeal?.dataAggregationProof ?? '');
+    expect(DataSegment.DataAggregationProof.dealID(decoded)).toBe(44n);
+  });
+
+  it('creates canonical data aggregation proof artifacts from stored inclusion proofs', () => {
+    const piece = DataSegment.Piece.fromPayload(new Uint8Array(65).fill(3));
+    const aggregate = DataSegment.Aggregate.build({ pieces: [piece] });
+    const proof = aggregate.resolveProof(piece.link);
+    if (proof.error) {
+      throw proof.error;
+    }
+
+    const artifact = createArchiveDataAggregationProofArtifact({
+      serializedInclusionProof: JSON.stringify(
+        {
+          subtree: proof.ok[0],
+          index: proof.ok[1],
+        },
+        (_key, value) => {
+          if (typeof value === 'bigint') {
+            return value.toString();
+          }
+          if (value instanceof Uint8Array) {
+            return Array.from(value);
+          }
+          return value;
+        },
+      ),
+      dealId: 99,
+    });
+
+    const verification = verifyArchiveDataAggregationProofArtifact({
+      aggregateCid: aggregate.link.toString(),
+      pieceCid: piece.link.toString(),
+      dealId: 99,
+      serializedProof: artifact.proof,
+      proofCid: artifact.proofCid,
+    });
+
+    expect(verification.ok).toBe(true);
   });
 });

@@ -1,0 +1,22 @@
+{
+  "id": "work-approval",
+  "description": "Work approval should produce a valid approval decision with actionUid, workUid, and rationale.",
+  "output": {
+    "actionUid": 1,
+    "workUid": "0x000000000000000000000000000000000000000000000000000000000000002a",
+    "approved": true,
+    "feedback": "Work aligns with garden objectives and domain requirements.",
+    "confidence": 100,
+    "verificationMethod": 0,
+    "reviewNotesCid": "",
+    "rationale": "The submitted work meets the garden's agro domain criteria and the assessment requirements."
+  },
+  "assertions": [
+    { "type": "field-present", "path": "actionUid" },
+    { "type": "field-present", "path": "workUid" },
+    { "type": "field-equals", "path": "approved", "expected": true },
+    { "type": "field-present", "path": "rationale" },
+    { "type": "regex-match", "path": "workUid", "pattern": "^0x[a-fA-F0-9]{64}$" },
+    { "type": "semantic-word-count", "path": "rationale", "threshold": 6 }
+  ]
+}

@@ -1,6 +1,6 @@
 # Coop
 
-> No more chickens loose.
+![Coop No more Chickens running loose](https://media.discordapp.net/attachments/1334366927094677575/1483276398956118127/signal-2026-03-11-173838.png?ex=69ba004b&is=69b8aecb&hm=f30d70ad2b2baa3c187601210d55b7a80b89a1e5b4cd9406b45f2f6105535d73&=&format=webp&quality=lossless&width=2240&height=298)
 
 **A browser extension and companion PWA that captures scattered knowledge, refines it into clear opportunities, and gives groups a shared space to act on what matters.**
 
@@ -11,11 +11,13 @@ Coop captures knowledge from wherever it lives -- browser tabs, audio recordings
 ## How It Works
 
 1. **Capture** -- Round up browser tabs with a shortcut. Record audio, snap photos, attach files, or share links from your phone via the companion PWA.
-2. **Refine** -- An in-browser AI agent analyzes captures through a 14-skill pipeline, extracting opportunities, scoring grant fit, clustering themes, and drafting briefs. All inference runs locally via WebGPU/WASM. Nothing leaves the browser.
-3. **Review** -- Drafts land in the Roost. You decide what's signal and what's noise.
+2. **Refine** -- An in-browser AI agent analyzes captures through a 16-skill pipeline, extracting opportunities, scoring grant fit, clustering themes, and drafting briefs. All inference runs locally via WebGPU/WASM. Nothing leaves the browser.
+3. **Review** -- Members review candidates and drafts in the popup and Chickens before anything becomes shared.
 4. **Share** -- Publish to a coop -- a shared space backed by a Safe multisig on Arbitrum, syncing peer-to-peer over WebRTC. Shared artifacts are permanently archived to Filecoin via Storacha with full cryptographic provenance. Passkey identity, no wallet required.
 
-Through its Green Goods integration, coops can also bootstrap on-chain gardens for governance, impact reporting, and capital formation -- turning shared knowledge into coordinated action with verifiable outcomes.
+In the current extension, the `Popup` handles quick capture and quick review, `Chickens` handles working candidates and drafts, `Coops` handles shared state plus archive and proof, `Roost` handles Green Goods member access and work submission, and `Nest` handles members, operator controls, and settings.
+
+Through its Green Goods integration, coops can also bootstrap on-chain gardens, submit member work, run operator-side approvals and assessments, and package approved work into Hypercert and Karma GAP workflows.
 
 ## Use Cases
 
@@ -31,10 +33,10 @@ Through its Green Goods integration, coops can also bootstrap on-chain gardens f
 Browser tabs (extension), audio recordings, photos, files, and links (companion PWA). Cross-device receiver lets you capture on your phone and review on desktop.
 
 ### AI Agent
-14-skill pipeline running a three-tier inference cascade (WebGPU, WASM, heuristics). Opportunity extraction, grant fit scoring, theme clustering, brief drafting, and cross-session memory persistence. No API keys, no cloud calls.
+16-skill pipeline running a three-tier inference cascade (WebGPU, WASM, heuristics). Opportunity extraction, grant fit scoring, theme clustering, brief drafting, and cross-session memory persistence. No API keys, no cloud calls.
 
 ### Sharing
-Peer-to-peer sync via Yjs CRDTs and y-webrtc. Multi-coop publishing with per-coop feeds and board visualization.
+Peer-to-peer sync via Yjs CRDTs and y-webrtc with blob relay for peer forwarding. Offline outbox queues publishes when disconnected and flushes on reconnect. Multi-coop publishing with per-coop feeds and board visualization.
 
 ### Identity
 Passkey-first authentication via WebAuthn, bridged to Safe smart accounts through ERC-4337 account abstraction. No wallet extension required.
@@ -43,13 +45,13 @@ Passkey-first authentication via WebAuthn, bridged to Safe smart accounts throug
 Semaphore zero-knowledge membership proofs for anonymous publishing. ERC-5564 stealth addresses for private on-chain interactions. All captures stay local-only until explicit share.
 
 ### Archiving
-Storacha/Filecoin permanent storage with verifiable receipt chains. Every archived artifact carries full CID provenance linking capture to human review to permanent storage.
+Storacha/Filecoin permanent storage with verifiable receipt chains. Every archived artifact carries full CID provenance linking capture to human review to permanent storage. Archive restore for recovery flows and data portability (import/export) for migration and backup.
 
 ### Governance
 Operator console for anchor node management. Policy engine with typed action bundles and approval workflows. Session permits with scoped execution permissions, time-bounded capabilities, and replay protection.
 
 ### Green Goods
-Garden bootstrap and sync. Work approvals, impact reporting, and capital formation workflows. On-chain gardens as the substrate for governance and collective treasury flows.
+Garden bootstrap and sync, member work submission, operator approvals and assessments, GAP admin reconciliation, and Hypercert or Karma GAP packaging. On-chain gardens are a bounded coordination substrate rather than an open-ended treasury surface.
 
 ### On-chain Agent
 ERC-8004 agent registry integration for on-chain agent identity, capability advertisement, and reputation feedback.
@@ -60,10 +62,10 @@ Bun monorepo with four runtime packages:
 
 | Package | Description |
 |---------|-------------|
-| `@coop/shared` | Schemas, flows, sync contracts, and 16+ domain modules: agent, app, archive, auth, coop, erc8004, greengoods, onchain, operator, permit, policy, privacy, receiver, session, stealth, storage |
+| `@coop/shared` | Schemas, flows, sync contracts, and 16+ domain modules: agent, app, archive (+ restore), auth, blob (+ relay), coop (+ outbox, flows), erc8004, greengoods, onchain, operator, permit, policy, privacy, receiver, session, stealth, storage (+ portability) |
 | `@coop/app` | Landing page + receiver PWA shell (audio, photo, file, link capture) |
-| `@coop/extension` | MV3 browser extension (popup, sidepanel, background worker, offscreen) |
-| `@coop/api` | Hono + Bun TypeScript API server, deployed on Fly.io |
+| `@coop/extension` | MV3 browser extension — popup (screen router, share menu), sidepanel (tab router, coop selector, filter popover), background handlers, offscreen workers |
+| `@coop/api` | Hono + Bun TypeScript API server with Yjs document sync, deployed on Fly.io |
 
 Build order: shared -> app -> extension (shared is the dependency root).
 
@@ -85,10 +87,11 @@ ERC-4337 (account abstraction), ERC-1271 (signature validation), EIP-712 (typed 
 bun install              # Install dependencies
 bun dev                  # Start app + extension concurrently
 bun dev:app              # Start app only
-bun dev:extension        # Start extension only (watch build)
+bun dev:extension        # Start extension only (WXT dev + Chromium)
 bun dev:api              # Start API server
 bun run test             # Run unit tests (vitest)
 bun run test:e2e         # Run Playwright E2E tests
+bun run test:visual      # Run visual regression tests
 bun build                # Build everything (shared -> app -> extension)
 bun format && bun lint   # Format (Biome) and lint workspace
 bun run validate full    # Full validation before merging
@@ -114,22 +117,22 @@ For Playwright E2E runs, the repo starts its own local signaling server automati
 
 ## Documentation
 
-- [Introduction](docs/intro.md)
-- [Architecture Overview](docs/architecture/coop-os-architecture-vnext.md)
-- [Agent Harness](docs/architecture/agent-harness.md)
-- [Knowledge Sharing & Scaling](docs/architecture/knowledge-sharing-and-scaling.md)
-- [Green Goods Integration](docs/architecture/green-goods-integration-spec.md)
-- [Privacy & Stealth Addresses](docs/architecture/privacy-and-stealth.md)
-- [Policy, Sessions & Permits](docs/architecture/policy-session-permit.md)
-- [Agent Registry & API Server](docs/architecture/erc8004-and-api.md)
-- [Product Requirements](docs/product/prd.md)
-- [Scoped Roadmap](docs/product/scoped-roadmap-2026-03-11.md)
-- [EF Mandate Alignment](docs/product/ethereum-foundation-mandate.md)
-- [Extension Install & Distribution](docs/getting-started/extension-install-and-distribution.md)
-- [Design Direction](docs/guides/coop-design-direction.md)
-- [Audio & Asset Ops](docs/guides/coop-audio-and-asset-ops.md)
-- [Testing & Validation](docs/guides/testing-and-validation.md)
-- [Demo & Deploy Runbook](docs/guides/demo-and-deploy-runbook.md)
+- [Introduction](docs/reference/original-introduction.md)
+- [Architecture Overview](docs/reference/coop-os-architecture-vnext.md)
+- [Agent Harness](docs/reference/agent-harness.md)
+- [Knowledge Sharing & Scaling](docs/reference/knowledge-sharing-and-scaling.md)
+- [Green Goods Integration](docs/reference/green-goods-integration-spec.md)
+- [Privacy & Stealth Addresses](docs/reference/privacy-and-stealth.md)
+- [Policy, Sessions & Permits](docs/reference/policy-session-permit.md)
+- [Agent Registry & API Server](docs/reference/erc8004-and-api.md)
+- [Product Requirements](docs/reference/product-requirements.md)
+- [Scoped Roadmap](docs/reference/scoped-roadmap-2026-03-11.md)
+- [EF Mandate Alignment](docs/reference/ethereum-foundation-mandate.md)
+- [Extension Install & Distribution](docs/reference/extension-install-and-distribution.md)
+- [Design Direction](docs/reference/coop-design-direction.md)
+- [Audio & Asset Ops](docs/reference/coop-audio-and-asset-ops.md)
+- [Testing & Validation](docs/reference/testing-and-validation.md)
+- [Demo & Deploy Runbook](docs/reference/demo-and-deploy-runbook.md)
 
 ## Regen Coordination Foundation
 
@@ -145,4 +148,9 @@ The goal is to make it easier for communities to move from context to coordinati
 
 ## Brand
 
-Coop uses chicken metaphors throughout. Open browser tabs are **Loose Chickens**. The review queue is the **Roost**. The shared feed is the **Coop Feed**. Creating a new shared space is **Launching the Coop**. The success chime is the **Rooster Call**.
+Coop uses chicken metaphors throughout. Open browser tabs are **Loose Chickens**. The human review
+step is still called the **Roost** in the product story, even though the current sidepanel `Roost`
+tab is the Green Goods member workspace. The shared feed is the **Coop Feed**. Creating a new
+shared space is **Launching the Coop**. The success chime is the **Rooster Call**.
+
+![Coop Logo](https://media.discordapp.net/attachments/1334366927094677575/1483276397873987786/signal-2026-03-11-143552.png?ex=69ba004b&is=69b8aecb&hm=e2bcc8442bb7287a93a879c5e7e7336f028564053b6cfaa58ffc135383ae0d5e&=&format=webp&quality=lossless&width=1080&height=1080)

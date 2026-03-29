@@ -1,5 +1,14 @@
-import { type CaptureMode, getFvmExplorerTxUrl } from '@coop/shared';
+import { type CaptureMode, type UiPreferences, getFvmExplorerTxUrl } from '@coop/shared';
 import type { InferenceBridgeState } from '../../runtime/inference-bridge';
+
+export async function downloadText(filename: string, value: string) {
+  const url = URL.createObjectURL(new Blob([value], { type: 'text/plain;charset=utf-8' }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 export function formatRoundUpTiming(mode: CaptureMode) {
   switch (mode) {
@@ -10,6 +19,10 @@ export function formatRoundUpTiming(mode: CaptureMode) {
     default:
       return 'Only when you choose';
   }
+}
+
+export function formatAgentCadence(minutes: UiPreferences['agentCadenceMinutes']) {
+  return `${minutes} min`;
 }
 
 export function formatSharedWalletMode(mode: string) {
@@ -109,7 +122,19 @@ export function getAnchorExplorerUrl(txHash: string, chainKey: string): string {
   if (chainKey === 'arbitrum') {
     return `https://arbiscan.io/tx/${txHash}`;
   }
-  return `https://sepolia.arbiscan.io/tx/${txHash}`;
+  return `https://sepolia.etherscan.io/tx/${txHash}`;
+}
+
+export function getAddressExplorerUrl(address: string, chainKey: string): string {
+  if (chainKey === 'arbitrum') {
+    return `https://arbiscan.io/address/${address}`;
+  }
+  return `https://sepolia.etherscan.io/address/${address}`;
+}
+
+export function truncateAddress(address: string): string {
+  if (address.length <= 13) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 export { getFvmExplorerTxUrl };

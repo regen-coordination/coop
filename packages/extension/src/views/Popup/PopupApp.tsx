@@ -1,61 +1,101 @@
-import { useEffect, useState } from 'react';
-import { type DashboardResponse, sendRuntimeMessage } from '../../runtime/messages';
+import { PopupArtifactDialog } from './PopupArtifactDialog';
+import { PopupBlockingNotice } from './PopupBlockingNotice';
+import { PopupCaptureReviewDialog } from './PopupCaptureReviewDialog';
+import { PopupFooterNav } from './PopupFooterNav';
+import { PopupHeader } from './PopupHeader';
+import { PopupScreenRouter } from './PopupScreenRouter';
+import { PopupShell } from './PopupShell';
+import { headerTitleForScreen } from './helpers';
+import { usePopupOrchestration } from './hooks/usePopupOrchestration';
 
 export function PopupApp() {
-  const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
-  const [message, setMessage] = useState('');
+  const state = usePopupOrchestration();
 
-  useEffect(() => {
-    void (async () => {
-      const response = await sendRuntimeMessage<DashboardResponse>({ type: 'get-dashboard' });
-      if (response.ok && response.data) {
-        setDashboard(response.data);
-      } else if (response.error) {
-        setMessage(response.error);
+  const header = (
+    <PopupHeader
+      brandActionLabel="Play coop sound"
+      brandTooltip="Play coop sound"
+      onBack={
+        ['create', 'join', 'draft-detail', 'profile'].includes(state.currentScreen)
+          ? state.navigateBack
+          : undefined
       }
-    })();
-  }, []);
+      onBrandAction={state.playBrandSound}
+      onCreateCoop={state.showCreateJoinInHeader ? state.openCreateFlow : undefined}
+      onJoinCoop={state.showCreateJoinInHeader ? state.openJoinFlow : undefined}
+      onOpenProfile={state.showProfileAction ? state.openProfilePanel : undefined}
+      onSetTheme={state.theme.setThemePreference}
+      onToggleWorkspace={
+        state.showWorkspaceAction
+          ? () => void state.toggleWorkspace(state.workspaceTargetCoopId)
+          : undefined
+      }
+      profileOpen={state.currentScreen === 'profile'}
+      themePreference={state.theme.themePreference}
+      title={headerTitleForScreen(state.currentScreen)}
+      workspaceCanClose={state.workspaceState.canClose}
+      workspaceOpen={state.workspaceState.open}
+    />
+  );
 
-  async function openSidepanel() {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      await chrome.sidePanel.open({ windowId: tab.windowId });
-      window.close();
-    } catch {
-      await chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html') });
-      window.close();
-    }
-  }
+  const blockingOverlay =
+    !state.dashboard && state.dashboardError ? (
+      <PopupBlockingNotice
+        message={state.dashboardError}
+        onRetry={() => void state.loadDashboard()}
+        title="Couldn't load Coop."
+      />
+    ) : null;
 
-  async function manualRoundUp() {
-    const response = await sendRuntimeMessage<number>({ type: 'manual-capture' });
-    setMessage(
-      response.ok
-        ? `Round-up complete. Coop checked ${response.data ?? 0} tabs.`
-        : (response.error ?? 'Round-up failed.'),
-    );
-  }
+  const captureOverlay = state.pendingCapture ? (
+    <PopupCaptureReviewDialog
+      capture={state.pendingCapture}
+      onChange={state.handleUpdatePendingCapture}
+      onClose={state.handleDismissPendingCapture}
+      onSave={() => void state.handleSavePendingCapture()}
+      saving={state.isCapturing}
+    />
+  ) : null;
+
+  const artifactOverlay = state.selectedArtifact ? (
+    <PopupArtifactDialog
+      artifact={state.selectedArtifact}
+      onClose={() => state.setSelectedArtifactId(null)}
+      onOpenInSidepanel={async () => {
+        await state.openWorkspace({ targetCoopId: state.selectedArtifact?.coopIds[0] });
+        state.setSelectedArtifactId(null);
+      }}
+    />
+  ) : null;
+
+  const footerScreens = ['home', 'drafts', 'draft-detail', 'feed'];
+  const hasFooter = state.hasCoops && footerScreens.includes(state.currentScreen);
+  const footer = hasFooter ? (
+    <PopupFooterNav
+      activeTab={state.activeFooterTab}
+      draftsBadgeCount={state.visibleDrafts.length}
+      feedBadgeCount={state.visibleFeedArtifacts.length}
+      onNavigate={(tab) => {
+        state.setSelectedArtifactId(null);
+        if (tab === 'home') {
+          state.navigation.goHome();
+          return;
+        }
+        state.navigation.navigateFooter(tab);
+      }}
+    />
+  ) : null;
 
   return (
-    <div className="popup-shell">
-      <img src="/branding/coop-wordmark-flat.png" alt="Coop" width={118} />
-      <p className="helper-text">No more chickens loose.</p>
-      <div className="panel-card">
-        <h2>{dashboard?.summary.iconLabel ?? 'Loading'}</h2>
-        <p className="helper-text">
-          {dashboard?.summary.pendingDrafts ?? 0} drafts waiting ·{' '}
-          {dashboard?.summary.syncState ?? '...'}
-        </p>
-        <div className="popup-actions">
-          <button className="primary-button" onClick={openSidepanel} type="button">
-            Open Coop
-          </button>
-          <button className="secondary-button" onClick={manualRoundUp} type="button">
-            Round up now
-          </button>
-        </div>
-      </div>
-      {message ? <div className="panel-card helper-text">{message}</div> : null}
-    </div>
+    <PopupShell
+      footer={footer}
+      header={header}
+      message={state.message}
+      overlay={captureOverlay ?? artifactOverlay ?? blockingOverlay}
+      screenKey={state.currentScreen}
+      theme={state.theme.resolvedTheme}
+    >
+      <PopupScreenRouter state={state} />
+    </PopupShell>
   );
 }

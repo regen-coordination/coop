@@ -40,7 +40,7 @@ import {
   resolveReceiverAppUrl,
   resolveTrustedNodeArchiveBootstrapConfig,
 } from '../runtime/config';
-import type { ReceiverSyncRuntimeStatus } from '../runtime/messages';
+import type { ReceiverSyncRuntimeStatus, SidepanelIntent } from '../runtime/messages';
 
 // ---- Database ----
 
@@ -106,18 +106,43 @@ export type RuntimeHealth = {
   lastSyncError?: string;
 };
 
+export type SidepanelStateRegistry = Record<string, boolean>;
+
 export type NotificationRegistry = Record<string, string>;
+export type NotificationIntentRegistry = Record<string, SidepanelIntent>;
+export type AgentOnboardingStatus = 'pending-followup' | 'steady';
+export type AgentOnboardingState = Record<
+  string,
+  {
+    status: AgentOnboardingStatus;
+    triggeredAt: string;
+    followUpAt?: string;
+    completedAt?: string;
+  }
+>;
 
 // ---- Constants ----
 
 export const stateKeys = {
   activeCoopId: 'active-coop-id',
+  agentOnboarding: 'agent-onboarding',
   captureMode: 'capture-mode',
+  notificationIntentRegistry: 'notification-intent-registry',
   notificationRegistry: 'notification-registry',
   receiverSyncRuntime: 'receiver-sync-runtime',
   runtimeHealth: 'runtime-health',
+  sidepanelIntent: 'sidepanel-intent',
+  sidepanelState: 'sidepanel-state',
   sessionWrappingSecret: 'session-wrapping-secret',
 };
+
+export const alarmNames = {
+  capture: 'coop-capture',
+  agentCadence: 'agent-proactive-cycle',
+  agentHeartbeat: 'agent-heartbeat',
+  archiveStatusPoll: 'archive-status-poll',
+  onboardingFollowUpPrefix: 'agent-onboarding-followup:',
+} as const;
 
 export const defaultRuntimeHealth: RuntimeHealth = {
   offline: false,
@@ -149,6 +174,11 @@ export const configuredPimlicoApiKey =
   import.meta.env.VITE_PIMLICO_API_KEY.length > 0
     ? import.meta.env.VITE_PIMLICO_API_KEY
     : undefined;
+export const configuredGreenGoodsWorkSchemaUid =
+  typeof import.meta.env.VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID === 'string' &&
+  /^0x[a-fA-F0-9]{64}$/.test(import.meta.env.VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID)
+    ? (import.meta.env.VITE_COOP_GREEN_GOODS_WORK_SCHEMA_UID as `0x${string}`)
+    : undefined;
 export const configuredReceiverAppUrl = resolveReceiverAppUrl(
   import.meta.env.VITE_COOP_RECEIVER_APP_URL,
 );
@@ -165,7 +195,9 @@ export const prefersLocalEnhancement = isLocalEnhancementEnabled(
 export const trustedNodeArchiveBootstrap = (() => {
   try {
     return {
-      config: resolveTrustedNodeArchiveBootstrapConfig(import.meta.env),
+      config: resolveTrustedNodeArchiveBootstrapConfig(
+        import.meta.env as Record<string, string | undefined>,
+      ),
       error: undefined,
     } as const;
   } catch (error) {
@@ -251,12 +283,45 @@ export async function getNotificationRegistry() {
   return getLocalSetting<NotificationRegistry>(stateKeys.notificationRegistry, {});
 }
 
+export async function getNotificationIntentRegistry() {
+  return getLocalSetting<NotificationIntentRegistry>(stateKeys.notificationIntentRegistry, {});
+}
+
+export function agentOnboardingKey(coopId: string, memberId: string) {
+  return `${coopId}:${memberId}`;
+}
+
+export async function getAgentOnboardingState() {
+  return getLocalSetting<AgentOnboardingState>(stateKeys.agentOnboarding, {});
+}
+
+export async function setAgentOnboardingState(value: AgentOnboardingState) {
+  await setLocalSetting(stateKeys.agentOnboarding, value);
+}
+
+export async function getPendingSidepanelIntent() {
+  return getLocalSetting<SidepanelIntent | null>(stateKeys.sidepanelIntent, null);
+}
+
+export async function setPendingSidepanelIntent(value: SidepanelIntent | null) {
+  await setLocalSetting(stateKeys.sidepanelIntent, value);
+}
+
+export async function consumePendingSidepanelIntent() {
+  const current = await getPendingSidepanelIntent();
+  if (current) {
+    await setPendingSidepanelIntent(null);
+  }
+  return current;
+}
+
 export async function notifyExtensionEvent(input: {
   eventKind: string;
   entityId: string;
   state: string;
   title: string;
   message: string;
+  intent?: SidepanelIntent;
 }) {
   if (!uiPreferences.notificationsEnabled) {
     return;
@@ -273,15 +338,31 @@ export async function notifyExtensionEvent(input: {
   await setLocalSetting(stateKeys.notificationRegistry, registry);
 
   try {
-    await chrome.notifications.create(`coop-${createId('notification')}`, {
+    const notificationId = `coop-${createId('notification')}`;
+    await chrome.notifications.create(notificationId, {
       type: 'basic',
       iconUrl: 'icons/icon-128.png',
       title: input.title,
       message: input.message,
     });
+    if (input.intent) {
+      const registry = await getNotificationIntentRegistry();
+      registry[notificationId] = input.intent;
+      await setLocalSetting(stateKeys.notificationIntentRegistry, registry);
+    }
   } catch {
     // Notifications are optional UX only.
   }
+}
+
+export async function consumeNotificationIntent(notificationId: string) {
+  const registry = await getNotificationIntentRegistry();
+  const intent = registry[notificationId];
+  if (intent) {
+    delete registry[notificationId];
+    await setLocalSetting(stateKeys.notificationIntentRegistry, registry);
+  }
+  return intent;
 }
 
 // ---- Offscreen Document ----
@@ -435,6 +516,25 @@ export async function reportReceiverSyncRuntime(patch: Partial<ReceiverSyncRunti
   return next;
 }
 
+export async function getSidepanelStateRegistry() {
+  return getLocalSetting<SidepanelStateRegistry>(stateKeys.sidepanelState, {});
+}
+
+export async function isSidepanelOpen(windowId: number) {
+  const registry = await getSidepanelStateRegistry();
+  return registry[String(windowId)] === true;
+}
+
+export async function setSidepanelWindowState(windowId: number, open: boolean) {
+  const registry = await getSidepanelStateRegistry();
+  const next = {
+    ...registry,
+    [String(windowId)]: open,
+  } satisfies SidepanelStateRegistry;
+  await setLocalSetting(stateKeys.sidepanelState, next);
+  return next;
+}
+
 // ---- Archive Config Resolution ----
 
 export async function ensureTrustedNodeArchiveBootstrap() {
@@ -509,14 +609,114 @@ export async function ensureDefaults() {
   }
 }
 
+export async function syncAgentCadenceAlarm(
+  agentCadenceMinutes: UiPreferences['agentCadenceMinutes'],
+) {
+  await chrome.alarms.clear(alarmNames.agentCadence);
+  await chrome.alarms.create(alarmNames.agentCadence, {
+    periodInMinutes: agentCadenceMinutes,
+  });
+}
+
+const captureModePeriodMap: Record<string, number> = {
+  '5-min': 5,
+  '10-min': 10,
+  '15-min': 15,
+  '30-min': 30,
+  '60-min': 60,
+};
+
+export function getCapturePeriodMinutes(captureMode: string): number | null {
+  return captureModePeriodMap[captureMode] ?? null;
+}
+
 export async function syncCaptureAlarm(captureMode: string) {
-  await chrome.alarms.clear('coop-capture');
-  if (captureMode === 'manual') {
+  await chrome.alarms.clear(alarmNames.capture);
+  const period = getCapturePeriodMinutes(captureMode);
+  if (!period) {
     return;
   }
-  await chrome.alarms.create('coop-capture', {
-    periodInMinutes: captureMode === '30-min' ? 30 : 60,
+  await chrome.alarms.create(alarmNames.capture, {
+    periodInMinutes: period,
   });
+}
+
+// ---- Recent Capture Dedup ----
+
+const recentCaptureUrls = new Map<string, number>();
+const DEDUP_PRUNE_THRESHOLD_MS = 60 * 60_000; // 1 hour
+const DEDUP_MAX_ENTRIES = 2000;
+
+export function markUrlCaptured(url: string) {
+  recentCaptureUrls.set(url, Date.now());
+}
+
+function pruneRecentCaptureUrls() {
+  const now = Date.now();
+  for (const [key, ts] of recentCaptureUrls) {
+    if (now - ts > DEDUP_PRUNE_THRESHOLD_MS) {
+      recentCaptureUrls.delete(key);
+    }
+  }
+  // Hard cap: evict oldest entries if still over limit
+  if (recentCaptureUrls.size > DEDUP_MAX_ENTRIES) {
+    const sorted = [...recentCaptureUrls.entries()].sort((a, b) => a[1] - b[1]);
+    const toRemove = sorted.slice(0, recentCaptureUrls.size - DEDUP_MAX_ENTRIES);
+    for (const [key] of toRemove) {
+      recentCaptureUrls.delete(key);
+    }
+  }
+}
+
+export function wasRecentlyCaptured(url: string, cooldownMs: number): boolean {
+  if (recentCaptureUrls.size > DEDUP_MAX_ENTRIES / 2) {
+    pruneRecentCaptureUrls();
+  }
+
+  const lastCaptured = recentCaptureUrls.get(url);
+  if (lastCaptured === undefined) {
+    return false;
+  }
+  return Date.now() - lastCaptured < cooldownMs;
+}
+
+// ---- Tab URL Cache (for tab-close capture) ----
+
+export type TabCacheEntry = {
+  url: string;
+  title: string;
+  favIconUrl?: string;
+  windowId: number;
+};
+
+export const tabUrlCache = new Map<number, TabCacheEntry>();
+
+export function updateTabCache(
+  tabId: number,
+  tab: { url?: string; title?: string; favIconUrl?: string; windowId?: number },
+) {
+  if (!tab.url) {
+    return;
+  }
+  tabUrlCache.set(tabId, {
+    url: tab.url,
+    title: tab.title ?? '',
+    favIconUrl: tab.favIconUrl,
+    windowId: tab.windowId ?? 0,
+  });
+}
+
+export function removeFromTabCache(tabId: number) {
+  tabUrlCache.delete(tabId);
+}
+
+export async function warmTabCache() {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id != null && tab.url) {
+      updateTabCache(tab.id, tab);
+    }
+  }
 }
 
 // ---- Local Enhancement ----

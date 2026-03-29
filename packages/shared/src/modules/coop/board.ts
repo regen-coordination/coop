@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import z from 'zod';
 import type {
   ArchiveReceipt,
   CoopSharedState,
@@ -66,6 +66,7 @@ export interface CoopBoardNode {
   archiveWorthy: boolean;
   createdAt?: string;
   position: { x: number; y: number };
+  [key: string]: unknown;
 }
 
 export interface CoopBoardEdge {

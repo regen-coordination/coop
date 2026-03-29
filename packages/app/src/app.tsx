@@ -1,13 +1,27 @@
 import {
+  type AppSurface,
   type CoopBoardSnapshot,
   type ReceiverPairingRecord,
   createCoopDb,
+  detectAppSurface,
   detectBrowserUxCapabilities,
   getActiveReceiverPairing,
   getReceiverPairingStatus,
 } from '@coop/shared';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { DevTunnelBadge } from './components/DevTunnelBadge';
 import { Skeleton } from './components/Skeleton';
+import {
+  DEV_STATE_PATH,
+  type DevEnvironmentState,
+  getDevAccessTokenFromUrl,
+  getStoredDevAccessToken,
+  hasValidDevAccess,
+  isDevAccessRequired,
+  isLocalHostname,
+  rememberDevAccessToken,
+  stripDevAccessToken,
+} from './dev-environment';
 import { useCapture } from './hooks/useCapture';
 import { usePairingFlow } from './hooks/usePairingFlow';
 import { useReceiverSettings } from './hooks/useReceiverSettings';
@@ -59,7 +73,10 @@ export class ErrorBoundary extends React.Component<
 
 export const receiverDb = createCoopDb('coop-receiver');
 
+type AppPathname = '/' | '/landing' | '/pair' | '/receiver' | '/inbox';
+
 type RoutePath =
+  | { kind: 'root' }
   | { kind: 'landing' }
   | { kind: 'pair' }
   | { kind: 'receiver' }
@@ -71,21 +88,71 @@ type NavigatorWithUx = Navigator & {
   clearAppBadge?: () => Promise<void>;
 };
 
-function resolveRoute(pathname: string): RoutePath {
-  if (pathname === '/pair') {
+function normalizePathname(pathname: string) {
+  if (pathname !== '/' && pathname.endsWith('/')) {
+    return pathname.slice(0, -1);
+  }
+  return pathname;
+}
+
+export function resolveRoute(pathname: string): RoutePath {
+  const normalizedPath = normalizePathname(pathname);
+
+  if (normalizedPath === '/') {
+    return { kind: 'root' };
+  }
+  if (normalizedPath === '/landing') {
+    return { kind: 'landing' };
+  }
+  if (normalizedPath === '/pair') {
     return { kind: 'pair' };
   }
-  if (pathname === '/receiver') {
+  if (normalizedPath === '/receiver') {
     return { kind: 'receiver' };
   }
-  if (pathname === '/inbox') {
+  if (normalizedPath === '/inbox') {
     return { kind: 'inbox' };
   }
-  const boardMatch = pathname.match(/^\/board\/([^/]+)$/);
+  const boardMatch = normalizedPath.match(/^\/board\/([^/]+)$/);
   if (boardMatch?.[1]) {
     return { kind: 'board', coopId: decodeURIComponent(boardMatch[1]) };
   }
   return { kind: 'landing' };
+}
+
+export function resolveRootDestination(
+  surface: Pick<AppSurface, 'isMobile' | 'isStandalone'>,
+  hasActivePairing: boolean,
+): Extract<AppPathname, '/landing' | '/pair' | '/receiver'> {
+  if (!surface.isMobile && !surface.isStandalone) {
+    return '/landing';
+  }
+
+  return hasActivePairing ? '/receiver' : '/pair';
+}
+
+function resolveDocumentTitle(route: RoutePath) {
+  if (route.kind === 'pair') {
+    return 'Coop Mate';
+  }
+
+  if (route.kind === 'receiver') {
+    return 'Coop Hatch';
+  }
+
+  if (route.kind === 'inbox') {
+    return 'Coop Roost';
+  }
+
+  if (route.kind === 'board') {
+    return 'Coop Board';
+  }
+
+  return 'Coop | Turn knowledge into opportunity';
+}
+
+function supportsBridgeFlag(pathname: AppPathname) {
+  return pathname === '/pair' || pathname === '/receiver' || pathname === '/inbox';
 }
 
 function pairingStatusLabel(status?: ReturnType<typeof getReceiverPairingStatus>['status'] | null) {
@@ -121,6 +188,84 @@ export async function resetReceiverDb() {
   );
 }
 
+function RootBootstrapSplash() {
+  return (
+    <div className="boot-shell">
+      <div className="boot-card">
+        <img className="boot-mark" src="/branding/coop-mark-flat.png" alt="Coop" />
+        <p className="eyebrow">Pocket Coop</p>
+        <h1>Opening your receiver.</h1>
+        <p className="quiet-note">
+          Coop is checking this device so it can drop you into pairing or capture without showing
+          the landing page first.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DevTunnelPreparingScreen() {
+  return (
+    <div className="boot-shell">
+      <div className="boot-card">
+        <img className="boot-mark" src="/branding/coop-mark-flat.png" alt="Coop" />
+        <p className="eyebrow">Dev Tunnel</p>
+        <h1>Preparing phone access.</h1>
+        <p className="quiet-note">
+          Coop is waiting for the local dev tunnel and access token before exposing the receiver on
+          this public URL.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DevAccessGate({
+  accessCode,
+  error,
+  onAccessCodeChange,
+  onSubmit,
+}: {
+  accessCode: string;
+  error: string;
+  onAccessCodeChange: (next: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="boot-shell">
+      <div className="boot-card">
+        <img className="boot-mark" src="/branding/coop-mark-flat.png" alt="Coop" />
+        <p className="eyebrow">Dev Tunnel</p>
+        <h1>Enter the Coop passcode.</h1>
+        <p className="quiet-note">
+          This temporary tunnel is for local development, so access is limited to the QR or code
+          shown on the desktop landing page.
+        </p>
+        <label className="receiver-field">
+          <span className="receiver-field__label">Passcode</span>
+          <input
+            autoComplete="one-time-code"
+            inputMode="text"
+            maxLength={12}
+            value={accessCode}
+            onChange={(event) => onAccessCodeChange(event.target.value.toUpperCase())}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                onSubmit();
+              }
+            }}
+          />
+        </label>
+        {error ? <p className="receiver-error">{error}</p> : null}
+        <button className="button-primary" type="button" onClick={onSubmit}>
+          Open receiver
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function RootApp({
   initialPairingInput,
   initialBoardSnapshot,
@@ -130,6 +275,8 @@ export function RootApp({
   initialBoardSnapshot?: CoopBoardSnapshot | null;
   initialShareInput?: ReceiverShareHandoff | null;
 } = {}) {
+  const appSurfaceRef = useRef(detectAppSurface(globalThis));
+  const appSurface = appSurfaceRef.current;
   const browserUxCapabilities = detectBrowserUxCapabilities(globalThis);
   const [route, setRoute] = useState<RoutePath>(() => resolveRoute(window.location.pathname));
   const [boardSnapshot] = useState<CoopBoardSnapshot | null>(initialBoardSnapshot ?? null);
@@ -138,6 +285,15 @@ export function RootApp({
   );
   const [pairing, setPairing] = useState<ReceiverPairingRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [devEnvironment, setDevEnvironment] = useState<DevEnvironmentState | null>(null);
+  const [devEnvironmentStatus, setDevEnvironmentStatus] = useState<
+    'disabled' | 'loading' | 'ready'
+  >(() => (import.meta.env.DEV ? 'loading' : 'disabled'));
+  const [devAccessToken, setDevAccessToken] = useState<string | null>(() =>
+    getStoredDevAccessToken(),
+  );
+  const [devAccessCode, setDevAccessCode] = useState('');
+  const [devAccessError, setDevAccessError] = useState('');
 
   const initialPairingHandoffRef = useRef<string | null>(initialPairingInput ?? null);
   const initialShareHandoffRef = useRef<ReceiverShareHandoff | null>(initialShareInput ?? null);
@@ -218,18 +374,36 @@ export function RootApp({
   const { reconcilePairing, retrySync } = sync;
 
   // --- Navigation (with View Transitions API when available) ---
-  const navigate = useCallback(
-    (nextRoute: '/pair' | '/receiver' | '/inbox' | '/') => {
-      const nextUrl = bridgeOptimizationDisabled ? `${nextRoute}?bridge=off` : nextRoute;
-      window.history.pushState({}, '', nextUrl);
-      const nextPath = resolveRoute(nextRoute);
-      if (document.startViewTransition) {
-        document.startViewTransition(() => setRoute(nextPath));
-      } else {
-        setRoute(nextPath);
-      }
-    },
+  const toRouteUrl = useCallback(
+    (nextRoute: AppPathname) =>
+      bridgeOptimizationDisabled && supportsBridgeFlag(nextRoute)
+        ? `${nextRoute}?bridge=off`
+        : nextRoute,
     [bridgeOptimizationDisabled],
+  );
+
+  const transitionRoute = useCallback((nextPath: RoutePath) => {
+    if (document.startViewTransition) {
+      document.startViewTransition(() => setRoute(nextPath));
+    } else {
+      setRoute(nextPath);
+    }
+  }, []);
+
+  const navigate = useCallback(
+    (nextRoute: AppPathname) => {
+      window.history.pushState({}, '', toRouteUrl(nextRoute));
+      transitionRoute(resolveRoute(nextRoute));
+    },
+    [toRouteUrl, transitionRoute],
+  );
+
+  const replaceRoute = useCallback(
+    (nextRoute: AppPathname) => {
+      window.history.replaceState({}, '', toRouteUrl(nextRoute));
+      transitionRoute(resolveRoute(nextRoute));
+    },
+    [toRouteUrl, transitionRoute],
   );
 
   // --- Composite refresh ---
@@ -278,6 +452,27 @@ export function RootApp({
   const pairedNestLabel = pairing
     ? `${pairing.coopDisplayName} · ${pairing.memberDisplayName}`
     : null;
+  const currentUrl = new URL(window.location.href);
+  const isPublicDevOrigin = import.meta.env.DEV && !isLocalHostname(currentUrl.hostname);
+  const requiresDevAccess = isDevAccessRequired(devEnvironment, currentUrl);
+  const hasDevAccess = hasValidDevAccess(devEnvironment, currentUrl, devAccessToken);
+
+  const submitDevAccessCode = useCallback(() => {
+    if (!devEnvironment?.accessToken) {
+      setDevAccessError('The dev tunnel is still preparing. Try again in a moment.');
+      return;
+    }
+
+    if (devAccessCode.trim().toUpperCase() !== devEnvironment.accessToken) {
+      setDevAccessError('That passcode does not match the current dev tunnel.');
+      return;
+    }
+
+    rememberDevAccessToken(devEnvironment.accessToken);
+    setDevAccessToken(devEnvironment.accessToken);
+    setDevAccessCode('');
+    setDevAccessError('');
+  }, [devAccessCode, devEnvironment]);
 
   // --- Keep cross-hook refs in sync ---
   useEffect(() => {
@@ -306,6 +501,50 @@ export function RootApp({
 
   // --- App-level effects ---
   useEffect(() => {
+    document.title = resolveDocumentTitle(route);
+  }, [route]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const loadDevEnvironment = async () => {
+      try {
+        const response = await fetch(DEV_STATE_PATH, {
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          throw new Error(`Dev state request failed (${response.status}).`);
+        }
+
+        const next = (await response.json()) as DevEnvironmentState;
+        if (!cancelled) {
+          setDevEnvironment(next);
+          setDevEnvironmentStatus('ready');
+        }
+      } catch {
+        if (!cancelled) {
+          setDevEnvironment(null);
+          setDevEnvironmentStatus('loading');
+        }
+      }
+    };
+
+    void loadDevEnvironment();
+    const interval = window.setInterval(() => {
+      void loadDevEnvironment();
+    }, 5_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
     void refreshLocalState();
 
     const onPopState = () => {
@@ -315,12 +554,62 @@ export function RootApp({
     return () => window.removeEventListener('popstate', onPopState);
   }, [refreshLocalState]);
 
+  useEffect(() => {
+    if (!devEnvironment) {
+      return;
+    }
+
+    const currentUrl = new URL(window.location.href);
+    const tokenFromUrl = getDevAccessTokenFromUrl(currentUrl);
+    if (tokenFromUrl !== devEnvironment.accessToken) {
+      return;
+    }
+
+    rememberDevAccessToken(tokenFromUrl);
+    setDevAccessToken(tokenFromUrl);
+    setDevAccessCode('');
+    setDevAccessError('');
+
+    const strippedUrl = stripDevAccessToken(currentUrl);
+    if (
+      strippedUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`
+    ) {
+      window.history.replaceState({}, '', strippedUrl);
+      setRoute(resolveRoute(window.location.pathname));
+    }
+  }, [devEnvironment]);
+
   // Toggle html class for receiver scroll containment
   useEffect(() => {
-    const isReceiver = route.kind !== 'landing' && route.kind !== 'board';
+    const isReceiver = route.kind === 'pair' || route.kind === 'receiver' || route.kind === 'inbox';
     document.documentElement.classList.toggle('has-receiver', isReceiver);
     return () => document.documentElement.classList.remove('has-receiver');
   }, [route.kind]);
+
+  // Root bootstrap route
+  useEffect(() => {
+    if (route.kind !== 'root') {
+      return;
+    }
+
+    if (!appSurface.isMobile && !appSurface.isStandalone) {
+      replaceRoute('/landing');
+      return;
+    }
+
+    let cancelled = false;
+    void getActiveReceiverPairing(receiverDb).then((nextPairing) => {
+      if (cancelled) {
+        return;
+      }
+      setPairing(nextPairing);
+      replaceRoute(resolveRootDestination(appSurface, Boolean(nextPairing)));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appSurface, replaceRoute, route.kind]);
 
   // Initial pairing handoff
   useEffect(() => {
@@ -428,15 +717,42 @@ export function RootApp({
     void badgeNavigator.clearAppBadge?.().catch(() => undefined);
   }, [browserUxCapabilities.canSetBadge, captures, receiverNotificationsEnabled]);
 
+  if (isPublicDevOrigin && devEnvironmentStatus !== 'ready') {
+    return <DevTunnelPreparingScreen />;
+  }
+
+  if (requiresDevAccess && !hasDevAccess) {
+    return (
+      <DevAccessGate
+        accessCode={devAccessCode}
+        error={devAccessError}
+        onAccessCodeChange={(next) => {
+          setDevAccessCode(next);
+          setDevAccessError('');
+        }}
+        onSubmit={submitDevAccessCode}
+      />
+    );
+  }
+
+  if (route.kind === 'root') {
+    return <RootBootstrapSplash />;
+  }
+
   if (route.kind === 'landing') {
-    return <LandingPage />;
+    return <LandingPage devEnvironment={devEnvironment} />;
   }
 
   if (route.kind === 'board') {
     return <BoardView coopId={route.coopId} snapshot={boardSnapshot} />;
   }
 
-  const screenTitle = route.kind === 'pair' ? 'Pair' : route.kind === 'inbox' ? 'Roost' : 'Hatch';
+  const screenTitle = route.kind === 'pair' ? 'Mate' : route.kind === 'inbox' ? 'Roost' : 'Hatch';
+  const installNudgeMessage = installPrompt
+    ? 'Install Coop for one-tap capture, home-screen launch, and better share-target behavior.'
+    : appSurface.platform === 'ios'
+      ? 'Add Coop to your Home Screen from Safari’s Share menu for the cleanest mobile capture flow.'
+      : 'Use your browser menu to install Coop for faster capture and easier return on this device.';
 
   return (
     <ReceiverShell
@@ -449,6 +765,8 @@ export function RootApp({
       message={message}
       pairedNestLabel={pairedNestLabel}
       installPrompt={installPrompt}
+      showInstallNudge={appSurface.isMobile && !appSurface.isStandalone}
+      installNudgeMessage={installNudgeMessage}
       canNotify={browserUxCapabilities.canNotify}
       notificationsEnabled={receiverNotificationsEnabled}
       onInstall={installApp}
@@ -486,7 +804,7 @@ export function RootApp({
       {!isLoading && route.kind === 'receiver' ? (
         <CaptureView
           isRecording={isRecording}
-          newestCapture={newestCapture}
+          newestCapture={newestCapture ?? null}
           hatchedCaptureId={hatchedCaptureId}
           captures={captures}
           pairingReady={pairingStatus?.status === 'ready'}

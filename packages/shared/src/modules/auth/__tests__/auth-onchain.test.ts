@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPimlicoRpcUrl,
   createMockOnchainState,
@@ -8,9 +8,12 @@ import {
 import {
   authSessionToLocalIdentity,
   createPasskeySession,
+  createWebAuthnCredentialGetFn,
   derivePasskeyAddress,
+  resolvePasskeyRpId,
   restorePasskeyAccount,
   sessionToMember,
+  setWebAuthnCredentialGetFnOverride,
 } from '../auth';
 
 vi.mock('viem/account-abstraction', () => ({
@@ -21,6 +24,7 @@ vi.mock('viem/account-abstraction', () => ({
   toWebAuthnAccount: vi.fn((input) => ({
     address: `0x${'12'.repeat(20)}`,
     credential: input.credential,
+    getFn: input.getFn,
     rpId: input.rpId,
   })),
 }));
@@ -33,7 +37,12 @@ vi.mock('permissionless/accounts', () => ({
 
 vi.mock('permissionless/clients', () => ({
   createSmartAccountClient: vi.fn(() => ({
-    sendTransaction: vi.fn(async () => `0x${'56'.repeat(32)}`),
+    sendUserOperation: vi.fn(async () => `0x${'56'.repeat(32)}`),
+    waitForUserOperationReceipt: vi.fn(async () => ({
+      receipt: {
+        transactionHash: `0x${'78'.repeat(32)}`,
+      },
+    })),
   })),
 }));
 
@@ -48,8 +57,8 @@ vi.mock('permissionless/clients/pimlico', () => ({
   })),
 }));
 
-vi.mock('viem', async () => {
-  const actual = await vi.importActual<typeof import('viem')>('viem');
+vi.mock('viem', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('viem')>();
   return {
     ...actual,
     http: vi.fn((url) => ({ url })),
@@ -60,7 +69,56 @@ vi.mock('viem', async () => {
   };
 });
 
+afterEach(() => {
+  setWebAuthnCredentialGetFnOverride(null);
+  vi.unstubAllGlobals();
+});
+
 describe('auth and onchain helpers', () => {
+  it('resolves the RP ID from the extension runtime when no hostname is available', () => {
+    vi.stubGlobal('location', { hostname: '' });
+    vi.stubGlobal('chrome', { runtime: { id: 'coop-extension-id' } });
+
+    expect(resolvePasskeyRpId()).toBe('coop-extension-id');
+  });
+
+  it('honors a getFn override for passkey account restoration helpers', async () => {
+    const getFnOverride = vi.fn(async () => ({
+      id: 'override-credential',
+      type: 'public-key',
+      rawId: new Uint8Array(),
+      response: {} as AuthenticatorAssertionResponse,
+      clientExtensionResults: () => ({}),
+    }));
+
+    setWebAuthnCredentialGetFnOverride(getFnOverride);
+
+    const getFn = createWebAuthnCredentialGetFn();
+    if (!getFn) {
+      throw new Error('Expected WebAuthn getFn override to be installed.');
+    }
+    await getFn({
+      publicKey: { challenge: new Uint8Array([1]) },
+    } as Parameters<typeof getFn>[0]);
+
+    expect(getFnOverride).toHaveBeenCalledTimes(1);
+    setWebAuthnCredentialGetFnOverride(null);
+  });
+
+  it('throws a clear error when WebAuthn credential retrieval is unavailable', async () => {
+    vi.stubGlobal('navigator', {});
+    setWebAuthnCredentialGetFnOverride(null);
+
+    const getFn = createWebAuthnCredentialGetFn();
+    if (!getFn) {
+      throw new Error('Expected WebAuthn getFn helper to be defined.');
+    }
+
+    await expect(
+      getFn({ publicKey: { challenge: new Uint8Array([1]) } } as Parameters<typeof getFn>[0]),
+    ).rejects.toThrow('WebAuthn credential retrieval is unavailable in this runtime.');
+  });
+
   it('derives a stable local sender address from passkey material', () => {
     const address = derivePasskeyAddress({
       id: 'credential-1',
@@ -104,9 +162,11 @@ describe('auth and onchain helpers', () => {
 
     expect(session.primaryAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
     expect(session.passkey?.id).toBe('credential-1');
-    expect(restorePasskeyAccount(session)).toMatchObject({
+    const account = restorePasskeyAccount(session);
+    expect(account).toMatchObject({
       rpId: 'coop.local',
     });
+    expect((account as { getFn?: unknown }).getFn).toEqual(expect.any(Function));
 
     const identity = authSessionToLocalIdentity(session);
     expect(identity?.ownerAddress).toBe(session.primaryAddress);

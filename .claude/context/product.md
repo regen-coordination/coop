@@ -24,7 +24,7 @@ The problem is not lack of information. It is fragmentation:
 2. A trusted member creates a coop (with real Safe address)
 3. Members join via invite codes (passkey-first, no wallet needed)
 4. The extension rounds up relevant tabs locally
-5. Members review drafts in the Roost and explicitly push them into shared coop memory
+5. Members review drafts in the popup and Chickens and explicitly push them into shared coop memory
 6. The coop leaves with live shared context, archive receipts, and clearer next actions
 
 ## User Personas
@@ -52,7 +52,7 @@ Invited with elevated trust. They:
 Community participant. They:
 - Join via a member invite code (7-day expiry)
 - Browse normally while Coop notices relevant context locally
-- Review drafts in the Roost and decide what to push
+- Review drafts in the popup and Chickens and decide what to push
 - Contribute to the shared feed
 - Can archive artifacts to Storacha/Filecoin
 
@@ -71,7 +71,10 @@ Someone using the paired mobile web app:
 | Metaphor | Product Concept |
 |----------|----------------|
 | Loose Chickens | Open browser tabs that contain potentially useful context |
-| Roost | The review queue where drafts wait for human judgment |
+| Roost | The human-review metaphor in the product story; the current `Roost` tab is the Green Goods member workspace |
+| Chickens Tab | Working queue for candidates, drafts, and publish prep |
+| Coops Tab | Shared coop state, published artifact feed, archive, and proof surface |
+| Nest | Members, operator controls, receiver, and settings in the sidepanel |
 | Coop Feed | The shared feed of published artifacts across members |
 | Launching the Coop | Creating a new coop (with Safe deployment) |
 | Rooster Call | Success sound on coop creation |
@@ -85,7 +88,9 @@ Working brand: `Coop Town`
 **Color palette** (from logo variants):
 - `--coop-cream: #fcf5ef` — Default background and card base
 - `--coop-brown: #4f2e1f` — Primary text, logo wordmark, dense UI
-- `--coop-brown-soft: #55392a` — Secondary text, decorative linework
+- `--coop-brown-soft: #6b4a36` — Secondary text, decorative linework
+- `--coop-ink: #27140e` — Deepest brown, used for high-contrast text
+- `--coop-error: #a63b20` — Error states, destructive actions
 - `--coop-green: #5a7d10` — Knowledge/growth, active states, tag accents
 - `--coop-orange: #fd8a01` — CTA accents, publish/archive emphasis, success moments
 - `--coop-mist: #d8d4d0` — Neutral backdrop, soft dividers
@@ -105,7 +110,7 @@ Working brand: `Coop Town`
 - **Artifact published**: Soft cluck (success)
 - **Passive capture**: No sound (silent)
 - Sound is OFF by default. Users enable it in settings.
-- Sounds are synthesized via Web Audio API (not audio files) in the extension views.
+- Sounds are `.wav` files loaded from `packages/extension/public/audio/` (e.g., `coop-rooster-call.wav`, `coop-soft-cluck.wav`, `coop-squeaky-test.wav`). Played via `HTMLAudioElement` in extension views.
 
 ### Asset Files
 
@@ -146,7 +151,8 @@ The hackathon demo (PL Genesis) must prove:
 
 ### V1 Includes
 
-- Extension as primary product surface (popup + sidepanel)
+- Extension as primary product surface (popup is a full multi-screen app with Home/Chickens/Feed nav; sidepanel is the full workspace with Roost/Chickens/Coops/Nest tabs)
+- Current sidepanel map: `Roost` = Green Goods member actions, `Chickens` = review and publish prep, `Coops` = shared state and archive, `Nest` = trusted controls
 - Landing page (responsive, mobile-friendly)
 - Passkey-first identity (no wallet extension required)
 - Real Safe creation via Pimlico/ERC-4337
@@ -167,10 +173,10 @@ The hackathon demo (PL Genesis) must prove:
 - Full React Flow editing (read-only snapshots only)
 - Automatic archival of raw browsing exhaust
 - Encrypted archive workflows
-- Full Green Goods garden binding
+- Direct Green Goods impact-report attestation
 - Built-in cloud LLM integrations
 - Autonomous agent execution
-- Session-key transactions
+- Open-ended session-key transactions beyond bounded garden maintenance
 - End-user skill management UI
 
 ### System Principles
@@ -183,8 +189,8 @@ The hackathon demo (PL Genesis) must prove:
 
 ## Key Files
 
-- `docs/coop-os-architecture-vnext.md` — Canonical v1 build plan (sections 1-4 cover product)
-- `docs/coop-design-direction.md` — Visual direction, palette, asset usage, motion/sound
-- `docs/coop-audio-and-asset-ops.md` — Audio sourcing and asset operations
-- `docs/scoped-roadmap-2026-03-11.md` — Current scoped roadmap
+- `docs/reference/coop-os-architecture-vnext.md` — Canonical v1 build plan (sections 1-4 cover product)
+- `docs/reference/coop-design-direction.md` — Visual direction, palette, asset usage, motion/sound
+- `docs/reference/coop-audio-and-asset-ops.md` — Audio sourcing and asset operations
+- `docs/reference/scoped-roadmap-2026-03-11.md` — Current scoped roadmap
 - `packages/app/src/views/Landing/index.tsx` — Landing page implementation

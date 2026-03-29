@@ -11,10 +11,17 @@ import type {
   SkillManifest,
   SkillRun,
 } from '@coop/shared';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { OperatorConsole } from '../OperatorConsole';
+
+/** Click a collapsible section heading to expand it. */
+async function expandSection(user: ReturnType<typeof userEvent.setup>, name: string | RegExp) {
+  const heading = screen.getByRole('heading', { name });
+  await user.click(heading);
+}
 
 const baseProps = {
   actionLog: [
@@ -75,23 +82,52 @@ const baseProps = {
   skillRuns: [] as SkillRun[],
   skillManifests: [] as SkillManifest[],
   autoRunSkillIds: [] as string[],
+  activeCoopId: 'coop-1',
+  activeCoopName: 'Coop Town',
   onRunAgentCycle: vi.fn(),
   onApprovePlan: vi.fn(),
   onRejectPlan: vi.fn(),
   onRetrySkillRun: vi.fn(),
   onToggleSkillAutoRun: vi.fn(),
-};
+} as unknown as ComponentProps<typeof OperatorConsole>;
 
 describe('operator console', () => {
-  it('renders anchor state, action log entries, and refresh affordances', () => {
+  it('renders anchor state, action log entries, and refresh affordances', async () => {
+    const user = userEvent.setup();
     render(<OperatorConsole {...baseProps} />);
 
     expect(screen.getByRole('heading', { name: 'Trusted Helpers' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Trusted Nest Controls' })).toBeVisible();
+
+    await expandSection(user, 'Trusted Nest Controls');
     expect(screen.getByText(/trusted mode is active/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: /refresh saved proof/i })).toBeEnabled();
+
+    await expandSection(user, 'Trusted Action Log');
     expect(screen.getByRole('log', { name: /trusted action log/i })).toBeVisible();
     expect(screen.getByText(/live archive upload completed and receipt stored/i)).toBeVisible();
-    expect(screen.getByRole('button', { name: /refresh saved proof/i })).toBeEnabled();
+  });
+
+  it('shows practice and off mode labels when live paths are not enabled', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <OperatorConsole
+        {...baseProps}
+        anchorActive={false}
+        archiveMode="mock"
+        onchainMode="mock"
+        sessionMode="off"
+        liveArchiveAvailable={false}
+        liveOnchainAvailable={false}
+        refreshableReceiptCount={0}
+      />,
+    );
+
+    await expandSection(user, 'Trusted Nest Controls');
+    expect(screen.getAllByText('Practice').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Off')).toBeVisible();
+    expect(screen.getByRole('button', { name: /refresh saved proof/i })).toBeDisabled();
   });
 
   it('renders Green Goods request controls for a linked garden and queues GAP admin sync', async () => {
@@ -116,13 +152,139 @@ describe('operator console', () => {
     expect(onQueueGreenGoodsGapAdminSync).toHaveBeenCalledWith('coop-1');
   });
 
+  it('shows member bindings and queues gardener sync actions', async () => {
+    const user = userEvent.setup();
+    const onQueueGreenGoodsMemberSync = vi.fn();
+
+    render(
+      <OperatorConsole
+        {...baseProps}
+        greenGoodsContext={{
+          coopId: 'coop-1',
+          coopName: 'Coop Town',
+          enabled: true,
+          gardenAddress: '0x1111111111111111111111111111111111111111',
+          memberBindings: [
+            {
+              memberId: 'member-1',
+              memberDisplayName: 'Ari',
+              actorAddress: '0x2222222222222222222222222222222222222222',
+              desiredRoles: ['gardener', 'operator'],
+              currentRoles: [],
+              status: 'pending-sync',
+            },
+          ],
+        }}
+        actionQueue={[
+          {
+            id: 'bundle-1',
+            actionClass: 'green-goods-add-gardener',
+            status: 'approved',
+            coopId: 'coop-1',
+            memberId: 'member-admin',
+            policyId: 'policy-add',
+            chainId: 11155111,
+            chainKey: 'sepolia',
+            safeAddress: '0x9999999999999999999999999999999999999999',
+            payload: {
+              coopId: 'coop-1',
+              memberId: 'member-1',
+              gardenerAddress: '0x2222222222222222222222222222222222222222',
+            },
+            rationale: 'Sync member into the garden.',
+            approvals: [],
+            rejections: [],
+            executionAttempts: [],
+            createdAt: '2026-03-20T00:05:00.000Z',
+            updatedAt: '2026-03-20T00:05:00.000Z',
+          } as unknown as ActionBundle,
+        ]}
+        actionHistory={[
+          {
+            id: 'history-1',
+            bundleId: 'bundle-1',
+            actionClass: 'green-goods-add-gardener',
+            eventType: 'executed',
+            detail: 'Added gardener 0x2222... to the linked garden.',
+            createdAt: '2026-03-20T00:06:00.000Z',
+          } as unknown as ActionLogEntry,
+        ]}
+        onQueueGreenGoodsMemberSync={onQueueGreenGoodsMemberSync}
+      />,
+    );
+
+    await expandSection(user, 'Garden Requests');
+    expect(screen.getAllByText('Ari').length).toBeGreaterThan(0);
+    expect(screen.getByText(/pending-sync/i)).toBeVisible();
+    expect(screen.getByText(/queued bundles/i)).toBeVisible();
+    expect(screen.getAllByText(/add gardener/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/added gardener 0x2222/i).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: /queue gardener sync/i }));
+    expect(onQueueGreenGoodsMemberSync).toHaveBeenCalledWith('coop-1');
+  });
+
+  it('queues a Hypercert mint package from the garden requests panel', async () => {
+    const user = userEvent.setup();
+    const onQueueGreenGoodsHypercertMint = vi.fn();
+
+    render(
+      <OperatorConsole
+        {...baseProps}
+        greenGoodsContext={{
+          coopId: 'coop-1',
+          coopName: 'Coop Town',
+          enabled: true,
+          gardenAddress: '0x1111111111111111111111111111111111111111',
+        }}
+        onQueueGreenGoodsHypercertMint={onQueueGreenGoodsHypercertMint}
+      />,
+    );
+
+    await expandSection(user, 'Garden Requests');
+    const [, hypercertTitleInput] = screen.getAllByLabelText(/^Title$/i);
+    const [, hypercertDescriptionInput] = screen.getAllByLabelText(/^Description$/i);
+    if (!hypercertTitleInput || !hypercertDescriptionInput) {
+      throw new Error('Expected the Hypercert mint form fields to render.');
+    }
+
+    fireEvent.change(hypercertTitleInput, {
+      target: { value: 'Season one stewardship package' },
+    });
+    fireEvent.change(hypercertDescriptionInput, {
+      target: { value: 'Approved Green Goods work bundled into a Hypercert.' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Allowlist JSON$/i), {
+      target: {
+        value: '[{"address":"0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa","units":100000000}]',
+      },
+    });
+    fireEvent.change(screen.getByLabelText(/^Attestations JSON$/i), {
+      target: {
+        value:
+          '[{"uid":"0x1111111111111111111111111111111111111111111111111111111111111111","workUid":"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","title":"Watershed planting day","gardenerAddress":"0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa","createdAt":1711929600,"approvedAt":1711936800}]',
+      },
+    });
+
+    await user.click(screen.getByRole('button', { name: /queue hypercert mint/i }));
+
+    expect(onQueueGreenGoodsHypercertMint).toHaveBeenCalledWith(
+      'coop-1',
+      expect.objectContaining({
+        gardenAddress: '0x1111111111111111111111111111111111111111',
+        title: 'Season one stewardship package',
+        description: 'Approved Green Goods work bundled into a Hypercert.',
+      }),
+    );
+  }, 30_000);
+
   describe('policy settings section', () => {
     it('renders the Approval Rules heading', () => {
       render(<OperatorConsole {...baseProps} />);
       expect(screen.getByRole('heading', { name: 'Approval Rules' })).toBeVisible();
     });
 
-    it('renders policy toggle for each policy', () => {
+    it('renders policy toggle for each policy', async () => {
+      const user = userEvent.setup();
       const policies: ActionPolicy[] = [
         {
           id: 'policy-1',
@@ -144,11 +306,13 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} policies={policies} />);
 
+      await expandSection(user, 'Approval Rules');
       expect(screen.getByText('Archive artifact')).toBeVisible();
       expect(screen.getByText('Publish ready draft')).toBeVisible();
     });
 
-    it('disables the safe-deployment toggle with human confirmation note', () => {
+    it('disables the safe-deployment toggle with human confirmation note', async () => {
+      const user = userEvent.setup();
       const policies: ActionPolicy[] = [
         {
           id: 'policy-safe',
@@ -162,6 +326,7 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} policies={policies} />);
 
+      await expandSection(user, 'Approval Rules');
       expect(screen.getByText('Safe deployment')).toBeVisible();
       expect(screen.getByText(/a person must always confirm this one/i)).toBeVisible();
       const checkbox = screen.getByRole('checkbox', { name: /safe deployment/i });
@@ -196,12 +361,15 @@ describe('operator console', () => {
       expect(screen.getByRole('heading', { name: 'Waiting Chores' })).toBeVisible();
     });
 
-    it('shows empty state when no bundles', () => {
+    it('shows empty state when no bundles', async () => {
+      const user = userEvent.setup();
       render(<OperatorConsole {...baseProps} actionQueue={[]} />);
+      await expandSection(user, 'Waiting Chores');
       expect(screen.getByText('No waiting chores.')).toBeVisible();
     });
 
-    it('renders proposed bundle with Approve and Reject buttons', () => {
+    it('renders proposed bundle with Approve and Reject buttons', async () => {
+      const user = userEvent.setup();
       const actionQueue: ActionBundle[] = [
         {
           id: 'bundle-1',
@@ -220,12 +388,14 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} actionQueue={actionQueue} />);
 
+      await expandSection(user, 'Waiting Chores');
       expect(screen.getByText('Archive artifact')).toBeVisible();
       expect(screen.getByRole('button', { name: /approve/i })).toBeVisible();
       expect(screen.getByRole('button', { name: /reject/i })).toBeVisible();
     });
 
-    it('renders approved bundle with Execute button', () => {
+    it('renders approved bundle with Execute button', async () => {
+      const user = userEvent.setup();
       const actionQueue: ActionBundle[] = [
         {
           id: 'bundle-2',
@@ -245,6 +415,7 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} actionQueue={actionQueue} />);
 
+      await expandSection(user, 'Waiting Chores');
       expect(screen.getByRole('button', { name: /run now/i })).toBeVisible();
     });
 
@@ -349,12 +520,15 @@ describe('operator console', () => {
       expect(screen.getByRole('heading', { name: 'Recent Chores' })).toBeVisible();
     });
 
-    it('shows empty state when no history entries', () => {
+    it('shows empty state when no history entries', async () => {
+      const user = userEvent.setup();
       render(<OperatorConsole {...baseProps} actionHistory={[]} />);
+      await expandSection(user, 'Recent Chores');
       expect(screen.getByText('No recent chores yet.')).toBeVisible();
     });
 
-    it('renders action history entries with labels', () => {
+    it('renders action history entries with labels', async () => {
+      const user = userEvent.setup();
       const actionHistory: ActionLogEntry[] = [
         {
           id: 'alog-1',
@@ -379,6 +553,7 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} actionHistory={actionHistory} />);
 
+      await expandSection(user, 'Recent Chores');
       expect(screen.getByText('Approved')).toBeVisible();
       expect(screen.getByText('Approved by operator.')).toBeVisible();
       expect(screen.getByText('Executed')).toBeVisible();
@@ -405,7 +580,8 @@ describe('operator console', () => {
   });
 
   describe('session keys section', () => {
-    it('renders the Garden Passes heading and issue control', () => {
+    it('renders the Garden Passes heading and issue control', async () => {
+      const user = userEvent.setup();
       render(
         <OperatorConsole
           {...baseProps}
@@ -419,10 +595,12 @@ describe('operator console', () => {
       );
 
       expect(screen.getByRole('heading', { name: 'Garden Passes' })).toBeVisible();
+      await expandSection(user, 'Garden Passes');
       expect(screen.getByRole('button', { name: /hatch garden pass/i })).toBeVisible();
     });
 
-    it('renders issued session keys with status and actions', () => {
+    it('renders issued session keys with status and actions', async () => {
+      const user = userEvent.setup();
       const sessionCapabilities: SessionCapability[] = [
         {
           id: 'session-1',
@@ -462,6 +640,7 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} sessionCapabilities={sessionCapabilities} />);
 
+      await expandSection(user, 'Garden Passes');
       expect(screen.getByText('Unavailable')).toBeVisible();
       expect(screen.getByText('3/12 uses')).toBeVisible();
       expect(
@@ -501,7 +680,8 @@ describe('operator console', () => {
       );
     });
 
-    it('renders the session audit log with friendly labels', () => {
+    it('renders the session audit log with friendly labels', async () => {
+      const user = userEvent.setup();
       const sessionCapabilityLog: SessionCapabilityLogEntry[] = [
         {
           id: 'slog-1',
@@ -518,6 +698,7 @@ describe('operator console', () => {
       render(<OperatorConsole {...baseProps} sessionCapabilityLog={sessionCapabilityLog} />);
 
       expect(screen.getByRole('heading', { name: 'Garden Pass Log' })).toBeVisible();
+      await expandSection(user, 'Garden Pass Log');
       expect(screen.getByText('Validation rejected')).toBeVisible();
       expect(screen.getByText('Module unavailable')).toBeVisible();
       expect(screen.getByText(/missing typed authorization metadata/i)).toBeVisible();
@@ -530,12 +711,15 @@ describe('operator console', () => {
       expect(screen.getByRole('heading', { name: 'Helper Passes' })).toBeVisible();
     });
 
-    it('shows empty state when no permits', () => {
+    it('shows empty state when no permits', async () => {
+      const user = userEvent.setup();
       render(<OperatorConsole {...baseProps} permits={[]} />);
+      await expandSection(user, 'Helper Passes');
       expect(screen.getByText('No helper passes issued yet.')).toBeVisible();
     });
 
-    it('renders an active permit with status, coop, usage, and actions', () => {
+    it('renders an active permit with status, coop, usage, and actions', async () => {
+      const user = userEvent.setup();
       const permits: ExecutionPermit[] = [
         {
           id: 'permit-1',
@@ -553,6 +737,7 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} permits={permits} />);
 
+      await expandSection(user, 'Helper Passes');
       expect(screen.getByText('Active')).toBeVisible();
       expect(screen.getByText('coop-1')).toBeVisible();
       expect(screen.getByText('3/10 uses')).toBeVisible();
@@ -561,7 +746,8 @@ describe('operator console', () => {
       expect(screen.getByRole('button', { name: /turn off pass/i })).toBeVisible();
     });
 
-    it('does not show Turn off pass button for non-active permits', () => {
+    it('does not show Turn off pass button for non-active permits', async () => {
+      const user = userEvent.setup();
       const permits: ExecutionPermit[] = [
         {
           id: 'permit-1',
@@ -579,11 +765,13 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} permits={permits} />);
 
+      await expandSection(user, 'Helper Passes');
       expect(screen.getByText('Expired')).toBeVisible();
       expect(screen.queryByRole('button', { name: /turn off pass/i })).toBeNull();
     });
 
-    it('shows revoked timestamp for revoked permits', () => {
+    it('shows revoked timestamp for revoked permits', async () => {
+      const user = userEvent.setup();
       const permits: ExecutionPermit[] = [
         {
           id: 'permit-1',
@@ -602,6 +790,7 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} permits={permits} />);
 
+      await expandSection(user, 'Helper Passes');
       expect(screen.getByText('Revoked')).toBeVisible();
       expect(screen.getByText(/· Revoked/)).toBeVisible();
     });
@@ -637,12 +826,15 @@ describe('operator console', () => {
       expect(screen.getByRole('heading', { name: 'Helper Pass Log' })).toBeVisible();
     });
 
-    it('shows empty state when no permit log entries', () => {
+    it('shows empty state when no permit log entries', async () => {
+      const user = userEvent.setup();
       render(<OperatorConsole {...baseProps} permitLog={[]} />);
+      await expandSection(user, 'Helper Pass Log');
       expect(screen.getByText('No helper-pass activity yet.')).toBeVisible();
     });
 
-    it('renders permit log entries with event labels and details', () => {
+    it('renders permit log entries with event labels and details', async () => {
+      const user = userEvent.setup();
       const permitLog: PermitLogEntry[] = [
         {
           id: 'glog-1',
@@ -665,6 +857,7 @@ describe('operator console', () => {
 
       render(<OperatorConsole {...baseProps} permitLog={permitLog} />);
 
+      await expandSection(user, 'Helper Pass Log');
       expect(screen.getByText('Issued')).toBeVisible();
       expect(screen.getByText('Permit issued for archive-artifact (max 10 uses).')).toBeVisible();
       expect(screen.getByText('Succeeded')).toBeVisible();

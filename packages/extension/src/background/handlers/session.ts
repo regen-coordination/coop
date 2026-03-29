@@ -5,10 +5,11 @@ import {
   type SessionCapability,
   type SessionCapableActionClass,
   buildEnableSessionExecution,
-  buildPimlicoRpcUrl,
   buildRemoveSessionExecution,
   buildSmartSession,
   checkSessionCapabilityEnabled,
+  createCoopPublicClient,
+  createCoopSmartAccountClient,
   createSessionCapability,
   createSessionCapabilityLogEntry,
   createSessionSignerMaterial,
@@ -16,7 +17,6 @@ import {
   decryptSessionPrivateKey,
   encryptSessionPrivateKey,
   getAuthSession,
-  getCoopChainConfig,
   getEncryptedSessionMaterial,
   getGreenGoodsDeployment,
   getSessionCapability,
@@ -40,9 +40,7 @@ import {
   isModuleInstalled as checkModuleInstalled,
 } from '@rhinestone/module-sdk/account';
 import { toSafeSmartAccount } from 'permissionless/accounts';
-import { createSmartAccountClient } from 'permissionless/clients';
-import { createPimlicoClient } from 'permissionless/clients/pimlico';
-import { http, type Address, createPublicClient } from 'viem';
+import type { Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { RuntimeActionResponse } from '../../runtime/messages';
 import type { RuntimeRequest } from '../../runtime/messages';
@@ -156,30 +154,18 @@ export async function createOwnerSafeExecutionContext(input: {
   }
 
   const owner = restorePasskeyAccount(input.authSession);
-  const chainConfig = getCoopChainConfig(input.onchainState.chainKey);
-  const bundlerUrl = buildPimlicoRpcUrl(input.onchainState.chainKey, configuredPimlicoApiKey);
-  const publicClient = createPublicClient({
-    chain: chainConfig.chain,
-    transport: http(chainConfig.chain.rpcUrls.default.http[0]),
-  });
+  const publicClient = await createCoopPublicClient(input.onchainState.chainKey);
   const account = await toSafeSmartAccount({
     client: publicClient,
     owners: [owner],
     address: input.onchainState.safeAddress as Address,
     version: '1.4.1',
   });
-  const pimlicoClient = createPimlicoClient({
-    chain: chainConfig.chain,
-    transport: http(bundlerUrl),
-  });
-  const smartClient = createSmartAccountClient({
+  const { smartClient } = createCoopSmartAccountClient({
     account,
-    chain: chainConfig.chain,
-    bundlerTransport: http(bundlerUrl),
-    paymaster: pimlicoClient,
-    userOperation: {
-      estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
-    },
+    chainKey: input.onchainState.chainKey,
+    pimlicoApiKey: configuredPimlicoApiKey,
+    accountTypeHint: 'safe',
   });
 
   return {
@@ -204,7 +190,7 @@ export async function ensureSessionCapabilityReadyLive(input: {
 
   for (const module of [modules.validator, modules.fallback]) {
     const installed = await checkModuleInstalled({
-      client: context.publicClient,
+      client: context.publicClient as Parameters<typeof checkModuleInstalled>[0]['client'],
       account: context.moduleAccount,
       module,
     });
@@ -213,7 +199,7 @@ export async function ensureSessionCapabilityReadyLive(input: {
     }
 
     const executions = await buildModuleInstallExecutions({
-      client: context.publicClient,
+      client: context.publicClient as Parameters<typeof buildModuleInstallExecutions>[0]['client'],
       account: context.moduleAccount,
       module,
     });
@@ -221,7 +207,7 @@ export async function ensureSessionCapabilityReadyLive(input: {
       await context.smartClient.sendTransaction({
         to: execution.to,
         data: execution.data,
-        value: execution.value,
+        value: execution.value as bigint,
       });
     }
   }
@@ -235,7 +221,7 @@ export async function ensureSessionCapabilityReadyLive(input: {
     await context.smartClient.sendTransaction({
       to: execution.to,
       data: execution.data,
-      value: execution.value,
+      value: execution.value as bigint,
     });
   }
 
@@ -274,7 +260,7 @@ export async function revokeSessionCapabilityLive(input: {
   await context.smartClient.sendTransaction({
     to: execution.to,
     data: execution.data,
-    value: execution.value,
+    value: execution.value as bigint,
   });
 }
 
@@ -299,12 +285,7 @@ export async function createSessionExecutionContext(input: {
     wrappingSecret,
   });
   const owner = privateKeyToAccount(privateKey);
-  const chainConfig = getCoopChainConfig(input.onchainState.chainKey);
-  const bundlerUrl = buildPimlicoRpcUrl(input.onchainState.chainKey, configuredPimlicoApiKey);
-  const publicClient = createPublicClient({
-    chain: chainConfig.chain,
-    transport: http(chainConfig.chain.rpcUrls.default.http[0]),
-  });
+  const publicClient = await createCoopPublicClient(input.onchainState.chainKey);
   const baseAccount = await toSafeSmartAccount({
     client: publicClient,
     owners: [owner],
@@ -328,18 +309,11 @@ export async function createSessionExecutionContext(input: {
       });
     },
   };
-  const pimlicoClient = createPimlicoClient({
-    chain: chainConfig.chain,
-    transport: http(bundlerUrl),
-  });
-  const smartClient = createSmartAccountClient({
+  const { smartClient } = createCoopSmartAccountClient({
     account,
-    chain: chainConfig.chain,
-    bundlerTransport: http(bundlerUrl),
-    paymaster: pimlicoClient,
-    userOperation: {
-      estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
-    },
+    chainKey: input.onchainState.chainKey,
+    pimlicoApiKey: configuredPimlicoApiKey,
+    accountTypeHint: 'safe',
   });
 
   return {

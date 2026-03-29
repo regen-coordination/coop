@@ -11,7 +11,6 @@ import {
   buildCoopArchiveStory,
   buildCoopBoardDeepLink,
   buildMeetingModeSections,
-  buildReceiverPairingProtocolLink,
   createCoopBoardSnapshot,
   defaultSignalingUrls,
   defaultSoundPreferences,
@@ -29,11 +28,14 @@ import {
   resolveConfiguredArchiveMode,
   resolveConfiguredChain,
   resolveConfiguredOnchainMode,
+  resolveConfiguredPrivacyMode,
+  resolveConfiguredProviderMode,
   resolveConfiguredSessionMode,
   resolveReceiverAppUrl,
 } from '../../../runtime/config';
 import {
   type AgentDashboardResponse,
+  type AgentStateDeltaEvent,
   type BackgroundNotification,
   type DashboardResponse,
   sendRuntimeMessage,
@@ -53,6 +55,10 @@ const configuredOnchainMode = resolveConfiguredOnchainMode(
   import.meta.env.VITE_PIMLICO_API_KEY,
 );
 const configuredSessionMode = resolveConfiguredSessionMode(import.meta.env.VITE_COOP_SESSION_MODE);
+const configuredProviderMode = resolveConfiguredProviderMode(
+  import.meta.env.VITE_COOP_PROVIDER_MODE,
+);
+const configuredPrivacyMode = resolveConfiguredPrivacyMode(import.meta.env.VITE_COOP_PRIVACY_MODE);
 const configuredSignalingUrls =
   parseConfiguredSignalingUrls(import.meta.env.VITE_COOP_SIGNALING_URLS) ?? defaultSignalingUrls;
 const configuredReceiverAppUrl = resolveReceiverAppUrl(import.meta.env.VITE_COOP_RECEIVER_APP_URL);
@@ -63,6 +69,8 @@ export function useDashboard() {
   const [actionPolicies, setActionPolicies] = useState<ActionPolicy[]>([]);
   const [pairingResult, setPairingResult] = useState<ReceiverPairingRecord | null>(null);
   const [message, setMessage] = useState('');
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentDelta, setAgentDelta] = useState<AgentStateDeltaEvent | null>(null);
 
   const runtimeConfig = useMemo(
     () =>
@@ -71,6 +79,8 @@ export function useDashboard() {
         onchainMode: configuredOnchainMode,
         archiveMode: configuredArchiveMode,
         sessionMode: configuredSessionMode,
+        providerMode: configuredProviderMode,
+        privacyMode: configuredPrivacyMode,
         receiverAppUrl: configuredReceiverAppUrl,
         signalingUrls: configuredSignalingUrls,
       },
@@ -128,11 +138,8 @@ export function useDashboard() {
     : null;
 
   const activeReceiverProtocolLink = useMemo(
-    () =>
-      activeReceiverPairing?.pairingCode
-        ? buildReceiverPairingProtocolLink(activeReceiverPairing.pairingCode)
-        : '',
-    [activeReceiverPairing?.pairingCode],
+    () => activeReceiverPairing?.deepLink ?? '',
+    [activeReceiverPairing?.deepLink],
   );
 
   const receiverIntake = filterPrivateReceiverIntake(
@@ -293,10 +300,24 @@ export function useDashboard() {
     void loadDashboard();
     void loadAgentDashboard();
 
-    const listener = (message: BackgroundNotification) => {
-      if (message.type === 'DASHBOARD_UPDATED') {
+    const listener = (msg: BackgroundNotification) => {
+      if (msg.type === 'DASHBOARD_UPDATED') {
         void loadDashboard();
         void loadAgentDashboard();
+      }
+      if (msg.type === 'AGENT_CYCLE_STARTED') {
+        setAgentRunning(true);
+      }
+      if (msg.type === 'AGENT_CYCLE_FINISHED') {
+        setAgentRunning(false);
+        // Dashboard refresh is handled by the DASHBOARD_UPDATED event
+        // that the background always emits alongside AGENT_CYCLE_FINISHED.
+      }
+      if (msg.type === 'AGENT_CYCLE_ERROR') {
+        setAgentRunning(false);
+      }
+      if (msg.type === 'AGENT_STATE_DELTA') {
+        setAgentDelta(msg);
       }
     };
 
@@ -352,5 +373,8 @@ export function useDashboard() {
     updateUiPreferences,
     configuredSignalingUrls,
     configuredReceiverAppUrl,
+    agentRunning,
+    agentDelta,
+    clearAgentDelta: useCallback(() => setAgentDelta(null), []),
   };
 }

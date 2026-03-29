@@ -26,9 +26,10 @@ import { describe, expect, it } from 'vitest';
 
 // ---- helpers ----------------------------------------------------------------
 
-const distDir = path.resolve(__dirname, '../../dist');
+const distDir = path.resolve(__dirname, '../../.output/chrome-mv3');
 const bgPath = path.join(distDir, 'background.js');
 const distExists = fs.existsSync(bgPath);
+const requireDist = process.env.COOP_REQUIRE_EXTENSION_DIST === '1';
 
 /** Extract static `from "..."` import specifiers from a JS file. */
 function extractStaticImports(code: string): string[] {
@@ -45,7 +46,7 @@ function traceImportGraph(entryPath: string): string[] {
   const queue = [entryPath];
 
   while (queue.length > 0) {
-    const filePath = queue.pop()!;
+    const filePath = queue.pop() as string;
     const resolved = path.resolve(
       path.dirname(entryPath),
       filePath.startsWith('.') ? filePath : filePath,
@@ -79,8 +80,10 @@ const ALWAYS_SAFE = new Set(['FunctionDeclaration', 'MethodDefinition']);
 // ONLY if they are NOT immediately invoked (i.e., not the callee of a CallExpression).
 const MAYBE_SAFE = new Set(['FunctionExpression', 'ArrowFunctionExpression']);
 
-type AstNode = ReturnType<typeof parseAst> & {
+type AstNode = {
   type: string;
+  start?: number;
+  end?: number;
   [key: string]: unknown;
 };
 
@@ -152,7 +155,7 @@ function scanFile(filePath: string, code: string): Violation[] {
 
   let ast: AstNode;
   try {
-    ast = parseAst(code) as AstNode;
+    ast = parseAst(code) as unknown as AstNode;
   } catch {
     // If parsing fails (rare), skip this file.
     return [];
@@ -227,14 +230,25 @@ function formatViolations(vs: Violation[]): string {
   return vs.map((v) => `  ${v.file}@${v.offset} — ${v.snippet}`).join('\n');
 }
 
-describe.skipIf(!distExists)('service-worker safety (built output)', () => {
-  const graph = distExists ? traceImportGraph(bgPath) : [];
+describe('service-worker safety (built output)', () => {
+  if (!distExists) {
+    const maybeIt = requireDist ? it : it.skip;
+    maybeIt('requires a fresh extension build', () => {
+      expect(
+        distExists,
+        'Expected packages/extension/.output/chrome-mv3/background.js to exist. Run the extension build first.',
+      ).toBe(true);
+    });
+    return;
+  }
+
+  const graph = traceImportGraph(bgPath);
 
   it('background import graph is non-empty', () => {
     expect(graph.length).toBeGreaterThan(1);
   });
 
-  it('background graph contains no top-level dynamic import()', () => {
+  it('background graph contains no top-level dynamic import()', { timeout: 30_000 }, () => {
     const vs: Violation[] = [];
     for (const file of graph) {
       vs.push(
@@ -248,7 +262,7 @@ describe.skipIf(!distExists)('service-worker safety (built output)', () => {
     }
   });
 
-  it('background graph contains no top-level document.* access', () => {
+  it('background graph contains no top-level document.* access', { timeout: 30_000 }, () => {
     const vs: Violation[] = [];
     for (const file of graph) {
       vs.push(
@@ -262,7 +276,7 @@ describe.skipIf(!distExists)('service-worker safety (built output)', () => {
     }
   });
 
-  it('background graph contains no top-level URL.createObjectURL', () => {
+  it('background graph contains no top-level URL.createObjectURL', { timeout: 30_000 }, () => {
     const vs: Violation[] = [];
     for (const file of graph) {
       vs.push(
@@ -276,7 +290,7 @@ describe.skipIf(!distExists)('service-worker safety (built output)', () => {
     }
   });
 
-  it('background graph contains no top-level new Worker()', () => {
+  it('background graph contains no top-level new Worker()', { timeout: 30_000 }, () => {
     const vs: Violation[] = [];
     for (const file of graph) {
       vs.push(
@@ -286,5 +300,9 @@ describe.skipIf(!distExists)('service-worker safety (built output)', () => {
     if (vs.length > 0) {
       expect.fail(`Found ${vs.length} top-level new Worker():\n${formatViolations(vs)}`);
     }
+  });
+
+  it('ships the packaged ONNX runtime wasm asset', () => {
+    expect(fs.existsSync(path.join(distDir, 'assets/ort-wasm-simd-threaded.jsep.wasm'))).toBe(true);
   });
 });

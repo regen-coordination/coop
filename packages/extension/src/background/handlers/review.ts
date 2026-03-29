@@ -1,17 +1,25 @@
 import {
   type CoopSharedState,
   type ReviewDraft,
+  addOutboxEntry,
+  createAgentMemory,
+  createOutboxEntry,
+  deleteReviewDraft,
   getAuthSession,
   getReviewDraft,
+  getTabRoutingByExtractAndCoop,
+  listTabRoutings,
   nowIso,
   publishDraftAcrossCoops,
   saveReviewDraft,
+  saveTabRouting,
 } from '@coop/shared';
 import type { RuntimeActionResponse, RuntimeRequest } from '../../runtime/messages';
 import { validateReviewDraftPublish, validateReviewDraftUpdate } from '../../runtime/review';
 import { db, getCoops, saveState } from '../context';
 import { refreshBadge } from '../dashboard';
 import { getActiveReviewContextForSession } from '../operator';
+import { requestAgentCycle } from './agent';
 import { syncReceiverCaptureFromDraft } from './receiver';
 
 export async function publishDraftWithContext(input: {
@@ -80,7 +88,51 @@ export async function publishDraftWithContext(input: {
   for (const state of nextStates) {
     await saveState(state);
   }
-  await db.reviewDrafts.delete(validation.draft.id);
+  await deleteReviewDraft(db, validation.draft.id);
+
+  // Track each published artifact in the outbox for sync confirmation (best-effort)
+  await Promise.all(
+    artifacts.map((artifact) =>
+      addOutboxEntry(
+        db,
+        createOutboxEntry({
+          coopId: artifact.targetCoopId,
+          type: 'artifact-publish',
+          entityKey: artifact.id,
+        }),
+      ).catch((err) => console.warn('[outbox] failed to track entry:', err)),
+    ),
+  );
+
+  if (validation.draft.provenance.type === 'tab') {
+    const publishedCoopIds = new Set(validation.targetActors.map((target) => target.coopId));
+    const relatedRoutings = await listTabRoutings(db, {
+      extractId: validation.draft.extractId,
+      limit: 500,
+    });
+    for (const routing of relatedRoutings) {
+      if (routing.status === 'dismissed') {
+        continue;
+      }
+      if (publishedCoopIds.has(routing.coopId)) {
+        await saveTabRouting(db, {
+          ...routing,
+          status: 'published',
+          draftId: validation.draft.id,
+          updatedAt: nowIso(),
+        });
+        continue;
+      }
+      if (routing.draftId === validation.draft.id && routing.status !== 'published') {
+        await saveTabRouting(db, {
+          ...routing,
+          status: 'routed',
+          draftId: undefined,
+          updatedAt: nowIso(),
+        });
+      }
+    }
+  }
   if (validation.draft.provenance.type === 'receiver') {
     await syncReceiverCaptureFromDraft(validation.draft, {
       intakeStatus: 'published',
@@ -88,7 +140,22 @@ export async function publishDraftWithContext(input: {
       updatedAt: nowIso(),
     });
   }
+  await requestAgentCycle(`publish:${validation.draft.id}`);
   await refreshBadge();
+
+  // Record user-feedback memory when an agent-generated draft is published
+  if (validation.draft.provenance.type === 'agent') {
+    const skillId = validation.draft.provenance.skillId;
+    const coopId = validation.targetActors[0]?.coopId ?? validation.draft.suggestedTargetCoopIds[0];
+    createAgentMemory(db, {
+      type: 'user-feedback',
+      coopId,
+      memberId: input.activeMemberId,
+      content: `Draft published: "${validation.draft.title}" (skill: ${skillId})`,
+      confidence: 1,
+      sourceObservationId: validation.draft.provenance.observationId,
+    }).catch(() => {});
+  }
 
   return {
     ok: true,
@@ -116,8 +183,59 @@ export async function handleUpdateReviewDraft(
   }
 
   await saveReviewDraft(db, validation.draft);
+  if (validation.draft.provenance.type === 'tab') {
+    const relatedRoutings = await listTabRoutings(db, {
+      extractId: validation.draft.extractId,
+      limit: 500,
+    });
+    const selectedCoopIds = new Set(validation.draft.suggestedTargetCoopIds);
+    for (const routing of relatedRoutings) {
+      if (routing.status === 'published' || routing.status === 'dismissed') {
+        continue;
+      }
+      if (routing.draftId === validation.draft.id && !selectedCoopIds.has(routing.coopId)) {
+        await saveTabRouting(db, {
+          ...routing,
+          status: 'routed',
+          draftId: undefined,
+          updatedAt: nowIso(),
+        });
+        continue;
+      }
+      if (routing.draftId === validation.draft.id || selectedCoopIds.has(routing.coopId)) {
+        await saveTabRouting(db, {
+          ...routing,
+          status: 'drafted',
+          draftId: validation.draft.id,
+          updatedAt: nowIso(),
+        });
+      }
+    }
+  }
   await syncReceiverCaptureFromDraft(validation.draft);
+  await requestAgentCycle(`draft-update:${validation.draft.id}`);
   await refreshBadge();
+
+  // Record user-feedback memory when an agent-generated draft changes workflowStage
+  if (
+    persistedDraft &&
+    persistedDraft.provenance.type === 'agent' &&
+    persistedDraft.workflowStage !== validation.draft.workflowStage
+  ) {
+    const promoted = validation.draft.workflowStage === 'ready';
+    const skillId = persistedDraft.provenance.skillId;
+    const coopId = validation.draft.suggestedTargetCoopIds[0];
+    createAgentMemory(db, {
+      type: 'user-feedback',
+      coopId,
+      memberId: activeContext.activeMemberId,
+      content: promoted
+        ? `Draft accepted: "${validation.draft.title}" (skill: ${skillId})`
+        : `Draft demoted back to candidate: "${validation.draft.title}" (skill: ${skillId})`,
+      confidence: 1,
+      sourceObservationId: persistedDraft.provenance.observationId,
+    }).catch(() => {});
+  }
 
   return {
     ok: true,

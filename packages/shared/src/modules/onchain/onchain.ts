@@ -1,9 +1,13 @@
 import { toSafeSmartAccount } from 'permissionless/accounts';
-import { createSmartAccountClient } from 'permissionless/clients';
+import { type SmartAccountClient, createSmartAccountClient } from 'permissionless/clients';
 import { createPimlicoClient } from 'permissionless/clients/pimlico';
 import {
   http,
   type Account,
+  type Address,
+  type Chain,
+  type Client,
+  type Transport,
   decodeAbiParameters,
   encodeAbiParameters,
   keccak256,
@@ -11,7 +15,13 @@ import {
   toHex,
   zeroAddress,
 } from 'viem';
-import type { WebAuthnAccount } from 'viem/account-abstraction';
+import {
+  type PrepareUserOperationParameters,
+  type PrepareUserOperationReturnType,
+  type SmartAccount,
+  type WebAuthnAccount,
+  prepareUserOperation,
+} from 'viem/account-abstraction';
 import { arbitrum, sepolia } from 'viem/chains';
 import { type AuthSession, type CoopChainKey, onchainStateSchema } from '../../contracts/schema';
 import { toDeterministicAddress, toDeterministicBigInt } from '../../utils';
@@ -64,6 +74,336 @@ export function buildPimlicoRpcUrl(chainKey: CoopChainKey, pimlicoApiKey: string
   return `https://api.pimlico.io/v2/${config.bundlerSegment}/rpc?apikey=${pimlicoApiKey}`;
 }
 
+type BundlerPrepareClient = Client<Transport, Chain | undefined, SmartAccount | undefined> & {
+  paymaster?: unknown;
+};
+
+export type CoopUserOperationGasOverrides = {
+  callGasLimit: bigint;
+  preVerificationGas: bigint;
+  verificationGasLimit: bigint;
+  paymasterPostOpGasLimit?: bigint;
+  paymasterVerificationGasLimit?: bigint;
+};
+
+function countHexBytes(hex: `0x${string}` | undefined): number {
+  if (!hex || hex.length < 2) {
+    return 0;
+  }
+  return Math.max(0, (hex.length - 2) / 2);
+}
+
+function collectUserOperationErrorMessages(
+  error: unknown,
+  seen = new Set<object>(),
+  messages: string[] = [],
+): string[] {
+  if (!error) {
+    return messages;
+  }
+  if (typeof error === 'string') {
+    messages.push(error);
+    return messages;
+  }
+  if (Array.isArray(error)) {
+    for (const entry of error) {
+      collectUserOperationErrorMessages(entry, seen, messages);
+    }
+    return messages;
+  }
+  if (typeof error !== 'object') {
+    return messages;
+  }
+  if (seen.has(error)) {
+    return messages;
+  }
+  seen.add(error);
+
+  const candidate = error as Record<string, unknown>;
+  for (const key of ['message', 'shortMessage', 'details']) {
+    const value = candidate[key];
+    if (typeof value === 'string') {
+      messages.push(value);
+    }
+  }
+  collectUserOperationErrorMessages(candidate.metaMessages, seen, messages);
+  collectUserOperationErrorMessages(candidate.cause, seen, messages);
+  collectUserOperationErrorMessages(candidate.error, seen, messages);
+
+  return messages;
+}
+
+export function shouldRetryWithManualUserOperationGas(error: unknown) {
+  const patterns = [
+    /UserOperation reverted during simulation/i,
+    /eth_estimateUserOperationGas/i,
+    /estimateUserOperationGas/i,
+    /Invalid fields set on User Operation/i,
+    /max gas per userOp/i,
+  ];
+  return collectUserOperationErrorMessages(error).some((message) =>
+    patterns.some((pattern) => pattern.test(message)),
+  );
+}
+
+export function buildCoopUserOperationGasOverrides(input: {
+  accountType?: string;
+  callData?: `0x${string}`;
+  calls?: ReadonlyArray<{ data?: `0x${string}` | undefined }> | undefined;
+  hasPaymaster?: boolean;
+}): CoopUserOperationGasOverrides {
+  const callDataBytes =
+    countHexBytes(input.callData) +
+    (input.calls?.reduce((total, call) => total + countHexBytes(call.data), 0) ?? 0);
+  const dataBand = callDataBytes > 1024 ? 'large' : callDataBytes > 256 ? 'medium' : 'small';
+  const isSafeAccount = input.accountType === 'safe';
+
+  if (isSafeAccount && dataBand === 'medium' && input.hasPaymaster) {
+    return {
+      // Pimlico rejects medium Safe payload estimates that exceed its 20M/userOp ceiling,
+      // but the actual Green Goods mint Safe call still needs a little over 19M gas.
+      callGasLimit: 19_100_000n,
+      preVerificationGas: 100_000n,
+      verificationGasLimit: 400_000n,
+      paymasterPostOpGasLimit: 1n,
+      paymasterVerificationGasLimit: 75_000n,
+    };
+  }
+
+  const callGasLimit = isSafeAccount
+    ? dataBand === 'large'
+      ? 26_000_000n
+      : dataBand === 'medium'
+        ? 18_000_000n
+        : 8_000_000n
+    : dataBand === 'large'
+      ? 6_000_000n
+      : dataBand === 'medium'
+        ? 4_000_000n
+        : 2_000_000n;
+  const verificationGasLimit = isSafeAccount
+    ? dataBand === 'large'
+      ? 1_200_000n
+      : 800_000n
+    : 1_600_000n;
+  const preVerificationGas =
+    dataBand === 'large' ? 650_000n : dataBand === 'medium' ? 450_000n : 300_000n;
+
+  if (!input.hasPaymaster) {
+    return {
+      callGasLimit,
+      preVerificationGas,
+      verificationGasLimit,
+    };
+  }
+
+  return {
+    callGasLimit,
+    preVerificationGas,
+    verificationGasLimit,
+    paymasterPostOpGasLimit: 250_000n,
+    paymasterVerificationGasLimit: isSafeAccount ? 650_000n : 500_000n,
+  };
+}
+
+function applyCoopUserOperationGasOverrides(
+  parameters: PrepareUserOperationParameters,
+  overrides: CoopUserOperationGasOverrides,
+  options: {
+    force?: boolean;
+  } = {},
+): PrepareUserOperationParameters {
+  const force = options.force === true;
+  const nextParameters: Record<string, unknown> = {
+    ...parameters,
+    callGasLimit: force
+      ? overrides.callGasLimit
+      : (parameters.callGasLimit ?? overrides.callGasLimit),
+    preVerificationGas: force
+      ? overrides.preVerificationGas
+      : (parameters.preVerificationGas ?? overrides.preVerificationGas),
+    verificationGasLimit: force
+      ? overrides.verificationGasLimit
+      : (parameters.verificationGasLimit ?? overrides.verificationGasLimit),
+  };
+
+  if (typeof overrides.paymasterPostOpGasLimit !== 'undefined') {
+    nextParameters.paymasterPostOpGasLimit = force
+      ? overrides.paymasterPostOpGasLimit
+      : (parameters.paymasterPostOpGasLimit ?? overrides.paymasterPostOpGasLimit);
+  }
+  if (typeof overrides.paymasterVerificationGasLimit !== 'undefined') {
+    nextParameters.paymasterVerificationGasLimit = force
+      ? overrides.paymasterVerificationGasLimit
+      : (parameters.paymasterVerificationGasLimit ?? overrides.paymasterVerificationGasLimit);
+  }
+
+  return nextParameters as PrepareUserOperationParameters;
+}
+
+export async function prepareUserOperationWithCoopGasFallback(
+  client: BundlerPrepareClient,
+  parameters: PrepareUserOperationParameters,
+  prepareAction: (
+    client: BundlerPrepareClient,
+    parameters: PrepareUserOperationParameters,
+  ) => Promise<PrepareUserOperationReturnType> = prepareUserOperation as (
+    client: BundlerPrepareClient,
+    parameters: PrepareUserOperationParameters,
+  ) => Promise<PrepareUserOperationReturnType>,
+  options: {
+    accountTypeHint?: string;
+  } = {},
+) {
+  try {
+    return await prepareAction(client, parameters);
+  } catch (error) {
+    if (!shouldRetryWithManualUserOperationGas(error)) {
+      throw error;
+    }
+
+    const account =
+      (parameters.account as { type?: string } | undefined) ??
+      (client.account as { type?: string } | undefined);
+    const retryParameters = applyCoopUserOperationGasOverrides(
+      parameters,
+      buildCoopUserOperationGasOverrides({
+        accountType: options.accountTypeHint ?? account?.type,
+        callData: parameters.callData,
+        calls: parameters.calls as ReadonlyArray<{ data?: `0x${string}` | undefined }> | undefined,
+        hasPaymaster: Boolean(parameters.paymaster ?? client.paymaster),
+      }),
+      {
+        force: true,
+      },
+    );
+
+    console.warn(
+      '[coop:onchain] Bundler gas estimation failed; retrying user operation with manual gas limits.',
+    );
+    return prepareAction(client, retryParameters);
+  }
+}
+
+export function createCoopSmartAccountClient<account extends SmartAccount>(input: {
+  account: account;
+  chainKey: CoopChainKey;
+  pimlicoApiKey: string;
+  sponsorshipPolicyId?: string;
+  paymasterContext?: Record<string, unknown>;
+  accountTypeHint?: 'safe' | 'kernel' | 'smart-account';
+}): {
+  smartClient: SmartAccountClient<
+    Transport,
+    ReturnType<typeof getCoopChainConfig>['chain'],
+    account
+  >;
+} {
+  const chainConfig = getCoopChainConfig(input.chainKey);
+  const bundlerUrl = buildPimlicoRpcUrl(input.chainKey, input.pimlicoApiKey);
+  const pimlicoClient = createPimlicoClient({
+    chain: chainConfig.chain,
+    transport: http(bundlerUrl),
+  });
+  const paymasterContext = input.sponsorshipPolicyId
+    ? {
+        ...(input.paymasterContext ?? {}),
+        sponsorshipPolicyId: input.sponsorshipPolicyId,
+      }
+    : input.paymasterContext;
+  const smartClient = createSmartAccountClient({
+    account: input.account,
+    chain: chainConfig.chain,
+    bundlerTransport: http(bundlerUrl),
+    paymaster: pimlicoClient,
+    paymasterContext,
+    userOperation: {
+      estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
+      prepareUserOperation: (client, parameters) =>
+        prepareUserOperationWithCoopGasFallback(
+          client as BundlerPrepareClient,
+          parameters as PrepareUserOperationParameters,
+          undefined,
+          {
+            accountTypeHint: input.accountTypeHint,
+          },
+        ),
+    },
+  });
+
+  return {
+    smartClient,
+  };
+}
+
+export async function sendSmartAccountTransactionWithCoopGasFallback<
+  account extends SmartAccount,
+>(input: {
+  smartClient: SmartAccountClient<Transport, Chain, account>;
+  to: Address;
+  data: `0x${string}`;
+  value?: bigint;
+  nonce?: bigint;
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
+  accountTypeHint?: 'safe' | 'kernel' | 'smart-account';
+}): Promise<{
+  receipt: Awaited<
+    ReturnType<SmartAccountClient<Transport, Chain, account>['waitForUserOperationReceipt']>
+  >['receipt'];
+  txHash: `0x${string}`;
+  userOperationHash: `0x${string}`;
+}> {
+  const calls = [
+    {
+      to: input.to,
+      value: input.value ?? 0n,
+      data: input.data,
+    },
+  ] as const;
+  const request = {
+    calls,
+    nonce: input.nonce,
+    maxFeePerGas: input.maxFeePerGas,
+    maxPriorityFeePerGas: input.maxPriorityFeePerGas,
+  };
+
+  const waitForReceipt = async (userOperationHash: `0x${string}`) => {
+    const userOperationReceipt = await input.smartClient.waitForUserOperationReceipt({
+      hash: userOperationHash,
+    });
+    return {
+      receipt: userOperationReceipt.receipt,
+      txHash: userOperationReceipt.receipt.transactionHash,
+      userOperationHash,
+    };
+  };
+
+  try {
+    const userOperationHash = await input.smartClient.sendUserOperation(request as never);
+    return waitForReceipt(userOperationHash);
+  } catch (error) {
+    if (!shouldRetryWithManualUserOperationGas(error)) {
+      throw error;
+    }
+
+    const retryRequest = {
+      ...request,
+      ...buildCoopUserOperationGasOverrides({
+        accountType: input.accountTypeHint ?? input.smartClient.account?.type,
+        calls: calls.map((call) => ({ data: call.data })),
+        hasPaymaster: Boolean((input.smartClient as { paymaster?: unknown }).paymaster),
+      }),
+    };
+
+    console.warn(
+      '[coop:onchain] Bundler send rejected the estimated user operation; retrying with manual gas limits.',
+    );
+    const userOperationHash = await input.smartClient.sendUserOperation(retryRequest as never);
+    return waitForReceipt(userOperationHash);
+  }
+}
+
 export function createCoopSaltNonce(seed: string) {
   return toDeterministicBigInt(seed);
 }
@@ -93,10 +433,10 @@ export async function deployCoopSafeAccount(input: {
   pimlicoApiKey: string;
   chainKey?: CoopChainKey;
   coopSeed: string;
+  sponsorshipPolicyId?: string;
 }) {
   const chainKey = input.chainKey ?? 'sepolia';
   const config = getCoopChainConfig(chainKey);
-  const bundlerUrl = buildPimlicoRpcUrl(chainKey, input.pimlicoApiKey);
   const publicClient = await createCoopPublicClient(chainKey);
   const account = await toSafeSmartAccount({
     client: publicClient,
@@ -104,24 +444,21 @@ export async function deployCoopSafeAccount(input: {
     version: '1.4.1',
     saltNonce: createCoopSaltNonce(input.coopSeed),
   });
-  const pimlicoClient = createPimlicoClient({
-    chain: config.chain,
-    transport: http(bundlerUrl),
-  });
-  const smartClient = createSmartAccountClient({
+  const { smartClient } = createCoopSmartAccountClient({
     account,
-    chain: config.chain,
-    bundlerTransport: http(bundlerUrl),
-    paymaster: pimlicoClient,
-    userOperation: {
-      estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
-    },
+    chainKey,
+    pimlicoApiKey: input.pimlicoApiKey,
+    sponsorshipPolicyId: input.sponsorshipPolicyId,
+    accountTypeHint: 'safe',
   });
-  const deploymentTxHash = await smartClient.sendTransaction({
+  const deployment = await sendSmartAccountTransactionWithCoopGasFallback({
+    smartClient,
+    accountTypeHint: 'safe',
     to: zeroAddress,
     value: 0n,
     data: '0x',
   });
+  const deploymentTxHash = deployment.txHash;
   await publicClient.waitForTransactionReceipt({
     hash: deploymentTxHash,
   });
@@ -161,6 +498,7 @@ export async function deployCoopSafe(input: {
     pimlicoApiKey: input.pimlico.apiKey,
     chainKey: input.pimlico.chainKey,
     coopSeed: input.coopSeed,
+    sponsorshipPolicyId: input.pimlico.sponsorshipPolicyId,
   });
 }
 

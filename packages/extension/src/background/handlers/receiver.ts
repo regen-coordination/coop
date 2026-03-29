@@ -1,21 +1,28 @@
 import {
+  type InviteCode,
   type InviteType,
   type ReceiverCapture,
   type ReviewDraft,
   addInviteToState,
+  applyAddInviteToDoc,
+  applyRevokeInviteToDoc,
   assertReceiverSyncEnvelope,
   buildReceiverPairingDeepLink,
   createReceiverDraftSeed,
   createReceiverPairingPayload,
+  deleteReviewDraft,
+  encodeCoopDoc,
   encodeReceiverPairingPayload,
   generateInviteCode,
   getAuthSession,
   getReceiverCapture,
   getReviewDraft,
+  hydrateCoopDoc,
   listReceiverPairings,
   nowIso,
   receiverSyncAssetToBlob,
   resolveDraftTargetCoopIdsForUi,
+  revokeInviteCode,
   saveReceiverCapture,
   saveReviewDraft,
   setActiveReceiverPairing,
@@ -41,7 +48,36 @@ import {
 } from '../context';
 import { refreshBadge } from '../dashboard';
 import { getActiveReviewContextForSession } from '../operator';
-import { emitAgentObservationIfMissing, syncHighConfidenceDraftObservations } from './agent';
+import {
+  emitAgentObservationIfMissing,
+  requestAgentCycle,
+  syncHighConfidenceDraftObservations,
+} from './agent';
+
+/**
+ * Persist an invite mutation into the Yjs doc record stored in Dexie.
+ *
+ * This ensures the CRDT history includes the invite change so that when the
+ * sidepanel (or any peer) hydrates the doc it merges cleanly. Without this,
+ * the Dexie state is updated but the Yjs doc only gets overwritten on the
+ * next full saveCoopState() call, losing CRDT-level granularity.
+ */
+async function persistInviteToYjsDoc(
+  coopId: string,
+  mutation: (doc: ReturnType<typeof hydrateCoopDoc>) => void,
+) {
+  const record = await db.coopDocs.get(coopId);
+  if (!record) return; // No persisted doc yet — saveState() will create one
+
+  const doc = hydrateCoopDoc(record.encodedState);
+  mutation(doc);
+  await db.coopDocs.put({
+    ...record,
+    encodedState: encodeCoopDoc(doc),
+    updatedAt: nowIso(),
+  });
+  doc.destroy();
+}
 
 function isIdempotentReceiverReplay(
   existing: Awaited<ReturnType<typeof getReceiverCapture>>,
@@ -127,6 +163,7 @@ export async function handleCreateReceiverPairing(
   await upsertReceiverPairing(db, pairing);
   await setActiveReceiverPairing(db, pairing.pairingId);
   await ensureReceiverSyncOffscreenDocument();
+  notifyReceiverBindingsRefresh();
 
   return {
     ok: true,
@@ -142,20 +179,47 @@ export async function handleCreateInvite(
   if (!coop) {
     return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
   }
-  const invite = addInviteToState(
-    coop,
-    generateInviteCode({
-      state: coop,
-      createdBy: message.payload.createdBy,
-      type: message.payload.inviteType as InviteType,
-    }),
-  );
-  await saveState(invite);
+  const newInvite = generateInviteCode({
+    state: coop,
+    createdBy: message.payload.createdBy,
+    type: message.payload.inviteType as InviteType,
+  });
+  const nextState = addInviteToState(coop, newInvite);
+  await saveState(nextState);
+  await persistInviteToYjsDoc(coop.profile.id, (doc) => applyAddInviteToDoc(doc, newInvite));
   await refreshBadge();
   return {
     ok: true,
-    data: invite.invites[invite.invites.length - 1],
+    data: nextState.invites[nextState.invites.length - 1],
   } satisfies RuntimeActionResponse;
+}
+
+export async function handleRevokeInvite(
+  message: Extract<RuntimeRequest, { type: 'revoke-invite' }>,
+) {
+  const coops = await getCoops();
+  const coop = coops.find((item) => item.profile.id === message.payload.coopId);
+  if (!coop) {
+    return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
+  }
+  try {
+    const nextState = revokeInviteCode({
+      state: coop,
+      inviteId: message.payload.inviteId,
+      revokedBy: message.payload.revokedBy,
+    });
+    await saveState(nextState);
+    await persistInviteToYjsDoc(coop.profile.id, (doc) =>
+      applyRevokeInviteToDoc(doc, message.payload.inviteId, message.payload.revokedBy),
+    );
+    await refreshBadge();
+    return { ok: true, data: null } satisfies RuntimeActionResponse;
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Revoke failed.',
+    } satisfies RuntimeActionResponse;
+  }
 }
 
 export async function handleSetActiveReceiverPairing(
@@ -186,6 +250,7 @@ export async function handleSetActiveReceiverPairing(
   }
   await setActiveReceiverPairing(db, message.payload.pairingId);
   await ensureReceiverSyncOffscreenDocument();
+  notifyReceiverBindingsRefresh();
   return { ok: true } satisfies RuntimeActionResponse;
 }
 
@@ -238,7 +303,7 @@ export async function handleIngestReceiverCapture(
   }
 
   const syncedAt = nowIso();
-  const capture = {
+  const capture: ReceiverCapture = {
     ...envelope.capture,
     pairingId: pairing.pairingId,
     coopId: pairing.coopId,
@@ -348,6 +413,7 @@ export async function handleConvertReceiverIntake(
 
   await saveReviewDraft(db, draft);
   await syncHighConfidenceDraftObservations([draft]);
+  await requestAgentCycle(`receiver-draft:${draft.id}`);
   await updateReceiverCapture(db, capture.id, {
     intakeStatus: receiverDraftStageToIntakeStatus(draft.workflowStage),
     linkedDraftId: draft.id,
@@ -371,7 +437,7 @@ export async function handleArchiveReceiverIntake(
   }
 
   if (capture.linkedDraftId) {
-    await db.reviewDrafts.delete(capture.linkedDraftId);
+    await deleteReviewDraft(db, capture.linkedDraftId);
   }
 
   await updateReceiverCapture(db, capture.id, {
@@ -380,6 +446,7 @@ export async function handleArchiveReceiverIntake(
     linkedDraftId: undefined,
     updatedAt: nowIso(),
   });
+  await requestAgentCycle(`receiver-archive:${capture.id}`);
   await refreshBadge();
 
   return { ok: true } satisfies RuntimeActionResponse;
@@ -437,4 +504,16 @@ export async function handleSetReceiverIntakeArchiveWorthiness(
     ok: true,
     data: nextCapture,
   } satisfies RuntimeActionResponse;
+}
+
+/**
+ * Notify the offscreen receiver-sync document that bindings should refresh.
+ * This replaces aggressive 1.5s polling with message-driven wake.
+ */
+function notifyReceiverBindingsRefresh() {
+  try {
+    chrome.runtime.sendMessage({ type: 'refresh-receiver-bindings' });
+  } catch {
+    // Offscreen document may not be alive — will catch up on heartbeat.
+  }
 }

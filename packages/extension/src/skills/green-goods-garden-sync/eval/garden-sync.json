@@ -1,0 +1,23 @@
+{
+  "id": "garden-sync",
+  "description": "Garden sync should produce a valid profile update with name, description, and rationale.",
+  "output": {
+    "name": "Willamette Watershed Garden",
+    "description": "A regenerative garden tracking watershed restoration and community stewardship along the Willamette River.",
+    "location": "Pacific Northwest",
+    "bannerImage": "",
+    "metadata": "",
+    "openJoining": false,
+    "maxGardeners": 0,
+    "domains": ["agro"],
+    "ensurePools": true,
+    "rationale": "Syncing the garden profile to reflect recent updates to the coop's description and active restoration domains."
+  },
+  "assertions": [
+    { "type": "field-present", "path": "name" },
+    { "type": "field-present", "path": "description" },
+    { "type": "field-present", "path": "rationale" },
+    { "type": "semantic-word-count", "path": "rationale", "threshold": 6 },
+    { "type": "string-min-length", "path": "description", "threshold": 20 }
+  ]
+}

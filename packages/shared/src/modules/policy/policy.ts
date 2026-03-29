@@ -2,7 +2,18 @@ import type { ActionPolicy, PolicyActionClass } from '../../contracts/schema';
 import { actionPolicySchema, policyActionClassSchema } from '../../contracts/schema';
 import { createId, nowIso } from '../../utils';
 
-const allActionClasses = policyActionClassSchema.options;
+const deprecatedActionClasses = [
+  'green-goods-submit-impact-report',
+] as const satisfies readonly PolicyActionClass[];
+const deprecatedActionClassSet = new Set<PolicyActionClass>(deprecatedActionClasses);
+
+const defaultActionClasses = policyActionClassSchema.options.filter(
+  (actionClass) => !deprecatedActionClassSet.has(actionClass),
+);
+
+export function isDeprecatedPolicyActionClass(actionClass: PolicyActionClass) {
+  return deprecatedActionClassSet.has(actionClass);
+}
 
 export function createDefaultPolicies(input?: {
   coopId?: string;
@@ -10,7 +21,7 @@ export function createDefaultPolicies(input?: {
   createdAt?: string;
 }): ActionPolicy[] {
   const createdAt = input?.createdAt ?? nowIso();
-  return allActionClasses.map((actionClass) =>
+  return defaultActionClasses.map((actionClass) =>
     actionPolicySchema.parse({
       id: createId('policy'),
       actionClass,

@@ -3,6 +3,8 @@ import {
   type ActionLogEntry,
   type ActionPolicy,
   approveBundle,
+  buildGreenGoodsAddGardenerPayload,
+  buildGreenGoodsRemoveGardenerPayload,
   createActionBundle,
   createActionLogEntry,
   createDefaultPolicies,
@@ -19,6 +21,7 @@ import {
   pendingBundles,
   recordReplayId,
   rejectBundle,
+  resolveGreenGoodsGardenerBindingActions,
   saveActionBundle,
   saveActionLogEntry,
   setActionPolicies,
@@ -79,6 +82,38 @@ export async function handleSetActionPolicy(
 
 // ---- Action Bundle Handlers ----
 
+async function persistProposedBundle(input: {
+  actionClass: ActionBundle['actionClass'];
+  coopId: string;
+  memberId: string;
+  payload: Record<string, unknown>;
+  policy: ActionPolicy;
+  chainId: number;
+  chainKey: 'arbitrum' | 'sepolia';
+  safeAddress: Address;
+}) {
+  const bundle = createActionBundle({
+    actionClass: input.actionClass,
+    coopId: input.coopId,
+    memberId: input.memberId,
+    payload: input.payload,
+    policy: input.policy,
+    chainId: input.chainId,
+    chainKey: input.chainKey,
+    safeAddress: input.safeAddress,
+  });
+  await saveActionBundle(db, bundle);
+
+  const logEntry = createActionLogEntry({
+    bundle,
+    eventType: 'proposal-created',
+    detail: `Proposed ${input.actionClass} for coop ${input.coopId}.`,
+  });
+  await saveActionLogEntry(db, logEntry);
+
+  return bundle;
+}
+
 export async function handleProposeAction(
   message: Extract<RuntimeRequest, { type: 'propose-action' }>,
 ): Promise<RuntimeActionResponse<ActionBundle>> {
@@ -102,7 +137,7 @@ export async function handleProposeAction(
     };
   }
 
-  const bundle = createActionBundle({
+  const bundle = await persistProposedBundle({
     actionClass: message.payload.actionClass,
     coopId: message.payload.coopId,
     memberId: message.payload.memberId,
@@ -112,16 +147,86 @@ export async function handleProposeAction(
     chainKey: trustedNodeContext.coop.onchainState.chainKey,
     safeAddress: trustedNodeContext.coop.onchainState.safeAddress as Address,
   });
-  await saveActionBundle(db, bundle);
-
-  const logEntry = createActionLogEntry({
-    bundle,
-    eventType: 'proposal-created',
-    detail: `Proposed ${message.payload.actionClass} for coop ${message.payload.coopId}.`,
-  });
-  await saveActionLogEntry(db, logEntry);
 
   return { ok: true, data: bundle };
+}
+
+export async function handleQueueGreenGoodsMemberSync(
+  message: Extract<RuntimeRequest, { type: 'queue-green-goods-member-sync' }>,
+): Promise<
+  RuntimeActionResponse<{ proposed: number; skippedMemberIds: string[]; bundles: ActionBundle[] }>
+> {
+  const trustedNodeContext = await getTrustedNodeContext({
+    coopId: message.payload.coopId,
+  });
+  if (!trustedNodeContext.ok) {
+    return { ok: false, error: trustedNodeContext.error };
+  }
+  if (!trustedNodeContext.coop.greenGoods?.gardenAddress) {
+    return { ok: false, error: 'Green Goods garden is not linked for this coop.' };
+  }
+
+  const plan = resolveGreenGoodsGardenerBindingActions({
+    garden: trustedNodeContext.coop.greenGoods,
+  });
+  if (plan.actions.length === 0) {
+    return {
+      ok: true,
+      data: {
+        proposed: 0,
+        skippedMemberIds: plan.skippedMemberIds,
+        bundles: [],
+      },
+    };
+  }
+
+  const policies = await ensureActionPolicies();
+  const bundles: ActionBundle[] = [];
+
+  for (const action of plan.actions) {
+    const policy = findMatchingPolicy(policies, {
+      actionClass: action.actionClass,
+      coopId: trustedNodeContext.coop.profile.id,
+      memberId: trustedNodeContext.member.id,
+    });
+    if (!policy) {
+      return {
+        ok: false,
+        error: `No policy found for action class "${action.actionClass}".`,
+      };
+    }
+
+    const buildPayload =
+      action.actionClass === 'green-goods-add-gardener'
+        ? buildGreenGoodsAddGardenerPayload
+        : buildGreenGoodsRemoveGardenerPayload;
+    bundles.push(
+      await persistProposedBundle({
+        actionClass: action.actionClass,
+        coopId: trustedNodeContext.coop.profile.id,
+        memberId: trustedNodeContext.member.id,
+        payload: buildPayload({
+          coopId: trustedNodeContext.coop.profile.id,
+          gardenAddress: trustedNodeContext.coop.greenGoods.gardenAddress,
+          memberId: action.memberId,
+          gardenerAddress: action.gardenerAddress,
+        }),
+        policy,
+        chainId: trustedNodeContext.coop.onchainState.chainId,
+        chainKey: trustedNodeContext.coop.onchainState.chainKey,
+        safeAddress: trustedNodeContext.coop.onchainState.safeAddress as Address,
+      }),
+    );
+  }
+
+  return {
+    ok: true,
+    data: {
+      proposed: bundles.length,
+      skippedMemberIds: plan.skippedMemberIds,
+      bundles,
+    },
+  };
 }
 
 export async function handleApproveAction(

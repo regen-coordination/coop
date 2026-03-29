@@ -51,6 +51,8 @@ describe('runtime config helpers', () => {
         VITE_COOP_TRUSTED_NODE_ARCHIVE_PROOFS: JSON.stringify(['proof-a', 'proof-b']),
         VITE_COOP_TRUSTED_NODE_ARCHIVE_ALLOWS_FILECOIN_INFO: 'true',
         VITE_COOP_TRUSTED_NODE_ARCHIVE_EXPIRATION_SECONDS: '900',
+        VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_URL: 'https://lotus.example/rpc/v1',
+        VITE_COOP_TRUSTED_NODE_ARCHIVE_FILECOIN_WITNESS_RPC_TOKEN: 'secret-token',
       }),
     ).toEqual({
       spaceDid: 'did:key:space',
@@ -60,6 +62,8 @@ describe('runtime config helpers', () => {
       proofs: ['proof-a', 'proof-b'],
       allowsFilecoinInfo: true,
       expirationSeconds: 900,
+      filecoinWitnessRpcUrl: 'https://lotus.example/rpc/v1',
+      filecoinWitnessRpcToken: 'secret-token',
     });
     expect(resolveTrustedNodeArchiveBootstrapConfig({})).toBeNull();
   });

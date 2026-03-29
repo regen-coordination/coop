@@ -73,6 +73,7 @@ function createTestArtifact(state: CoopSharedState): Artifact {
     createdAt: '2026-03-13T14:00:00.000Z',
     reviewStatus: 'published',
     archiveStatus: 'not-archived',
+    attachments: [],
     archiveReceiptIds: [],
   };
 }
@@ -91,6 +92,7 @@ function createTestReceipt(state: CoopSharedState): ArchiveReceipt {
     uploadedAt: '2026-03-13T14:30:00.000Z',
     filecoinStatus: 'pending',
     delegationIssuer: 'export-test-issuer',
+    contentEncoding: 'plain-json',
     delegation: {
       issuer: 'export-test-issuer',
       mode: 'mock',
@@ -181,7 +183,23 @@ describe('exportArchiveReceiptJson', () => {
 describe('exportArchiveReceiptTextBundle', () => {
   it('formats the receipt as readable text with all present fields', () => {
     const state = createTestState();
-    const receipt = createTestReceipt(state);
+    const receipt: ArchiveReceipt = {
+      ...createTestReceipt(state),
+      filecoinInfo: {
+        pieceCid: 'piece-cid-1',
+        aggregates: [],
+        deals: [
+          {
+            aggregate: 'aggregate-cid-1',
+            provider: 'f01234',
+            dealId: '44',
+            dataAggregationProofCid: 'bafyproofcid1',
+            onChainSealWitnessCid: 'bafysealwitness1',
+          },
+        ],
+        lastUpdatedAt: '2026-03-13T14:31:00.000Z',
+      },
+    };
     const text = exportArchiveReceiptTextBundle(receipt);
 
     expect(text).toContain('# Archive Receipt receipt-export-1');
@@ -193,6 +211,8 @@ describe('exportArchiveReceiptTextBundle', () => {
     expect(text).toContain('Delegation issuer: export-test-issuer');
     expect(text).toContain('Delegation mode: mock');
     expect(text).toContain('Piece CIDs: piece-cid-1');
+    expect(text).toContain('Deal proof CIDs: bafyproofcid1');
+    expect(text).toContain('On-chain seal witness CIDs: bafysealwitness1');
   });
 
   it('omits optional fields when absent', () => {

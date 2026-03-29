@@ -55,10 +55,12 @@ vi.mock('../../operator', () => ({
 vi.mock('../agent', () => ({
   emitAgentObservationIfMissing: vi.fn(),
   requestAgentCycle: vi.fn(),
+  ensureOnboardingBurst: vi.fn().mockResolvedValue(undefined),
 }));
 
 const { handleCreateCoop, handleJoinCoop, handleSetAnchorMode } = await import('../coop');
 const { saveState, setLocalSetting } = await import('../../context');
+const { ensureOnboardingBurst } = await import('../agent');
 
 describe('coop handlers', () => {
   it('creates a coop with valid input and persists state', async () => {
@@ -108,6 +110,11 @@ describe('coop handlers', () => {
     expect(result.soundEvent).toBeDefined();
     expect(vi.mocked(saveState)).toHaveBeenCalled();
     expect(vi.mocked(setLocalSetting)).toHaveBeenCalledWith('active-coop-id', expect.any(String));
+    expect(vi.mocked(ensureOnboardingBurst)).toHaveBeenCalledWith({
+      coopId: expect.any(String),
+      memberId: expect.any(String),
+      reason: 'coop-create-first',
+    });
   });
 
   it('rejects anchor mode toggle when no auth session exists', async () => {

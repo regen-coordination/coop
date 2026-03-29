@@ -152,15 +152,6 @@ html::before {
   color: var(--coop-brown);
 }
 
-/* Category labels as eyebrow text */
-.menu__list-item-collapsible > .menu__link {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--coop-green);
-}
-
 /* ── Headings ──
    ========================================================================== */
 
@@ -310,5 +301,20 @@ table th {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* ── Audience Navigation ──
+   Persistent header tabs + single-sidebar filtering.
+   ========================================================================== */
+
+.docsAudienceRoot[data-docs-audience="community"] .docs-audience-item--builder,
+.docsAudienceRoot[data-docs-audience="builder"] .docs-audience-item--community {
+  display: none;
+}
+
+@media (max-width: 996px) {
+  .docs-navbar-github {
+    display: none;
   }
 }

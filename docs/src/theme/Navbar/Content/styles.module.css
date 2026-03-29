@@ -1,0 +1,31 @@
+.navbarInner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+}
+
+.left,
+.right {
+  min-width: 0;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+@media (max-width: 996px) {
+  .navbarInner {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .right {
+    display: none;
+  }
+
+  .center {
+    justify-content: flex-end;
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "insight-synthesis",
+  "description": "Memory insight synthesis should produce at least one insight with actionable next steps.",
+  "output": {
+    "insights": [
+      {
+        "title": "Recurring watershed funding opportunities",
+        "summary": "The coop has encountered three watershed restoration grant leads in the past two weeks, suggesting a seasonal funding window.",
+        "whyItMatters": "Acting on this pattern now could secure funding before the application window closes.",
+        "suggestedNextStep": "Compile the three leads into a capital formation brief and schedule a coop review.",
+        "tags": ["funding", "watershed", "pattern"],
+        "category": "insight",
+        "confidence": 0.78
+      }
+    ]
+  },
+  "assertions": [
+    { "type": "array-min-length", "path": "insights", "threshold": 1 },
+    { "type": "field-present", "path": "insights.0.title" },
+    { "type": "field-present", "path": "insights.0.whyItMatters" },
+    { "type": "field-present", "path": "insights.0.suggestedNextStep" },
+    { "type": "number-range", "path": "insights.0.confidence", "min": 0, "max": 1 },
+    { "type": "semantic-word-count", "path": "insights.0.summary", "threshold": 8 },
+    { "type": "semantic-word-count", "path": "insights.0.whyItMatters", "threshold": 6 }
+  ]
+}

@@ -131,6 +131,8 @@ describe('DashboardResponse operator policy fields', () => {
       policyActionLogEntries: [],
       permits: [],
       permitLog: [],
+      sessionCapabilities: [],
+      sessionCapabilityLog: [],
     };
     expect(mockOperator.policyActionQueue).toEqual([]);
     expect(mockOperator.policyActionLogEntries).toEqual([]);

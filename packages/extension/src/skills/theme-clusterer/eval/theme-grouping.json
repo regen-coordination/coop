@@ -1,0 +1,26 @@
+{
+  "id": "theme-grouping",
+  "description": "Theme clustering should group signals into at least one labeled theme with sources.",
+  "output": {
+    "themes": [
+      {
+        "label": "Watershed restoration funding",
+        "summary": "Multiple signals point to active grant rounds and restoration initiatives across Pacific Northwest watersheds.",
+        "sourceIds": ["extract-river-report", "extract-grant-page"]
+      },
+      {
+        "label": "Community stewardship capacity",
+        "summary": "Recent captures reflect growing interest in local stewardship training and knowledge sharing.",
+        "sourceIds": ["extract-stewardship-notes"]
+      }
+    ]
+  },
+  "assertions": [
+    { "type": "array-min-length", "path": "themes", "threshold": 1 },
+    { "type": "field-present", "path": "themes.0.label" },
+    { "type": "field-present", "path": "themes.0.summary" },
+    { "type": "array-min-length", "path": "themes.0.sourceIds", "threshold": 1 },
+    { "type": "semantic-word-count", "path": "themes.0.summary", "threshold": 6 },
+    { "type": "string-min-length", "path": "themes.0.label", "threshold": 5 }
+  ]
+}

@@ -1,4 +1,8 @@
-import { createWebAuthnCredential, toWebAuthnAccount } from 'viem/account-abstraction';
+import {
+  type ToWebAuthnAccountParameters,
+  createWebAuthnCredential,
+  toWebAuthnAccount,
+} from 'viem/account-abstraction';
 import {
   type AuthSession,
   type LocalPasskeyIdentity,
@@ -8,6 +12,29 @@ import {
 } from '../../contracts/schema';
 import { assertHexString, nowIso, toDeterministicAddress } from '../../utils';
 import { createDeviceBoundWarning, createMember } from '../coop/flows';
+
+type WebAuthnGetFn = ToWebAuthnAccountParameters['getFn'];
+
+let webAuthnCredentialGetFnOverride: WebAuthnGetFn | null = null;
+
+export function setWebAuthnCredentialGetFnOverride(getFn: WebAuthnGetFn | null) {
+  webAuthnCredentialGetFnOverride = getFn;
+}
+
+export function createWebAuthnCredentialGetFn(): WebAuthnGetFn {
+  if (webAuthnCredentialGetFnOverride) {
+    return webAuthnCredentialGetFnOverride;
+  }
+
+  return async (options) => {
+    const credentialContainer = globalThis.navigator?.credentials;
+    if (!credentialContainer || typeof credentialContainer.get !== 'function') {
+      throw new Error('WebAuthn credential retrieval is unavailable in this runtime.');
+    }
+
+    return credentialContainer.get.call(credentialContainer, options as CredentialRequestOptions);
+  };
+}
 
 export function resolvePasskeyRpId(explicitRpId?: string) {
   if (explicitRpId) {
@@ -70,6 +97,7 @@ export function restorePasskeyAccount(session: AuthSession) {
       id: session.passkey.id,
       publicKey: assertHexString(session.passkey.publicKey, 'passkey publicKey'),
     },
+    getFn: createWebAuthnCredentialGetFn(),
     rpId: session.passkey.rpId,
   });
 }
