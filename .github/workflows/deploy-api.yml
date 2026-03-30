@@ -18,16 +18,61 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      API_HTTP_URL: https://api.coop.town
+      API_WS_URL: wss://api.coop.town
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        uses: superfly/flyctl-actions/setup-flyctl@v1.5
 
       - name: Deploy
         working-directory: packages/api
         run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify health endpoint
+        run: |
+          body="$(curl -fsS --retry 5 --retry-delay 2 "${API_HTTP_URL}/health")"
+          test "${body}" = '{"status":"ok"}'
+
+      - name: Verify WebSocket endpoints
+        run: |
+          python3 -m venv .venv-smoke
+          . .venv-smoke/bin/activate
+          python -m pip install --disable-pip-version-check --quiet websockets
+          python - <<'PY'
+          import asyncio
+          import json
+          import os
+          import time
+          import uuid
+
+          import websockets
+
+          API_WS_URL = os.environ["API_WS_URL"]
+
+          async def verify_signaling():
+              async with websockets.connect(API_WS_URL) as ws:
+                  await ws.send(json.dumps({"type": "ping"}))
+                  response = await asyncio.wait_for(ws.recv(), timeout=10)
+                  if response != '{"type":"pong"}':
+                      raise AssertionError(f"unexpected signaling response: {response!r}")
+
+          async def verify_yjs():
+              room = f"gha-smoke-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+              async with websockets.connect(f"{API_WS_URL}/yws/{room}") as ws:
+                  response = await asyncio.wait_for(ws.recv(), timeout=10)
+                  if not isinstance(response, bytes):
+                      raise AssertionError(f"expected binary Yjs frame, got: {type(response).__name__}")
+                  if len(response) < 4:
+                      raise AssertionError(f"expected non-empty Yjs sync frame, got {len(response)} bytes")
+
+          asyncio.run(verify_signaling())
+          asyncio.run(verify_yjs())
+          PY
