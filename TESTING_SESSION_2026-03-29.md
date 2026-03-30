@@ -278,7 +278,7 @@ Add 2-4px padding to popup container or switch from `outline` to `box-shadow` fo
 
 ## 🔧 Fix Applied by Tester
 
-**Issue #5: Chrome match pattern error** - FIXED
+**Issue #5: Chrome match pattern error** - FIXED (REAPPLIED after merge)
 
 **Problem:** Extension wouldn't load with error: `Invalid match pattern "http://127.0.0.1:3001/*": Hostname cannot include a port`
 
@@ -286,7 +286,9 @@ Add 2-4px padding to popup container or switch from `outline` to `box-shadow` fo
 - Changed: `${url.origin}/*` (includes port)
 - To: `${url.protocol}//${url.hostname}/*` (removes port)
 
-**Result:** Extension now loads successfully
+**Update:** After merging Afo's latest updates (origin/main), the error **reappeared**. The fix had to be reapplied. This suggests the file was modified in the merge and our fix was overwritten.
+
+**Action:** Rebuilt extension with fix reapplied. Extension now loading successfully.
 
 ---
 
