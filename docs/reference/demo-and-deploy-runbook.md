@@ -65,6 +65,12 @@ bun install
 bun dev
 ```
 
+To stop the full local dev environment and clean up orphan listeners:
+
+```bash
+bun run dev:stop
+```
+
 Expected surfaces:
 
 - App / receiver PWA: `http://127.0.0.1:3001` or `https://local.coop.town`

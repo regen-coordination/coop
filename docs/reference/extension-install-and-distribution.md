@@ -113,15 +113,14 @@ Use this order:
 Release checklist:
 
 1. Set `VITE_COOP_RECEIVER_APP_URL` to the exact production HTTPS receiver origin for the release candidate.
-2. Preferred public build command: `bun run build:extension:public-release`
-3. Preferred public validation command: `bun run validate:public-release`
-4. Also run `bun run validate:store-readiness`.
-5. If the build enables live Safe, session-key, or archive rails, use `bun run build:extension:operator-live` and `bun run validate:operator-live`.
-6. Build output lands in `packages/extension/.output/chrome-mv3`.
+2. Preferred one-command public extension release: `bun run release:extension:public-release`
+3. If you want the manual split instead, use `bun run validate:public-release`, `bun run validate:store-readiness`, and `bun run package:extension:public-release`.
+4. If the build enables live Safe, session-key, or archive rails, use `bun run package:extension:operator-live` and `bun run validate:operator-live`.
+5. Built archives land in `packages/extension/dist/archives/`.
+6. Raw unpacked extension output lands in `packages/extension/dist/chrome-mv3`.
 7. Record the first-run local-AI network trace for reviewer notes.
-8. Zip the extension with files at the archive root.
-9. Upload to the Chrome Web Store dashboard.
-10. Add reviewer notes for sidepanel entry, passkey setup, receiver pairing and private intake,
+8. Upload the generated archive to the Chrome Web Store dashboard, or share it directly with trusted testers for manual unpacked install.
+9. Add reviewer notes for sidepanel entry, passkey setup, receiver pairing and private intake,
    mock vs live modes, Smart Session limits for Green Goods actions, opt-in scheduled capture, and
    local-first data handling.
 

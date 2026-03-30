@@ -1,7 +1,6 @@
 /* ==========================================================================
    Coop Docs — custom.css
-   Bridges Coop design tokens to Docusaurus IFM variables.
-   Light-mode only (dark switch is disabled in docusaurus.config).
+   Bridges Coop design tokens to Docusaurus IFM variables for light and dark modes.
    ========================================================================== */
 
 /* ── Coop Design Tokens (mirrored from packages/shared/src/styles/tokens.css) ── */
@@ -43,13 +42,62 @@
 
   /* Transitions */
   --coop-ease: 180ms ease;
-}
 
-/* ── IFM Bridge ──
-   Maps Coop tokens onto Docusaurus's --ifm-* custom properties.
-   ========================================================================== */
+  /* Semantic surfaces */
+  --coop-page-bg-start: #fff8f2;
+  --coop-page-bg-mid: var(--coop-cream);
+  --coop-page-bg-end: #fffdfb;
+  --coop-page-glow-green: rgba(90, 125, 16, 0.08);
+  --coop-page-glow-orange: rgba(253, 138, 1, 0.08);
+  --coop-panel-glow-green: rgba(90, 125, 16, 0.08);
+  --coop-panel-glow-orange: rgba(253, 138, 1, 0.06);
+  --coop-grid-color: rgba(79, 46, 31, 0.05);
+  --coop-surface: rgba(255, 252, 249, 0.8);
+  --coop-surface-strong: rgba(255, 252, 249, 0.92);
+  --coop-surface-raised: rgba(255, 255, 255, 0.68);
+  --coop-border: rgba(79, 46, 31, 0.16);
+  --coop-border-soft: rgba(79, 46, 31, 0.12);
+  --coop-text-primary: var(--coop-brown);
+  --coop-text-secondary: var(--coop-brown-soft);
+  --coop-text-inverse: #fffaf3;
+  --coop-heading-color: var(--coop-brown);
+  --coop-link-color: var(--coop-green);
+  --coop-link-hover-color: #4e6d0e;
+  --coop-navbar-background: rgba(252, 245, 239, 0.88);
+  --coop-code-inline-bg: rgba(79, 46, 31, 0.06);
+  --coop-code-inline-border: rgba(79, 46, 31, 0.08);
+  --coop-code-inline-color: var(--coop-brown);
+  --coop-admonition-bg: rgba(255, 252, 249, 0.8);
+  --coop-table-head-bg: rgba(79, 46, 31, 0.06);
+  --coop-active-bg: rgba(90, 125, 16, 0.2);
+  --coop-active-text: #314b08;
+  --coop-hover-bg: rgba(79, 46, 31, 0.06);
+  --coop-audience-tabs-bg: rgba(255, 252, 249, 0.82);
+  --coop-audience-hover-bg: rgba(79, 46, 31, 0.06);
+  --coop-audience-active-bg: var(--coop-brown);
+  --coop-audience-active-text: #fffaf3;
+  --coop-hero-primary-bg: var(--coop-brown);
+  --coop-hero-primary-text: #fffaf3;
+  --coop-hero-secondary-bg: rgba(255, 255, 255, 0.68);
+  --coop-hero-secondary-text: var(--coop-brown);
+  --coop-organized-border: rgba(90, 125, 16, 0.3);
+  --coop-organized-bg: linear-gradient(135deg, rgba(255, 252, 249, 0.95), rgba(240, 248, 236, 0.9));
+  --coop-card-highlight-border: rgba(90, 125, 16, 0.3);
+  --coop-card-highlight-bg: linear-gradient(
+    135deg,
+    rgba(255, 252, 249, 0.95),
+    rgba(240, 248, 236, 0.9)
+  );
+  --coop-card-highlight-title: var(--coop-green);
+  --coop-card-warning-border: rgba(253, 138, 1, 0.3);
+  --coop-card-warning-bg: linear-gradient(
+    135deg,
+    rgba(255, 252, 249, 0.95),
+    rgba(255, 248, 236, 0.9)
+  );
+  --coop-card-warning-title: #c46a10;
 
-:root {
+  /* IFM Bridge */
   /* Primary — coop-green swatch */
   --ifm-color-primary: #5a7d10;
   --ifm-color-primary-dark: #4e6d0e;
@@ -60,25 +108,25 @@
   --ifm-color-primary-lightest: #84b518;
 
   /* Surfaces */
-  --ifm-background-color: var(--coop-cream);
-  --ifm-background-surface-color: rgba(255, 252, 249, 0.8);
+  --ifm-background-color: var(--coop-page-bg-mid);
+  --ifm-background-surface-color: var(--coop-surface);
 
   /* Typography */
   --ifm-font-family-base: var(--coop-font-body);
   --ifm-font-family-monospace: var(--coop-font-mono);
   --ifm-heading-font-family: var(--coop-font-display);
-  --ifm-font-color-base: var(--coop-brown);
-  --ifm-font-color-secondary: var(--coop-brown-soft);
+  --ifm-font-color-base: var(--coop-text-primary);
+  --ifm-font-color-secondary: var(--coop-text-secondary);
 
   /* Links */
-  --ifm-link-color: var(--coop-green);
-  --ifm-link-hover-color: #4e6d0e;
+  --ifm-link-color: var(--coop-link-color);
+  --ifm-link-hover-color: var(--coop-link-hover-color);
 
   /* Navbar */
-  --ifm-navbar-background-color: rgba(252, 245, 239, 0.88);
+  --ifm-navbar-background-color: var(--coop-navbar-background);
   --ifm-navbar-shadow: 0 1px 0 0 var(--coop-line);
-  --ifm-navbar-link-color: var(--coop-brown);
-  --ifm-navbar-link-hover-color: var(--coop-green);
+  --ifm-navbar-link-color: var(--coop-text-primary);
+  --ifm-navbar-link-hover-color: var(--ifm-link-color);
 
   /* Footer */
   --ifm-footer-background-color: var(--coop-brown);
@@ -100,15 +148,102 @@
   --ifm-pagination-nav-border-radius: var(--coop-radius-input);
 }
 
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --coop-shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.3);
+  --coop-shadow-md: 0 20px 44px rgba(0, 0, 0, 0.34);
+  --coop-shadow-lg: 0 28px 72px rgba(0, 0, 0, 0.38);
+
+  --coop-page-bg-start: #15100e;
+  --coop-page-bg-mid: #1a1411;
+  --coop-page-bg-end: #100c0a;
+  --coop-page-glow-green: rgba(132, 181, 24, 0.14);
+  --coop-page-glow-orange: rgba(253, 138, 1, 0.12);
+  --coop-panel-glow-green: rgba(132, 181, 24, 0.18);
+  --coop-panel-glow-orange: rgba(253, 138, 1, 0.14);
+  --coop-grid-color: rgba(252, 245, 239, 0.06);
+  --coop-surface: rgba(43, 33, 29, 0.8);
+  --coop-surface-strong: rgba(51, 40, 35, 0.9);
+  --coop-surface-raised: rgba(73, 58, 51, 0.78);
+  --coop-border: rgba(252, 245, 239, 0.12);
+  --coop-border-soft: rgba(252, 245, 239, 0.1);
+  --coop-text-primary: #f2dfce;
+  --coop-text-secondary: #d2b5a0;
+  --coop-text-inverse: #261912;
+  --coop-heading-color: #fff4e8;
+  --coop-link-color: #c5e57a;
+  --coop-link-hover-color: #d9efa0;
+  --coop-navbar-background: rgba(24, 18, 15, 0.88);
+  --coop-code-inline-bg: rgba(255, 255, 255, 0.06);
+  --coop-code-inline-border: rgba(255, 255, 255, 0.08);
+  --coop-code-inline-color: #f7eadc;
+  --coop-admonition-bg: rgba(43, 33, 29, 0.84);
+  --coop-table-head-bg: rgba(255, 255, 255, 0.06);
+  --coop-active-bg: rgba(132, 181, 24, 0.24);
+  --coop-active-text: #f3f7de;
+  --coop-hover-bg: rgba(255, 255, 255, 0.08);
+  --coop-audience-tabs-bg: rgba(43, 33, 29, 0.84);
+  --coop-audience-hover-bg: rgba(255, 255, 255, 0.08);
+  --coop-audience-active-bg: #fff1df;
+  --coop-audience-active-text: #2f1d15;
+  --coop-hero-primary-bg: #fff1df;
+  --coop-hero-primary-text: #2f1d15;
+  --coop-hero-secondary-bg: rgba(255, 255, 255, 0.08);
+  --coop-hero-secondary-text: #f6eadb;
+  --coop-organized-border: rgba(197, 229, 122, 0.32);
+  --coop-organized-bg: linear-gradient(135deg, rgba(57, 69, 29, 0.9), rgba(33, 43, 21, 0.92));
+  --coop-card-highlight-border: rgba(197, 229, 122, 0.28);
+  --coop-card-highlight-bg: linear-gradient(135deg, rgba(53, 65, 28, 0.9), rgba(33, 43, 21, 0.92));
+  --coop-card-highlight-title: #e6f4bf;
+  --coop-card-warning-border: rgba(255, 184, 96, 0.28);
+  --coop-card-warning-bg: linear-gradient(135deg, rgba(81, 51, 23, 0.86), rgba(54, 34, 16, 0.92));
+  --coop-card-warning-title: #ffd59d;
+
+  --ifm-color-primary: #a8cf4d;
+  --ifm-color-primary-dark: #99c03e;
+  --ifm-color-primary-darker: #92b83a;
+  --ifm-color-primary-darkest: #78972f;
+  --ifm-color-primary-light: #b7d85c;
+  --ifm-color-primary-lighter: #bfdd66;
+  --ifm-color-primary-lightest: #d2e78f;
+  --ifm-background-color: var(--coop-page-bg-mid);
+  --ifm-background-surface-color: var(--coop-surface);
+  --ifm-font-color-base: var(--coop-text-primary);
+  --ifm-font-color-secondary: var(--coop-text-secondary);
+  --ifm-link-color: var(--coop-link-color);
+  --ifm-link-hover-color: var(--coop-link-hover-color);
+  --ifm-navbar-background-color: var(--coop-navbar-background);
+  --ifm-navbar-shadow: 0 1px 0 0 rgba(252, 245, 239, 0.08);
+  --ifm-navbar-link-color: var(--coop-text-primary);
+  --ifm-navbar-link-hover-color: var(--coop-link-color);
+  --ifm-footer-background-color: #120e0c;
+  --ifm-footer-color: rgba(255, 244, 232, 0.92);
+  --ifm-footer-link-color: rgba(255, 244, 232, 0.76);
+  --ifm-footer-link-hover-color: #fffaf3;
+  --ifm-footer-title-color: #ffbe74;
+}
+
 /* ── Body Background ──
    Warm gradient with radial glows matching the Coop app landing page.
    ========================================================================== */
 
 html {
-  background: radial-gradient(circle at top left, rgba(90, 125, 16, 0.08), transparent 28rem),
-    radial-gradient(circle at top right, rgba(253, 138, 1, 0.08), transparent 24rem),
-    linear-gradient(180deg, #fff8f2 0%, var(--coop-cream) 36%, #fffdfb 100%);
+  background: radial-gradient(circle at top left, var(--coop-page-glow-green), transparent 28rem),
+    radial-gradient(circle at top right, var(--coop-page-glow-orange), transparent 24rem),
+    linear-gradient(
+      180deg,
+      var(--coop-page-bg-start) 0%,
+      var(--coop-page-bg-mid) 36%,
+      var(--coop-page-bg-end) 100%
+    );
   background-attachment: fixed;
+  color-scheme: light;
+}
+
+body {
+  background: transparent;
+  color: var(--coop-text-primary);
 }
 
 /* ── Grid Backdrop ──
@@ -119,8 +254,8 @@ html::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: linear-gradient(rgba(79, 46, 31, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 46, 31, 0.05) 1px, transparent 1px);
+  background-image: linear-gradient(var(--coop-grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--coop-grid-color) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.4), transparent 60%);
   pointer-events: none;
@@ -135,21 +270,26 @@ html::before {
   -webkit-backdrop-filter: blur(12px);
 }
 
+.navbar__link--active,
+.navbar__link[aria-current="page"] {
+  color: var(--coop-active-text);
+}
+
 /* ── Sidebar ──
    Active item pill + eyebrow category labels.
    ========================================================================== */
 
 .menu__link--active:not(.menu__link--sublist) {
-  background: rgba(90, 125, 16, 0.12);
+  background: var(--coop-active-bg);
   border-radius: var(--coop-radius-pill);
-  color: var(--coop-green);
-  font-weight: 600;
+  color: var(--coop-active-text);
+  font-weight: 700;
 }
 
 .menu__link:hover {
-  background: rgba(79, 46, 31, 0.06);
+  background: var(--coop-hover-bg);
   border-radius: var(--coop-radius-pill);
-  color: var(--coop-brown);
+  color: var(--coop-text-primary);
 }
 
 /* ── Headings ──
@@ -161,7 +301,7 @@ h3,
 h4,
 h5,
 h6 {
-  color: var(--coop-brown);
+  color: var(--coop-heading-color);
 }
 
 .markdown h1:first-child {
@@ -174,14 +314,14 @@ h6 {
 
 pre[class*="language-"],
 div[class*="codeBlockContainer"] {
-  border: 1px solid var(--coop-line);
+  border: 1px solid var(--coop-border);
   box-shadow: var(--coop-shadow-sm);
 }
 
 :not(pre) > code {
-  background: rgba(79, 46, 31, 0.06);
-  border: 1px solid rgba(79, 46, 31, 0.08);
-  color: var(--coop-brown);
+  background: var(--coop-code-inline-bg);
+  border: 1px solid var(--coop-code-inline-border);
+  color: var(--coop-code-inline-color);
 }
 
 /* ── Admonitions ──
@@ -190,30 +330,31 @@ div[class*="codeBlockContainer"] {
 
 .alert {
   border-radius: var(--coop-radius-input);
-  border-width: 0 0 0 4px;
-  background: rgba(255, 252, 249, 0.8);
+  border: 1px solid var(--coop-border);
+  border-left-width: 4px;
+  background: var(--coop-admonition-bg);
   backdrop-filter: blur(12px);
   box-shadow: var(--coop-shadow-sm);
 }
 
 .alert--success {
   --ifm-alert-border-color: var(--coop-green);
-  --ifm-alert-foreground-color: var(--coop-brown);
+  --ifm-alert-foreground-color: var(--coop-text-primary);
 }
 
 .alert--info {
-  --ifm-alert-border-color: var(--coop-brown-soft);
-  --ifm-alert-foreground-color: var(--coop-brown);
+  --ifm-alert-border-color: var(--coop-text-secondary);
+  --ifm-alert-foreground-color: var(--coop-text-primary);
 }
 
 .alert--warning {
   --ifm-alert-border-color: var(--coop-orange);
-  --ifm-alert-foreground-color: var(--coop-brown);
+  --ifm-alert-foreground-color: var(--coop-text-primary);
 }
 
 .alert--danger {
   --ifm-alert-border-color: var(--coop-error);
-  --ifm-alert-foreground-color: var(--coop-brown);
+  --ifm-alert-foreground-color: var(--coop-text-primary);
 }
 
 /* ── Tables ──
@@ -225,13 +366,13 @@ table {
 }
 
 table th {
-  background: rgba(79, 46, 31, 0.06);
-  color: var(--coop-brown);
+  background: var(--coop-table-head-bg);
+  color: var(--coop-heading-color);
 }
 
 table td,
 table th {
-  border-color: var(--coop-line);
+  border-color: var(--coop-border);
 }
 
 /* ── Pagination Nav ──
@@ -239,23 +380,43 @@ table th {
    ========================================================================== */
 
 .pagination-nav__link {
-  border-color: var(--coop-line);
+  border-color: var(--coop-border);
   border-radius: var(--coop-radius-input);
+  background: var(--coop-surface);
   transition: transform var(--coop-ease), box-shadow var(--coop-ease);
 }
 
 .pagination-nav__link:hover {
   transform: translateY(-1px);
   box-shadow: var(--coop-shadow-sm);
-  border-color: var(--coop-green);
+  border-color: var(--ifm-color-primary);
 }
 
 /* ── Table of Contents ──
    ========================================================================== */
 
 .table-of-contents__link--active {
-  color: var(--coop-green);
+  color: var(--coop-active-text);
   font-weight: 600;
+}
+
+.button {
+  transition: transform var(--coop-ease), box-shadow var(--coop-ease), background-color
+    var(--coop-ease), color var(--coop-ease), border-color var(--coop-ease);
+}
+
+.button:active,
+.button.button--active,
+.button[aria-pressed="true"] {
+  color: var(--coop-text-inverse);
+}
+
+.menu__link:focus-visible,
+.navbar__link:focus-visible,
+.pagination-nav__link:focus-visible,
+.button:focus-visible {
+  outline: 2px solid var(--ifm-color-primary-light);
+  outline-offset: 3px;
 }
 
 /* ── Footer ──

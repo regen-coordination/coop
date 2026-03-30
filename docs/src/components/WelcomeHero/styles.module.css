@@ -21,10 +21,10 @@
 
 .heroArt {
   animation-delay: 120ms;
-  border: 1px solid rgba(79, 46, 31, 0.16);
+  border: 1px solid var(--coop-border);
   border-radius: 24px;
-  background: rgba(255, 252, 249, 0.8);
-  box-shadow: 0 24px 60px rgba(79, 46, 31, 0.12);
+  background: var(--coop-surface);
+  box-shadow: var(--coop-shadow-lg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding: 2rem;
@@ -39,16 +39,17 @@
   pointer-events: none;
   background: radial-gradient(
       ellipse 60% 50% at 20% 80%,
-      rgba(90, 125, 16, 0.08) 0%,
+      var(--coop-panel-glow-green) 0%,
       transparent 70%
-    ), radial-gradient(ellipse 50% 60% at 80% 20%, rgba(253, 138, 1, 0.06) 0%, transparent 70%);
+    ),
+    radial-gradient(ellipse 50% 60% at 80% 20%, var(--coop-panel-glow-orange) 0%, transparent 70%);
 }
 
 .eyebrow {
   text-transform: uppercase;
   font-size: 0.78rem;
   letter-spacing: 0.12em;
-  color: #5a7d10;
+  color: var(--ifm-color-primary);
   font-weight: 700;
   margin-bottom: 0.65rem;
 }
@@ -57,14 +58,14 @@
   font-family: "Gill Sans", "Trebuchet MS", sans-serif;
   font-size: clamp(2.4rem, 5vw, 4.6rem);
   line-height: 0.98;
-  color: #4f2e1f;
+  color: var(--coop-heading-color);
   margin: 0;
 }
 
 .heroSubtitle {
   font-size: 1.15rem;
   line-height: 1.6;
-  color: #6b4a36;
+  color: var(--coop-text-secondary);
   max-width: 32rem;
 }
 
@@ -85,25 +86,25 @@
 }
 
 .buttonPrimary {
-  background: #4f2e1f;
-  color: #fff;
+  background: var(--coop-hero-primary-bg);
+  color: var(--coop-hero-primary-text);
 }
 
 .buttonPrimary:hover {
   transform: translateY(-1px);
-  color: #fff;
+  color: var(--coop-hero-primary-text);
   text-decoration: none;
 }
 
 .buttonSecondary {
-  background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(79, 46, 31, 0.16);
-  color: #4f2e1f;
+  background: var(--coop-hero-secondary-bg);
+  border: 1px solid var(--coop-border);
+  color: var(--coop-hero-secondary-text);
 }
 
 .buttonSecondary:hover {
   transform: translateY(-1px);
-  color: #4f2e1f;
+  color: var(--coop-hero-secondary-text);
   text-decoration: none;
 }
 
@@ -134,10 +135,10 @@
 
 .flowCard {
   padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(79, 46, 31, 0.12);
+  background: var(--coop-surface-strong);
+  border: 1px solid var(--coop-border-soft);
   border-radius: 16px;
-  color: #4f2e1f;
+  color: var(--coop-text-primary);
   font-weight: 600;
   font-size: 0.88rem;
 }
@@ -160,9 +161,9 @@
 }
 
 .organized {
-  border-color: rgba(90, 125, 16, 0.3);
-  background: linear-gradient(135deg, rgba(255, 252, 249, 0.95), rgba(240, 248, 236, 0.9));
-  box-shadow: 0 8px 20px rgba(79, 46, 31, 0.08);
+  border-color: var(--coop-organized-border);
+  background: var(--coop-organized-bg);
+  box-shadow: var(--coop-shadow-sm);
 }
 
 .features {
@@ -176,10 +177,10 @@
 }
 
 .featureCard {
-  border: 1px solid rgba(79, 46, 31, 0.16);
+  border: 1px solid var(--coop-border);
   border-radius: 24px;
-  background: rgba(255, 252, 249, 0.8);
-  box-shadow: 0 8px 20px rgba(79, 46, 31, 0.08);
+  background: var(--coop-surface);
+  box-shadow: var(--coop-shadow-sm);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding: 1.6rem;
@@ -190,19 +191,19 @@
 
 .featureCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 40px rgba(79, 46, 31, 0.12);
+  box-shadow: var(--coop-shadow-md);
   text-decoration: none;
   color: inherit;
 }
 
 .featureCard h3 {
-  color: #4f2e1f;
+  color: var(--coop-heading-color);
   margin: 0.5rem 0;
   font-family: "Gill Sans", "Trebuchet MS", sans-serif;
 }
 
 .featureCard p {
-  color: #6b4a36;
+  color: var(--coop-text-secondary);
   font-size: 1rem;
   line-height: 1.6;
 }

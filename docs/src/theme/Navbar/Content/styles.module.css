@@ -16,12 +16,20 @@
   min-width: 0;
 }
 
+.colorModeToggle {
+  margin-left: 0.25rem;
+}
+
 @media (max-width: 996px) {
   .navbarInner {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
   .right {
+    display: none;
+  }
+
+  .colorModeToggle {
     display: none;
   }
 

@@ -2,8 +2,6 @@ import type { PrismTheme } from 'prism-react-renderer';
 
 /**
  * Custom Prism syntax-highlighting theme using the Coop earthy palette.
- *
- * Designed for light-mode only (dark switch is disabled in docusaurus.config).
  */
 export const coopPrismTheme: PrismTheme = {
   plain: {
@@ -101,6 +99,95 @@ export const coopPrismTheme: PrismTheme = {
       types: ['deleted'],
       style: {
         color: '#a63b20', // coop-error
+      },
+    },
+  ],
+};
+
+export const coopDarkPrismTheme: PrismTheme = {
+  plain: {
+    color: '#f6eadb',
+    backgroundColor: '#241b18',
+  },
+  styles: [
+    {
+      types: ['comment', 'prolog', 'doctype', 'cdata'],
+      style: {
+        color: '#caa990',
+        fontStyle: 'italic',
+      },
+    },
+    {
+      types: ['keyword', 'tag', 'important', 'atrule', 'selector'],
+      style: {
+        color: '#ffb860',
+      },
+    },
+    {
+      types: ['string', 'char', 'attr-value', 'template-string'],
+      style: {
+        color: '#b7d46d',
+      },
+    },
+    {
+      types: ['function', 'class-name'],
+      style: {
+        color: '#fff4e8',
+        fontWeight: 'bold',
+      },
+    },
+    {
+      types: ['number', 'boolean'],
+      style: {
+        color: '#ffc884',
+      },
+    },
+    {
+      types: ['operator', 'punctuation'],
+      style: {
+        color: '#d4b7a3',
+      },
+    },
+    {
+      types: ['property', 'constant', 'symbol'],
+      style: {
+        color: '#f1ddcd',
+      },
+    },
+    {
+      types: ['variable'],
+      style: {
+        color: '#f1ddcd',
+      },
+    },
+    {
+      types: ['regex'],
+      style: {
+        color: '#c5e57a',
+      },
+    },
+    {
+      types: ['attr-name'],
+      style: {
+        color: '#ffb860',
+      },
+    },
+    {
+      types: ['builtin'],
+      style: {
+        color: '#fff4e8',
+      },
+    },
+    {
+      types: ['inserted'],
+      style: {
+        color: '#c5e57a',
+      },
+    },
+    {
+      types: ['deleted'],
+      style: {
+        color: '#ff9e7c',
       },
     },
   ],

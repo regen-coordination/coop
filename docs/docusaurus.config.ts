@@ -1,6 +1,6 @@
 import type * as Preset from '@docusaurus/preset-classic';
 import type { Config } from '@docusaurus/types';
-import { coopPrismTheme } from './src/css/coop-prism-theme';
+import { coopDarkPrismTheme, coopPrismTheme } from './src/css/coop-prism-theme';
 
 const config: Config = {
   title: 'Coop Docs',
@@ -138,6 +138,7 @@ const config: Config = {
       logo: {
         alt: 'Coop',
         src: 'branding/coop-wordmark-flat.png',
+        srcDark: 'branding/coop-wordmark-glow.png',
         style: { height: '32px' },
       },
       items: [
@@ -190,11 +191,11 @@ const config: Config = {
     },
     prism: {
       theme: coopPrismTheme,
-      darkTheme: coopPrismTheme,
+      darkTheme: coopDarkPrismTheme,
     },
     colorMode: {
       defaultMode: 'light',
-      disableSwitch: true,
+      disableSwitch: false,
       respectPrefersColorScheme: false,
     },
   } satisfies Preset.ThemeConfig,

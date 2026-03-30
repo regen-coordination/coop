@@ -34,6 +34,13 @@ type DevState = {
   version: 1;
   updatedAt: string;
   accessToken?: string;
+  processes: {
+    coordinatorPid: number;
+    managed: Array<{
+      label: string;
+      pid: number;
+    }>;
+  };
   app: ServiceState;
   api: ServiceState;
   docs: ServiceState;
@@ -421,6 +428,10 @@ async function main() {
   const state: DevState = {
     version: 1,
     updatedAt: new Date().toISOString(),
+    processes: {
+      coordinatorPid: process.pid,
+      managed: [],
+    },
     app: {
       localUrl: appLocalUrl,
       status: 'starting',
@@ -503,8 +514,22 @@ async function main() {
   process.on('SIGINT', () => shutdown(0));
   process.on('SIGTERM', () => shutdown(0));
 
+  const syncManagedState = () => {
+    state.processes = {
+      coordinatorPid: process.pid,
+      managed: managed
+        .map((entry) => ({
+          label: entry.label,
+          pid: entry.child.pid,
+        }))
+        .filter((entry): entry is { label: string; pid: number } => Number.isInteger(entry.pid)),
+    };
+    writeDevState(state);
+  };
+
   const trackManagedProcess = (entry: ManagedProcess) => {
     managed.push(entry);
+    syncManagedState();
     entry.child.on('exit', (code, signal) => {
       if (shuttingDown || entry.allowExit) {
         return;
