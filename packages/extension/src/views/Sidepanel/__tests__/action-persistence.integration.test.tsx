@@ -111,10 +111,15 @@ function makeActiveCoop(overrides: CoopOverrides = {}): CoopSharedState {
     },
     memoryProfile: {
       version: 1,
-      identity: '',
-      goals: [],
-      strategies: [],
-      narratives: [],
+      topDomains: [],
+      topTags: [],
+      categoryStats: [],
+      ritualLensWeights: [],
+      exemplarArtifactIds: [],
+      archiveSignals: {
+        archivedTagCounts: {},
+        archivedDomainCounts: {},
+      },
       updatedAt: '2026-03-20T00:00:00.000Z',
     },
     ...overrides,
@@ -437,6 +442,39 @@ function createRuntimeHarness(initialDashboard = makeDashboard()) {
           }));
           return { ok: true, data: nextInvite };
         }
+        case 'regenerate-invite-code': {
+          const payload = message.payload as {
+            coopId: string;
+            createdBy: string;
+            inviteType: InviteCode['type'];
+          };
+          const coop = currentDashboard.coops.find(
+            (item: CoopSharedState) => item.profile.id === payload.coopId,
+          );
+          if (!coop) {
+            return { ok: false, error: 'Coop not found.' };
+          }
+
+          const nextInvite = makeInvite(coop, {
+            id: `invite-${inviteIndex}`,
+            code: `COOP-${payload.inviteType.toUpperCase()}-${inviteIndex}`,
+            type: payload.inviteType,
+            createdBy: payload.createdBy,
+            bootstrap: {
+              inviteId: `invite-${inviteIndex}`,
+              inviteType: payload.inviteType,
+            },
+          });
+          inviteIndex += 1;
+          updateCoop(payload.coopId, (item) => ({
+            ...item,
+            invites: [
+              ...item.invites.filter((invite) => invite.type !== payload.inviteType),
+              nextInvite,
+            ],
+          }));
+          return { ok: true, data: nextInvite };
+        }
         case 'revoke-invite': {
           const payload = message.payload as {
             coopId: string;
@@ -447,6 +485,27 @@ function createRuntimeHarness(initialDashboard = makeDashboard()) {
             ...coop,
             invites: coop.invites.map((invite) =>
               invite.id === payload.inviteId
+                ? {
+                    ...invite,
+                    status: 'revoked',
+                    revokedBy: payload.revokedBy,
+                    revokedAt: '2026-03-21T00:00:00.000Z',
+                  }
+                : invite,
+            ),
+          }));
+          return { ok: true };
+        }
+        case 'revoke-invite-type': {
+          const payload = message.payload as {
+            coopId: string;
+            inviteType: InviteCode['type'];
+            revokedBy: string;
+          };
+          updateCoop(payload.coopId, (coop) => ({
+            ...coop,
+            invites: coop.invites.map((invite) =>
+              invite.type === payload.inviteType && invite.status !== 'revoked'
                 ? {
                     ...invite,
                     status: 'revoked',
@@ -914,7 +973,7 @@ describe('Sidepanel action persistence integration', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('invite-count')).toHaveTextContent('1');
-      expect(screen.getByTestId('invite-result').textContent).toContain('COOP-INVITE-');
+      expect(screen.getByTestId('invite-result')).toHaveTextContent(/^COOP-/);
     });
 
     await user.click(screen.getByRole('button', { name: 'Revoke invite' }));

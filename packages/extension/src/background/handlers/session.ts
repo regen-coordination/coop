@@ -637,11 +637,21 @@ export async function handleRotateSessionCapability(
   }
 
   if (configuredSessionMode === 'live') {
-    await revokeSessionCapabilityLive({
-      capability,
-      authSession,
-      onchainState: creatorResolution.coop.onchainState,
-    });
+    try {
+      await revokeSessionCapabilityLive({
+        capability,
+        authSession,
+        onchainState: creatorResolution.coop.onchainState,
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Session key could not be rotated on the coop Safe.',
+      };
+    }
   }
 
   const signerMaterial = createSessionSignerMaterial();

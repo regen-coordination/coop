@@ -75,6 +75,37 @@ export function makeArtifact(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeInviteCode(
+  coopId: string,
+  coopName: string,
+  inviteType: 'member' | 'trusted',
+  createdBy: string,
+  code: string,
+) {
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  return {
+    id: `${inviteType}-invite-${code}`,
+    type: inviteType,
+    status: 'active',
+    code,
+    expiresAt,
+    createdAt: new Date().toISOString(),
+    createdBy,
+    usedByMemberIds: [],
+    bootstrap: {
+      coopId,
+      coopDisplayName: coopName,
+      inviteId: `${inviteType}-invite-${code}`,
+      inviteType,
+      expiresAt,
+      roomId: `room-${coopId}`,
+      signalingUrls: [],
+      inviteProof: `proof-${code}`,
+    },
+  };
+}
+
 export function makeDashboard(overrides: Record<string, unknown> = {}) {
   return {
     coops: [
@@ -89,10 +120,14 @@ export function makeDashboard(overrides: Record<string, unknown> = {}) {
           {
             id: 'member-1',
             displayName: 'Ava',
+            role: 'creator',
             address: '0x1234567890abcdef1234567890abcdef12345678',
+            authMode: 'passkey',
+            joinedAt: '2026-03-17T10:00:00.000Z',
           },
         ],
         artifacts: [makeArtifact()],
+        invites: [],
       },
     ],
     activeCoopId: 'coop-1',
@@ -150,7 +185,16 @@ export function makeDashboard(overrides: Record<string, unknown> = {}) {
       captureOnClose: false,
     },
     authSession: {
+      authMode: 'passkey',
+      displayName: 'Ava',
       primaryAddress: '0x1234567890abcdef1234567890abcdef12345678',
+      createdAt: '2026-03-17T10:00:00.000Z',
+      identityWarning: 'Device bound.',
+      passkey: {
+        id: 'passkey-1',
+        publicKey: '0x1234',
+        rpId: 'coop.test',
+      },
     },
     identities: [],
     receiverPairings: [],
@@ -203,6 +247,8 @@ export function installDefaultRuntimeHandlers(
   dashboard = makeDashboard(),
 ) {
   let currentDashboard = dashboard;
+  let coopIndex = currentDashboard.coops.length + 1;
+  let inviteIndex = 1;
 
   mockSendRuntimeMessage.mockImplementation(
     async (message: { type: string; payload?: unknown }) => {
@@ -264,6 +310,182 @@ export function installDefaultRuntimeHandlers(
           },
         };
         return { ok: true, data: undefined };
+      }
+      if (message.type === 'resolve-onchain-state') {
+        return {
+          ok: true,
+          data: {
+            safeAddress: '0x1111111111111111111111111111111111111111',
+            chainKey: 'sepolia',
+            statusNote: 'Ready',
+            mode: 'mock',
+          },
+        };
+      }
+      if (message.type === 'create-coop') {
+        const payload = message.payload as {
+          coopName: string;
+          purpose: string;
+          captureMode: 'manual' | 'automatic';
+          creator: {
+            id: string;
+            displayName: string;
+            role: 'creator';
+            address: string;
+            authMode?: 'passkey' | 'mock' | 'wallet';
+            joinedAt?: string;
+          };
+          onchainState: {
+            safeAddress: string;
+            chainKey: 'sepolia' | 'arbitrum';
+            statusNote: string;
+            mode: 'mock' | 'live';
+          };
+        };
+        const coopId = `coop-${coopIndex}`;
+        coopIndex += 1;
+        const nextCoop = {
+          profile: {
+            id: coopId,
+            name: payload.coopName,
+            purpose: payload.purpose,
+            captureMode: payload.captureMode,
+          },
+          members: [payload.creator],
+          artifacts: [],
+          invites: [
+            makeInviteCode(
+              coopId,
+              payload.coopName,
+              'member',
+              payload.creator.id,
+              `COOP-MEMBER-${inviteIndex++}`,
+            ),
+            makeInviteCode(
+              coopId,
+              payload.coopName,
+              'trusted',
+              payload.creator.id,
+              `COOP-TRUSTED-${inviteIndex++}`,
+            ),
+          ],
+          onchainState: payload.onchainState,
+        };
+        currentDashboard = {
+          ...currentDashboard,
+          coops: [...currentDashboard.coops, nextCoop],
+          activeCoopId: coopId,
+          summary: {
+            ...currentDashboard.summary,
+            activeCoopId: coopId,
+            coopCount: currentDashboard.coops.length + 1,
+          },
+        };
+        return { ok: true, data: nextCoop };
+      }
+      if (message.type === 'ensure-invite-codes') {
+        const payload = message.payload as {
+          coopId: string;
+          createdBy: string;
+          inviteTypes?: Array<'member' | 'trusted'>;
+        };
+        const inviteTypes = payload.inviteTypes ?? ['member', 'trusted'];
+        currentDashboard = {
+          ...currentDashboard,
+          coops: currentDashboard.coops.map((coop) => {
+            if (coop.profile.id !== payload.coopId) {
+              return coop;
+            }
+            const nextInvites = [...(coop.invites ?? [])];
+            for (const inviteType of inviteTypes) {
+              const hasHistory = nextInvites.some((invite) => invite.type === inviteType);
+              if (!hasHistory) {
+                nextInvites.push(
+                  makeInviteCode(
+                    coop.profile.id,
+                    coop.profile.name,
+                    inviteType,
+                    payload.createdBy,
+                    `COOP-${inviteType.toUpperCase()}-${inviteIndex++}`,
+                  ),
+                );
+              }
+            }
+            return {
+              ...coop,
+              invites: nextInvites,
+            };
+          }),
+        };
+        return { ok: true };
+      }
+      if (message.type === 'regenerate-invite-code') {
+        const payload = message.payload as {
+          coopId: string;
+          inviteType: 'member' | 'trusted';
+          createdBy: string;
+        };
+        let regenerated = null;
+        currentDashboard = {
+          ...currentDashboard,
+          coops: currentDashboard.coops.map((coop) => {
+            if (coop.profile.id !== payload.coopId) {
+              return coop;
+            }
+            regenerated = makeInviteCode(
+              coop.profile.id,
+              coop.profile.name,
+              payload.inviteType,
+              payload.createdBy,
+              `COOP-${payload.inviteType.toUpperCase()}-${inviteIndex++}`,
+            );
+            return {
+              ...coop,
+              invites: [
+                ...(coop.invites ?? []).map((invite) =>
+                  invite.type === payload.inviteType && invite.status !== 'revoked'
+                    ? {
+                        ...invite,
+                        status: 'revoked',
+                        revokedBy: payload.createdBy,
+                        revokedAt: new Date().toISOString(),
+                      }
+                    : invite,
+                ),
+                regenerated,
+              ],
+            };
+          }),
+        };
+        return { ok: true, data: regenerated };
+      }
+      if (message.type === 'revoke-invite-type') {
+        const payload = message.payload as {
+          coopId: string;
+          inviteType: 'member' | 'trusted';
+          revokedBy: string;
+        };
+        currentDashboard = {
+          ...currentDashboard,
+          coops: currentDashboard.coops.map((coop) =>
+            coop.profile.id === payload.coopId
+              ? {
+                  ...coop,
+                  invites: (coop.invites ?? []).map((invite) =>
+                    invite.type === payload.inviteType && invite.status !== 'revoked'
+                      ? {
+                          ...invite,
+                          status: 'revoked',
+                          revokedBy: payload.revokedBy,
+                          revokedAt: new Date().toISOString(),
+                        }
+                      : invite,
+                  ),
+                }
+              : coop,
+          ),
+        };
+        return { ok: true, data: null };
       }
       return { ok: true };
     },

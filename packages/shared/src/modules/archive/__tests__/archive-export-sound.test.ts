@@ -306,7 +306,7 @@ describe('archive, export, and sound behavior', () => {
     ).toBe('blocked');
     expect(extensionIconStateLabel('blocked')).toBe('Blocked');
     expect(extensionIconBadge('blocked')).toEqual({
-      text: '',
+      text: '!',
       color: '#a63b20',
     });
   });

@@ -1,21 +1,33 @@
-import { type ReviewDraft, type UiPreferences, defaultSoundPreferences } from '@coop/shared';
+import {
+  type InviteType,
+  type ReviewDraft,
+  type UiPreferences,
+  canManageInvites,
+  defaultSoundPreferences,
+  getComputedInviteStatus,
+  getCurrentInviteForType,
+} from '@coop/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type PopupSidepanelState,
   type SidepanelIntent,
   sendRuntimeMessage,
 } from '../../../runtime/messages';
+import { resolveReceiverPairingMember } from '../../../runtime/receiver';
+import { getActiveTabCaptureAccessStatus } from '../../shared/capture-preflight';
 import { useCaptureActions } from '../../shared/useCaptureActions';
+import type { InviteShareInput } from '../../shared/invite-share';
 import { useCoopActions } from '../../shared/useCoopActions';
 import { useQuickDraftActions } from '../../shared/useQuickDraftActions';
 import type { YardItem } from '../PopupHomeScreen';
 import type { PopupSubheaderTag } from '../PopupSubheader';
 import {
   buildFilterTags,
-  formatRelativeTime,
   isCompatibilitySidepanelError,
   matchesCoopFilter,
   normalizeCoopIds,
+  popupHealthStatus,
+  popupReviewStatus,
   popupSyncStatus,
   toDraftItems,
   toFeedItems,
@@ -25,6 +37,7 @@ import type {
   PopupFeedArtifactItem,
   PopupFooterTab,
   PopupHomeNoteState,
+  PopupInviteCoopItem,
   PopupPendingCapture,
   PopupScreen,
 } from '../popup-types';
@@ -45,6 +58,12 @@ type PopupSidepanelApi = typeof chrome.sidePanel & {
 
 const initialHomeNoteState: PopupHomeNoteState = {
   text: '',
+};
+
+const defaultCaptureAccessStatus = {
+  label: 'Checking',
+  detail: 'Checking site access.',
+  tone: 'ok' as const,
 };
 
 export interface PopupOrchestrationState {
@@ -107,6 +126,7 @@ export interface PopupOrchestrationState {
   showProfileAction: boolean;
   showWorkspaceAction: boolean;
   showCreateJoinInHeader: boolean;
+  showInviteHubInHeader: boolean;
 
   // Handlers
   handleCreateSubmit: () => Promise<void>;
@@ -126,7 +146,9 @@ export interface PopupOrchestrationState {
   dismissFeedArtifact: (artifactId: string) => void;
   openCreateFlow: () => void;
   openJoinFlow: () => void;
+  openInviteHub: () => Promise<void>;
   openProfilePanel: () => void;
+  enterCreatedCoop: () => Promise<void>;
   navigateBack: () => void;
   setSelectedArtifactId: (id: string | null) => void;
   toggleWorkspace: (targetCoopId?: string) => Promise<void>;
@@ -145,8 +167,20 @@ export interface PopupOrchestrationState {
 
   // Profile
   accountLabel: string;
-  profileCoops: Array<{ name: string; inviteCode?: string }>;
-  onCopyInviteCode: (coopName: string, code: string) => void;
+  profileCoops: Array<{ name: string }>;
+
+  // Invites
+  inviteHubCoops: PopupInviteCoopItem[];
+  createdInviteCoop: PopupInviteCoopItem | null;
+  copyInviteCode: (coopId: string, inviteType: InviteType) => Promise<void>;
+  regenerateInviteCode: (coopId: string, inviteType: InviteType) => Promise<void>;
+  revokeInviteType: (coopId: string, inviteType: InviteType) => Promise<void>;
+
+  // Invite share composer
+  shareDialogInvite: InviteShareInput | null;
+  openShareDialog: (coopId: string, inviteType: InviteType) => void;
+  closeShareDialog: () => void;
+  showToast: (message: string) => void;
 }
 
 export function usePopupOrchestration(): PopupOrchestrationState {
@@ -178,11 +212,14 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     open: false,
     canClose: false,
   });
+  const [captureAccessStatus, setCaptureAccessStatus] = useState(defaultCaptureAccessStatus);
   const [draftFilterId, setDraftFilterId] = useState('all');
   const [feedFilterId, setFeedFilterId] = useState('all');
   const [noteDraftText, setNoteDraftText] = useState('');
   const [pendingCapture, setPendingCapture] = useState<PopupPendingCapture | null>(null);
   const [subscreenReturnTab, setSubscreenReturnTab] = useState<PopupFooterTab>('home');
+  const [inviteSuccessCoopId, setInviteSuccessCoopId] = useState<string | null>(null);
+  const [shareDialogInvite, setShareDialogInvite] = useState<InviteShareInput | null>(null);
 
   // Sync draft text with persisted note when it first hydrates from storage
   const homeNoteHydrated = useRef(false);
@@ -315,10 +352,61 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     soundPreferences: dashboard?.soundPreferences ?? defaultSoundPreferences,
   });
 
+  const inviteHubCoops = useMemo<PopupInviteCoopItem[]>(() => {
+    const authSession = dashboard?.authSession ?? null;
+
+    return coops.map((coop) => {
+      const inviteHistory = coop.invites ?? [];
+      const member = resolveReceiverPairingMember(coop, authSession);
+      const canManage = member ? canManageInvites(coop, member.id) : false;
+      const currentMemberInvite = getCurrentInviteForType({ invites: inviteHistory }, 'member');
+      const currentTrustedInvite = getCurrentInviteForType({ invites: inviteHistory }, 'trusted');
+      const hasMemberHistory = inviteHistory.some((invite) => invite.type === 'member');
+      const hasTrustedHistory = inviteHistory.some((invite) => invite.type === 'trusted');
+
+      return {
+        coopId: coop.profile.id,
+        coopName: coop.profile.name,
+        memberId: member?.id,
+        memberRoleLabel: member?.role,
+        canManageInvites: canManage,
+        memberInvite: {
+          inviteType: 'member',
+          status: currentMemberInvite
+            ? getComputedInviteStatus(currentMemberInvite)
+            : hasMemberHistory
+              ? 'revoked'
+              : 'missing',
+          code: currentMemberInvite?.code,
+          expiresAt: currentMemberInvite?.expiresAt,
+          usedCount: currentMemberInvite?.usedByMemberIds.length ?? 0,
+        },
+        trustedInvite: {
+          inviteType: 'trusted',
+          status: currentTrustedInvite
+            ? getComputedInviteStatus(currentTrustedInvite)
+            : hasTrustedHistory
+              ? 'revoked'
+              : 'missing',
+          code: currentTrustedInvite?.code,
+          expiresAt: currentTrustedInvite?.expiresAt,
+          usedCount: currentTrustedInvite?.usedByMemberIds.length ?? 0,
+        },
+      };
+    });
+  }, [coops, dashboard?.authSession]);
+
+  const manageableInviteCoops = useMemo(
+    () => inviteHubCoops.filter((coop) => coop.canManageInvites),
+    [inviteHubCoops],
+  );
+
   const currentScreen =
     !hasCoops && !['create', 'join'].includes(navigation.state.screen)
       ? 'no-coop'
-      : navigation.state.screen;
+      : navigation.state.screen === 'invite-success' && !inviteSuccessCoopId
+        ? 'home'
+        : navigation.state.screen;
 
   // ── Sub-hooks ──
 
@@ -326,6 +414,10 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     navigation,
     coopActions,
     subscreenReturnTab,
+    onCreateSuccess: (coopId) => {
+      setInviteSuccessCoopId(coopId);
+      navigation.navigate('invite-success');
+    },
   });
 
   const draftHandlers = usePopupDraftHandlers({
@@ -348,6 +440,140 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     loadDashboard,
     setMessage,
   });
+
+  const createdInviteCoop = useMemo(
+    () => inviteHubCoops.find((coop) => coop.coopId === inviteSuccessCoopId) ?? null,
+    [inviteHubCoops, inviteSuccessCoopId],
+  );
+
+  async function ensureInviteHubCodes() {
+    const invitableCoops = manageableInviteCoops.filter((coop) => coop.memberId);
+    if (!invitableCoops.length) {
+      return;
+    }
+
+    const responses = await Promise.all(
+      invitableCoops.map((coop) =>
+        sendRuntimeMessage({
+          type: 'ensure-invite-codes',
+          payload: {
+            coopId: coop.coopId,
+            createdBy: coop.memberId!,
+          },
+        }),
+      ),
+    );
+
+    const firstError = responses.find((response) => !response.ok);
+    if (firstError?.error) {
+      setMessage(firstError.error);
+    }
+    await loadDashboard();
+  }
+
+  async function openInviteHub() {
+    setSubscreenReturnTab(activeFooterTab);
+    navigation.navigate('invites');
+    await ensureInviteHubCodes();
+  }
+
+  async function copyInviteCode(coopId: string, inviteType: InviteType) {
+    const coop = inviteHubCoops.find((item) => item.coopId === coopId);
+    const invite = inviteType === 'trusted' ? coop?.trustedInvite : coop?.memberInvite;
+    if (!invite?.code) {
+      setMessage('No invite code is available for that group yet.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(invite.code);
+      setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} invite copied.`);
+    } catch {
+      setMessage('Could not copy the invite code.');
+    }
+  }
+
+  async function regenerateInviteCode(coopId: string, inviteType: InviteType) {
+    const coop = inviteHubCoops.find((item) => item.coopId === coopId);
+    if (!coop?.memberId) {
+      setMessage('Only creators and trusted members can manage invites for that coop.');
+      return;
+    }
+    const response = await sendRuntimeMessage({
+      type: 'regenerate-invite-code',
+      payload: {
+        coopId,
+        inviteType,
+        createdBy: coop.memberId,
+      },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not regenerate the invite code.');
+      return;
+    }
+    await loadDashboard();
+    setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} invite regenerated.`);
+  }
+
+  async function revokeInviteType(coopId: string, inviteType: InviteType) {
+    const coop = inviteHubCoops.find((item) => item.coopId === coopId);
+    if (!coop?.memberId) {
+      setMessage('Only creators and trusted members can manage invites for that coop.');
+      return;
+    }
+    const response = await sendRuntimeMessage({
+      type: 'revoke-invite-type',
+      payload: {
+        coopId,
+        inviteType,
+        revokedBy: coop.memberId,
+      },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not revoke that invite type.');
+      return;
+    }
+    await loadDashboard();
+    setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} invite revoked.`);
+  }
+
+  function openShareDialog(coopId: string, inviteType: InviteType) {
+    const coop = inviteHubCoops.find((item) => item.coopId === coopId);
+    const invite = inviteType === 'trusted' ? coop?.trustedInvite : coop?.memberInvite;
+    if (!coop || !invite?.code || !invite.expiresAt) {
+      setMessage('No shareable invite code is available.');
+      return;
+    }
+    setShareDialogInvite({
+      coopName: coop.coopName,
+      inviteType,
+      code: invite.code,
+      expiresAt: invite.expiresAt,
+    });
+  }
+
+  function closeShareDialog() {
+    setShareDialogInvite(null);
+  }
+
+  async function enterCreatedCoop() {
+    if (!inviteSuccessCoopId) {
+      navigation.goHome();
+      return;
+    }
+
+    const response = await sendRuntimeMessage({
+      type: 'set-active-coop',
+      payload: { coopId: inviteSuccessCoopId },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Could not enter the new coop.');
+      return;
+    }
+
+    await loadDashboard();
+    setInviteSuccessCoopId(null);
+    navigation.goHome();
+  }
 
   // ── Derived data ──
 
@@ -447,6 +673,20 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       setSelectedArtifactId(null);
     }
   }, [currentScreen, selectedArtifactId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getActiveTabCaptureAccessStatus().then((status) => {
+      if (!cancelled) {
+        setCaptureAccessStatus(status);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dashboard?.summary?.iconState, dashboard?.summary?.lastCaptureAt, currentScreen]);
 
   // ── Workspace / sidepanel management ──
 
@@ -658,7 +898,11 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       ? 'feed'
       : currentScreen === 'drafts' || currentScreen === 'draft-detail'
         ? 'drafts'
-        : currentScreen === 'create' || currentScreen === 'join' || currentScreen === 'profile'
+        : currentScreen === 'create' ||
+            currentScreen === 'join' ||
+            currentScreen === 'profile' ||
+            currentScreen === 'invites' ||
+            currentScreen === 'invite-success'
           ? subscreenReturnTab
           : 'home';
 
@@ -684,7 +928,17 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       return;
     }
 
-    if (currentScreen === 'create' || currentScreen === 'join' || currentScreen === 'profile') {
+    if (currentScreen === 'invite-success') {
+      void enterCreatedCoop();
+      return;
+    }
+
+    if (
+      currentScreen === 'create' ||
+      currentScreen === 'join' ||
+      currentScreen === 'profile' ||
+      currentScreen === 'invites'
+    ) {
       navigation.navigate(subscreenReturnTab);
       return;
     }
@@ -715,8 +969,25 @@ export function usePopupOrchestration(): PopupOrchestrationState {
   const routedSignalCount = dashboard?.summary?.routedTabs ?? snapshot?.routedSignalCount ?? 0;
   const staleObservationCount =
     dashboard?.summary?.staleObservationCount ?? snapshot?.staleObservationCount ?? 0;
-  const lastCaptureAt = dashboard?.summary?.lastCaptureAt ?? snapshot?.lastCaptureAt;
-  const homeStatusItems = [
+  const pendingActions = dashboard?.summary?.pendingActions ?? 0;
+  const reviewStatus = popupReviewStatus({
+    pendingDrafts: draftCount,
+    routedTabs: routedSignalCount,
+    staleObservationCount,
+    pendingActions,
+  });
+  const healthStatus = popupHealthStatus({
+    syncStatus,
+    captureAccessStatus,
+  });
+  const homeStatusItems: PopupSubheaderTag[] = [
+    {
+      id: 'health',
+      label: 'Health',
+      value: healthStatus.label,
+      tone: healthStatus.tone,
+      detail: healthStatus.detail,
+    },
     {
       id: 'sync',
       label: 'Sync',
@@ -725,25 +996,15 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       detail: syncStatus.detail,
     },
     {
-      id: 'signals',
-      label: 'Signals',
-      value: String(routedSignalCount),
-      tone: routedSignalCount > 0 ? ('warning' as const) : ('ok' as const),
+      id: 'review',
+      label: 'Review',
+      value: reviewStatus.value,
+      tone: reviewStatus.tone,
+      detail: reviewStatus.detail,
       onClick: () =>
         void openWorkspace({
           targetCoopId: workspaceTargetCoopId,
-          intent: { tab: 'chickens', segment: 'signals', coopId: workspaceTargetCoopId },
-        }),
-    },
-    {
-      id: 'stale',
-      label: 'Stale',
-      value: String(staleObservationCount),
-      tone: staleObservationCount > 0 ? ('warning' as const) : ('ok' as const),
-      onClick: () =>
-        void openWorkspace({
-          targetCoopId: workspaceTargetCoopId,
-          intent: { tab: 'chickens', segment: 'stale', coopId: workspaceTargetCoopId },
+          intent: { tab: 'chickens', segment: 'summary', coopId: workspaceTargetCoopId },
         }),
     },
   ];
@@ -780,6 +1041,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
   const showWorkspaceAction =
     currentScreen !== 'no-coop' && [...mainScreens, 'draft-detail'].includes(currentScreen);
   const showCreateJoinInHeader = onMainScreen && currentScreen !== 'no-coop';
+  const showInviteHubInHeader = onMainScreen && manageableInviteCoops.length > 0;
 
   return {
     currentScreen,
@@ -818,6 +1080,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     showProfileAction,
     showWorkspaceAction,
     showCreateJoinInHeader,
+    showInviteHubInHeader,
     handleCreateSubmit: formHandlers.handleCreateSubmit,
     handleJoinSubmit: formHandlers.handleJoinSubmit,
     handleSaveSelectedDraft: draftHandlers.handleSaveSelectedDraft,
@@ -835,7 +1098,9 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     dismissFeedArtifact,
     openCreateFlow,
     openJoinFlow,
+    openInviteHub,
     openProfilePanel,
+    enterCreatedCoop,
     navigateBack,
     setSelectedArtifactId,
     toggleWorkspace,
@@ -849,6 +1114,14 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     recording,
     accountLabel: profile.accountLabel,
     profileCoops: profile.profileCoops,
-    onCopyInviteCode: profile.onCopyInviteCode,
+    inviteHubCoops,
+    createdInviteCoop,
+    copyInviteCode,
+    regenerateInviteCode,
+    revokeInviteType,
+    shareDialogInvite,
+    openShareDialog,
+    closeShareDialog,
+    showToast: setMessage,
   };
 }

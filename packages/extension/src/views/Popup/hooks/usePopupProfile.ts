@@ -66,15 +66,9 @@ export function usePopupProfile(deps: PopupProfileDeps) {
     () =>
       coops.map((coop) => ({
         name: coop.profile.name,
-        inviteCode: coop.invites?.[coop.invites.length - 1]?.code,
       })),
     [coops],
   );
-
-  function onCopyInviteCode(_coopName: string, code: string) {
-    void navigator.clipboard.writeText(code);
-    setMessage('Invite code copied.');
-  }
 
   return {
     updateUiPreferences,
@@ -82,6 +76,5 @@ export function usePopupProfile(deps: PopupProfileDeps) {
     playBrandSound,
     accountLabel,
     profileCoops,
-    onCopyInviteCode,
   };
 }

@@ -1,9 +1,16 @@
-import type { Artifact, ArtifactCategory, ReviewDraftWorkflowStage } from '@coop/shared';
+import type {
+  Artifact,
+  ArtifactCategory,
+  InviteType,
+  ReviewDraftWorkflowStage,
+} from '@coop/shared';
 
 export type PopupScreen =
   | 'home'
   | 'create'
   | 'join'
+  | 'invites'
+  | 'invite-success'
   | 'drafts'
   | 'draft-detail'
   | 'feed'
@@ -66,6 +73,24 @@ export interface PopupFeedArtifactItem extends Artifact {
 export interface PopupChoiceOption<T extends string | number> {
   id: T;
   label: string;
+}
+
+export interface PopupInviteCardItem {
+  inviteType: InviteType;
+  status: 'active' | 'used' | 'expired' | 'revoked' | 'missing';
+  code?: string;
+  expiresAt?: string;
+  usedCount: number;
+}
+
+export interface PopupInviteCoopItem {
+  coopId: string;
+  coopName: string;
+  memberId?: string;
+  memberRoleLabel?: string;
+  canManageInvites: boolean;
+  memberInvite: PopupInviteCardItem;
+  trustedInvite: PopupInviteCardItem;
 }
 
 export interface PopupHomeNoteState {

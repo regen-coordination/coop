@@ -1,4 +1,4 @@
-import { createCoop, createCoopDoc, encodeCoopDoc } from '@coop/shared';
+import { createCoop, createCoopDoc, encodeCoopDoc, generateInviteCode } from '@coop/shared';
 import type { CoopSharedState, InviteCode } from '@coop/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -55,7 +55,13 @@ vi.mock('../agent', () => ({
 }));
 
 const { getCoops, saveState } = await import('../../context');
-const { handleCreateInvite, handleRevokeInvite } = await import('../receiver');
+const {
+  handleCreateInvite,
+  handleEnsureInviteCodes,
+  handleRegenerateInviteCode,
+  handleRevokeInvite,
+  handleRevokeInviteType,
+} = await import('../receiver');
 
 // --- Helpers ---
 
@@ -101,18 +107,21 @@ function buildTestCoop(): CoopSharedState {
   return result.state;
 }
 
+function mockPersistedDocRecord(coop: CoopSharedState) {
+  const doc = createCoopDoc(coop);
+  mockCoopDocsGet.mockResolvedValue({
+    id: coop.profile.id,
+    encodedState: encodeCoopDoc(doc),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 describe('handleCreateInvite – Yjs propagation', () => {
   it('persists state and writes to the Yjs doc record after creating an invite', async () => {
     const coop = buildTestCoop();
     const creatorId = coop.members[0].id;
     vi.mocked(getCoops).mockResolvedValue([coop]);
-    // Provide a valid coopDocs record so persistInviteToYjsDoc doesn't early-return
-    const doc = createCoopDoc(coop);
-    mockCoopDocsGet.mockResolvedValue({
-      id: coop.profile.id,
-      encodedState: encodeCoopDoc(doc),
-      updatedAt: new Date().toISOString(),
-    });
+    mockPersistedDocRecord(coop);
 
     const result = await handleCreateInvite({
       type: 'create-invite',
@@ -175,13 +184,7 @@ describe('handleRevokeInvite – Yjs propagation', () => {
     vi.mocked(saveState).mockClear();
     mockCoopDocsPut.mockClear();
 
-    // Provide a valid coopDocs record so persistInviteToYjsDoc doesn't early-return
-    const doc = createCoopDoc(savedState);
-    mockCoopDocsGet.mockResolvedValue({
-      id: savedState.profile.id,
-      encodedState: encodeCoopDoc(doc),
-      updatedAt: new Date().toISOString(),
-    });
+    mockPersistedDocRecord(savedState);
 
     const result = await handleRevokeInvite({
       type: 'revoke-invite',
@@ -217,5 +220,133 @@ describe('handleRevokeInvite – Yjs propagation', () => {
 
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/coop not found/i);
+  });
+});
+
+describe('canonical invite handlers', () => {
+  it('only backfills invite types that have zero history', async () => {
+    const coop = buildTestCoop();
+    const creatorId = coop.members[0].id;
+    const memberInvite = coop.invites.find((invite) => invite.type === 'member');
+    const legacyCoop = {
+      ...coop,
+      invites: memberInvite
+        ? [
+            {
+              ...memberInvite,
+              status: 'revoked' as const,
+              revokedAt: new Date().toISOString(),
+              revokedBy: creatorId,
+            },
+          ]
+        : [],
+    };
+    vi.mocked(getCoops).mockResolvedValue([legacyCoop]);
+    mockPersistedDocRecord(legacyCoop);
+
+    const result = await handleEnsureInviteCodes({
+      type: 'ensure-invite-codes',
+      payload: {
+        coopId: legacyCoop.profile.id,
+        createdBy: creatorId,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    const data = result.data as { member: InviteCode | null; trusted: InviteCode | null };
+    expect(data.member).toBeNull();
+    expect(data.trusted?.type).toBe('trusted');
+
+    const savedState = vi.mocked(saveState).mock.calls.at(-1)?.[0] as CoopSharedState;
+    expect(savedState.invites.filter((invite) => invite.type === 'member')).toHaveLength(1);
+    expect(savedState.invites.filter((invite) => invite.type === 'trusted')).toHaveLength(1);
+    expect(mockCoopDocsPut).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: legacyCoop.profile.id,
+        encodedState: expect.any(Uint8Array),
+      }),
+    );
+  });
+
+  it('regenerates a type by revoking all live invites and returning one fresh current code', async () => {
+    const coop = buildTestCoop();
+    const creatorId = coop.members[0].id;
+    const extraMemberInvite = generateInviteCode({
+      state: coop,
+      createdBy: creatorId,
+      type: 'member',
+    });
+    const legacyCoop = {
+      ...coop,
+      invites: [...coop.invites, extraMemberInvite],
+    };
+    vi.mocked(getCoops).mockResolvedValue([legacyCoop]);
+    mockPersistedDocRecord(legacyCoop);
+
+    const result = await handleRegenerateInviteCode({
+      type: 'regenerate-invite-code',
+      payload: {
+        coopId: legacyCoop.profile.id,
+        createdBy: creatorId,
+        inviteType: 'member',
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    const freshInvite = result.data as InviteCode;
+    const savedState = vi.mocked(saveState).mock.calls.at(-1)?.[0] as CoopSharedState;
+    expect(
+      savedState.invites.filter(
+        (invite) => invite.type === 'member' && invite.status !== 'revoked',
+      ),
+    ).toHaveLength(1);
+    expect(
+      savedState.invites.filter(
+        (invite) => invite.type === 'member' && invite.status === 'revoked',
+      ),
+    ).toHaveLength(2);
+    expect(
+      savedState.invites.find(
+        (invite) => invite.type === 'member' && invite.status !== 'revoked',
+      )?.id,
+    ).toBe(freshInvite.id);
+  });
+
+  it('revokes all live invites for a type without affecting other invite lanes', async () => {
+    const coop = buildTestCoop();
+    const creatorId = coop.members[0].id;
+    const extraMemberInvite = generateInviteCode({
+      state: coop,
+      createdBy: creatorId,
+      type: 'member',
+    });
+    const legacyCoop = {
+      ...coop,
+      invites: [...coop.invites, extraMemberInvite],
+    };
+    vi.mocked(getCoops).mockResolvedValue([legacyCoop]);
+    mockPersistedDocRecord(legacyCoop);
+
+    const result = await handleRevokeInviteType({
+      type: 'revoke-invite-type',
+      payload: {
+        coopId: legacyCoop.profile.id,
+        inviteType: 'member',
+        revokedBy: creatorId,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    const savedState = vi.mocked(saveState).mock.calls.at(-1)?.[0] as CoopSharedState;
+    expect(
+      savedState.invites.filter(
+        (invite) => invite.type === 'member' && invite.status !== 'revoked',
+      ),
+    ).toHaveLength(0);
+    expect(
+      savedState.invites.filter(
+        (invite) => invite.type === 'trusted' && invite.status !== 'revoked',
+      ),
+    ).toHaveLength(1);
   });
 });

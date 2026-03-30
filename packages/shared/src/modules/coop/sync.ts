@@ -566,7 +566,7 @@ export function summarizeSyncTransportHealth(
 
   return {
     syncError: false,
-    note: 'Signaling connected. Waiting for peers.',
+    note: 'Signaling connected. Ready when another peer joins.',
     configuredSignalingCount: webrtc.signalingUrls.length,
     signalingConnectionCount,
     peerCount,

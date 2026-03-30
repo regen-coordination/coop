@@ -24,6 +24,25 @@ describe('summarizeSyncStatus', () => {
     });
   });
 
+  it('surfaces missing extension permissions as a blocking error', () => {
+    expect(
+      summarizeSyncStatus({
+        coopCount: 1,
+        runtimeHealth: {
+          offline: false,
+          missingPermission: true,
+          syncError: false,
+        },
+      }),
+    ).toEqual({
+      syncState: 'Required extension permissions are missing.',
+      syncLabel: 'Permission',
+      syncDetail:
+        'Required extension permissions are missing. Check Coop site access and extension permissions.',
+      syncTone: 'error',
+    });
+  });
+
   it('surfaces local-only sync when signaling is unavailable', () => {
     expect(
       summarizeSyncStatus({
@@ -221,17 +240,27 @@ describe('summarizeSyncStatus', () => {
   it('shows attention count as badge text when items are pending', () => {
     const result = describeActionIndicator({
       iconState: 'attention',
+      pendingDrafts: 2,
+      routedTabs: 1,
+      pendingActions: 1,
+      staleObservationCount: 1,
       pendingAttentionCount: 5,
       syncDetail: 'Peer-ready local-first sync.',
     });
     expect(result.badgeText).toBe('5');
     expect(result.badgeColor).toBe('#fd8a01');
-    expect(result.title).toBe('Coop: 5 waiting for review');
+    expect(result.title).toBe(
+      'Coop: 5 pending review (2 drafts, 1 signal, 1 action, 1 stale observation)',
+    );
   });
 
   it('shows empty badge text for ready state', () => {
     const result = describeActionIndicator({
       iconState: 'ready',
+      pendingDrafts: 0,
+      routedTabs: 0,
+      pendingActions: 0,
+      staleObservationCount: 0,
       pendingAttentionCount: 0,
       syncDetail: 'Peer-ready local-first sync.',
     });
@@ -242,6 +271,10 @@ describe('summarizeSyncStatus', () => {
   it('caps badge text at 99+ for large counts', () => {
     const result = describeActionIndicator({
       iconState: 'attention',
+      pendingDrafts: 90,
+      routedTabs: 40,
+      pendingActions: 20,
+      staleObservationCount: 0,
       pendingAttentionCount: 150,
       syncDetail: 'Peer-ready local-first sync.',
     });
@@ -251,6 +284,10 @@ describe('summarizeSyncStatus', () => {
   it('shows exact count at boundary value of 99', () => {
     const result = describeActionIndicator({
       iconState: 'attention',
+      pendingDrafts: 40,
+      routedTabs: 39,
+      pendingActions: 10,
+      staleObservationCount: 10,
       pendingAttentionCount: 99,
       syncDetail: 'Peer-ready local-first sync.',
     });
@@ -260,6 +297,10 @@ describe('summarizeSyncStatus', () => {
   it('shows processing title for working state', () => {
     const result = describeActionIndicator({
       iconState: 'working',
+      pendingDrafts: 0,
+      routedTabs: 0,
+      pendingActions: 0,
+      staleObservationCount: 0,
       pendingAttentionCount: 0,
       syncDetail: 'Peer-ready local-first sync.',
     });
@@ -271,10 +312,14 @@ describe('summarizeSyncStatus', () => {
   it('shows error detail for blocked state', () => {
     const result = describeActionIndicator({
       iconState: 'blocked',
+      pendingDrafts: 3,
+      routedTabs: 9,
+      pendingActions: 4,
+      staleObservationCount: 2,
       pendingAttentionCount: 0,
       syncDetail: 'Missing required permissions.',
     });
-    expect(result.badgeText).toBe('');
+    expect(result.badgeText).toBe('!');
     expect(result.badgeColor).toBe('#a63b20');
     expect(result.title).toBe('Coop: Missing required permissions.');
   });

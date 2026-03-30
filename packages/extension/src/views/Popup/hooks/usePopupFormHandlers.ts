@@ -7,10 +7,11 @@ export interface PopupFormHandlersDeps {
   navigation: ReturnType<typeof usePopupNavigation>;
   coopActions: ReturnType<typeof useCoopActions>;
   subscreenReturnTab: PopupFooterTab;
+  onCreateSuccess: (coopId: string) => void;
 }
 
 export function usePopupFormHandlers(deps: PopupFormHandlersDeps) {
-  const { navigation, coopActions, subscreenReturnTab } = deps;
+  const { navigation, coopActions, onCreateSuccess } = deps;
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [joinSubmitting, setJoinSubmitting] = useState(false);
 
@@ -22,7 +23,7 @@ export function usePopupFormHandlers(deps: PopupFormHandlersDeps) {
       return;
     }
     navigation.resetCreateForm();
-    navigation.navigate(subscreenReturnTab);
+    onCreateSuccess(created.profile.id);
   }
 
   async function handleJoinSubmit() {

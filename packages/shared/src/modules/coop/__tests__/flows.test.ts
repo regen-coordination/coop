@@ -5,12 +5,17 @@ import {
   createCoop,
   createMember,
   createStateFromInviteBootstrap,
+  ensureInviteCodes,
   generateInviteCode,
   getComputedInviteStatus,
+  getCurrentInviteForType,
+  hasInviteHistoryForType,
   joinCoop,
   leaveCoop,
   parseInviteCode,
+  regenerateInviteCode,
   revokeInviteCode,
+  revokeInviteType,
   verifyInviteCodeProof,
 } from '../flows';
 import {
@@ -68,6 +73,25 @@ describe('create, join, and publish flows', () => {
     expect(created.state.profile.spaceType).toBe('community');
     expect(created.state.artifacts).toHaveLength(4);
     expect(created.state.members[0]?.role).toBe('creator');
+  });
+
+  it('seeds canonical member and trusted invites when a coop is created', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship and shared funding context.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'I want our research and field notes to stay visible.',
+      setupInsights: buildSetupInsights(),
+    });
+
+    expect(created.state.invites).toHaveLength(2);
+    expect(created.state.invites.map((invite) => invite.type).sort()).toEqual([
+      'member',
+      'trusted',
+    ]);
+    expect(getCurrentInviteForType(created.state, 'member')?.createdBy).toBe(created.creator.id);
+    expect(getCurrentInviteForType(created.state, 'trusted')?.createdBy).toBe(created.creator.id);
   });
 
   it('derives soul with new identity fields having sensible defaults', () => {
@@ -660,6 +684,137 @@ describe('create, join, and publish flows', () => {
       expiresAt: '2020-01-01T00:00:00.000Z',
     };
     expect(getComputedInviteStatus(revokedAndExpired)).toBe('revoked');
+  });
+
+  it('treats a used canonical invite as still current until it is replaced or revoked', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const memberInvite = getCurrentInviteForType(created.state, 'member');
+    expect(memberInvite).toBeDefined();
+
+    const joined = joinCoop({
+      state: created.state,
+      invite: memberInvite!,
+      displayName: 'Mina',
+      seedContribution: 'I bring member context.',
+    });
+
+    const currentInvite = getCurrentInviteForType(joined.state, 'member');
+    expect(currentInvite?.id).toBe(memberInvite?.id);
+    expect(getComputedInviteStatus(currentInvite!)).toBe('used');
+  });
+
+  it('only backfills invite types with zero history', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const memberOnlyState = {
+      ...created.state,
+      invites: created.state.invites.filter((invite) => invite.type === 'member'),
+    };
+    const revokedMemberState = revokeInviteType({
+      state: memberOnlyState,
+      inviteType: 'member',
+      revokedBy: created.creator.id,
+    });
+
+    const ensured = ensureInviteCodes({
+      state: revokedMemberState,
+      createdBy: created.creator.id,
+    });
+
+    expect(hasInviteHistoryForType(ensured, 'member')).toBe(true);
+    expect(hasInviteHistoryForType(ensured, 'trusted')).toBe(true);
+    expect(ensured.invites.filter((invite) => invite.type === 'member')).toHaveLength(1);
+    expect(ensured.invites.filter((invite) => invite.type === 'trusted')).toHaveLength(1);
+    expect(getCurrentInviteForType(ensured, 'member')).toBeUndefined();
+    expect(getCurrentInviteForType(ensured, 'trusted')?.type).toBe('trusted');
+  });
+
+  it('revokes every live invite of a type', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const legacyExtraMemberInvite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+    const legacyState = {
+      ...created.state,
+      invites: [...created.state.invites, legacyExtraMemberInvite],
+    };
+
+    const revoked = revokeInviteType({
+      state: legacyState,
+      inviteType: 'member',
+      revokedBy: created.creator.id,
+    });
+
+    expect(
+      revoked.invites.filter(
+        (invite) => invite.type === 'member' && invite.status !== 'revoked',
+      ),
+    ).toHaveLength(0);
+    expect(
+      revoked.invites.filter(
+        (invite) => invite.type === 'trusted' && invite.status !== 'revoked',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('regenerates a type by revoking all live invites and creating one fresh current invite', () => {
+    const created = createCoop({
+      coopName: 'Forest Coop',
+      purpose: 'Coordinate forest stewardship.',
+      creatorDisplayName: 'June',
+      captureMode: 'manual',
+      seedContribution: 'Starter note.',
+      setupInsights: buildSetupInsights(),
+    });
+    const legacyExtraMemberInvite = generateInviteCode({
+      state: created.state,
+      createdBy: created.creator.id,
+      type: 'member',
+    });
+    const legacyState = {
+      ...created.state,
+      invites: [...created.state.invites, legacyExtraMemberInvite],
+    };
+
+    const regenerated = regenerateInviteCode({
+      state: legacyState,
+      createdBy: created.creator.id,
+      inviteType: 'member',
+    });
+
+    expect(
+      regenerated.state.invites.filter(
+        (invite) => invite.type === 'member' && invite.status !== 'revoked',
+      ),
+    ).toHaveLength(1);
+    expect(
+      regenerated.state.invites.filter(
+        (invite) => invite.type === 'member' && invite.status === 'revoked',
+      ),
+    ).toHaveLength(2);
+    expect(getCurrentInviteForType(regenerated.state, 'member')?.id).toBe(regenerated.invite.id);
   });
 
   it('supports custom expiry when generating invite codes', () => {

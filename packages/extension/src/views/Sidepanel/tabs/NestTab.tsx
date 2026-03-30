@@ -50,7 +50,6 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
     stealthMetaAddress,
     receiverIntake,
     loadDashboard,
-    createInvite,
     updateCoopProfile,
     handleLeaveCoop,
     selectActiveCoop,
@@ -58,6 +57,8 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
 
   const allCoops = dashboard?.coops ?? [];
   const [nestSubTab, setNestSubTab] = useState<NestSubTab>('members');
+  const [inviteControlsOpen, setInviteControlsOpen] = useState(false);
+  const [inviteFocusRequest, setInviteFocusRequest] = useState(0);
 
   // Badge counts
   const receiverIntakeCount = receiverIntake.length;
@@ -112,13 +113,16 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
                   )}
                 </Tooltip>
                 {nestSubTab === 'members' ? (
-                  <Tooltip content="Invite member">
+                  <Tooltip content="Open invite controls">
                     {({ targetProps }) => (
                       <button
                         {...targetProps}
                         className="popup-icon-button"
-                        aria-label="Invite member"
-                        onClick={() => createInvite('member')}
+                        aria-label="Open invite controls"
+                        onClick={() => {
+                          setInviteControlsOpen(true);
+                          setInviteFocusRequest((current) => current + 1);
+                        }}
                         type="button"
                       >
                         <svg
@@ -321,6 +325,7 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
             inviteResult={orchestration.inviteResult}
             createInvite={orchestration.createInvite}
             revokeInvite={orchestration.revokeInvite}
+            revokeInviteType={orchestration.revokeInviteType}
             coopForm={orchestration.coopForm}
             activeCoop={activeCoop}
             currentMemberId={
@@ -330,6 +335,9 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
                   )?.id
                 : undefined
             }
+            controlsOpen={inviteControlsOpen}
+            focusRequest={inviteFocusRequest}
+            onControlsOpenChange={setInviteControlsOpen}
           />
 
           {/* --- Receiver --- */}

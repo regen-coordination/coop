@@ -13,20 +13,25 @@ import {
   deleteReviewDraft,
   encodeCoopDoc,
   encodeReceiverPairingPayload,
+  ensureInviteCodes,
   generateInviteCode,
   getAuthSession,
+  getCurrentInviteForType,
   getReceiverCapture,
   getReviewDraft,
   hydrateCoopDoc,
   listReceiverPairings,
   nowIso,
+  regenerateInviteCode,
   receiverSyncAssetToBlob,
+  revokeInviteType,
   resolveDraftTargetCoopIdsForUi,
   revokeInviteCode,
   saveReceiverCapture,
   saveReviewDraft,
   setActiveReceiverPairing,
   toReceiverPairingRecord,
+  updateCoopState,
   updateReceiverCapture,
   updateReceiverPairing,
   upsertReceiverPairing,
@@ -71,6 +76,20 @@ async function persistInviteToYjsDoc(
 
   const doc = hydrateCoopDoc(record.encodedState);
   mutation(doc);
+  await db.coopDocs.put({
+    ...record,
+    encodedState: encodeCoopDoc(doc),
+    updatedAt: nowIso(),
+  });
+  doc.destroy();
+}
+
+async function persistInviteStateToYjsDoc(coopId: string, nextState: Awaited<ReturnType<typeof getCoops>>[number]) {
+  const record = await db.coopDocs.get(coopId);
+  if (!record) return;
+
+  const doc = hydrateCoopDoc(record.encodedState);
+  updateCoopState(doc, () => nextState);
   await db.coopDocs.put({
     ...record,
     encodedState: encodeCoopDoc(doc),
@@ -194,6 +213,78 @@ export async function handleCreateInvite(
   } satisfies RuntimeActionResponse;
 }
 
+export async function handleEnsureInviteCodes(
+  message: Extract<RuntimeRequest, { type: 'ensure-invite-codes' }>,
+) {
+  const coops = await getCoops();
+  const coop = coops.find((item) => item.profile.id === message.payload.coopId);
+  if (!coop) {
+    return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
+  }
+
+  try {
+    const nextState = ensureInviteCodes({
+      state: coop,
+      createdBy: message.payload.createdBy,
+      inviteTypes: message.payload.inviteTypes,
+    });
+    if (nextState === coop) {
+      return {
+        ok: true,
+        data: {
+          member: getCurrentInviteForType(coop, 'member') ?? null,
+          trusted: getCurrentInviteForType(coop, 'trusted') ?? null,
+        },
+      } satisfies RuntimeActionResponse;
+    }
+    await saveState(nextState);
+    await persistInviteStateToYjsDoc(coop.profile.id, nextState);
+    await refreshBadge();
+    return {
+      ok: true,
+      data: {
+        member: getCurrentInviteForType(nextState, 'member') ?? null,
+        trusted: getCurrentInviteForType(nextState, 'trusted') ?? null,
+      },
+    } satisfies RuntimeActionResponse;
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Could not ensure invite codes.',
+    } satisfies RuntimeActionResponse;
+  }
+}
+
+export async function handleRegenerateInviteCode(
+  message: Extract<RuntimeRequest, { type: 'regenerate-invite-code' }>,
+) {
+  const coops = await getCoops();
+  const coop = coops.find((item) => item.profile.id === message.payload.coopId);
+  if (!coop) {
+    return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
+  }
+
+  try {
+    const regenerated = regenerateInviteCode({
+      state: coop,
+      createdBy: message.payload.createdBy,
+      inviteType: message.payload.inviteType,
+    });
+    await saveState(regenerated.state);
+    await persistInviteStateToYjsDoc(coop.profile.id, regenerated.state);
+    await refreshBadge();
+    return {
+      ok: true,
+      data: regenerated.invite,
+    } satisfies RuntimeActionResponse;
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Could not regenerate invite code.',
+    } satisfies RuntimeActionResponse;
+  }
+}
+
 export async function handleRevokeInvite(
   message: Extract<RuntimeRequest, { type: 'revoke-invite' }>,
 ) {
@@ -218,6 +309,33 @@ export async function handleRevokeInvite(
     return {
       ok: false,
       error: err instanceof Error ? err.message : 'Revoke failed.',
+    } satisfies RuntimeActionResponse;
+  }
+}
+
+export async function handleRevokeInviteType(
+  message: Extract<RuntimeRequest, { type: 'revoke-invite-type' }>,
+) {
+  const coops = await getCoops();
+  const coop = coops.find((item) => item.profile.id === message.payload.coopId);
+  if (!coop) {
+    return { ok: false, error: 'Coop not found.' } satisfies RuntimeActionResponse;
+  }
+
+  try {
+    const nextState = revokeInviteType({
+      state: coop,
+      inviteType: message.payload.inviteType,
+      revokedBy: message.payload.revokedBy,
+    });
+    await saveState(nextState);
+    await persistInviteStateToYjsDoc(coop.profile.id, nextState);
+    await refreshBadge();
+    return { ok: true, data: null } satisfies RuntimeActionResponse;
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Could not revoke invite type.',
     } satisfies RuntimeActionResponse;
   }
 }

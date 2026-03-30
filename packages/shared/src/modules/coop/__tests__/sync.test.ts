@@ -301,7 +301,7 @@ describe('summarizeSyncTransportHealth', () => {
     });
 
     expect(health.syncError).toBe(false);
-    expect(health.note).toContain('Waiting for peers');
+    expect(health.note).toContain('Ready when another peer joins');
     expect(health.configuredSignalingCount).toBe(1);
     expect(health.signalingConnectionCount).toBe(1);
     expect(health.peerCount).toBe(0);
@@ -329,7 +329,7 @@ describe('summarizeSyncTransportHealth', () => {
     // room is null so peerCount and broadcastPeerCount are 0,
     // but signaling is connected so falls through to the signaling-only branch
     expect(health.syncError).toBe(false);
-    expect(health.note).toContain('Waiting for peers');
+    expect(health.note).toContain('Ready when another peer joins');
     expect(health.peerCount).toBe(0);
     expect(health.broadcastPeerCount).toBe(0);
     expect(health.signalingConnectionCount).toBe(1);

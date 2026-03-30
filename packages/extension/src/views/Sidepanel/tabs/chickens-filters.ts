@@ -1,20 +1,15 @@
 /**
- * Pure filter logic for the Chickens tab.
+ * Pure filter and time-grouping logic for the Chickens tab.
  *
- * Operates on minimal slices of ReviewDraft / TabCandidate so it can be
- * tested without constructing full schema objects.
+ * Operates on minimal slices of ReviewDraft so it can be tested without
+ * constructing full schema objects.
  */
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type ChickensStatus = 'all' | 'drafts' | 'shared';
-export type TimeRange = 'all' | 'today' | 'week' | 'month' | 'year';
-
 export interface ChickensFilterState {
-  status: ChickensStatus;
-  timeRange: TimeRange;
   category: string; // 'all' or an ArtifactCategory value
 }
 
@@ -26,11 +21,64 @@ interface FilterableDraft {
   [key: string]: unknown;
 }
 
-/** Minimal candidate shape needed by filter logic. */
-interface FilterableCandidate {
-  id: string;
-  capturedAt: string;
-  [key: string]: unknown;
+// ---------------------------------------------------------------------------
+// Time-grouping (Apple Finder style)
+// ---------------------------------------------------------------------------
+
+export interface TimeGroup<T> {
+  label: string;
+  items: T[];
+}
+
+/**
+ * Groups a sorted-by-date array of items into Apple Finder-style time
+ * sections: Today, Yesterday, Previous 7 Days, Previous 30 Days,
+ * Previous 90 Days, This Year, Older.
+ *
+ * Empty groups are omitted.
+ */
+export function groupByTime<T>(
+  items: T[],
+  getDate: (item: T) => string,
+  now: Date = new Date(),
+): TimeGroup<T>[] {
+  const todayStart = startOfDay(now);
+  const yesterdayStart = new Date(todayStart.getTime() - 86_400_000);
+  const sevenDaysAgo = new Date(todayStart.getTime() - 7 * 86_400_000);
+  const thirtyDaysAgo = new Date(todayStart.getTime() - 30 * 86_400_000);
+  const ninetyDaysAgo = new Date(todayStart.getTime() - 90 * 86_400_000);
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+
+  const buckets: { label: string; items: T[] }[] = [
+    { label: 'Today', items: [] },
+    { label: 'Yesterday', items: [] },
+    { label: 'Previous 7 Days', items: [] },
+    { label: 'Previous 30 Days', items: [] },
+    { label: 'Previous 90 Days', items: [] },
+    { label: 'This Year', items: [] },
+    { label: 'Older', items: [] },
+  ];
+
+  for (const item of items) {
+    const ts = new Date(getDate(item)).getTime();
+    if (ts >= todayStart.getTime()) {
+      buckets[0].items.push(item);
+    } else if (ts >= yesterdayStart.getTime()) {
+      buckets[1].items.push(item);
+    } else if (ts >= sevenDaysAgo.getTime()) {
+      buckets[2].items.push(item);
+    } else if (ts >= thirtyDaysAgo.getTime()) {
+      buckets[3].items.push(item);
+    } else if (ts >= ninetyDaysAgo.getTime()) {
+      buckets[4].items.push(item);
+    } else if (ts >= yearStart.getTime()) {
+      buckets[5].items.push(item);
+    } else {
+      buckets[6].items.push(item);
+    }
+  }
+
+  return buckets.filter((b) => b.items.length > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -39,63 +87,26 @@ interface FilterableCandidate {
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 
-function getCutoff(range: TimeRange, now: Date): Date | null {
-  switch (range) {
-    case 'all':
-      return null;
-    case 'today':
-      return startOfDay(now);
-    case 'week':
-      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    case 'month':
-      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    case 'year':
-      return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Core filter
+// Core filter (category only)
 // ---------------------------------------------------------------------------
 
-export function applyChickensFilters<
-  D extends FilterableDraft,
-  C extends FilterableCandidate,
->(opts: {
+export function applyChickensFilters<D extends FilterableDraft>(opts: {
   drafts: D[];
-  candidates: C[];
   filters: ChickensFilterState;
-  now: Date;
-}): { drafts: D[]; candidates: C[] } {
-  const { filters, now } = opts;
-  let { drafts, candidates } = opts;
+}): D[] {
+  let { drafts } = opts;
+  const { filters } = opts;
 
-  // --- Status ---
-  if (filters.status === 'drafts') {
-    candidates = [];
-  } else if (filters.status === 'shared') {
-    drafts = [];
-    candidates = [];
-  }
-
-  // --- Time range ---
-  const cutoff = getCutoff(filters.timeRange, now);
-  if (cutoff) {
-    const cutoffMs = cutoff.getTime();
-    drafts = drafts.filter((d) => new Date(d.createdAt).getTime() >= cutoffMs);
-    candidates = candidates.filter((c) => new Date(c.capturedAt).getTime() >= cutoffMs);
-  }
-
-  // --- Category (only applies to drafts; candidates have no category) ---
   if (filters.category !== 'all') {
     drafts = drafts.filter((d) => d.category === filters.category);
   }
 
-  return { drafts, candidates };
+  return drafts;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,5 +124,5 @@ export function buildCategoryOptions(drafts: FilterableDraft[]): string[] {
 
 /** Returns true if any filter is set to a non-default value. */
 export function isFilterActive(filters: ChickensFilterState): boolean {
-  return filters.status !== 'all' || filters.timeRange !== 'all' || filters.category !== 'all';
+  return filters.category !== 'all';
 }

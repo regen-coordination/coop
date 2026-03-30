@@ -102,7 +102,7 @@ describe('summarizeSyncTransportHealth', () => {
     expect(result.peerCount).toBe(0);
     expect(result.broadcastPeerCount).toBe(0);
     expect(result.signalingConnectionCount).toBe(2);
-    expect(result.note).toMatch(/Waiting for peers/);
+    expect(result.note).toMatch(/Ready when another peer joins/);
   });
 
   // ---- 3. Error: signaling disconnected ----
@@ -249,7 +249,7 @@ describe('summarizeSyncTransportHealth', () => {
     expect(result.syncError).toBe(false);
     expect(result.peerCount).toBe(0);
     expect(result.broadcastPeerCount).toBe(0);
-    expect(result.note).toMatch(/Waiting for peers/);
+    expect(result.note).toMatch(/Ready when another peer joins/);
   });
 
   // ---- Mixed peer types sum correctly ----

@@ -46,6 +46,7 @@ import {
 } from './sync';
 
 const INVITE_MANAGER_ROLES: MemberRole[] = ['creator', 'trusted'];
+const DEFAULT_INVITE_TYPES: InviteType[] = ['member', 'trusted'];
 
 export interface CreateCoopInput {
   coopName: string;
@@ -458,7 +459,7 @@ export function createCoop(input: CreateCoopInput) {
       }
     : undefined;
 
-  const state = coopSharedStateSchema.parse({
+  const baseState = coopSharedStateSchema.parse({
     profile,
     setupInsights,
     soul,
@@ -473,6 +474,10 @@ export function createCoop(input: CreateCoopInput) {
     syncRoom,
     onchainState,
     greenGoods,
+  });
+  const state = seedDefaultInviteCodes({
+    state: baseState,
+    createdBy: creator.id,
   });
   const doc = createCoopDoc(state);
 
@@ -700,6 +705,74 @@ export function addInviteToState(state: CoopSharedState, invite: InviteCode) {
 }
 
 /**
+ * Returns true when a coop already has invite history for the given type.
+ * @param state - Current coop shared state
+ * @param inviteType - Invite type to inspect
+ * @returns True when at least one invite of the requested type exists
+ */
+export function hasInviteHistoryForType(state: Pick<CoopSharedState, 'invites'>, inviteType: InviteType) {
+  return (state.invites ?? []).some((invite) => invite.type === inviteType);
+}
+
+/**
+ * Returns the canonical current invite for a type: the newest non-revoked invite.
+ * Used invites still count as current until explicitly revoked or replaced.
+ * @param state - Coop state containing invite history
+ * @param inviteType - Invite type to resolve
+ * @returns The newest non-revoked invite for the requested type, if any
+ */
+export function getCurrentInviteForType(
+  state: Pick<CoopSharedState, 'invites'>,
+  inviteType: InviteType,
+) {
+  return (state.invites ?? [])
+    .filter((invite) => invite.type === inviteType && invite.status !== 'revoked')
+    .sort((left, right) => {
+      const leftTime = new Date(left.createdAt).getTime();
+      const rightTime = new Date(right.createdAt).getTime();
+      return rightTime - leftTime;
+    })[0];
+}
+
+/**
+ * Ensures canonical invites exist for any requested type that has no history yet.
+ * Explicitly revoked types are not recreated because they still have history.
+ * @param input - Coop state, acting member, and optional subset of types to seed
+ * @returns Updated state including any newly created invite codes
+ */
+export function ensureInviteCodes(input: {
+  state: CoopSharedState;
+  createdBy: string;
+  inviteTypes?: InviteType[];
+}) {
+  const inviteTypes = input.inviteTypes ?? DEFAULT_INVITE_TYPES;
+  let nextState = input.state;
+
+  for (const inviteType of inviteTypes) {
+    if (hasInviteHistoryForType(nextState, inviteType)) {
+      continue;
+    }
+    const invite = generateInviteCode({
+      state: nextState,
+      createdBy: input.createdBy,
+      type: inviteType,
+    });
+    nextState = addInviteToState(nextState, invite);
+  }
+
+  return nextState;
+}
+
+/**
+ * Seeds canonical member and trusted invite codes for a brand-new coop.
+ * @param input - Coop state and creator member ID
+ * @returns Updated state with default invite codes persisted
+ */
+export function seedDefaultInviteCodes(input: { state: CoopSharedState; createdBy: string }) {
+  return ensureInviteCodes(input);
+}
+
+/**
  * Applies a join operation directly to a Yjs document, updating its coop state in place.
  * @param doc - The Yjs document to update
  * @param invite - The invite code used to join
@@ -790,6 +863,73 @@ export function revokeInviteCode(input: {
         : i,
     ),
   });
+}
+
+/**
+ * Revokes every non-revoked invite for a given invite type.
+ * @param input - Coop state, target invite type, and the revoking member ID
+ * @returns Updated state with all matching live invites marked revoked
+ * @throws If the acting member lacks invite permissions
+ */
+export function revokeInviteType(input: {
+  state: CoopSharedState;
+  inviteType: InviteType;
+  revokedBy: string;
+}): CoopSharedState {
+  if (!canManageInvites(input.state, input.revokedBy)) {
+    throw new Error('Only creators and trusted members can revoke invites.');
+  }
+
+  const hasLiveInvite = input.state.invites.some(
+    (invite) => invite.type === input.inviteType && invite.status !== 'revoked',
+  );
+  if (!hasLiveInvite) {
+    return input.state;
+  }
+
+  return coopSharedStateSchema.parse({
+    ...input.state,
+    invites: input.state.invites.map((invite) =>
+      invite.type === input.inviteType && invite.status !== 'revoked'
+        ? {
+            ...invite,
+            status: 'revoked' as const,
+            revokedAt: nowIso(),
+            revokedBy: input.revokedBy,
+          }
+        : invite,
+    ),
+  });
+}
+
+/**
+ * Replaces the canonical invite for a type by revoking all live invites and issuing a fresh code.
+ * @param input - Coop state, acting member, invite type, and optional expiry override
+ * @returns Updated state and the fresh invite code
+ */
+export function regenerateInviteCode(input: {
+  state: CoopSharedState;
+  createdBy: string;
+  inviteType: InviteType;
+  expiresInHours?: number;
+}) {
+  const revokedState = revokeInviteType({
+    state: input.state,
+    inviteType: input.inviteType,
+    revokedBy: input.createdBy,
+  });
+  const invite = generateInviteCode({
+    state: revokedState,
+    createdBy: input.createdBy,
+    type: input.inviteType,
+    expiresInHours: input.expiresInHours,
+  });
+  const state = addInviteToState(revokedState, invite);
+
+  return {
+    state,
+    invite,
+  };
 }
 
 /**

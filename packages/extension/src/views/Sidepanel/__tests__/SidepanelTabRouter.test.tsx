@@ -11,10 +11,10 @@ vi.mock('../tabs/index', () => ({
   RoostTab: ({
     onOpenSynthesisSegment,
   }: {
-    onOpenSynthesisSegment: (segment: 'signals' | 'observations') => void;
+    onOpenSynthesisSegment: (segment: 'review') => void;
   }) => (
-    <button type="button" onClick={() => onOpenSynthesisSegment('observations')}>
-      Open observations
+    <button type="button" onClick={() => onOpenSynthesisSegment('review')}>
+      Open review
     </button>
   ),
   ChickensTab: ({
@@ -134,17 +134,17 @@ describe('SidepanelTabRouter', () => {
       <SidepanelTabRouter
         panelTab="roost"
         orchestration={makeOrchestration()}
-        synthesisSegment="signals"
+        synthesisSegment="review"
         onSelectSynthesisSegment={vi.fn()}
         onApplySidepanelIntent={onApplySidepanelIntent}
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open observations' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open review' }));
 
     expect(onApplySidepanelIntent).toHaveBeenCalledWith({
       tab: 'chickens',
-      segment: 'observations',
+      segment: 'review',
       coopId: 'coop-1',
     });
   });
@@ -154,7 +154,7 @@ describe('SidepanelTabRouter', () => {
       <SidepanelTabRouter
         panelTab="chickens"
         orchestration={makeOrchestration()}
-        synthesisSegment="signals"
+        synthesisSegment="review"
         onSelectSynthesisSegment={vi.fn()}
         focusedDraftId="draft-1"
         focusedSignalId="signal-1"
@@ -171,7 +171,7 @@ describe('SidepanelTabRouter', () => {
       <SidepanelTabRouter
         panelTab="coops"
         orchestration={makeOrchestration()}
-        synthesisSegment="signals"
+        synthesisSegment="review"
         onSelectSynthesisSegment={vi.fn()}
         onApplySidepanelIntent={vi.fn(async () => undefined)}
       />,
@@ -185,7 +185,7 @@ describe('SidepanelTabRouter', () => {
       <SidepanelTabRouter
         panelTab="nest"
         orchestration={makeOrchestration()}
-        synthesisSegment="signals"
+        synthesisSegment="review"
         onSelectSynthesisSegment={vi.fn()}
         onApplySidepanelIntent={vi.fn(async () => undefined)}
       />,

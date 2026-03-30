@@ -273,7 +273,12 @@ export function PopupHomeScreen(props: {
 
   return (
     <section className="popup-screen popup-screen--fill popup-screen--home popup-screen--home-aggregate">
-      <PopupSubheader ariaLabel="Home status" equalWidth tags={statusItems} />
+      <PopupSubheader
+        ariaLabel="Home status"
+        className="popup-subheader--home-status"
+        equalWidth
+        tags={statusItems}
+      />
 
       <div className="popup-screen--home-body">
         <ChickenYard items={yardItems} />

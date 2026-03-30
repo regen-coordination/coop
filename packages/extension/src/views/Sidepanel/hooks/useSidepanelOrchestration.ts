@@ -71,6 +71,7 @@ export interface SidepanelOrchestration {
   // Handlers
   createInvite: (inviteType: 'trusted' | 'member') => Promise<void>;
   revokeInvite: (inviteId: string) => Promise<void>;
+  revokeInviteType: (inviteType: 'trusted' | 'member') => Promise<void>;
   createReceiverPairing: () => Promise<void>;
   handleProvisionMemberOnchainAccount: () => Promise<void>;
   handleSubmitGreenGoodsWorkSubmission: (input: {

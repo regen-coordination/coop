@@ -401,10 +401,7 @@ button:disabled {
   gap: 0.35rem;
 }
 
-.synthesis-queue-card .empty-state {
-  padding: 0.5rem 0;
-  font-size: 0.82rem;
-}
+/* (synthesis-queue-card removed — Chickens tab is the queue now) */
 
 .badge-row {
   display: flex;
@@ -1251,31 +1248,235 @@ button.sidepanel-header__brand {
   gap: 0.35rem;
 }
 
-/* ---- Synthesis queue ---- */
+/* ---- Compact cards (Chickens tab) ---- */
 
-.synthesis-queue-card {
-  gap: 0.75rem;
+.compact-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--coop-line);
+  border-radius: 16px;
+  background: var(--coop-surface-elevated);
+  animation: coop-rise 320ms ease both;
 }
 
-.synthesis-card {
-  gap: 0.5rem;
-}
-
-.synthesis-card[data-focused="true"] {
+.compact-card[data-focused="true"] {
   border-color: rgba(253, 138, 1, 0.45);
   box-shadow: 0 0 0 1px rgba(253, 138, 1, 0.18);
 }
 
-.synthesis-support-list {
-  padding: 0.5rem 0.65rem;
-  border-radius: var(--coop-radius-photo);
-  background: rgba(66, 40, 24, 0.04);
+.compact-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
 }
 
-.synthesis-support-list li {
+.compact-card__category {
+  font-size: 0.7rem;
+  padding: 0.18rem 0.5rem;
+}
+
+.compact-card__title {
+  font-size: 0.88rem;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--coop-brown);
+}
+
+.compact-card__insight {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--coop-brown-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.compact-card__tags {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.compact-card__tag {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+}
+
+.compact-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.15rem;
+}
+
+.compact-card__push-wrap {
+  position: relative;
+}
+
+.compact-card__push-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--coop-line);
+  border-radius: var(--coop-radius-pill);
+  background: var(--coop-surface-elevated);
+  color: var(--coop-green);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--coop-ease), transform var(--coop-ease);
+}
+
+.compact-card__push-btn:hover {
+  background: rgba(90, 125, 16, 0.1);
+  transform: translateY(-1px);
+}
+
+.compact-card__coop-picker {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: var(--coop-z-dropdown);
+  min-width: 140px;
+  padding: 0.25rem;
+  border: 1px solid var(--coop-line);
+  border-radius: var(--coop-radius-chip);
+  background: var(--coop-panel);
+  box-shadow: var(--coop-shadow-md);
+  list-style: none;
+  margin: 0;
+}
+
+.compact-card__coop-picker li button {
+  display: block;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  border-radius: var(--coop-radius-xs);
+  background: transparent;
+  color: var(--coop-brown);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.compact-card__coop-picker li button:hover {
+  background: rgba(90, 125, 16, 0.1);
+}
+
+.compact-card__more {
+  margin-top: 0.1rem;
+}
+
+.compact-card__more > summary {
+  font-size: 0.75rem;
+  color: var(--coop-brown-soft);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.compact-card__more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.compact-card__more > summary::before {
+  content: "\25B8 ";
+}
+
+.compact-card__more[open] > summary::before {
+  content: "\25BE ";
+}
+
+.compact-card__expanded {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.35rem;
+  padding-top: 0.35rem;
+}
+
+.compact-card__detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.compact-card__detail-row p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--coop-brown-soft);
+  line-height: 1.45;
+}
+
+.compact-card__detail-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--coop-brown-soft);
+}
+
+.compact-card__detail-summary {
+  font-size: 0.8rem;
+  color: var(--coop-brown-soft);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.compact-card__support-list {
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--coop-radius-chip);
+  background: rgba(66, 40, 24, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.compact-card__support-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+/* ---- Time group sections (Apple Finder style) ---- */
+
+.time-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.time-group__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.time-group__header > span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--coop-brown-soft);
+  white-space: nowrap;
+}
+
+.time-group__header::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--coop-line);
+}
+
+.time-group__items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 /* ---- Stub card ---- */
@@ -1291,19 +1492,18 @@ button.sidepanel-header__brand {
 
 /* ---- Notification banners ---- */
 
-/* ---- Banner overlay (covers subheader, no content shift) ---- */
+/* ---- Banner overlay (inline-sticky, pushes content down) ---- */
 
 .sidepanel-banner-overlay {
   position: sticky;
   top: 0;
-  z-index: 2; /* above subheader z-index: 1 */
-  height: 0;
-  overflow: visible;
-  margin: -0.5rem -0.75rem 0;
-}
-
-.sidepanel-banner-overlay > .notification-banner {
-  margin: 0.25rem 0.75rem;
+  z-index: 2;
+  margin: 0 -0.75rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--coop-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .sidepanel-banner-overlay:empty {

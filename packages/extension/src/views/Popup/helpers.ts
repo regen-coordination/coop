@@ -123,7 +123,7 @@ export function popupSyncStatus(input: {
     }
 
     return {
-      label: 'Checking',
+      label: 'Idle',
       detail: 'Checking sync status.',
       tone: 'ok' as const,
     };
@@ -150,25 +150,131 @@ export function popupSyncStatus(input: {
 
   if (normalized.includes('offline')) {
     return {
-      label: 'Offline',
+      label: 'Local',
       detail,
       tone: 'warning' as const,
     };
   }
 
+  if (normalized.includes('connected to') && normalized.includes('peer')) {
+    return {
+      label: 'Live',
+      detail,
+      tone: 'ok' as const,
+    };
+  }
+
+  if (
+    normalized.includes('ready when another peer joins') ||
+    normalized.includes('signaling connected') ||
+    normalized.includes('peer-ready local-first sync') ||
+    normalized.includes('pending sync')
+  ) {
+    return {
+      label: 'Idle',
+      detail,
+      tone: 'ok' as const,
+    };
+  }
+
   if (input.syncTone === 'warning') {
     return {
-      label: input.syncLabel === 'Healthy' ? 'Degraded' : input.syncLabel || 'Degraded',
+      label: 'Local',
       detail,
       tone: 'warning' as const,
     };
   }
 
   return {
-    label: 'Healthy',
+    label: 'Idle',
     detail,
     tone: 'ok' as const,
   };
+}
+
+export function popupReviewStatus(input: {
+  pendingDrafts: number;
+  routedTabs: number;
+  staleObservationCount: number;
+  pendingActions?: number;
+}) {
+  const total = input.pendingDrafts + input.routedTabs + input.staleObservationCount;
+  const parts = [
+    input.pendingDrafts > 0
+      ? `${input.pendingDrafts} draft${input.pendingDrafts === 1 ? '' : 's'}`
+      : null,
+    input.routedTabs > 0 ? `${input.routedTabs} signal${input.routedTabs === 1 ? '' : 's'}` : null,
+    input.staleObservationCount > 0
+      ? `${input.staleObservationCount} stale observation${
+          input.staleObservationCount === 1 ? '' : 's'
+        }`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const actionDetail =
+    (input.pendingActions ?? 0) > 0
+      ? ` ${input.pendingActions} operator action${
+          input.pendingActions === 1 ? ' is' : 's are'
+        } still waiting in Nest.`
+      : '';
+
+  return {
+    label: 'Review',
+    value: String(total),
+    count: total,
+    tone: total > 0 ? ('warning' as const) : ('ok' as const),
+    detail:
+      total > 0
+        ? `${total} waiting for review: ${parts.join(', ')}.${actionDetail}`
+        : `Nothing is waiting for review.${actionDetail}`,
+  };
+}
+
+export function popupHealthStatus(input: {
+  syncStatus: ReturnType<typeof popupSyncStatus>;
+  captureAccessStatus: {
+    label: string;
+    detail: string;
+    tone: 'ok' | 'warning' | 'error';
+  };
+}) {
+  const { syncStatus, captureAccessStatus } = input;
+
+  if (syncStatus.label === 'Permission') {
+    return {
+      label: 'Blocked',
+      detail: syncStatus.detail,
+      tone: 'error' as const,
+    };
+  }
+
+  if (syncStatus.tone === 'error') {
+    return {
+      label: 'Blocked',
+      detail: syncStatus.detail,
+      tone: 'error' as const,
+    };
+  }
+
+  if (captureAccessStatus.label === 'Open page') {
+    return {
+      label: 'Ask',
+      detail: captureAccessStatus.detail,
+      tone: 'warning' as const,
+    };
+  }
+
+  return captureAccessStatus.label === 'This site'
+    ? {
+        label: 'Ready',
+        detail: captureAccessStatus.detail,
+        tone: 'ok' as const,
+      }
+    : {
+        label: 'Ask',
+        detail: captureAccessStatus.detail,
+        tone: 'ok' as const,
+      };
 }
 
 export function buildFilterTags(
@@ -198,6 +304,10 @@ export function headerTitleForScreen(screen: PopupScreen | 'no-coop') {
       return 'Create Coop';
     case 'join':
       return 'Join Coop';
+    case 'invites':
+      return 'Invite Members';
+    case 'invite-success':
+      return 'Invite Members';
     case 'drafts':
       return 'Chickens';
     case 'draft-detail':

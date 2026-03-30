@@ -20,11 +20,19 @@ export function PopupSubheader(props: {
   tags: PopupSubheaderTag[];
   /** When true, tags share equal width across the container */
   equalWidth?: boolean;
+  /** Optional modifier class for layout-specific variants */
+  className?: string;
   /** Preferred tooltip placement for tags with detail text */
   tooltipPlacement?: 'above' | 'below';
 }) {
-  const { ariaLabel, tags, equalWidth, tooltipPlacement } = props;
-  const containerClass = `popup-subheader${equalWidth ? ' popup-subheader--equal' : ''}`;
+  const { ariaLabel, tags, equalWidth, className, tooltipPlacement } = props;
+  const containerClass = [
+    'popup-subheader',
+    equalWidth ? 'popup-subheader--equal' : null,
+    className ?? null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <fieldset aria-label={ariaLabel} className={containerClass}>

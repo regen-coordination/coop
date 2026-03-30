@@ -270,6 +270,7 @@ describe('useCapture behavior', () => {
       mimeType = 'audio/webm';
       ondataavailable: ((event: { data: Blob }) => void) | null = null;
       onstop: (() => void | Promise<void>) | null = null;
+      stopPromise: Promise<void> | null = null;
       constructor(public stream: typeof stream) {
         FakeMediaRecorder.instance = this;
       }
@@ -278,7 +279,7 @@ describe('useCapture behavior', () => {
       }
       stop() {
         this.state = 'inactive';
-        void this.onstop?.();
+        this.stopPromise = Promise.resolve(this.onstop?.()).then(() => undefined);
       }
     }
 
@@ -313,9 +314,10 @@ describe('useCapture behavior', () => {
         data: new Blob(['audio-bytes'], { type: 'audio/webm' }),
       });
       result.current.finishRecording('save');
+      await FakeMediaRecorder.instance?.stopPromise;
     });
 
-    await waitFor(async () => expect(await db.receiverCaptures.count()).toBe(1));
+    expect(await db.receiverCaptures.count()).toBe(1);
     await waitFor(async () => expect(await db.coopBlobs.count()).toBe(1));
 
     expect(trackStop).toHaveBeenCalledTimes(1);

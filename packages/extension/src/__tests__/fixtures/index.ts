@@ -8,8 +8,9 @@
  * import from 'packages/shared/src/__tests__/fixtures'.
  */
 
+import { createCoop, type CoopSharedState, type ReceiverCapture, type ReceiverPairingRecord } from '@coop/shared';
 import { vi } from 'vitest';
-import { makeArtifact } from '../../../../shared/src/__tests__/fixtures';
+import { makeArtifact, makeSetupInsights } from '../../../../shared/src/__tests__/fixtures';
 
 // ---------------------------------------------------------------------------
 // installChromeMock — sets up globalThis.chrome with common stubs
@@ -42,6 +43,139 @@ export function installChromeMock() {
       },
     },
   });
+}
+
+export function makeCoopState(overrides: Partial<CoopSharedState> = {}): CoopSharedState {
+  const coopId = overrides.profile?.id ?? 'coop-1';
+  const coopName = overrides.profile?.name ?? 'Starter Coop';
+  const creatorAddress =
+    overrides.members?.[0]?.address ?? '0x1234567890abcdef1234567890abcdef12345678';
+  const baseState = createCoop({
+    coopName,
+    purpose: overrides.profile?.purpose ?? 'Coordinate local research',
+    creatorDisplayName: overrides.members?.[0]?.displayName ?? 'Ava',
+    captureMode: overrides.profile?.captureMode ?? 'manual',
+    seedContribution: 'A deterministic seed contribution for extension tests.',
+    setupInsights: makeSetupInsights({
+      summary: 'Deterministic coop fixture for extension tests.',
+    }),
+  }).state;
+
+  return {
+    ...baseState,
+    profile: {
+      ...baseState.profile,
+      id: coopId,
+      name: coopName,
+      purpose: 'Coordinate local research',
+      spaceType: 'community',
+      createdAt: '2026-03-20T00:00:00.000Z',
+      createdBy: 'member-1',
+      captureMode: 'manual',
+      safeAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      active: true,
+      ...overrides.profile,
+    },
+    members:
+      overrides.members ??
+      [
+        {
+          ...baseState.members[0],
+          id: 'member-1',
+          displayName: 'Ava',
+          role: 'creator',
+          address: creatorAddress,
+          joinedAt: '2026-03-20T00:00:00.000Z',
+          authMode: 'passkey',
+          identityWarning: 'Device bound.',
+        },
+      ],
+    rituals: [],
+    artifacts: [],
+    reviewBoard: [],
+    archiveReceipts: [],
+    invites: [],
+    memberAccounts: overrides.memberAccounts ?? [],
+    memberCommitments: overrides.memberCommitments ?? [],
+    onchainState: {
+      ...baseState.onchainState,
+      chainId: 11155111,
+      chainKey: 'sepolia',
+      safeAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      safeCapability: 'ready',
+      statusNote: 'Ready',
+      ...overrides.onchainState,
+    },
+    syncRoom: {
+      ...baseState.syncRoom,
+      roomId: `room-${coopId}`,
+      signalingUrls: ['wss://api.coop.town'],
+      roomSecret: `room-secret-${coopId}`,
+      inviteSigningSecret: `invite-secret-${coopId}`,
+      ...overrides.syncRoom,
+    },
+    memoryProfile: {
+      ...baseState.memoryProfile,
+      version: 1,
+      topDomains: [],
+      topTags: [],
+      categoryStats: [],
+      ritualLensWeights: [],
+      exemplarArtifactIds: [],
+      archiveSignals: {
+        archivedTagCounts: {},
+        archivedDomainCounts: {},
+      },
+      updatedAt: '2026-03-20T00:00:00.000Z',
+      ...overrides.memoryProfile,
+    },
+    ...overrides,
+  } as CoopSharedState;
+}
+
+export function makeReceiverPairingRecord(
+  overrides: Partial<ReceiverPairingRecord> = {},
+): ReceiverPairingRecord {
+  const pairingId = overrides.pairingId ?? 'pairing-1';
+  return {
+    version: 1,
+    pairingId,
+    coopId: overrides.coopId ?? 'coop-1',
+    coopDisplayName: overrides.coopDisplayName ?? 'Starter Coop',
+    memberId: overrides.memberId ?? 'member-1',
+    memberDisplayName: overrides.memberDisplayName ?? 'Ava',
+    pairSecret: overrides.pairSecret ?? 'secret-123',
+    roomId: overrides.roomId ?? `receiver-${pairingId}`,
+    signalingUrls: overrides.signalingUrls ?? ['wss://api.coop.town'],
+    issuedAt: overrides.issuedAt ?? '2026-03-20T00:00:00.000Z',
+    expiresAt: overrides.expiresAt ?? '2026-04-01T00:00:00.000Z',
+    active: overrides.active ?? true,
+    pairingCode: overrides.pairingCode ?? `NEST:${pairingId}`,
+    deepLink: overrides.deepLink ?? `https://receiver.test/pair/${pairingId}`,
+    ...overrides,
+  } as ReceiverPairingRecord;
+}
+
+export function makeReceiverCapture(overrides: Partial<ReceiverCapture> = {}): ReceiverCapture {
+  return {
+    id: overrides.id ?? 'capture-1',
+    pairingId: overrides.pairingId ?? 'pairing-1',
+    coopId: overrides.coopId ?? 'coop-1',
+    coopDisplayName: overrides.coopDisplayName ?? 'Starter Coop',
+    memberId: overrides.memberId ?? 'member-1',
+    memberDisplayName: overrides.memberDisplayName ?? 'Ava',
+    deviceId: overrides.deviceId ?? 'device-1',
+    kind: overrides.kind ?? 'note',
+    title: overrides.title ?? 'Receiver note',
+    note: overrides.note ?? 'A quick note from the phone',
+    mimeType: overrides.mimeType ?? 'text/plain',
+    byteSize: overrides.byteSize ?? 42,
+    createdAt: overrides.createdAt ?? '2026-03-20T00:00:00.000Z',
+    updatedAt: overrides.updatedAt ?? '2026-03-20T00:05:00.000Z',
+    intakeStatus: overrides.intakeStatus ?? 'candidate',
+    syncState: overrides.syncState ?? 'synced',
+    ...overrides,
+  } as ReceiverCapture;
 }
 
 // ---------------------------------------------------------------------------

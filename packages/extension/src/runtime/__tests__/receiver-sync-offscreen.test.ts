@@ -117,11 +117,27 @@ describe('receiver sync offscreen runtime', () => {
   let relayDisconnectMock: ReturnType<typeof vi.fn>;
   let providersDisconnectMock: ReturnType<typeof vi.fn>;
   let docOffMock: ReturnType<typeof vi.fn>;
+  let scheduledTimeouts: Map<number, () => void>;
+  let nextTimerId: number;
+
+  async function flushMicrotasks(iterations = 6) {
+    for (let index = 0; index < iterations; index += 1) {
+      await Promise.resolve();
+    }
+  }
+
+  async function runScheduledTimeouts() {
+    const callbacks = [...scheduledTimeouts.values()];
+    scheduledTimeouts.clear();
+    for (const callback of callbacks) {
+      callback();
+      await flushMicrotasks();
+    }
+  }
 
   beforeEach(() => {
     vi.resetModules();
-    vi.useFakeTimers();
-    vi.clearAllMocks();
+    vi.resetAllMocks();
 
     onRuntimeMessage = null;
     onUnload = null;
@@ -130,6 +146,43 @@ describe('receiver sync offscreen runtime', () => {
     relayDisconnectMock = vi.fn();
     providersDisconnectMock = vi.fn();
     docOffMock = vi.fn();
+    scheduledTimeouts = new Map();
+    nextTimerId = 1;
+
+    sharedMocks.buildIceServers.mockReturnValue(['ice-server']);
+    sharedMocks.createReceiverSyncDoc.mockReturnValue({
+      on: vi.fn(),
+      off: docOffMock,
+    });
+    sharedMocks.connectReceiverSyncProviders.mockReturnValue({
+      webrtc: null,
+      websocket: null,
+      disconnect: providersDisconnectMock,
+    });
+    sharedMocks.connectReceiverSyncRelay.mockImplementation(
+      ({ onCapture }: { onCapture: typeof relayOnCapture }) => {
+        relayOnCapture = onCapture ?? null;
+        return {
+          configured: true,
+          disconnect: relayDisconnectMock,
+          publishAck: publishAckMock,
+        };
+      },
+    );
+    sharedMocks.createReceiverSyncRelayAck.mockImplementation(async (input: Record<string, unknown>) => ({
+      ackId: 'ack-1',
+      ...input,
+    }));
+    sharedMocks.listReceiverSyncEnvelopeIssues.mockReturnValue([]);
+    sharedMocks.listReceiverSyncEnvelopes.mockReturnValue([]);
+    sharedMocks.markReceiverCaptureSyncFailed.mockImplementation(
+      (capture: Record<string, unknown>, error: string | undefined) => ({
+        ...capture,
+        syncState: 'failed',
+        syncError: error,
+      }),
+    );
+    runtimeMocks.runAgentCycle.mockReset();
 
     sendMessageMock = vi.fn(
       async (message: { type: string; payload?: Record<string, unknown> }) => {
@@ -182,133 +235,130 @@ describe('receiver sync offscreen runtime', () => {
         onUnload = listener as EventListener;
       }
     }) as typeof window.addEventListener);
+    vi.spyOn(window, 'setTimeout').mockImplementation(((
+      callback: TimerHandler,
+    ) => {
+      const timerId = nextTimerId;
+      nextTimerId += 1;
+      scheduledTimeouts.set(timerId, () => {
+        if (typeof callback === 'function') {
+          callback();
+        }
+      });
+      return timerId;
+    }) as typeof window.setTimeout);
+    vi.spyOn(window, 'clearTimeout').mockImplementation(((
+      timerId: number | undefined,
+    ) => {
+      if (typeof timerId === 'number') {
+        scheduledTimeouts.delete(timerId);
+      }
+    }) as typeof window.clearTimeout);
+    vi.spyOn(window, 'setInterval').mockImplementation((() => 1) as typeof window.setInterval);
+    vi.spyOn(window, 'clearInterval').mockImplementation((() => undefined) as typeof window.clearInterval);
 
-    sharedMocks.createReceiverSyncDoc.mockReturnValue({
-      on: vi.fn(),
-      off: docOffMock,
-    });
-    sharedMocks.connectReceiverSyncProviders.mockReturnValue({
-      webrtc: null,
-      websocket: null,
-      disconnect: providersDisconnectMock,
-    });
-    sharedMocks.connectReceiverSyncRelay.mockImplementation(
-      ({ onCapture }: { onCapture: typeof relayOnCapture }) => {
-        relayOnCapture = onCapture ?? null;
-        return {
-          configured: true,
-          disconnect: relayDisconnectMock,
-          publishAck: publishAckMock,
-        };
-      },
-    );
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    onUnload?.(new Event('unload'));
     vi.restoreAllMocks();
     Reflect.deleteProperty(globalThis, 'chrome');
   });
 
-  it('boots bindings, schedules queued envelope processing, and reports runtime state', async () => {
-    const doc = {
-      on: vi.fn(),
-      off: docOffMock,
-    };
-    sharedMocks.createReceiverSyncDoc.mockReturnValue(doc);
-    sharedMocks.listReceiverSyncEnvelopes.mockReturnValue([buildEnvelope()]);
+  it(
+    'boots bindings, processes queued envelopes, refreshes on message, and tears down cleanly',
+    async () => {
+      const doc = {
+        on: vi.fn(),
+        off: docOffMock,
+      };
+      sharedMocks.createReceiverSyncDoc.mockReturnValue(doc);
+      sharedMocks.listReceiverSyncEnvelopes.mockReturnValue([buildEnvelope()]);
 
-    await import('../receiver-sync-offscreen');
-    await vi.advanceTimersByTimeAsync(900);
+      await import('../receiver-sync-offscreen');
+      await flushMicrotasks();
+      await runScheduledTimeouts();
 
-    expect(sendMessageMock).toHaveBeenCalledWith({
-      type: 'get-receiver-sync-config',
-    });
-    expect(sharedMocks.connectReceiverSyncProviders).toHaveBeenCalledWith(
-      doc,
-      'room-1',
-      ['wss://signal.coop.test'],
-      undefined,
-      ['ice-server'],
-    );
-    expect(sharedMocks.patchReceiverSyncEnvelope).toHaveBeenCalledWith(
-      doc,
-      'capture-1',
-      expect.any(Function),
-    );
-    expect(sendMessageMock).toHaveBeenCalledWith({
-      type: 'report-receiver-sync-runtime',
-      payload: expect.objectContaining({
-        activePairingIds: ['pairing-1'],
-        activeBindingKeys: ['room-1:wss://signal.coop.test'],
-        transport: 'websocket',
-      }),
-    });
-    expect(onUnload).not.toBeNull();
-    expect(onRuntimeMessage).not.toBeNull();
-  });
+      expect(sendMessageMock).toHaveBeenCalledWith({
+        type: 'get-receiver-sync-config',
+      });
+      expect(sharedMocks.connectReceiverSyncProviders).toHaveBeenCalledWith(
+        doc,
+        'room-1',
+        ['wss://signal.coop.test'],
+        undefined,
+        ['ice-server'],
+      );
+      expect(sharedMocks.patchReceiverSyncEnvelope).toHaveBeenCalledWith(
+        doc,
+        'capture-1',
+        expect.any(Function),
+      );
+      expect(sendMessageMock).toHaveBeenCalledWith({
+        type: 'report-receiver-sync-runtime',
+        payload: expect.objectContaining({
+          activePairingIds: ['pairing-1'],
+          activeBindingKeys: ['room-1:wss://signal.coop.test'],
+          transport: 'websocket',
+        }),
+      });
+      expect(onUnload).not.toBeNull();
+      expect(onRuntimeMessage).not.toBeNull();
 
-  it('refreshes bindings and forwards pending agent-cycle messages', async () => {
-    await import('../receiver-sync-offscreen');
-    await Promise.resolve();
+      onRuntimeMessage?.({
+        type: 'refresh-receiver-bindings',
+      });
+      await flushMicrotasks();
 
-    onRuntimeMessage?.({
-      type: 'refresh-receiver-bindings',
-    });
-    await Promise.resolve();
+      expect(
+        sendMessageMock.mock.calls.filter(
+          ([message]) => (message as { type?: string }).type === 'get-receiver-sync-config',
+        ),
+      ).toHaveLength(2);
 
-    expect(
-      sendMessageMock.mock.calls.filter(
-        ([message]) => (message as { type?: string }).type === 'get-receiver-sync-config',
-      ),
-    ).toHaveLength(2);
+      onRuntimeMessage?.({
+        type: 'run-agent-cycle-if-pending',
+        payload: {
+          force: true,
+          reason: 'receiver-sync-refresh',
+        },
+      });
 
-    onRuntimeMessage?.({
-      type: 'run-agent-cycle-if-pending',
-      payload: {
+      expect(runtimeMocks.runAgentCycle).toHaveBeenCalledWith({
         force: true,
         reason: 'receiver-sync-refresh',
-      },
-    });
+      });
 
-    expect(runtimeMocks.runAgentCycle).toHaveBeenCalledWith({
-      force: true,
-      reason: 'receiver-sync-refresh',
-    });
-  });
+      await relayOnCapture?.({
+        pairingId: 'pairing-1',
+        roomId: 'room-1',
+        messageId: 'message-1',
+        envelope: buildEnvelope(),
+      });
 
-  it('acknowledges relay captures and disconnects bindings on unload', async () => {
-    await import('../receiver-sync-offscreen');
-    await Promise.resolve();
+      expect(sendMessageMock).toHaveBeenCalledWith({
+        type: 'ingest-receiver-capture',
+        payload: buildEnvelope(),
+      });
+      expect(sharedMocks.createReceiverSyncRelayAck).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestId: 'message-1',
+          ok: true,
+          sourceClientId: 'extension-offscreen:pairing-1',
+        }),
+      );
+      expect(publishAckMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ackId: 'ack-1',
+        }),
+      );
 
-    await relayOnCapture?.({
-      pairingId: 'pairing-1',
-      roomId: 'room-1',
-      messageId: 'message-1',
-      envelope: buildEnvelope(),
-    });
+      onUnload?.(new Event('unload'));
 
-    expect(sendMessageMock).toHaveBeenCalledWith({
-      type: 'ingest-receiver-capture',
-      payload: buildEnvelope(),
-    });
-    expect(sharedMocks.createReceiverSyncRelayAck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requestId: 'message-1',
-        ok: true,
-        sourceClientId: 'extension-offscreen:pairing-1',
-      }),
-    );
-    expect(publishAckMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ackId: 'ack-1',
-      }),
-    );
-
-    onUnload?.(new Event('unload'));
-
-    expect(docOffMock).toHaveBeenCalledWith('update', expect.any(Function));
-    expect(relayDisconnectMock).toHaveBeenCalledTimes(1);
-    expect(providersDisconnectMock).toHaveBeenCalledTimes(1);
-  });
+      expect(docOffMock).toHaveBeenCalledWith('update', expect.any(Function));
+      expect(relayDisconnectMock).toHaveBeenCalledTimes(1);
+      expect(providersDisconnectMock).toHaveBeenCalledTimes(1);
+    },
+    60_000,
+  );
 });

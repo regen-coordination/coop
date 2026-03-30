@@ -265,54 +265,71 @@ describe('NestInviteSection', () => {
       inviteResult: null,
       createInvite: vi.fn(),
       revokeInvite: vi.fn(),
+      revokeInviteType: vi.fn(),
       coopForm: mockCoopFormReturn() as unknown as ReturnType<
         typeof import('../hooks/useCoopForm').useCoopForm
       >,
       activeCoop: makeActiveCoop(),
       currentMemberId: 'member-creator',
+      controlsOpen: true,
+      focusRequest: 0,
+      onControlsOpenChange: vi.fn(),
       ...overrides,
     };
   }
 
-  it('renders both invite buttons (Trusted and Member)', () => {
+  it('renders canonical member and trusted invite cards', () => {
     render(<NestInviteSection {...baseProps()} />);
 
-    expect(screen.getByRole('button', { name: 'Trusted Member Invite' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Member Invite' })).toBeInTheDocument();
+    expect(screen.getByText('Member invite')).toBeInTheDocument();
+    expect(screen.getByText('Trusted invite')).toBeInTheDocument();
   });
 
-  it('fires createInvite("trusted") on Trusted button click', async () => {
+  it('fires createInvite("trusted") on Trusted regenerate click', async () => {
     const createInvite = vi.fn();
     const user = userEvent.setup();
 
     render(<NestInviteSection {...baseProps({ createInvite })} />);
 
-    await user.click(screen.getByRole('button', { name: /trusted member invite/i }));
+    const trustedCard = screen.getByText('Trusted invite').closest('.panel-card') as HTMLElement;
+    await user.click(within(trustedCard).getByRole('button', { name: 'Regenerate' }));
     expect(createInvite).toHaveBeenCalledWith('trusted');
   });
 
-  it('fires createInvite("member") on Member button click', async () => {
+  it('fires createInvite("member") on Member regenerate click', async () => {
     const createInvite = vi.fn();
     const user = userEvent.setup();
 
     render(<NestInviteSection {...baseProps({ createInvite })} />);
 
-    await user.click(screen.getByRole('button', { name: /^member invite$/i }));
+    const memberCard = screen.getByText('Member invite').closest('.panel-card') as HTMLElement;
+    await user.click(within(memberCard).getByRole('button', { name: 'Regenerate' }));
     expect(createInvite).toHaveBeenCalledWith('member');
   });
 
-  it('displays the invite code textarea when inviteResult is present', () => {
+  it('shows the current canonical invite codes when present', () => {
+    const activeCoop = makeActiveCoop({
+      invites: [
+        makeInvite({ id: 'member-current', type: 'member', code: 'MEMBER-CODE-123' }),
+        makeInvite({ id: 'trusted-current', type: 'trusted', code: 'TRUSTED-CODE-456' }),
+      ],
+    });
+
+    render(<NestInviteSection {...baseProps({ activeCoop })} />);
+
+    expect(screen.getByDisplayValue('MEMBER-CODE-123')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('TRUSTED-CODE-456')).toBeInTheDocument();
+  });
+
+  it('displays the fresh invite code textarea when inviteResult is present', () => {
     const inviteResult = makeInvite({ code: 'FRESH-CODE-123' });
 
     render(<NestInviteSection {...baseProps({ inviteResult })} />);
 
-    const textarea = screen.getByLabelText(/fresh invite code/i) as HTMLTextAreaElement;
-    expect(textarea).toBeInTheDocument();
-    expect(textarea.value).toBe('FRESH-CODE-123');
-    expect(textarea).toHaveAttribute('readOnly');
+    expect(screen.getByLabelText(/fresh invite code/i)).toHaveValue('FRESH-CODE-123');
   });
 
-  it('does not display invite code textarea when inviteResult is null', () => {
+  it('does not display fresh invite code textarea when inviteResult is null', () => {
     render(<NestInviteSection {...baseProps()} />);
 
     expect(screen.queryByLabelText(/fresh invite code/i)).not.toBeInTheDocument();
@@ -327,69 +344,25 @@ describe('NestInviteSection', () => {
     expect(screen.getByText(/invite history \(2\)/i)).toBeInTheDocument();
   });
 
-  it('shows status badges for different invite statuses', () => {
+  it('calls revokeInviteType when canonical revoke is confirmed', async () => {
+    const revokeInviteType = vi.fn();
+    const user = userEvent.setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
     const invites = [
-      makeInvite({ id: 'inv-active', status: 'active' }),
-      makeInvite({ id: 'inv-revoked', status: 'revoked' }),
-      makeInvite({
-        id: 'inv-expired',
-        status: 'active',
-        expiresAt: pastDate,
-      }),
-      makeInvite({
-        id: 'inv-used',
-        status: 'active',
-        usedByMemberIds: ['member-regular'],
-      }),
+      makeInvite({ id: 'inv-active', status: 'active', type: 'member' }),
     ];
     const activeCoop = makeActiveCoop({ invites });
 
-    render(<NestInviteSection {...baseProps({ activeCoop })} />);
+    render(<NestInviteSection {...baseProps({ activeCoop, revokeInviteType })} />);
 
-    expect(screen.getByText('active')).toBeInTheDocument();
-    expect(screen.getByText('revoked')).toBeInTheDocument();
-    expect(screen.getByText('expired')).toBeInTheDocument();
-    expect(screen.getByText('used')).toBeInTheDocument();
+    const memberCard = screen.getByDisplayValue('abc123code').closest('.panel-card') as HTMLElement;
+    await user.click(within(memberCard).getByRole('button', { name: 'Revoke' }));
+    expect(window.confirm).toHaveBeenCalled();
+    expect(revokeInviteType).toHaveBeenCalledWith('member');
   });
 
-  it('shows Revoke button only for active/used invites when user canManageInvites', () => {
-    const invites = [
-      makeInvite({ id: 'inv-active', status: 'active' }),
-      makeInvite({ id: 'inv-revoked', status: 'revoked' }),
-      makeInvite({
-        id: 'inv-expired',
-        status: 'active',
-        expiresAt: pastDate,
-      }),
-    ];
-    const activeCoop = makeActiveCoop({ invites });
-
-    render(<NestInviteSection {...baseProps({ activeCoop, currentMemberId: 'member-creator' })} />);
-
-    // Only the active invite should have Revoke; expired and revoked should not
-    const revokeButtons = screen.getAllByRole('button', { name: /revoke/i });
-    expect(revokeButtons).toHaveLength(1);
-  });
-
-  it('hides Revoke button for non-manager members', () => {
-    const invites = [makeInvite({ id: 'inv-active', status: 'active' })];
-    const activeCoop = makeActiveCoop({ invites });
-
-    render(<NestInviteSection {...baseProps({ activeCoop, currentMemberId: 'member-regular' })} />);
-
-    expect(screen.queryByRole('button', { name: /revoke/i })).not.toBeInTheDocument();
-  });
-
-  it('hides Revoke button when currentMemberId is undefined', () => {
-    const invites = [makeInvite({ id: 'inv-active', status: 'active' })];
-    const activeCoop = makeActiveCoop({ invites });
-
-    render(<NestInviteSection {...baseProps({ activeCoop, currentMemberId: undefined })} />);
-
-    expect(screen.queryByRole('button', { name: /revoke/i })).not.toBeInTheDocument();
-  });
-
-  it('calls revokeInvite when Revoke is confirmed', async () => {
+  it('calls revokeInvite for history rows when Revoke is confirmed', async () => {
     const revokeInvite = vi.fn();
     const user = userEvent.setup();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -399,23 +372,8 @@ describe('NestInviteSection', () => {
 
     render(<NestInviteSection {...baseProps({ activeCoop, revokeInvite })} />);
 
-    await user.click(screen.getByRole('button', { name: /revoke/i }));
-    expect(window.confirm).toHaveBeenCalled();
+    await user.click(screen.getAllByRole('button', { name: /revoke/i }).at(-1) as HTMLElement);
     expect(revokeInvite).toHaveBeenCalledWith('inv-1');
-  });
-
-  it('does not call revokeInvite when Revoke is cancelled', async () => {
-    const revokeInvite = vi.fn();
-    const user = userEvent.setup();
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-
-    const invites = [makeInvite({ id: 'inv-1', status: 'active' })];
-    const activeCoop = makeActiveCoop({ invites });
-
-    render(<NestInviteSection {...baseProps({ activeCoop, revokeInvite })} />);
-
-    await user.click(screen.getByRole('button', { name: /revoke/i }));
-    expect(revokeInvite).not.toHaveBeenCalled();
   });
 
   it('shows used-by count for invites that have been used', () => {
@@ -430,6 +388,8 @@ describe('NestInviteSection', () => {
 
     render(<NestInviteSection {...baseProps({ activeCoop })} />);
 
+    expect(screen.getByText('reusable')).toBeInTheDocument();
+    expect(screen.getByText(/still live for new joins/i)).toBeInTheDocument();
     expect(screen.getByText(/used by 3 members/i)).toBeInTheDocument();
   });
 
@@ -438,7 +398,7 @@ describe('NestInviteSection', () => {
 
     render(<NestInviteSection {...baseProps({ activeCoop })} />);
 
-    expect(screen.queryByText(/invite history/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /invite history/i })).not.toBeInTheDocument();
   });
 
   it('renders the join coop form', () => {
@@ -455,7 +415,10 @@ describe('NestInviteSection', () => {
 
     render(<NestInviteSection {...baseProps({ inviteResult })} />);
 
-    expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
+    const freshInviteField = screen.getByLabelText(/fresh invite code/i).closest('.field-grid');
+    expect(
+      within(freshInviteField as HTMLElement).getByRole('button', { name: /copy/i }),
+    ).toBeInTheDocument();
   });
 
   it('copies the invite code to clipboard when Copy is clicked', async () => {
@@ -466,7 +429,7 @@ describe('NestInviteSection', () => {
 
     render(<NestInviteSection {...baseProps({ inviteResult })} />);
 
-    await user.click(screen.getByRole('button', { name: /copy/i }));
+    await user.click(screen.getAllByRole('button', { name: /copy/i }).at(-1) as HTMLElement);
     expect(writeText).toHaveBeenCalledWith('COPY-ME-456');
   });
 
@@ -477,15 +440,15 @@ describe('NestInviteSection', () => {
 
     render(<NestInviteSection {...baseProps({ inviteResult })} />);
 
-    const copyButton = screen.getByRole('button', { name: /copy/i });
+    const copyButton = screen.getAllByRole('button', { name: /copy/i }).at(-1) as HTMLElement;
     await user.click(copyButton);
     expect(screen.getByText(/copied/i)).toBeInTheDocument();
   });
 
-  it('does not render Copy button when inviteResult is null', () => {
+  it('keeps the fresh invite copy button hidden when inviteResult is null', () => {
     render(<NestInviteSection {...baseProps({ inviteResult: null })} />);
 
-    expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/fresh invite code/i)).not.toBeInTheDocument();
   });
 });
 
@@ -1120,15 +1083,16 @@ describe('NestTab', () => {
       expect(loadDashboard).toHaveBeenCalledOnce();
     });
 
-    it('fires createInvite("member") on Invite click', async () => {
+    it('opens invite controls from the subheader action', async () => {
       const createInvite = vi.fn();
       const user = userEvent.setup();
 
       const { container } = render(<NestTab {...baseOrchestration({ createInvite })} />);
 
       const subheader = container.querySelector('.sidepanel-action-row') as HTMLElement;
-      await user.click(within(subheader).getByRole('button', { name: /invite/i }));
-      expect(createInvite).toHaveBeenCalledWith('member');
+      await user.click(within(subheader).getByRole('button', { name: /open invite controls/i }));
+      expect(screen.getAllByRole('button', { name: 'Regenerate' })[0]).toHaveFocus();
+      expect(createInvite).not.toHaveBeenCalled();
     });
 
     it('shows receiver intake count badge when items are waiting', () => {
