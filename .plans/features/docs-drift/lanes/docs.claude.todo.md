@@ -18,3 +18,8 @@ updated: 2026-03-26
 
 - Review user-facing docs for stale UI descriptions, drift, or hallucinated behavior.
 - Correct only what the codebase or current plans justify.
+
+## Run Notes
+
+- 2026-03-27: Aligned `AGENTS.md` QA pass ownership with `.plans` templates and `scripts/plans.ts`.
+- 2026-03-27: Updated `docs/reference/product-requirements.md` from legacy Home/Feed tab names to current Nest/Coops wording where directly verified in the sidepanel.
