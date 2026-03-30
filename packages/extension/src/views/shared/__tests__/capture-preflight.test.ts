@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  getActiveTabCaptureAccessStatus,
   preflightActiveTabCapture,
   preflightManualCapture,
   toOriginPattern,
@@ -66,5 +67,36 @@ describe('capture preflight', () => {
     expect(toOriginPattern('http://127.0.0.1:3001/fixture')).toBe('http://127.0.0.1/*');
     expect(toOriginPattern('https://example.com/foo?bar=1')).toBe('https://example.com/*');
     expect(toOriginPattern('chrome-extension://coop/popup.html')).toBe('chrome-extension://coop/*');
+  });
+
+  it('reports active-site access when the origin permission is already granted', async () => {
+    query.mockResolvedValue([{ url: 'https://example.com/path?q=1' }]);
+    contains.mockResolvedValue(true);
+
+    const result = await getActiveTabCaptureAccessStatus();
+
+    expect(result).toEqual({
+      label: 'This site',
+      detail:
+        'Coop already has site access here, so roundup can inspect this page without another prompt.',
+      tone: 'ok',
+    });
+    expect(contains).toHaveBeenCalledWith({
+      origins: ['https://example.com/*'],
+    });
+  });
+
+  it('reports on-demand access when the active site is standard but not yet granted', async () => {
+    query.mockResolvedValue([{ url: 'https://example.com/path?q=1' }]);
+    contains.mockResolvedValue(false);
+
+    const result = await getActiveTabCaptureAccessStatus();
+
+    expect(result).toEqual({
+      label: 'On demand',
+      detail:
+        'Capture this tab still works from the popup. Coop will ask for broader roundup access only when needed.',
+      tone: 'ok',
+    });
   });
 });

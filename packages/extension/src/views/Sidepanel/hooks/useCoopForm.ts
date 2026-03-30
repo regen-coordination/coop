@@ -27,9 +27,16 @@ export function useCoopForm(deps: {
   loadDashboard: () => Promise<void>;
   soundPreferences: SoundPreferences;
   configuredSignalingUrls: string[];
+  authSession?: AuthSession | null;
 }) {
-  const { setMessage, setPanelTab, loadDashboard, soundPreferences, configuredSignalingUrls } =
-    deps;
+  const {
+    setMessage,
+    setPanelTab,
+    loadDashboard,
+    soundPreferences,
+    configuredSignalingUrls,
+    authSession,
+  } = deps;
 
   const [createForm, setCreateForm] = useState<CreateFormState>(initialCreateForm);
   const [joinInvite, setJoinInvite] = useState('');
@@ -42,16 +49,29 @@ export function useCoopForm(deps: {
     [createForm.spaceType],
   );
 
-  async function ensureAuthSession(displayName: string) {
+  async function loadStoredAuthSession() {
+    if (authSession !== undefined) {
+      return authSession;
+    }
+
     const response = await sendRuntimeMessage<AuthSession | null>({ type: 'get-auth-session' });
     if (!response.ok) {
       throw new Error(response.error ?? 'Could not load the passkey session.');
     }
 
+    return response.data ?? null;
+  }
+
+  async function ensureAuthSession(displayName: string) {
+    const existingSession = await loadStoredAuthSession();
+    if (existingSession?.passkey && existingSession.displayName.trim() === displayName.trim()) {
+      return existingSession;
+    }
+
     const session = await createPasskeySession({
       displayName,
-      credential: response.data?.passkey,
-      rpId: response.data?.passkey?.rpId,
+      credential: existingSession?.passkey,
+      rpId: existingSession?.passkey?.rpId,
     });
     const persist = await sendRuntimeMessage({
       type: 'set-auth-session',

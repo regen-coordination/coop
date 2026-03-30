@@ -42,6 +42,7 @@ export function PopupHeader(props: {
   workspaceCanClose?: boolean;
   onCreateCoop?: () => void;
   onJoinCoop?: () => void;
+  onOpenInviteHub?: () => void;
 }) {
   const {
     title,
@@ -59,6 +60,7 @@ export function PopupHeader(props: {
     workspaceCanClose = false,
     onCreateCoop,
     onJoinCoop,
+    onOpenInviteHub,
   } = props;
   const [popoverOpen, setPopoverOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -99,7 +101,7 @@ export function PopupHeader(props: {
     };
   }, [popoverOpen]);
 
-  const showPlusButton = onCreateCoop || onJoinCoop;
+  const showPlusButton = onCreateCoop || onJoinCoop || onOpenInviteHub;
   const workspaceActionLabel =
     workspaceOpen && workspaceCanClose ? 'Close sidepanel' : 'Open sidepanel';
   const workspaceTooltip =
@@ -152,11 +154,11 @@ export function PopupHeader(props: {
         <div className="popup-header__meta">
           {showPlusButton ? (
             <div ref={popoverRef} style={{ position: 'relative' }}>
-              <Tooltip align="end" content="Create or join">
+              <Tooltip align="end" content="Quick actions">
                 {({ targetProps }) => (
                   <button
                     {...targetProps}
-                    aria-label="Create or join"
+                    aria-label="Quick actions"
                     aria-expanded={popoverOpen}
                     aria-haspopup="menu"
                     className="popup-icon-button"
@@ -195,6 +197,19 @@ export function PopupHeader(props: {
                       type="button"
                     >
                       Join Coop
+                    </button>
+                  ) : null}
+                  {onOpenInviteHub ? (
+                    <button
+                      className="popup-create-popover__item"
+                      role="menuitem"
+                      onClick={() => {
+                        setPopoverOpen(false);
+                        onOpenInviteHub();
+                      }}
+                      type="button"
+                    >
+                      Invite Members
                     </button>
                   ) : null}
                 </div>

@@ -19,6 +19,7 @@ import { greenGoodsEasAbi } from './greengoods-abis';
 
 const greenGoodsDeployments = {
   arbitrum: {
+    gardenTokenDeploymentBlock: 433713812n,
     gardenToken: '0xe1Da335110b1ed48e7df63209f5D424d02276593',
     actionRegistry: '0xA514eA2730b9eD401875693793BEfA9e2D51C0b4',
     gardensModule: '0x9d9F913eEeBAC1142E38E5276dE7c8bc9Cf7a183',
@@ -33,6 +34,7 @@ const greenGoodsDeployments = {
     workApprovalSchemaUid: '0x6f44cac380791858e86c67c75de1f10b186fb6534c00f85b596709a3cd51f381',
   },
   sepolia: {
+    gardenTokenDeploymentBlock: 10291992n,
     gardenToken: '0x3e0DE15Ad3D9fd0299b6811247f14449eb866A39',
     actionRegistry: '0xB768203B1A3e3d6FaE0e788d0f9b99381ecB3Bae',
     gardensModule: '0xa3938322bCc723Ff89fA8b34873ac046A7B8C837',
@@ -49,6 +51,7 @@ const greenGoodsDeployments = {
 } as const satisfies Record<
   CoopChainKey,
   {
+    gardenTokenDeploymentBlock: bigint;
     gardenToken: Address;
     actionRegistry: Address;
     gardensModule: Address;

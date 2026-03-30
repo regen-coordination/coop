@@ -123,4 +123,47 @@ export async function preflightScreenshotCapture() {
   return { ok: true, tab } as const;
 }
 
+export async function getActiveTabCaptureAccessStatus() {
+  const tab = await queryActiveTab();
+  if (!tab || !isStandardWebUrl(tab.url)) {
+    return {
+      label: 'Open page',
+      detail: 'Open a standard web page to capture this tab or request roundup access.',
+      tone: 'warning' as const,
+    };
+  }
+
+  const origin = toOriginPattern(tab.url);
+  if (!origin || !chrome.permissions?.contains) {
+    return {
+      label: 'On demand',
+      detail: 'Coop checks site access when you start a roundup or capture.',
+      tone: 'ok' as const,
+    };
+  }
+
+  try {
+    const hasAccess = await chrome.permissions.contains({ origins: [origin] });
+    return hasAccess
+      ? ({
+          label: 'This site',
+          detail:
+            'Coop already has site access here, so roundup can inspect this page without another prompt.',
+          tone: 'ok' as const,
+        } as const)
+      : ({
+          label: 'On demand',
+          detail:
+            'Capture this tab still works from the popup. Coop will ask for broader roundup access only when needed.',
+          tone: 'ok' as const,
+        } as const);
+  } catch {
+    return {
+      label: 'On demand',
+      detail: 'Coop checks site access when you start a roundup or capture.',
+      tone: 'ok' as const,
+    };
+  }
+}
+
 export { isStandardWebUrl, STANDARD_HOST_ORIGINS, toOriginPattern };

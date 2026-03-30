@@ -46,6 +46,10 @@ const suites: Record<string, Suite> = {
     description: 'Build shared, app, and extension packages.',
     steps: [{ label: 'build', command: ['bun', 'run', 'build'] }],
   },
+  'build:extension': {
+    description: 'Build the extension package only.',
+    steps: [{ label: 'build:extension', command: ['bun', 'run', 'build:extension'] }],
+  },
   'e2e:app:desktop': {
     description: 'Desktop landing-page Playwright checks.',
     steps: [{ label: 'e2e:app:desktop', command: ['bun', 'run', 'test:e2e:app'] }],
@@ -122,6 +126,11 @@ const suites: Record<string, Suite> = {
       { label: 'unit:archive-hardening', command: ['bun', 'run', 'test:unit:archive-hardening'] },
     ],
   },
+  'unit:receiver-intake': {
+    description:
+      'Focused receiver/background coverage for pairing lifecycle, intake ingestion, invite coordination, offscreen wake-up, and related context helpers.',
+    steps: [{ label: 'unit:receiver-intake', command: ['bun', 'run', 'test:unit:receiver-intake'] }],
+  },
   'unit:sync-hardening': {
     description:
       'Deterministic sync coverage for shared transport health, receiver replication, receiver invite persistence, popup sync semantics, and dashboard hook summaries.',
@@ -141,6 +150,37 @@ const suites: Record<string, Suite> = {
     description:
       'Targeted Vitest coverage for Smart Session scope validation, typed action metadata, expiry/revocation logic, and encrypted local signer storage.',
     steps: [{ label: 'unit:session-key', command: ['bun', 'run', 'test:unit:session-key'] }],
+  },
+  'unit:session-executors': {
+    description:
+      'Focused extension/session coverage for capability selection, live revoke/rotate flows, execution context construction, and sidepanel permit hooks.',
+    steps: [
+      { label: 'unit:session-executors', command: ['bun', 'run', 'test:unit:session-executors'] },
+    ],
+  },
+  'unit:action-executors': {
+    description:
+      'Focused background execution coverage for action dispatch, replay logging, archive/review executor routing, and non-Green-Goods executor behavior.',
+    steps: [
+      { label: 'unit:action-executors', command: ['bun', 'run', 'test:unit:action-executors'] },
+    ],
+  },
+  'unit:background-dashboard': {
+    description:
+      'Focused background coverage for dashboard assembly, popup snapshot/badge writes, alarms, and context bootstrap helpers.',
+    steps: [
+      {
+        label: 'unit:background-dashboard',
+        command: ['bun', 'run', 'test:unit:background-dashboard'],
+      },
+    ],
+  },
+  'unit:sidepanel-settings': {
+    description:
+      'Focused sidepanel interaction coverage for Nest settings handlers plus Roost and Chickens workflow controls.',
+    steps: [
+      { label: 'unit:sidepanel-settings', command: ['bun', 'run', 'test:unit:sidepanel-settings'] },
+    ],
   },
   'probe:onchain-live': {
     description:
@@ -166,6 +206,11 @@ const suites: Record<string, Suite> = {
       'Popup validation slice: popup action unit coverage plus popup browser smoke coverage.',
     includes: ['unit:popup-actions', 'e2e:popup'],
   },
+  'receiver-intake': {
+    description:
+      'Receiver intake validation: focused receiver/background tests, extension build, and receiver pairing/sync E2E.',
+    includes: ['unit:receiver-intake', 'build:extension', 'e2e:receiver-sync'],
+  },
   smoke: {
     description: 'Fast confidence pass for shared logic and package builds.',
     includes: ['unit', 'build'],
@@ -179,6 +224,26 @@ const suites: Record<string, Suite> = {
     description:
       'Onchain UI validation: targeted mock-path onchain extension coverage without live RPC dependencies.',
     includes: ['unit:onchain-ui'],
+  },
+  'session-executors': {
+    description:
+      'Session executor validation: focused session/permit tests plus an extension build safety pass.',
+    includes: ['unit:session-executors', 'build:extension'],
+  },
+  'action-executors': {
+    description:
+      'Action executor validation: focused background execution tests plus an extension build safety pass.',
+    includes: ['unit:action-executors', 'build:extension'],
+  },
+  'background-dashboard': {
+    description:
+      'Background dashboard validation: focused assembly/bootstrap coverage plus an extension build safety pass.',
+    includes: ['unit:background-dashboard', 'build:extension'],
+  },
+  'sidepanel-settings': {
+    description:
+      'Sidepanel settings validation: focused Nest/Roost/Chickens interaction coverage plus an extension build safety pass.',
+    includes: ['unit:sidepanel-settings', 'build:extension'],
   },
   landing: {
     description: 'Landing-page validation on desktop and mobile.',

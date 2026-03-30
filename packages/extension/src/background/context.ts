@@ -218,6 +218,32 @@ export const trustedNodeArchiveBootstrap = (() => {
 export const trustedNodeArchiveConfigMissingError =
   'Live Storacha archive mode is enabled, but this anchor node has no trusted-node archive delegation config.';
 
+const LOCAL_RECEIVER_PERMISSION_ORIGINS = ['http://127.0.0.1/*', 'http://localhost/*'] as const;
+
+function isLocalReceiverHostname(hostname: string) {
+  return (
+    hostname === '127.0.0.1' ||
+    hostname === 'localhost' ||
+    hostname === '::1' ||
+    hostname === '[::1]'
+  );
+}
+
+function getRequiredReceiverPermissionOrigins(receiverAppUrl = configuredReceiverAppUrl) {
+  try {
+    const url = new URL(receiverAppUrl);
+    const exactOriginMatch = `${url.origin}/*`;
+
+    if (isLocalReceiverHostname(url.hostname)) {
+      return [...new Set([...LOCAL_RECEIVER_PERMISSION_ORIGINS, exactOriginMatch])].sort();
+    }
+
+    return [exactOriginMatch];
+  } catch {
+    return [...LOCAL_RECEIVER_PERMISSION_ORIGINS];
+  }
+}
+
 export let localInferenceOptIn = false;
 export let uiPreferences = uiPreferencesSchema.parse({});
 
@@ -477,7 +503,7 @@ export async function getRuntimeHealth() {
       'contextMenus',
       'notifications',
     ],
-    origins: ['http://127.0.0.1/*', 'http://localhost/*'],
+    origins: getRequiredReceiverPermissionOrigins(),
   }));
   const offline = typeof navigator !== 'undefined' ? navigator.onLine === false : false;
   const stored = await getLocalSetting<RuntimeHealth>(

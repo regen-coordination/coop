@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -169,8 +169,13 @@ describe('PopupApp', () => {
 
     render(<PopupApp />);
 
+    const homeStatus = await screen.findByLabelText('Home status');
+    expect(within(homeStatus).getByRole('button', { name: 'Health: Ready' })).toBeInTheDocument();
+    expect(within(homeStatus).getByRole('button', { name: 'Sync: Idle' })).toBeInTheDocument();
+    expect(within(homeStatus).getByRole('button', { name: 'Review: 0' })).toBeInTheDocument();
+    expect(screen.queryByText('Status at a glance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Why these states?')).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Roundup Chickens' })).toBeInTheDocument();
-    expect(screen.queryByText('Review queue')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Capture Tab' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Home' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Chickens' })).toBeInTheDocument();
@@ -495,7 +500,7 @@ describe('PopupApp', () => {
     });
 
     let view = render(<PopupApp />);
-    expect(await screen.findByText('Checking')).toBeInTheDocument();
+    expect(await screen.findByText('Idle')).toBeInTheDocument();
 
     mockSendRuntimeMessage.mockReset();
     installDefaultRuntimeHandlers(
@@ -717,26 +722,29 @@ describe('PopupApp', () => {
     });
   });
 
-  it('shows the + button in the header and opens a create/join popover', async () => {
+  it('shows the quick actions button and opens create/join/invite options', async () => {
     installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
     render(<PopupApp />);
 
-    const plusButton = await screen.findByRole('button', { name: 'Create or join' });
+    const plusButton = await screen.findByRole('button', { name: 'Quick actions' });
     expect(plusButton).toBeInTheDocument();
 
     await user.click(plusButton);
 
     expect(await screen.findByRole('menuitem', { name: 'Create Coop' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Join Coop' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Invite Members' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('menuitem', { name: 'Create Coop' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Invite Members' }));
 
-    expect(await screen.findByRole('heading', { name: 'Start your coop.' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Manage the canonical doors into each coop.' }),
+    ).toBeInTheDocument();
   });
 
-  it('shows invite codes per coop in the profile panel with copy support', async () => {
+  it('shows general coop context in the profile panel without invite actions', async () => {
     installDefaultRuntimeHandlers(mockSendRuntimeMessage);
     const user = userEvent.setup();
 
@@ -746,10 +754,11 @@ describe('PopupApp', () => {
 
     expect(await screen.findByText('Your Coops')).toBeInTheDocument();
     expect(screen.getByText('Starter Coop')).toBeInTheDocument();
-    expect(screen.getByText('No invite code yet')).toBeInTheDocument();
+    expect(screen.getByText('Member context')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /copy invite/i })).not.toBeInTheDocument();
   });
 
-  it('shows a Copy Invite button when the coop has invite codes', async () => {
+  it('shows locked rows and canonical invite actions in the invite hub', async () => {
     installDefaultRuntimeHandlers(
       mockSendRuntimeMessage,
       makeDashboard({
@@ -760,18 +769,64 @@ describe('PopupApp', () => {
               {
                 id: 'invite-1',
                 type: 'member',
-                code: 'COOP-JOIN-ABC123',
+                status: 'active',
+                code: 'OLD-MEMBER-CODE',
+                expiresAt: new Date(Date.now() + 86400000).toISOString(),
+                createdAt: new Date().toISOString(),
+                createdBy: 'member-1',
+                usedByMemberIds: ['member-used'],
+                bootstrap: {
+                  coopId: 'coop-1',
+                  coopDisplayName: 'Starter Coop',
+                  inviteId: 'invite-1',
+                  inviteType: 'member',
+                  expiresAt: new Date(Date.now() + 86400000).toISOString(),
+                  roomId: 'room-1',
+                  signalingUrls: [],
+                  inviteProof: 'proof-1',
+                },
+              },
+              {
+                id: 'invite-2',
+                type: 'trusted',
+                status: 'active',
+                code: 'OLD-TRUSTED-CODE',
                 expiresAt: new Date(Date.now() + 86400000).toISOString(),
                 createdAt: new Date().toISOString(),
                 createdBy: 'member-1',
                 usedByMemberIds: [],
                 bootstrap: {
-                  coopName: 'Starter Coop',
                   coopId: 'coop-1',
-                  syncRoom: { roomId: 'room-1', signalingUrls: [] },
+                  coopDisplayName: 'Starter Coop',
+                  inviteId: 'invite-2',
+                  inviteType: 'trusted',
+                  expiresAt: new Date(Date.now() + 86400000).toISOString(),
+                  roomId: 'room-1',
+                  signalingUrls: [],
+                  inviteProof: 'proof-2',
                 },
               },
             ],
+          },
+          {
+            profile: {
+              id: 'coop-2',
+              name: 'Member Only Coop',
+              purpose: 'Locked row',
+              captureMode: 'manual',
+            },
+            members: [
+              {
+                id: 'member-2',
+                displayName: 'Ava',
+                role: 'member',
+                address: '0x1234567890abcdef1234567890abcdef12345678',
+                authMode: 'passkey',
+                joinedAt: '2026-03-17T10:00:00.000Z',
+              },
+            ],
+            artifacts: [],
+            invites: [],
           },
         ],
       }),
@@ -788,15 +843,72 @@ describe('PopupApp', () => {
 
     render(<PopupApp />);
 
-    await user.click(await screen.findByRole('button', { name: 'Open profile' }));
+    await user.click(await screen.findByRole('button', { name: 'Quick actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Invite Members' }));
 
-    expect(await screen.findByText('Your Coops')).toBeInTheDocument();
-    expect(screen.queryByText('No invite code yet')).not.toBeInTheDocument();
+    expect(await screen.findByText('Starter Coop')).toBeInTheDocument();
+    expect(screen.getByText('Member Only Coop')).toBeInTheDocument();
+    expect(screen.getByText('Reusable')).toBeInTheDocument();
+    expect(
+      screen.getByText('This code has already admitted 1 member and is still valid for new joins.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Open this coop as a creator or trusted member to copy, rotate, or revoke its canonical invite codes.',
+      ),
+    ).toBeInTheDocument();
 
-    const copyButton = screen.getByRole('button', { name: 'Copy Invite' });
-    await user.click(copyButton);
+    await user.click(
+      screen.getByRole('button', { name: 'Copy member invite code for Starter Coop' }),
+    );
+    expect(window.navigator.clipboard.writeText).toHaveBeenCalledWith('OLD-MEMBER-CODE');
 
-    expect(window.navigator.clipboard.writeText).toHaveBeenCalledWith('COOP-JOIN-ABC123');
+    await user.click(
+      screen.getByRole('button', { name: 'Regenerate member invite for Starter Coop' }),
+    );
+    expect(await screen.findByText('COOP-MEMBER-1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Revoke member invite for Starter Coop' }));
+    expect(await screen.findByText('No current code')).toBeInTheDocument();
+  });
+
+  it('shows post-create invite success and enters the new coop', async () => {
+    installDefaultRuntimeHandlers(
+      mockSendRuntimeMessage,
+      makeDashboard({
+        coops: [],
+        activeCoopId: undefined,
+        coopBadges: [],
+        summary: {
+          ...makeDashboard().summary,
+          coopCount: 0,
+          iconLabel: 'No coop yet',
+          activeCoopId: undefined,
+        },
+      }),
+    );
+    const user = userEvent.setup();
+
+    render(<PopupApp />);
+
+    await user.click(await screen.findByRole('button', { name: 'Create a Coop' }));
+    fireEvent.change(screen.getByLabelText('Coop name'), { target: { value: 'Fresh Coop' } });
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Ava' } });
+    fireEvent.change(screen.getByPlaceholderText('Paste or write what this coop is gathering.'), {
+      target: { value: 'Keep fresh invite flows visible.' },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Create Coop' }));
+
+    expect(
+      await screen.findByText('Fresh Coop is ready to welcome people in.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('COOP-MEMBER-1')).toBeInTheDocument();
+    expect(screen.getByText('COOP-TRUSTED-2')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Enter Coop' }));
+
+    expect(await screen.findByRole('button', { name: 'Roundup Chickens' })).toBeInTheDocument();
   });
 
   it('shows the illustrated feed empty state when no artifacts are shared', async () => {

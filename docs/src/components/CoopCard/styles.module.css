@@ -1,8 +1,8 @@
 .card {
-  border: 1px solid rgba(79, 46, 31, 0.16);
+  border: 1px solid var(--coop-border);
   border-radius: 24px;
-  background: rgba(255, 252, 249, 0.8);
-  box-shadow: 0 16px 40px rgba(79, 46, 31, 0.12);
+  background: var(--coop-surface);
+  box-shadow: var(--coop-shadow-md);
   backdrop-filter: blur(12px);
   padding: 1.4rem;
   margin: 1.5rem 0;
@@ -10,13 +10,13 @@
 
 .cardTitle {
   margin: 0 0 0.75rem;
-  color: #4f2e1f;
+  color: var(--coop-heading-color);
   font-family: "Gill Sans", "Trebuchet MS", sans-serif;
   font-size: 1.15rem;
 }
 
 .cardBody {
-  color: #6b4a36;
+  color: var(--coop-text-secondary);
   font-size: 1rem;
   line-height: 1.6;
 }
@@ -31,19 +31,19 @@
 }
 
 .highlight {
-  border-color: rgba(90, 125, 16, 0.3);
-  background: linear-gradient(135deg, rgba(255, 252, 249, 0.95), rgba(240, 248, 236, 0.9));
+  border-color: var(--coop-card-highlight-border);
+  background: var(--coop-card-highlight-bg);
 }
 
 .highlight .cardTitle {
-  color: #5a7d10;
+  color: var(--coop-card-highlight-title);
 }
 
 .warning {
-  border-color: rgba(253, 138, 1, 0.3);
-  background: linear-gradient(135deg, rgba(255, 252, 249, 0.95), rgba(255, 248, 236, 0.9));
+  border-color: var(--coop-card-warning-border);
+  background: var(--coop-card-warning-bg);
 }
 
 .warning .cardTitle {
-  color: #c46a10;
+  color: var(--coop-card-warning-title);
 }

@@ -158,9 +158,12 @@ import {
   handleArchiveReceiverIntake,
   handleConvertReceiverIntake,
   handleCreateInvite,
+  handleEnsureInviteCodes,
   handleCreateReceiverPairing,
   handleIngestReceiverCapture,
+  handleRegenerateInviteCode,
   handleRevokeInvite,
+  handleRevokeInviteType,
   handleSetActiveReceiverPairing,
   handleSetReceiverIntakeArchiveWorthiness,
 } from './background/handlers/receiver';
@@ -455,8 +458,17 @@ export function startBackground() {
         case 'create-invite':
           sendResponse(await handleCreateInvite(message));
           return;
+        case 'ensure-invite-codes':
+          sendResponse(await handleEnsureInviteCodes(message));
+          return;
+        case 'regenerate-invite-code':
+          sendResponse(await handleRegenerateInviteCode(message));
+          return;
         case 'revoke-invite':
           sendResponse(await handleRevokeInvite(message));
+          return;
+        case 'revoke-invite-type':
+          sendResponse(await handleRevokeInviteType(message));
           return;
         case 'update-coop-profile':
           sendResponse(await handleUpdateCoopProfile(message));

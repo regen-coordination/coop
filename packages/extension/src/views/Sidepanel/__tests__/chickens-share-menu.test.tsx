@@ -1,28 +1,19 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { TabCandidate } from '@coop/shared';
 import type { DashboardResponse } from '../../../runtime/messages';
-import { ChickensTab, type ChickensTabProps } from '../tabs/ChickensTab';
+import { ChickensTab } from '../tabs/ChickensTab';
 
-function makeCandidate(overrides: Partial<TabCandidate> = {}): TabCandidate {
+function makeDashboard(): DashboardResponse {
   return {
-    id: 'cand-1',
-    tabId: 1,
-    windowId: 1,
-    url: 'https://example.com/page',
-    canonicalUrl: 'https://example.com/page',
-    title: 'Example Page',
-    domain: 'example.com',
-    capturedAt: new Date().toISOString(),
-    ...overrides,
-  };
-}
-
-function makeDashboard(candidates: TabCandidate[]): DashboardResponse {
-  return {
-    coops: [],
-    candidates,
+    coops: [
+      {
+        profile: { id: 'coop-1', name: 'Test Coop' },
+        artifacts: [],
+      },
+    ],
+    candidates: [],
+    proactiveSignals: [],
     receiverCaptures: [],
     runtimeConfig: {
       archiveMode: 'mock',
@@ -30,6 +21,7 @@ function makeDashboard(candidates: TabCandidate[]): DashboardResponse {
       privacyMode: 'off',
       hasApiKey: false,
     },
+    summary: { pendingDrafts: 0 },
   } as unknown as DashboardResponse;
 }
 
@@ -38,8 +30,7 @@ function makeTabCapture() {
     runManualCapture: vi.fn(),
     runActiveTabCapture: vi.fn(),
     captureVisibleScreenshotAction: vi.fn(),
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
-  } as any;
+  } as ReturnType<typeof import('../hooks/useTabCapture').useTabCapture>;
 }
 
 function makeDraftEditor() {
@@ -61,33 +52,27 @@ function makeDraftEditor() {
     convertReceiverCapture: vi.fn(),
     archiveReceiverCapture: vi.fn(),
     toggleReceiverCaptureArchiveWorthiness: vi.fn(),
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
-  } as any;
+  } as ReturnType<typeof import('../hooks/useDraftEditor').useDraftEditor>;
 }
 
-describe('ChickensTab candidate cards', () => {
+describe('ChickensTab compact cards', () => {
   afterEach(cleanup);
 
-  it('renders a ShareMenu for each candidate in an expanded domain group', () => {
-    const candidates = [
-      makeCandidate({ id: 'c1', url: 'https://example.com/a', title: 'Page A' }),
-      makeCandidate({ id: 'c2', url: 'https://example.com/b', title: 'Page B' }),
-    ];
-
-    const { container } = render(
+  it('renders the Review segment with an empty state when no items exist', () => {
+    render(
       <ChickensTab
-        dashboard={makeDashboard(candidates)}
+        dashboard={makeDashboard()}
+        agentDashboard={null}
         visibleDrafts={[]}
         draftEditor={makeDraftEditor()}
         inferenceState={null}
-        runtimeConfig={makeDashboard(candidates).runtimeConfig}
+        runtimeConfig={makeDashboard().runtimeConfig}
         tabCapture={makeTabCapture()}
+        synthesisSegment="review"
+        onSelectSynthesisSegment={vi.fn()}
       />,
     );
 
-    // With only 2 candidates (< COLLAPSE_THRESHOLD of 3), the group should be expanded by default
-    // Each candidate card should have a ShareMenu container
-    const shareMenus = container.querySelectorAll('.share-menu');
-    expect(shareMenus.length).toBe(2);
+    expect(screen.getByText('Round up some tabs to see chickens here.')).toBeTruthy();
   });
 });

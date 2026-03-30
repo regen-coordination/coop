@@ -62,6 +62,7 @@ export function buildGreenGoodsLiveMintConfig(input: {
 
 type GreenGoodsPreflightClient = {
   getBalance(args: { address: Address }): Promise<bigint>;
+  getBlockNumber(): Promise<bigint>;
   getLogs(args: {
     address?: Address;
     fromBlock?: bigint;
@@ -75,6 +76,8 @@ type GreenGoodsPreflightClient = {
   }): Promise<unknown>;
   request(args: { method: string; params?: unknown[] }): Promise<unknown>;
 };
+
+const GARDEN_NAME_SCAN_BLOCK_SPAN = 999n;
 
 function buildGreenGoodsMintCall(input: {
   deployment: ReturnType<typeof getGreenGoodsDeployment>;
@@ -95,29 +98,47 @@ function buildGreenGoodsMintCall(input: {
 }
 
 export async function assertGreenGoodsGardenNameAvailable(input: {
-  client: Pick<GreenGoodsPreflightClient, 'getLogs'>;
+  client: Pick<GreenGoodsPreflightClient, 'getBlockNumber' | 'getLogs'>;
   chainKey: OnchainState['chainKey'];
   name: string;
 }) {
   const deployment = getGreenGoodsDeployment(input.chainKey);
-  const logs = await input.client.getLogs({
-    address: deployment.gardenToken,
-    fromBlock: 0n,
-  });
   const normalizedName = input.name.trim();
-  const existingMint = logs
-    .map((log) => decodeGardenMintLog(log))
-    .find(
-      (decoded) =>
-        decoded !== null && decoded.args.name.trim().toLowerCase() === normalizedName.toLowerCase(),
-    );
-  if (!existingMint) {
+  const normalizedNameLower = normalizedName.toLowerCase();
+  const deploymentBlock = deployment.gardenTokenDeploymentBlock;
+  const latestBlock = await input.client.getBlockNumber();
+
+  if (latestBlock < deploymentBlock) {
     return;
   }
 
-  throw new Error(
-    `Green Goods garden name "${normalizedName}" is already in use. Choose a unique garden name before minting via the coop Safe.`,
-  );
+  let toBlock = latestBlock;
+  while (toBlock >= deploymentBlock) {
+    const fromBlock =
+      toBlock - deploymentBlock > GARDEN_NAME_SCAN_BLOCK_SPAN
+        ? toBlock - GARDEN_NAME_SCAN_BLOCK_SPAN
+        : deploymentBlock;
+    const logs = await input.client.getLogs({
+      address: deployment.gardenToken,
+      fromBlock,
+      toBlock,
+    });
+    const existingMint = logs
+      .map((log) => decodeGardenMintLog(log))
+      .find(
+        (decoded) =>
+          decoded !== null && decoded.args.name.trim().toLowerCase() === normalizedNameLower,
+      );
+    if (existingMint) {
+      throw new Error(
+        `Green Goods garden name "${normalizedName}" is already in use. Choose a unique garden name before minting via the coop Safe.`,
+      );
+    }
+    if (fromBlock === deploymentBlock) {
+      return;
+    }
+    toBlock = fromBlock - 1n;
+  }
 }
 
 export async function estimateGreenGoodsGardenRegistrationFee(input: {

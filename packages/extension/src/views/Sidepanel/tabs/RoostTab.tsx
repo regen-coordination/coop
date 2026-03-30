@@ -45,9 +45,7 @@ export interface RoostTabProps {
     metadataCid: string;
     mediaCids: string[];
   }) => Promise<void>;
-  onOpenSynthesisSegment: (
-    segment: Extract<SidepanelIntentSegment, 'signals' | 'drafts' | 'stale'>,
-  ) => void;
+  onOpenSynthesisSegment: (segment: Extract<SidepanelIntentSegment, 'review'>) => void;
 }
 
 export function RoostTab({
@@ -122,24 +120,10 @@ export function RoostTab({
         <div className="nest-quick-actions">
           <button
             className="secondary-button"
-            onClick={() => onOpenSynthesisSegment('signals')}
+            onClick={() => onOpenSynthesisSegment('review')}
             type="button"
           >
-            Open Signals
-          </button>
-          <button
-            className="secondary-button"
-            onClick={() => onOpenSynthesisSegment('drafts')}
-            type="button"
-          >
-            Review Drafts
-          </button>
-          <button
-            className="secondary-button"
-            onClick={() => onOpenSynthesisSegment('stale')}
-            type="button"
-          >
-            Clear Stale
+            Review Chickens
           </button>
         </div>
       </article>

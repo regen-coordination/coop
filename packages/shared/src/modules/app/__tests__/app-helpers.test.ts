@@ -76,7 +76,7 @@ describe('shared app helpers', () => {
     ).toBe('blocked');
     expect(extensionIconStateLabel('blocked')).toBe('Blocked');
     expect(extensionIconBadge('blocked')).toEqual({
-      text: '',
+      text: '!',
       color: '#a63b20',
     });
   });

@@ -5,6 +5,8 @@ import { PopupDraftDetailScreen } from './PopupDraftDetailScreen';
 import { PopupDraftListScreen } from './PopupDraftListScreen';
 import { PopupFeedScreen } from './PopupFeedScreen';
 import { PopupHomeScreen } from './PopupHomeScreen';
+import { PopupInviteHubScreen } from './PopupInviteHubScreen';
+import { PopupInviteSuccessScreen } from './PopupInviteSuccessScreen';
 import { PopupJoinCoopScreen } from './PopupJoinCoopScreen';
 import { PopupNoCoopScreen } from './PopupNoCoopScreen';
 import { PopupProfilePanel } from './PopupProfilePanel';
@@ -45,6 +47,35 @@ export function PopupScreenRouter({ state }: { state: PopupOrchestrationState })
           onChange={state.navigation.setJoinForm}
           onSubmit={state.handleJoinSubmit}
           submitting={state.joinSubmitting}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  if (currentScreen === 'invites') {
+    return (
+      <ErrorBoundary>
+        <PopupInviteHubScreen
+          coops={state.inviteHubCoops}
+          onShareInvite={state.openShareDialog}
+          onCopyInvite={state.copyInviteCode}
+          onRegenerateInvite={state.regenerateInviteCode}
+          onRevokeInvite={state.revokeInviteType}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  if (currentScreen === 'invite-success') {
+    return (
+      <ErrorBoundary>
+        <PopupInviteSuccessScreen
+          coop={state.createdInviteCoop}
+          onShareInvite={state.openShareDialog}
+          onCopyInvite={state.copyInviteCode}
+          onEnterCoop={state.enterCreatedCoop}
+          onRegenerateInvite={state.regenerateInviteCode}
+          onRevokeInvite={state.revokeInviteType}
         />
       </ErrorBoundary>
     );
@@ -105,9 +136,6 @@ export function PopupScreenRouter({ state }: { state: PopupOrchestrationState })
         <PopupProfilePanel
           accountLabel={state.accountLabel}
           coops={state.profileCoops}
-          onCopyInviteCode={state.onCopyInviteCode}
-          onCreate={state.openCreateFlow}
-          onJoin={state.openJoinFlow}
           onSetAgentCadence={(minutes) =>
             void state.updateUiPreferences({ agentCadenceMinutes: minutes })
           }

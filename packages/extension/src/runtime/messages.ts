@@ -108,7 +108,7 @@ export interface CoopBadgeSummary {
 }
 
 export type SidepanelIntentTab = 'roost' | 'chickens' | 'coops' | 'nest';
-export type SidepanelIntentSegment = 'signals' | 'drafts' | 'stale' | 'summary' | 'agent';
+export type SidepanelIntentSegment = 'review' | 'shared' | 'summary' | 'agent';
 
 export interface SidepanelIntent {
   tab: SidepanelIntentTab;
@@ -341,8 +341,20 @@ export type RuntimeRequest =
       payload: { coopId: string; inviteType: InviteType; createdBy: string };
     }
   | {
+      type: 'ensure-invite-codes';
+      payload: { coopId: string; createdBy: string; inviteTypes?: InviteType[] };
+    }
+  | {
+      type: 'regenerate-invite-code';
+      payload: { coopId: string; inviteType: InviteType; createdBy: string };
+    }
+  | {
       type: 'revoke-invite';
       payload: { coopId: string; inviteId: string; revokedBy: string };
+    }
+  | {
+      type: 'revoke-invite-type';
+      payload: { coopId: string; inviteType: InviteType; revokedBy: string };
     }
   | {
       type: 'update-coop-profile';

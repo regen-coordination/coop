@@ -36,6 +36,7 @@ export default function AudienceTabs() {
         <Link
           key={audience}
           className={`${styles.tab}${audience === activeAudience ? ` ${styles.tabActive}` : ''}`}
+          aria-current={audience === activeAudience ? 'page' : undefined}
           to={targets[audience]}
         >
           {LABELS[audience]}

@@ -151,6 +151,16 @@ export function summarizeSyncStatus(input: {
 }): Pick<RuntimeSummary, 'syncState' | 'syncLabel' | 'syncDetail' | 'syncTone'> {
   const { coopCount, runtimeHealth, pendingOutboxCount = 0 } = input;
 
+  if (runtimeHealth.missingPermission) {
+    return {
+      syncState: 'Required extension permissions are missing.',
+      syncLabel: 'Permission',
+      syncDetail:
+        'Required extension permissions are missing. Check Coop site access and extension permissions.',
+      syncTone: 'error',
+    };
+  }
+
   if (coopCount === 0) {
     return {
       syncState: 'No coop yet',
@@ -223,8 +233,43 @@ export function summarizeSyncStatus(input: {
   };
 }
 
+function formatAttentionBreakdown(summary: {
+  pendingDrafts: number;
+  routedTabs: number;
+  pendingActions: number;
+  staleObservationCount: number;
+}) {
+  const parts = [
+    summary.pendingDrafts > 0
+      ? `${summary.pendingDrafts} draft${summary.pendingDrafts === 1 ? '' : 's'}`
+      : null,
+    summary.routedTabs > 0
+      ? `${summary.routedTabs} signal${summary.routedTabs === 1 ? '' : 's'}`
+      : null,
+    summary.pendingActions > 0
+      ? `${summary.pendingActions} action${summary.pendingActions === 1 ? '' : 's'}`
+      : null,
+    summary.staleObservationCount > 0
+      ? `${summary.staleObservationCount} stale observation${
+          summary.staleObservationCount === 1 ? '' : 's'
+        }`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? parts.join(', ') : 'nothing waiting for review';
+}
+
 export function extensionActionTitle(
-  summary: Pick<RuntimeSummary, 'iconState' | 'pendingAttentionCount' | 'syncDetail'>,
+  summary: Pick<
+    RuntimeSummary,
+    | 'iconState'
+    | 'pendingAttentionCount'
+    | 'pendingDrafts'
+    | 'routedTabs'
+    | 'pendingActions'
+    | 'staleObservationCount'
+    | 'syncDetail'
+  >,
 ) {
   switch (summary.iconState) {
     case 'setup':
@@ -232,7 +277,9 @@ export function extensionActionTitle(
     case 'blocked':
       return summary.syncDetail ? `Coop: ${summary.syncDetail}` : 'Coop: Error';
     case 'attention':
-      return `Coop: ${summary.pendingAttentionCount} waiting for review`;
+      return `Coop: ${summary.pendingAttentionCount} pending review (${formatAttentionBreakdown(
+        summary,
+      )})`;
     case 'working':
       return 'Coop: Processing';
     case 'ready':
@@ -245,13 +292,29 @@ export function extensionActionTitle(
 }
 
 export function describeActionIndicator(
-  summary: Pick<RuntimeSummary, 'iconState' | 'pendingAttentionCount' | 'syncDetail'>,
+  summary: Pick<
+    RuntimeSummary,
+    | 'iconState'
+    | 'pendingAttentionCount'
+    | 'pendingDrafts'
+    | 'routedTabs'
+    | 'pendingActions'
+    | 'staleObservationCount'
+    | 'syncDetail'
+  >,
 ) {
   const badge = extensionIconBadge(summary.iconState);
   const count = summary.pendingAttentionCount;
   return {
     badgeColor: badge.color,
-    badgeText: count > 0 ? (count > 99 ? '99+' : String(count)) : '',
+    badgeText:
+      summary.iconState === 'attention'
+        ? count > 0
+          ? count > 99
+            ? '99+'
+            : String(count)
+          : ''
+        : badge.text,
     title: extensionActionTitle(summary),
   };
 }
@@ -507,8 +570,8 @@ export async function writePopupSnapshot(
   coops: Array<{ profile: { id: string; name: string }; artifacts: unknown[] }>,
   drafts: ReviewDraft[],
 ) {
-  const recentDraftTitles = drafts
-    .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const recentDraftTitles = [...drafts]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 3)
     .map((d) => d.title);
 
@@ -564,7 +627,7 @@ export async function getDashboard(): Promise<DashboardResponse> {
   const [
     coops,
     drafts,
-    candidates,
+    rawCandidates,
     tabRoutings,
     summaryResult,
     soundPreferences,
@@ -588,6 +651,15 @@ export async function getDashboard(): Promise<DashboardResponse> {
     listReceiverCaptures(db),
     db.captureRuns.orderBy('capturedAt').reverse().limit(5).toArray(),
   ]);
+  // Dedup: listTabCandidates returns capturedAt-descending, so the first
+  // occurrence of each canonicalUrlHash is the most recent capture.  Keeping
+  // only that one prevents re-captured tabs from appearing as duplicates.
+  const seenUrlHashes = new Set<string>();
+  const candidates = rawCandidates.filter((c) => {
+    if (c.canonicalUrlHash && seenUrlHashes.has(c.canonicalUrlHash)) return false;
+    if (c.canonicalUrlHash) seenUrlHashes.add(c.canonicalUrlHash);
+    return true;
+  });
   const { summary } = summaryResult;
   const activeContext = await getActiveReviewContextForSession(coops, authSession);
   const orderedDrafts = drafts;

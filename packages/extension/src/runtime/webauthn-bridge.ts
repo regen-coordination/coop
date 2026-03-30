@@ -124,6 +124,21 @@ function deserializeAssertionCredential(
   } as unknown as Credential;
 }
 
+function canHandleWebAuthnBridgeRequest() {
+  if (typeof document === 'undefined') {
+    return true;
+  }
+
+  const isVisible = document.visibilityState !== 'hidden';
+  const hasFocus = typeof document.hasFocus === 'function' ? document.hasFocus() : true;
+  const hasUserActivation =
+    typeof navigator !== 'undefined' && 'userActivation' in navigator
+      ? navigator.userActivation?.isActive === true
+      : false;
+
+  return isVisible && (hasFocus || hasUserActivation);
+}
+
 export async function requestWebAuthnCredentialViaExtensionBridge(
   options?: CredentialRequestOptions,
 ) {
@@ -158,6 +173,10 @@ export function registerWebAuthnCredentialBridge() {
         ok: false,
         error: 'Unauthorized WebAuthn bridge sender.',
       } satisfies WebAuthnBridgeResponse);
+      return;
+    }
+
+    if (!canHandleWebAuthnBridgeRequest()) {
       return;
     }
 

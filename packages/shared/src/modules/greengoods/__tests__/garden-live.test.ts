@@ -37,6 +37,7 @@ vi.mock('viem', async (importOriginal) => {
 });
 
 import {
+  assertGreenGoodsGardenNameAvailable,
   buildGreenGoodsLiveMintConfig,
   createGreenGoodsGarden,
   preflightGreenGoodsGardenMint,
@@ -184,8 +185,10 @@ describe('Green Goods garden live rails', () => {
   it('creates a live garden from receipt logs after preflight checks pass', async () => {
     const garden = buildGardenState();
     const deployment = getGreenGoodsDeployment('sepolia');
+    const latestGardenBlock = deployment.gardenTokenDeploymentBlock + 42n;
     const request = vi.fn().mockResolvedValue('0x');
     const getLogs = vi.fn().mockResolvedValue([]);
+    const getBlockNumber = vi.fn().mockResolvedValue(latestGardenBlock);
     const getBalance = vi.fn().mockResolvedValue(500n);
     const mintConfig = buildGreenGoodsLiveMintConfig({
       garden,
@@ -208,6 +211,7 @@ describe('Green Goods garden live rails', () => {
     });
 
     createCoopPublicClientMock.mockResolvedValue({
+      getBlockNumber,
       getLogs,
       getBalance,
       readContract,
@@ -252,7 +256,8 @@ describe('Green Goods garden live rails', () => {
 
     expect(getLogs).toHaveBeenCalledWith({
       address: deployment.gardenToken,
-      fromBlock: 0n,
+      fromBlock: deployment.gardenTokenDeploymentBlock,
+      toBlock: latestGardenBlock,
     });
     expect(readContract).toHaveBeenCalledWith({
       address: deployment.greenGoodsENS,
@@ -295,8 +300,58 @@ describe('Green Goods garden live rails', () => {
     });
   });
 
+  it('scans garden mint logs in provider-sized chunks when checking name availability', async () => {
+    const garden = buildGardenState();
+    const deployment = getGreenGoodsDeployment('sepolia');
+    const latestGardenBlock = deployment.gardenTokenDeploymentBlock + 1200n;
+    const getBlockNumber = vi.fn().mockResolvedValue(latestGardenBlock);
+    const getLogs = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        buildGardenMintedLog({
+          tokenId: 11n,
+          account: GARDEN_ADDRESS,
+          name: garden.name,
+          description: garden.description,
+          location: garden.location,
+          bannerImage: garden.bannerImage,
+          openJoining: garden.openJoining,
+        }),
+      ]);
+
+    await expect(
+      assertGreenGoodsGardenNameAvailable({
+        client: {
+          getBlockNumber,
+          getLogs,
+        } as never,
+        chainKey: 'sepolia',
+        name: garden.name,
+      }),
+    ).rejects.toThrow(`Green Goods garden name "${garden.name}" is already in use.`);
+
+    expect(getLogs.mock.calls).toEqual([
+      [
+        {
+          address: deployment.gardenToken,
+          fromBlock: deployment.gardenTokenDeploymentBlock + 201n,
+          toBlock: latestGardenBlock,
+        },
+      ],
+      [
+        {
+          address: deployment.gardenToken,
+          fromBlock: deployment.gardenTokenDeploymentBlock,
+          toBlock: deployment.gardenTokenDeploymentBlock + 200n,
+        },
+      ],
+    ]);
+  });
+
   it('falls back to the canonical receipt when the executor receipt omits GardenMinted logs', async () => {
     const garden = buildGardenState();
+    const deployment = getGreenGoodsDeployment('sepolia');
     const canonicalLog = buildGardenMintedLog({
       tokenId: 9n,
       account: GARDEN_ADDRESS,
@@ -312,6 +367,7 @@ describe('Green Goods garden live rails', () => {
     });
 
     createCoopPublicClientMock.mockResolvedValue({
+      getBlockNumber: vi.fn().mockResolvedValue(deployment.gardenTokenDeploymentBlock),
       getLogs: vi.fn().mockResolvedValue([]),
       getBalance: vi.fn().mockResolvedValue(0n),
       readContract: vi.fn(async ({ functionName }: { functionName: string }) => {
@@ -363,8 +419,10 @@ describe('Green Goods garden live rails', () => {
 
   it('fails clearly when a live executor returns no receipt', async () => {
     const garden = buildGardenState();
+    const deployment = getGreenGoodsDeployment('sepolia');
 
     createCoopPublicClientMock.mockResolvedValue({
+      getBlockNumber: vi.fn().mockResolvedValue(deployment.gardenTokenDeploymentBlock),
       getLogs: vi.fn().mockResolvedValue([]),
       getBalance: vi.fn().mockResolvedValue(0n),
       readContract: vi.fn(async ({ functionName }: { functionName: string }) => {

@@ -1,3 +1,4 @@
+import { InviteShareComposer } from '../shared/InviteShareComposer';
 import { PopupArtifactDialog } from './PopupArtifactDialog';
 import { PopupBlockingNotice } from './PopupBlockingNotice';
 import { PopupCaptureReviewDialog } from './PopupCaptureReviewDialog';
@@ -16,12 +17,15 @@ export function PopupApp() {
       brandActionLabel="Play coop sound"
       brandTooltip="Play coop sound"
       onBack={
-        ['create', 'join', 'draft-detail', 'profile'].includes(state.currentScreen)
+        ['create', 'join', 'invites', 'invite-success', 'draft-detail', 'profile'].includes(
+          state.currentScreen,
+        )
           ? state.navigateBack
           : undefined
       }
       onBrandAction={state.playBrandSound}
       onCreateCoop={state.showCreateJoinInHeader ? state.openCreateFlow : undefined}
+      onOpenInviteHub={state.showInviteHubInHeader ? () => void state.openInviteHub() : undefined}
       onJoinCoop={state.showCreateJoinInHeader ? state.openJoinFlow : undefined}
       onOpenProfile={state.showProfileAction ? state.openProfilePanel : undefined}
       onSetTheme={state.theme.setThemePreference}
@@ -54,6 +58,15 @@ export function PopupApp() {
       onClose={state.handleDismissPendingCapture}
       onSave={() => void state.handleSavePendingCapture()}
       saving={state.isCapturing}
+    />
+  ) : null;
+
+  const shareComposerOverlay = state.shareDialogInvite ? (
+    <InviteShareComposer
+      invite={state.shareDialogInvite}
+      onClose={state.closeShareDialog}
+      onToast={state.showToast}
+      variant="popup"
     />
   ) : null;
 
@@ -91,7 +104,7 @@ export function PopupApp() {
       footer={footer}
       header={header}
       message={state.message}
-      overlay={captureOverlay ?? artifactOverlay ?? blockingOverlay}
+      overlay={shareComposerOverlay ?? captureOverlay ?? artifactOverlay ?? blockingOverlay}
       screenKey={state.currentScreen}
       theme={state.theme.resolvedTheme}
     >

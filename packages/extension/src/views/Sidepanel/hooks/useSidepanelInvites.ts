@@ -29,7 +29,7 @@ export function useSidepanelInvites(deps: SidepanelInvitesDeps) {
     }
     const creator = activeMember.id;
     const response = await sendRuntimeMessage<InviteCode>({
-      type: 'create-invite',
+      type: 'regenerate-invite-code',
       payload: {
         coopId: activeCoop.profile.id,
         inviteType,
@@ -37,11 +37,11 @@ export function useSidepanelInvites(deps: SidepanelInvitesDeps) {
       },
     });
     if (!response.ok || !response.data) {
-      setMessage(response.error ?? 'Invite creation failed.');
+      setMessage(response.error ?? 'Invite regeneration failed.');
       return;
     }
     setInviteResult(response.data);
-    setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} flock invite generated.`);
+    setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} flock invite regenerated.`);
     await loadDashboard();
   }
 
@@ -62,6 +62,29 @@ export function useSidepanelInvites(deps: SidepanelInvitesDeps) {
       return;
     }
     setMessage('Invite revoked.');
+    await loadDashboard();
+  }
+
+  async function revokeInviteType(inviteType: 'trusted' | 'member') {
+    if (!activeCoop || !activeMember) {
+      return;
+    }
+    const response = await sendRuntimeMessage({
+      type: 'revoke-invite-type',
+      payload: {
+        coopId: activeCoop.profile.id,
+        inviteType,
+        revokedBy: activeMember.id,
+      },
+    });
+    if (!response.ok) {
+      setMessage(response.error ?? 'Invite revoke failed.');
+      return;
+    }
+    if (inviteResult?.type === inviteType) {
+      setInviteResult(null);
+    }
+    setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} flock invite revoked.`);
     await loadDashboard();
   }
 
@@ -132,6 +155,7 @@ export function useSidepanelInvites(deps: SidepanelInvitesDeps) {
   return {
     createInvite,
     revokeInvite,
+    revokeInviteType,
     createReceiverPairing,
     selectReceiverPairing,
     handleProvisionMemberOnchainAccount,

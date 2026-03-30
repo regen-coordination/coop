@@ -1,16 +1,18 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * ChickensTab subheader regression fix:
- * - Action buttons use popup-icon-button class + Tooltip wrapping inside sidepanel-action-row
- * - Round Up gets popup-icon-button--primary
- * - Filter popovers rendered inline in the same action row
+ * ChickensTab subheader structure (post-simplification):
+ * - Two segment tabs: "Review" and "Shared" via PopupSubheader
+ * - Category filter popover (only shown on the Review segment when categories exist)
+ * - Clear button when a filter is active
+ * - No action buttons (Round Up, Capture Tab, Screenshot)
+ * - No Status or Time filter popovers
  * - Uses SidepanelSubheader sticky wrapper
  */
 
 import type { ReviewDraft } from '@coop/shared';
-import type { InferenceBridgeState } from '../../../../runtime/inference-bridge';
 import type { AgentDashboardResponse, DashboardResponse } from '../../../../runtime/messages';
 import type { useDraftEditor } from '../../hooks/useDraftEditor';
 import type { useTabCapture } from '../../hooks/useTabCapture';
@@ -123,7 +125,7 @@ function buildProps(overrides: Partial<ChickensTabProps> = {}): ChickensTabProps
     inferenceState: null,
     runtimeConfig: buildDashboard().runtimeConfig,
     tabCapture: buildTabCapture(),
-    synthesisSegment: 'signals',
+    synthesisSegment: 'review',
     onSelectSynthesisSegment: vi.fn(),
     ...overrides,
   };
@@ -133,63 +135,150 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('ChickensTab subheader regression (popup-icon-button)', () => {
-  it('renders Round Up as popup-icon-button--primary inside sidepanel-action-row', () => {
+describe('ChickensTab subheader (review/shared segments)', () => {
+  it('renders Review and Shared segment tabs in the subheader', () => {
     render(<ChickensTab {...buildProps()} />);
 
-    const actionRow = document.querySelector('.sidepanel-action-row');
-    expect(actionRow).not.toBeNull();
-
-    const roundUpBtn = screen.getByLabelText('Round Up');
-    expect(roundUpBtn.classList.contains('popup-icon-button')).toBe(true);
-    expect(roundUpBtn.classList.contains('popup-icon-button--primary')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Shared' })).toBeInTheDocument();
   });
 
-  it('renders Capture Tab and Screenshot as default popup-icon-button', () => {
-    render(<ChickensTab {...buildProps()} />);
-
-    const captureBtn = screen.getByLabelText('Capture Tab');
-    expect(captureBtn.classList.contains('popup-icon-button')).toBe(true);
-    expect(captureBtn.classList.contains('popup-icon-button--primary')).toBe(false);
-
-    const screenshotBtn = screen.getByLabelText('Screenshot');
-    expect(screenshotBtn.classList.contains('popup-icon-button')).toBe(true);
-    expect(screenshotBtn.classList.contains('popup-icon-button--primary')).toBe(false);
-  });
-
-  it('renders filter popovers inline in the action row', () => {
-    render(<ChickensTab {...buildProps()} />);
-
-    const actionRow = document.querySelector('.sidepanel-action-row');
-    expect(actionRow).not.toBeNull();
-
-    // Status and Time filter buttons should be present
-    expect(screen.getByRole('button', { name: /status/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /time/i })).toBeInTheDocument();
-  });
-
-  it('wraps action row in a sticky sidepanel-subheader', () => {
+  it('wraps content in a sticky sidepanel-subheader', () => {
     render(<ChickensTab {...buildProps()} />);
 
     const wrapper = document.querySelector('.sidepanel-subheader');
     expect(wrapper).not.toBeNull();
     expect(wrapper?.querySelector('.sidepanel-action-row')).not.toBeNull();
-    // Old BEM sub-element classes remain absent
-    expect(document.querySelector('.sidepanel-subheader__action')).toBeNull();
-    expect(document.querySelector('.sidepanel-subheader__actions')).toBeNull();
   });
 
-  it('renders all three action buttons as icon-only with aria-label', () => {
+  it('does not render action buttons (Round Up, Capture Tab, Screenshot)', () => {
     render(<ChickensTab {...buildProps()} />);
 
-    const actionButtons = document.querySelectorAll('.popup-icon-button');
-    expect(actionButtons.length).toBe(3);
-    for (const btn of actionButtons) {
-      expect(btn.getAttribute('aria-label')).toBeTruthy();
-    }
+    expect(screen.queryByLabelText('Round Up')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Capture Tab')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Screenshot')).not.toBeInTheDocument();
   });
 
-  it('renders the synthesis queue with signals counts and support text', () => {
+  it('does not render Status or Time filter buttons', () => {
+    render(<ChickensTab {...buildProps()} />);
+
+    expect(screen.queryByRole('button', { name: /status/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /time/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the category filter when drafts have multiple categories', () => {
+    render(
+      <ChickensTab
+        {...buildProps({
+          visibleDrafts: [
+            {
+              id: 'draft-1',
+              category: 'insight',
+              title: 'Insight item',
+              tags: [],
+              whyItMatters: '',
+              suggestedNextStep: '',
+              sources: [],
+              createdAt: new Date().toISOString(),
+              suggestedTargetCoopIds: [],
+            } as unknown as ReviewDraft,
+            {
+              id: 'draft-2',
+              category: 'opportunity',
+              title: 'Opportunity item',
+              tags: [],
+              whyItMatters: '',
+              suggestedNextStep: '',
+              sources: [],
+              createdAt: new Date().toISOString(),
+              suggestedTargetCoopIds: [],
+            } as unknown as ReviewDraft,
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /category/i })).toBeInTheDocument();
+  });
+
+  it('hides the category filter on the shared segment', () => {
+    render(
+      <ChickensTab
+        {...buildProps({
+          synthesisSegment: 'shared',
+          visibleDrafts: [
+            {
+              id: 'draft-1',
+              category: 'insight',
+              title: 'Insight item',
+              tags: [],
+              whyItMatters: '',
+              suggestedNextStep: '',
+              sources: [],
+              createdAt: new Date().toISOString(),
+              suggestedTargetCoopIds: [],
+            } as unknown as ReviewDraft,
+            {
+              id: 'draft-2',
+              category: 'opportunity',
+              title: 'Opportunity item',
+              tags: [],
+              whyItMatters: '',
+              suggestedNextStep: '',
+              sources: [],
+              createdAt: new Date().toISOString(),
+              suggestedTargetCoopIds: [],
+            } as unknown as ReviewDraft,
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: /category/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a clear button when a category filter is applied', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ChickensTab
+        {...buildProps({
+          visibleDrafts: [
+            {
+              id: 'draft-1',
+              category: 'insight',
+              title: 'Insight item',
+              tags: [],
+              whyItMatters: '',
+              suggestedNextStep: '',
+              sources: [],
+              createdAt: new Date().toISOString(),
+              suggestedTargetCoopIds: [],
+            } as unknown as ReviewDraft,
+            {
+              id: 'draft-2',
+              category: 'opportunity',
+              title: 'Opportunity item',
+              tags: [],
+              whyItMatters: '',
+              suggestedNextStep: '',
+              sources: [],
+              createdAt: new Date().toISOString(),
+              suggestedTargetCoopIds: [],
+            } as unknown as ReviewDraft,
+          ],
+          dashboard: buildDashboard({ proactiveSignals: [] }),
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /category/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Insight' }));
+
+    expect(screen.getByRole('button', { name: /clear/i })).toBeInTheDocument();
+  });
+
+  it('renders review items with compact cards showing signals', () => {
     render(
       <ChickensTab
         {...buildProps({
@@ -233,9 +322,7 @@ describe('ChickensTab subheader regression (popup-icon-button)', () => {
       />,
     );
 
-    expect(screen.getByText('Synthesis Queue')).toBeInTheDocument();
     expect(screen.getByText('River signal')).toBeInTheDocument();
-    expect(screen.getByText('Memory from Starter Coop')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /signals/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument();
   });
 });

@@ -24,8 +24,6 @@ const DEFAULT_DESCRIPTION = 'Coordinate live Green Goods garden operations.';
 const DEFAULT_LOCATION = 'Arbitrum';
 const DEFAULT_DOMAINS = ['agro'] satisfies GreenGoodsDomain[];
 const GAS_SWEEP = [24_000_000n, 25_000_000n, 26_000_000n, 28_000_000n, 30_000_000n] as const;
-const PROBE_OWNER_PRIVATE_KEY =
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as const;
 
 function parseChainKey(): CoopChainKey {
   if (process.env.COOP_GREENGOODS_SIM_CHAIN === 'sepolia') {
@@ -80,6 +78,14 @@ function formatBlockLabel(value: string) {
 
 function formatProbeResult(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function resolveProbeOwnerPrivateKey() {
+  const configured =
+    process.env.COOP_GREENGOODS_SIM_OWNER_PRIVATE_KEY ?? process.env.COOP_ONCHAIN_PROBE_PRIVATE_KEY;
+  return configured && /^0x[a-fA-F0-9]{64}$/.test(configured)
+    ? (configured as `0x${string}`)
+    : undefined;
 }
 
 async function main() {
@@ -150,21 +156,24 @@ async function main() {
     callData: mintData,
     hasPaymaster: true,
   });
-
-  const probeOwner = privateKeyToAccount(PROBE_OWNER_PRIVATE_KEY);
-  const safeAccount = await toSafeSmartAccount({
-    client: publicClient,
-    owners: [probeOwner],
-    address: safeAddress,
-    version: '1.4.1',
-  });
-  const safeWrapperData = await safeAccount.encodeCalls([
-    {
-      to: deployment.gardenToken,
-      value: fee,
-      data: mintData,
-    },
-  ]);
+  const probeOwnerPrivateKey = resolveProbeOwnerPrivateKey();
+  const safeAccount = probeOwnerPrivateKey
+    ? await toSafeSmartAccount({
+        client: publicClient,
+        owners: [privateKeyToAccount(probeOwnerPrivateKey)],
+        address: safeAddress,
+        version: '1.4.1',
+      })
+    : null;
+  const safeWrapperData = safeAccount
+    ? await safeAccount.encodeCalls([
+        {
+          to: deployment.gardenToken,
+          value: fee,
+          data: mintData,
+        },
+      ])
+    : null;
 
   const directCall = {
     from: safeAddress,
@@ -173,7 +182,7 @@ async function main() {
     value: toHex(fee),
   } as const;
   const safeCall = {
-    from: safeAccount.entryPoint.address,
+    from: safeAccount?.entryPoint.address,
     to: safeAddress,
     data: safeWrapperData,
   } as const;
@@ -184,7 +193,13 @@ async function main() {
   console.log(`[probe:greengoods-sim] RPC: ${rpcUrl ?? chainConfig.chain.rpcUrls.default.http[0]}`);
   console.log(`[probe:greengoods-sim] Block: ${formatBlockLabel(blockTag)}`);
   console.log(`[probe:greengoods-sim] Safe: ${safeAddress}`);
-  console.log(`[probe:greengoods-sim] EntryPoint: ${safeAccount.entryPoint.address}`);
+  if (safeAccount) {
+    console.log(`[probe:greengoods-sim] EntryPoint: ${safeAccount.entryPoint.address}`);
+  } else {
+    console.log(
+      '[probe:greengoods-sim] Safe wrapper simulation skipped. Set COOP_GREENGOODS_SIM_OWNER_PRIVATE_KEY or COOP_ONCHAIN_PROBE_PRIVATE_KEY to the Safe owner key to exercise the wrapped Safe path.',
+    );
+  }
   console.log(
     `[probe:greengoods-sim] Operators: ${operatorAddresses.length > 0 ? operatorAddresses.join(', ') : '(none)'}`,
   );
@@ -198,7 +213,9 @@ async function main() {
     `[probe:greengoods-sim] Safe balance: ${safeBalance} wei | ENS fee: ${fee} wei | safe funded: ${safeBalance >= fee}`,
   );
   console.log(
-    `[probe:greengoods-sim] Direct calldata bytes: ${(mintData.length - 2) / 2} | Safe wrapper bytes: ${(safeWrapperData.length - 2) / 2}`,
+    `[probe:greengoods-sim] Direct calldata bytes: ${(mintData.length - 2) / 2}${
+      safeWrapperData ? ` | Safe wrapper bytes: ${(safeWrapperData.length - 2) / 2}` : ''
+    }`,
   );
   console.log(
     `[probe:greengoods-sim] Shared fallback gas profile: call=${gasProfile.callGasLimit} verification=${gasProfile.verificationGasLimit} preVerification=${gasProfile.preVerificationGas} paymasterVerification=${gasProfile.paymasterVerificationGasLimit ?? 0n} paymasterPostOp=${gasProfile.paymasterPostOpGasLimit ?? 0n}`,
@@ -236,18 +253,20 @@ async function main() {
     console.log(`[probe:greengoods-sim] Direct estimateGas: failed -> ${formatProbeResult(error)}`);
   }
 
-  try {
-    const estimate = await publicClient.request({
-      method: 'eth_estimateGas',
-      params: [safeCall],
-    });
-    console.log(
-      `[probe:greengoods-sim] Exact Safe wrapper estimateGas: ${BigInt(estimate).toString()}`,
-    );
-  } catch (error) {
-    console.log(
-      `[probe:greengoods-sim] Exact Safe wrapper estimateGas: failed -> ${formatProbeResult(error)}`,
-    );
+  if (safeAccount && safeWrapperData) {
+    try {
+      const estimate = await publicClient.request({
+        method: 'eth_estimateGas',
+        params: [safeCall],
+      });
+      console.log(
+        `[probe:greengoods-sim] Exact Safe wrapper estimateGas: ${BigInt(estimate).toString()}`,
+      );
+    } catch (error) {
+      console.log(
+        `[probe:greengoods-sim] Exact Safe wrapper estimateGas: failed -> ${formatProbeResult(error)}`,
+      );
+    }
   }
 
   try {
@@ -260,15 +279,19 @@ async function main() {
     console.log(`[probe:greengoods-sim] Direct eth_call: failed -> ${formatProbeResult(error)}`);
   }
 
-  for (const gas of GAS_SWEEP) {
-    try {
-      const result = await publicClient.request({
-        method: 'eth_call',
-        params: [{ ...safeCall, gas: toHex(gas) }, blockTag],
-      });
-      console.log(`[probe:greengoods-sim] Safe gas=${gas}: ok -> ${result}`);
-    } catch (error) {
-      console.log(`[probe:greengoods-sim] Safe gas=${gas}: failed -> ${formatProbeResult(error)}`);
+  if (safeAccount && safeWrapperData) {
+    for (const gas of GAS_SWEEP) {
+      try {
+        const result = await publicClient.request({
+          method: 'eth_call',
+          params: [{ ...safeCall, gas: toHex(gas) }, blockTag],
+        });
+        console.log(`[probe:greengoods-sim] Safe gas=${gas}: ok -> ${result}`);
+      } catch (error) {
+        console.log(
+          `[probe:greengoods-sim] Safe gas=${gas}: failed -> ${formatProbeResult(error)}`,
+        );
+      }
     }
   }
 }

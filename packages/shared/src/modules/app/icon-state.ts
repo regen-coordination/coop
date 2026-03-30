@@ -55,7 +55,7 @@ export function extensionIconBadge(state: ExtensionIconState) {
     case 'attention':
       return { text: '', color: '#fd8a01' };
     case 'blocked':
-      return { text: '', color: '#a63b20' };
+      return { text: '!', color: '#a63b20' };
     default: {
       const _exhaustive: never = state;
       return _exhaustive;

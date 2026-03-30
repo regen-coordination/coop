@@ -1,7 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const configState = vi.hoisted(() => ({
+  configuredArchiveMode: 'live' as 'live' | 'mock',
+  configuredChain: 'sepolia',
+  configuredFvmChain: 'filecoin-calibration',
+  configuredFvmOperatorKey: undefined as `0x${string}` | undefined,
+  configuredFvmRegistryAddress: undefined as `0x${string}` | undefined,
+  configuredOnchainMode: 'mock' as 'live' | 'mock',
+  configuredPimlicoApiKey: undefined as string | undefined,
+}));
+
 const mocks = vi.hoisted(() => ({
+  createOwnerSafeExecutionContext: vi.fn(),
   createStorachaArchiveClient: vi.fn(),
+  emitAgentObservationIfMissing: vi.fn(),
   getAnchorCapability: vi.fn(),
   getAuthSession: vi.fn(),
   getCoopBlob: vi.fn(),
@@ -10,27 +22,54 @@ const mocks = vi.hoisted(() => ({
   listArchiveRecoveryRecords: vi.fn(),
   logPrivilegedAction: vi.fn(),
   notifyExtensionEvent: vi.fn(),
+  provisionStorachaSpace: vi.fn(),
   refreshBadge: vi.fn(),
   removeArchiveRecoveryRecord: vi.fn(),
+  removeCoopArchiveSecrets: vi.fn(),
   requireAnchorModeForFeature: vi.fn(),
   requestArchiveOnChainSealWitness: vi.fn(),
   requestArchiveReceiptFilecoinInfo: vi.fn(),
+  retrieveArchiveBundle: vi.fn(),
   resolveArchiveConfigForCoop: vi.fn(),
   resolveReceiverPairingMember: vi.fn(),
   saveState: vi.fn(),
   setArchiveRecoveryRecord: vi.fn(),
+  setCoopArchiveSecrets: vi.fn(),
   setRuntimeHealth: vi.fn(),
   uploadArchiveBundleToStoracha: vi.fn(),
 }));
 
+const viemMocks = vi.hoisted(() => ({
+  createWalletClient: vi.fn(),
+  http: vi.fn(() => 'transport'),
+  privateKeyToAccount: vi.fn((privateKey: `0x${string}`) => ({
+    address: privateKey,
+    type: 'local',
+  })),
+}));
+
 vi.mock('../../context', () => ({
-  configuredArchiveMode: 'live',
-  configuredChain: 'sepolia',
-  configuredFvmChain: 'filecoin-calibration',
-  configuredFvmOperatorKey: undefined,
-  configuredFvmRegistryAddress: undefined,
-  configuredOnchainMode: 'mock',
-  configuredPimlicoApiKey: undefined,
+  get configuredArchiveMode() {
+    return configState.configuredArchiveMode;
+  },
+  get configuredChain() {
+    return configState.configuredChain;
+  },
+  get configuredFvmChain() {
+    return configState.configuredFvmChain;
+  },
+  get configuredFvmOperatorKey() {
+    return configState.configuredFvmOperatorKey;
+  },
+  get configuredFvmRegistryAddress() {
+    return configState.configuredFvmRegistryAddress;
+  },
+  get configuredOnchainMode() {
+    return configState.configuredOnchainMode;
+  },
+  get configuredPimlicoApiKey() {
+    return configState.configuredPimlicoApiKey;
+  },
   db: {},
   getCoops: mocks.getCoops,
   notifyExtensionEvent: mocks.notifyExtensionEvent,
@@ -58,12 +97,29 @@ vi.mock('../../../runtime/receiver', () => ({
 }));
 
 vi.mock('../agent', () => ({
-  emitAgentObservationIfMissing: vi.fn(),
+  emitAgentObservationIfMissing: mocks.emitAgentObservationIfMissing,
 }));
 
 vi.mock('../session', () => ({
-  createOwnerSafeExecutionContext: vi.fn(),
+  createOwnerSafeExecutionContext: mocks.createOwnerSafeExecutionContext,
 }));
+
+vi.mock('viem', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('viem')>();
+  return {
+    ...actual,
+    createWalletClient: viemMocks.createWalletClient,
+    http: viemMocks.http,
+  };
+});
+
+vi.mock('viem/accounts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('viem/accounts')>();
+  return {
+    ...actual,
+    privateKeyToAccount: viemMocks.privateKeyToAccount,
+  };
+});
 
 vi.mock('@coop/shared', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -75,10 +131,14 @@ vi.mock('@coop/shared', async (importOriginal) => {
     getCoopBlob: mocks.getCoopBlob,
     issueArchiveDelegation: mocks.issueArchiveDelegation,
     listArchiveRecoveryRecords: mocks.listArchiveRecoveryRecords,
+    provisionStorachaSpace: mocks.provisionStorachaSpace,
     removeArchiveRecoveryRecord: mocks.removeArchiveRecoveryRecord,
+    removeCoopArchiveSecrets: mocks.removeCoopArchiveSecrets,
     requestArchiveOnChainSealWitness: mocks.requestArchiveOnChainSealWitness,
     requestArchiveReceiptFilecoinInfo: mocks.requestArchiveReceiptFilecoinInfo,
+    retrieveArchiveBundle: mocks.retrieveArchiveBundle,
     setArchiveRecoveryRecord: mocks.setArchiveRecoveryRecord,
+    setCoopArchiveSecrets: mocks.setCoopArchiveSecrets,
     uploadArchiveBundleToStoracha: mocks.uploadArchiveBundleToStoracha,
   };
 });
@@ -89,7 +149,20 @@ const {
   createCoop,
   createMockArchiveReceipt,
 } = await import('@coop/shared');
-const { handleArchiveArtifact, handleRefreshArchiveStatus } = await import('../archive');
+const {
+  handleArchiveArtifact,
+  handleArchiveSnapshot,
+  handleExportArtifact,
+  handleExportReceipt,
+  handleExportSnapshot,
+  handleAnchorArchiveCid,
+  handleFvmRegistration,
+  handleProvisionArchiveSpace,
+  handleRefreshArchiveStatus,
+  handleRemoveCoopArchiveConfig,
+  handleRetrieveArchiveBundle,
+  handleSetCoopArchiveConfig,
+} = await import('../archive');
 
 function buildSetupInsights() {
   return {
@@ -164,6 +237,13 @@ function buildCoopWithAttachment() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  configState.configuredArchiveMode = 'live';
+  configState.configuredChain = 'sepolia';
+  configState.configuredFvmChain = 'filecoin-calibration';
+  configState.configuredFvmOperatorKey = undefined;
+  configState.configuredFvmRegistryAddress = undefined;
+  configState.configuredOnchainMode = 'mock';
+  configState.configuredPimlicoApiKey = undefined;
 
   mocks.createStorachaArchiveClient.mockResolvedValue({
     did: () => 'did:key:audience',
@@ -190,6 +270,20 @@ beforeEach(() => {
     proof: '{"type":"coop-filecoin-onchain-seal-witness"}',
     proofCid: 'bafysealwitness',
   });
+  mocks.provisionStorachaSpace.mockResolvedValue({
+    secrets: {
+      spaceDelegation: 'space-proof',
+      proofs: ['proof-1'],
+    },
+    publicConfig: {
+      spaceDid: 'did:key:space',
+      delegationIssuer: 'did:key:issuer',
+      gatewayBaseUrl: 'https://storacha.link',
+      proofs: ['proof-1'],
+      allowsFilecoinInfo: false,
+      expirationSeconds: 600,
+    },
+  });
   mocks.requestArchiveReceiptFilecoinInfo.mockResolvedValue({
     pieceCid: 'bafkpiece',
     aggregates: [{ aggregate: 'bafyaggregate' }],
@@ -208,8 +302,22 @@ beforeEach(() => {
   mocks.listArchiveRecoveryRecords.mockResolvedValue([]);
   mocks.requireAnchorModeForFeature.mockImplementation(() => undefined);
   mocks.removeArchiveRecoveryRecord.mockResolvedValue(undefined);
+  mocks.removeCoopArchiveSecrets.mockResolvedValue(undefined);
+  mocks.retrieveArchiveBundle.mockResolvedValue({
+    rootCid: 'bafyroot',
+    bytes: new Uint8Array([1, 2, 3]),
+  });
   mocks.saveState.mockResolvedValue(undefined);
   mocks.setArchiveRecoveryRecord.mockResolvedValue(undefined);
+  mocks.setCoopArchiveSecrets.mockResolvedValue(undefined);
+  mocks.createOwnerSafeExecutionContext.mockResolvedValue({
+    smartClient: {
+      sendTransaction: vi.fn(async () => '0xanchorhash'),
+    },
+    publicClient: {
+      waitForTransactionReceipt: vi.fn(async () => ({ transactionHash: '0xanchorhash' })),
+    },
+  });
   mocks.uploadArchiveBundleToStoracha.mockResolvedValue({
     audienceDid: 'did:key:audience',
     rootCid: 'bafyroot',
@@ -219,6 +327,9 @@ beforeEach(() => {
     blobCids: {
       'blob-1': 'bafyblob',
     },
+  });
+  viemMocks.createWalletClient.mockReturnValue({
+    sendTransaction: vi.fn(async () => '0xfvmhash'),
   });
 });
 
@@ -446,5 +557,583 @@ describe('archive handlers', () => {
     expect(result.error).toContain('Archive is missing local blob data');
     expect(mocks.uploadArchiveBundleToStoracha).not.toHaveBeenCalled();
     expect(mocks.saveState).not.toHaveBeenCalled();
+  });
+
+  it('reconciles a pending snapshot recovery before starting a duplicate snapshot upload', async () => {
+    const { coop } = buildCoopWithAttachment();
+    const bundle = createArchiveBundle({
+      scope: 'snapshot',
+      state: coop,
+    });
+    const recoveredReceipt = createMockArchiveReceipt({
+      bundle,
+      delegationIssuer: 'did:key:issuer',
+    });
+
+    mocks.getCoops.mockResolvedValue([coop]);
+    mocks.listArchiveRecoveryRecords.mockResolvedValue([
+      {
+        id: 'archive-recovery-snapshot',
+        coopId: coop.profile.id,
+        createdAt: '2026-03-27T00:00:00.000Z',
+        receipt: recoveredReceipt,
+        artifactIds: [],
+        blobUploads: {},
+      },
+    ]);
+
+    const result = await handleArchiveSnapshot({
+      type: 'archive-snapshot',
+      payload: {
+        coopId: coop.profile.id,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual(recoveredReceipt);
+    expect(mocks.uploadArchiveBundleToStoracha).not.toHaveBeenCalled();
+    expect(mocks.notifyExtensionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKind: 'archive-snapshot',
+        title: 'Snapshot archive recovered',
+      }),
+    );
+  });
+
+  it('exports coop snapshots in JSON and text formats', async () => {
+    const { coop } = buildCoopWithAttachment();
+    mocks.getCoops.mockResolvedValue([coop]);
+
+    const jsonResult = await handleExportSnapshot({
+      type: 'export-snapshot',
+      payload: {
+        coopId: coop.profile.id,
+        format: 'json',
+      },
+    });
+    const textResult = await handleExportSnapshot({
+      type: 'export-snapshot',
+      payload: {
+        coopId: coop.profile.id,
+        format: 'text',
+      },
+    });
+
+    expect(jsonResult.ok).toBe(true);
+    expect(JSON.parse(jsonResult.data as string)).toMatchObject({
+      type: 'coop-snapshot',
+      snapshot: {
+        profile: { id: coop.profile.id, name: coop.profile.name },
+      },
+    });
+    expect(textResult.ok).toBe(true);
+    expect(textResult.data).toContain(coop.profile.name);
+  });
+
+  it('exports individual artifacts and rejects unknown artifacts', async () => {
+    const { coop, artifactId } = buildCoopWithAttachment();
+    const artifact = coop.artifacts.find((candidate) => candidate.id === artifactId);
+    if (!artifact) {
+      throw new Error('expected artifact');
+    }
+    mocks.getCoops.mockResolvedValue([coop]);
+
+    const result = await handleExportArtifact({
+      type: 'export-artifact',
+      payload: {
+        coopId: coop.profile.id,
+        artifactId,
+        format: 'text',
+      },
+    });
+    const missing = await handleExportArtifact({
+      type: 'export-artifact',
+      payload: {
+        coopId: coop.profile.id,
+        artifactId: 'missing-artifact',
+        format: 'json',
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toContain(artifact.title);
+    expect(missing).toMatchObject({
+      ok: false,
+      error: 'Artifact not found.',
+    });
+  });
+
+  it('exports archive receipts and rejects unknown receipt ids', async () => {
+    const { coop, artifactId } = buildCoopWithAttachment();
+    const receipt = createMockArchiveReceipt({
+      bundle: createArchiveBundle({
+        scope: 'artifact',
+        state: coop,
+        artifactIds: [artifactId],
+      }),
+      delegationIssuer: 'did:key:issuer',
+      artifactIds: [artifactId],
+    });
+    mocks.getCoops.mockResolvedValue([
+      {
+        ...coop,
+        archiveReceipts: [receipt],
+      },
+    ]);
+
+    const result = await handleExportReceipt({
+      type: 'export-receipt',
+      payload: {
+        coopId: coop.profile.id,
+        receiptId: receipt.id,
+        format: 'json',
+      },
+    });
+    const missing = await handleExportReceipt({
+      type: 'export-receipt',
+      payload: {
+        coopId: coop.profile.id,
+        receiptId: 'missing-receipt',
+        format: 'text',
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(JSON.parse(result.data as string)).toMatchObject({
+      type: 'archive-receipt',
+      receipt: {
+        id: receipt.id,
+        scope: receipt.scope,
+      },
+    });
+    expect(missing).toMatchObject({
+      ok: false,
+      error: 'Archive receipt not found.',
+    });
+  });
+
+  it('retrieves an archived bundle when the receipt exists for the coop', async () => {
+    const { coop, artifactId } = buildCoopWithAttachment();
+    const receipt = createMockArchiveReceipt({
+      bundle: createArchiveBundle({
+        scope: 'artifact',
+        state: coop,
+        artifactIds: [artifactId],
+      }),
+      delegationIssuer: 'did:key:issuer',
+      artifactIds: [artifactId],
+    });
+    mocks.getCoops.mockResolvedValue([
+      {
+        ...coop,
+        archiveReceipts: [receipt],
+      },
+    ]);
+
+    const result = await handleRetrieveArchiveBundle({
+      type: 'retrieve-archive-bundle',
+      payload: {
+        coopId: coop.profile.id,
+        receiptId: receipt.id,
+      },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        rootCid: 'bafyroot',
+        bytes: new Uint8Array([1, 2, 3]),
+      },
+    });
+    expect(mocks.retrieveArchiveBundle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: receipt.id,
+      }),
+      expect.objectContaining({
+        spaceDid: 'did:key:space',
+      }),
+    );
+  });
+
+  it('provisions archive space and persists synced config plus local secrets', async () => {
+    const { coop } = buildCoopWithAttachment();
+    mocks.getCoops.mockResolvedValue([coop]);
+
+    const result = await handleProvisionArchiveSpace({
+      coopId: coop.profile.id,
+      email: 'archive@coop.test',
+      coopName: coop.profile.name,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        spaceDid: 'did:key:space',
+      },
+    });
+    expect(mocks.setCoopArchiveSecrets).toHaveBeenCalledWith(
+      expect.anything(),
+      coop.profile.id,
+      expect.objectContaining({
+        coopId: coop.profile.id,
+      }),
+    );
+    expect(mocks.saveState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        archiveConfig: expect.objectContaining({
+          spaceDid: 'did:key:space',
+        }),
+      }),
+    );
+  });
+
+  it('sets and removes a coop archive config without touching unrelated state', async () => {
+    const { coop } = buildCoopWithAttachment();
+    mocks.getCoops.mockResolvedValue([coop]);
+
+    const setResult = await handleSetCoopArchiveConfig({
+      coopId: coop.profile.id,
+      publicConfig: {
+        spaceDid: 'did:key:space-2',
+        delegationIssuer: 'did:key:issuer-2',
+        gatewayBaseUrl: 'https://storacha.example',
+        proofs: [],
+        allowsFilecoinInfo: true,
+        expirationSeconds: 1200,
+      },
+      secrets: {
+        spaceDelegation: 'space-proof-2',
+      },
+    });
+    const removeResult = await handleRemoveCoopArchiveConfig({
+      coopId: coop.profile.id,
+    });
+
+    expect(setResult).toEqual({ ok: true });
+    expect(removeResult).toEqual({ ok: true });
+    expect(mocks.setCoopArchiveSecrets).toHaveBeenCalledWith(
+      expect.anything(),
+      coop.profile.id,
+      expect.objectContaining({
+        coopId: coop.profile.id,
+        proofs: [],
+      }),
+    );
+    expect(mocks.removeCoopArchiveSecrets).toHaveBeenCalledWith(expect.anything(), coop.profile.id);
+  });
+
+  it('skips CID anchoring entirely while on-chain mode stays in mock', async () => {
+    const result = await handleAnchorArchiveCid({
+      coopId: 'coop-1',
+      receiptId: 'receipt-1',
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: { status: 'skipped' },
+    });
+  });
+
+  it('anchors a live archive CID through the coop Safe and emits follow-up feedback', async () => {
+    configState.configuredOnchainMode = 'live';
+    configState.configuredPimlicoApiKey = 'pimlico-key';
+
+    const { coop, artifactId } = buildCoopWithAttachment();
+    const receipt = createMockArchiveReceipt({
+      bundle: createArchiveBundle({
+        scope: 'artifact',
+        state: coop,
+        artifactIds: [artifactId],
+      }),
+      delegationIssuer: 'did:key:issuer',
+      artifactIds: [artifactId],
+    });
+    mocks.getCoops.mockResolvedValue([
+      {
+        ...coop,
+        agentIdentity: {
+          agentId: 'erc8004-agent',
+        },
+        archiveReceipts: [receipt],
+      },
+    ]);
+    mocks.getAuthSession.mockResolvedValue({
+      primaryAddress: coop.members[0]?.address,
+    });
+
+    const result = await handleAnchorArchiveCid({
+      coopId: coop.profile.id,
+      receiptId: receipt.id,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        txHash: '0xanchorhash',
+        status: 'anchored',
+      },
+    });
+    expect(mocks.createOwnerSafeExecutionContext).toHaveBeenCalledWith({
+      authSession: {
+        primaryAddress: coop.members[0]?.address,
+      },
+      onchainState: coop.onchainState,
+    });
+    expect(mocks.saveState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        archiveReceipts: [
+          expect.objectContaining({
+            id: receipt.id,
+            anchorTxHash: '0xanchorhash',
+            anchorChainKey: 'sepolia',
+            anchorStatus: 'anchored',
+          }),
+        ],
+      }),
+    );
+    expect(mocks.notifyExtensionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKind: 'archive-anchor',
+        state: '0xanchorhash',
+      }),
+    );
+    expect(mocks.emitAgentObservationIfMissing).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: 'erc8004-feedback-due',
+        payload: expect.objectContaining({
+          rootCid: receipt.rootCid,
+          txHash: '0xanchorhash',
+          targetAgentId: 'erc8004-agent',
+        }),
+      }),
+    );
+  });
+
+  it('returns a typed failure when live archive anchoring through the Safe fails', async () => {
+    configState.configuredOnchainMode = 'live';
+    configState.configuredPimlicoApiKey = 'pimlico-key';
+
+    const { coop, artifactId } = buildCoopWithAttachment();
+    const receipt = createMockArchiveReceipt({
+      bundle: createArchiveBundle({
+        scope: 'artifact',
+        state: coop,
+        artifactIds: [artifactId],
+      }),
+      delegationIssuer: 'did:key:issuer',
+      artifactIds: [artifactId],
+    });
+    mocks.getCoops.mockResolvedValue([
+      {
+        ...coop,
+        archiveReceipts: [receipt],
+      },
+    ]);
+    mocks.getAuthSession.mockResolvedValue({
+      primaryAddress: coop.members[0]?.address,
+    });
+    mocks.createOwnerSafeExecutionContext.mockResolvedValueOnce({
+      smartClient: {
+        sendTransaction: vi.fn(async () => {
+          throw new Error('Anchor transaction failed.');
+        }),
+      },
+      publicClient: {
+        waitForTransactionReceipt: vi.fn(),
+      },
+    });
+
+    const result = await handleAnchorArchiveCid({
+      coopId: coop.profile.id,
+      receiptId: receipt.id,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'Anchor transaction failed.',
+    });
+    expect(mocks.notifyExtensionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKind: 'archive-anchor',
+        state: 'failed',
+        message: 'Anchor transaction failed.',
+      }),
+    );
+    expect(mocks.logPrivilegedAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'archive-anchor',
+        status: 'failed',
+        detail: 'Anchor transaction failed.',
+      }),
+    );
+  });
+
+  it('records a mock FVM registration when live registry credentials are not configured', async () => {
+    const { coop, artifactId } = buildCoopWithAttachment();
+    const receipt = createMockArchiveReceipt({
+      bundle: createArchiveBundle({
+        scope: 'artifact',
+        state: coop,
+        artifactIds: [artifactId],
+      }),
+      delegationIssuer: 'did:key:issuer',
+      artifactIds: [artifactId],
+    });
+    mocks.getCoops.mockResolvedValue([
+      {
+        ...coop,
+        archiveReceipts: [receipt],
+      },
+    ]);
+    mocks.getAuthSession.mockResolvedValue({
+      primaryAddress: coop.members[0]?.address,
+    });
+
+    const result = await handleFvmRegistration({
+      coopId: coop.profile.id,
+      receiptId: receipt.id,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        txHash: `0x${'f'.repeat(64)}`,
+        status: 'mock',
+      },
+    });
+    expect(mocks.saveState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        archiveReceipts: [
+          expect.objectContaining({
+            id: receipt.id,
+            fvmRegistryTxHash: `0x${'f'.repeat(64)}`,
+            fvmChainKey: 'filecoin-calibration',
+          }),
+        ],
+      }),
+    );
+    expect(mocks.logPrivilegedAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'fvm-register-archive',
+        status: 'succeeded',
+      }),
+    );
+  });
+
+  it('registers an archive receipt on the live Filecoin registry and stores the tx hash', async () => {
+    configState.configuredArchiveMode = 'live';
+    configState.configuredFvmRegistryAddress = '0x7777777777777777777777777777777777777777';
+    configState.configuredFvmOperatorKey =
+      '0x8888888888888888888888888888888888888888888888888888888888888888';
+
+    const { coop, artifactId } = buildCoopWithAttachment();
+    const receipt = createMockArchiveReceipt({
+      bundle: createArchiveBundle({
+        scope: 'artifact',
+        state: coop,
+        artifactIds: [artifactId],
+      }),
+      delegationIssuer: 'did:key:issuer',
+      artifactIds: [artifactId],
+    });
+    mocks.getCoops.mockResolvedValue([
+      {
+        ...coop,
+        archiveReceipts: [receipt],
+      },
+    ]);
+    mocks.getAuthSession.mockResolvedValue({
+      primaryAddress: coop.members[0]?.address,
+    });
+
+    const result = await handleFvmRegistration({
+      coopId: coop.profile.id,
+      receiptId: receipt.id,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        txHash: '0xfvmhash',
+        status: 'registered',
+      },
+    });
+    expect(viemMocks.privateKeyToAccount).toHaveBeenCalledWith(
+      '0x8888888888888888888888888888888888888888888888888888888888888888',
+    );
+    expect(viemMocks.createWalletClient).toHaveBeenCalledTimes(1);
+    expect(mocks.saveState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        archiveReceipts: [
+          expect.objectContaining({
+            id: receipt.id,
+            fvmRegistryTxHash: '0xfvmhash',
+            fvmChainKey: 'filecoin-calibration',
+          }),
+        ],
+      }),
+    );
+    expect(mocks.notifyExtensionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKind: 'fvm-register-archive',
+        state: '0xfvmhash',
+      }),
+    );
+  });
+
+  it('returns a typed failure when live Filecoin registration fails', async () => {
+    configState.configuredArchiveMode = 'live';
+    configState.configuredFvmRegistryAddress = '0x7777777777777777777777777777777777777777';
+    configState.configuredFvmOperatorKey =
+      '0x8888888888888888888888888888888888888888888888888888888888888888';
+
+    const { coop, artifactId } = buildCoopWithAttachment();
+    const receipt = createMockArchiveReceipt({
+      bundle: createArchiveBundle({
+        scope: 'artifact',
+        state: coop,
+        artifactIds: [artifactId],
+      }),
+      delegationIssuer: 'did:key:issuer',
+      artifactIds: [artifactId],
+    });
+    mocks.getCoops.mockResolvedValue([
+      {
+        ...coop,
+        archiveReceipts: [receipt],
+      },
+    ]);
+    mocks.getAuthSession.mockResolvedValue({
+      primaryAddress: coop.members[0]?.address,
+    });
+    viemMocks.createWalletClient.mockReturnValueOnce({
+      sendTransaction: vi.fn(async () => {
+        throw new Error('Filecoin registry rejected the transaction.');
+      }),
+    });
+
+    const result = await handleFvmRegistration({
+      coopId: coop.profile.id,
+      receiptId: receipt.id,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'Filecoin registry rejected the transaction.',
+    });
+    expect(mocks.notifyExtensionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKind: 'fvm-register-archive',
+        state: 'failed',
+        message: 'Filecoin registry rejected the transaction.',
+      }),
+    );
+    expect(mocks.logPrivilegedAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'fvm-register-archive',
+        status: 'failed',
+        detail: 'Filecoin registry rejected the transaction.',
+      }),
+    );
   });
 });

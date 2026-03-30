@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const runtimeOperatorMocks = vi.hoisted(() => ({
+  requireAnchorModeForFeature: vi.fn(),
+}));
+
 // --- Chrome API mock ---
 
 beforeEach(() => {
@@ -22,6 +26,12 @@ vi.mock('@coop/shared', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@coop/shared')>();
   return {
     ...actual,
+    createAnchorCapability: vi.fn(({ enabled, authSession, memberId, memberDisplayName }) => ({
+      enabled,
+      authSession,
+      memberId,
+      memberDisplayName,
+    })),
     getAuthSession: vi.fn().mockResolvedValue({
       displayName: 'Mina',
       primaryAddress: '0x1111111111111111111111111111111111111111',
@@ -33,8 +43,13 @@ vi.mock('@coop/shared', async (importOriginal) => {
       },
     }),
     deployCoopSafe: vi.fn(),
+    setAnchorCapability: vi.fn(),
   };
 });
+
+vi.mock('../../../runtime/operator', () => ({
+  requireAnchorModeForFeature: runtimeOperatorMocks.requireAnchorModeForFeature,
+}));
 
 vi.mock('../../context', () => ({
   db: {
@@ -90,7 +105,7 @@ vi.mock('../agent', () => ({
 
 const { handleCreateCoop, handleJoinCoop, handleResolveOnchainState, handleSetAnchorMode } =
   await import('../coop');
-const { saveState, setLocalSetting } = await import('../../context');
+const { notifyExtensionEvent, saveState, setLocalSetting } = await import('../../context');
 const { getOperatorState, logPrivilegedAction } = await import('../../operator');
 const { ensureOnboardingBurst } = await import('../agent');
 const shared = await import('@coop/shared');
@@ -203,6 +218,97 @@ describe('coop handlers', () => {
     );
   });
 
+  it('rejects onchain state resolution when no auth session is available', async () => {
+    vi.mocked(shared.getAuthSession).mockResolvedValueOnce(null);
+
+    const result = await handleResolveOnchainState({
+      type: 'resolve-onchain-state',
+      payload: { coopSeed: 'coop-seed' },
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('passkey session'),
+    });
+  });
+
+  it('deploys a live Safe when anchor mode and operator context are available', async () => {
+    vi.stubEnv('VITE_PIMLICO_API_KEY', 'pim_test_key');
+    vi.mocked(getOperatorState).mockResolvedValueOnce({
+      authSession: {
+        displayName: 'Mina',
+        primaryAddress: '0x1111111111111111111111111111111111111111',
+      },
+      anchorCapability: { enabled: true },
+      anchorStatus: {
+        enabled: true,
+        active: true,
+        detail: 'Anchor mode enabled.',
+      },
+      liveOnchain: {
+        available: true,
+        detail: 'Live Safe deployments are ready.',
+      },
+      activeCoop: undefined,
+      activeMember: {
+        id: 'member-1',
+        displayName: 'Mina',
+      },
+      actionLog: [],
+      activeContext: {
+        activeCoopId: undefined,
+        activeMemberId: 'member-1',
+      },
+      liveArchive: {
+        available: true,
+        detail: 'Live archive uploads are ready.',
+      },
+    });
+    vi.mocked(shared.deployCoopSafe).mockResolvedValueOnce({
+      chainKey: 'sepolia',
+      chainId: 11155111,
+      safeAddress: '0x9999999999999999999999999999999999999999',
+      safeCapability: 'ready',
+      senderAddress: '0x1111111111111111111111111111111111111111',
+      statusNote: 'Live Safe deployed.',
+    } as Awaited<ReturnType<typeof shared.deployCoopSafe>>);
+
+    const result = await handleResolveOnchainState({
+      type: 'resolve-onchain-state',
+      payload: { coopSeed: 'coop-seed' },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({
+      safeAddress: '0x9999999999999999999999999999999999999999',
+      safeCapability: 'ready',
+    });
+    expect(vi.mocked(shared.deployCoopSafe)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        coopSeed: 'coop-seed',
+      }),
+    );
+    expect(runtimeOperatorMocks.requireAnchorModeForFeature).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(logPrivilegedAction)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'safe-deployment',
+        status: 'attempted',
+      }),
+    );
+    expect(vi.mocked(logPrivilegedAction)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'safe-deployment',
+        status: 'succeeded',
+      }),
+    );
+    expect(vi.mocked(notifyExtensionEvent)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKind: 'safe-deployment',
+        state: 'succeeded',
+      }),
+    );
+  });
+
   it('rejects anchor mode toggle when no auth session exists', async () => {
     const result = await handleSetAnchorMode({
       type: 'set-anchor-mode',
@@ -213,6 +319,62 @@ describe('coop handlers', () => {
       ok: false,
       error: expect.stringContaining('authenticated passkey'),
     });
+  });
+
+  it('stores anchor mode and logs the operator action when auth is available', async () => {
+    vi.mocked(getOperatorState).mockResolvedValueOnce({
+      authSession: {
+        displayName: 'Mina',
+        primaryAddress: '0x1111111111111111111111111111111111111111',
+      },
+      anchorCapability: null,
+      anchorStatus: {
+        enabled: false,
+        active: false,
+        detail: 'Anchor mode is off.',
+      },
+      liveOnchain: {
+        available: false,
+        detail: 'Live Safe deployments are unavailable.',
+      },
+      activeCoop: {
+        profile: {
+          id: 'coop-1',
+          name: 'Alpha Coop',
+        },
+        onchainState: {
+          chainKey: 'sepolia',
+        },
+      },
+      activeMember: {
+        id: 'member-1',
+        displayName: 'Mina',
+      },
+      actionLog: [],
+      activeContext: {
+        activeCoopId: 'coop-1',
+        activeMemberId: 'member-1',
+      },
+      liveArchive: {
+        available: false,
+        detail: 'Live archive uploads are unavailable.',
+      },
+    });
+
+    const result = await handleSetAnchorMode({
+      type: 'set-anchor-mode',
+      payload: { enabled: true },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toMatchObject({ enabled: true });
+    expect(vi.mocked(shared.setAnchorCapability)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(logPrivilegedAction)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'anchor-mode-toggle',
+        status: 'succeeded',
+      }),
+    );
   });
 
   it('rejects joining with a malformed invite code', async () => {

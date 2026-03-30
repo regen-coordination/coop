@@ -1,10 +1,15 @@
 import {
   type CoopSharedState,
   type InviteCode,
+  type InviteType,
   canManageInvites,
   getComputedInviteStatus,
+  getCurrentInviteForType,
+  hasInviteHistoryForType,
 } from '@coop/shared';
-import { useEffect, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { InviteShareComposer } from '../../shared/InviteShareComposer';
+import type { InviteShareInput } from '../../shared/invite-share';
 import { Tooltip } from '../../shared/Tooltip';
 import type { useCoopForm } from '../hooks/useCoopForm';
 
@@ -16,9 +21,43 @@ export interface NestInviteSectionProps {
   inviteResult: InviteCode | null;
   createInvite: (inviteType: 'trusted' | 'member') => void;
   revokeInvite: (inviteId: string) => void;
+  revokeInviteType: (inviteType: 'trusted' | 'member') => void;
   coopForm: ReturnType<typeof useCoopForm>;
   activeCoop: CoopSharedState | undefined;
   currentMemberId: string | undefined;
+  controlsOpen: boolean;
+  focusRequest: number;
+  onControlsOpenChange: (open: boolean) => void;
+}
+
+function inviteTypeLabel(inviteType: InviteType) {
+  return inviteType === 'trusted' ? 'Trusted' : 'Member';
+}
+
+function describeCurrentInvite(invite: InviteCode | undefined, status: string) {
+  if (!invite && status === 'missing') {
+    return 'No invite history yet for this lane.';
+  }
+  if (!invite && status === 'revoked') {
+    return 'This lane is closed until you regenerate a fresh code.';
+  }
+  if (status === 'expired') {
+    return 'The current code has expired and should be refreshed before sharing.';
+  }
+  const usedCount = invite?.usedByMemberIds.length ?? 0;
+  if (status === 'used') {
+    return `Current code has admitted ${usedCount} member${usedCount === 1 ? '' : 's'} and is still live for new joins.`;
+  }
+  return 'Current code is live and ready to share.';
+}
+
+function canonicalInviteStatusLabel(status: 'active' | 'used' | 'expired' | 'revoked' | 'missing') {
+  switch (status) {
+    case 'used':
+      return 'reusable';
+    default:
+      return status;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -29,16 +68,80 @@ export function NestInviteSection({
   inviteResult,
   createInvite,
   revokeInvite,
+  revokeInviteType,
   coopForm,
   activeCoop,
   currentMemberId,
+  controlsOpen,
+  focusRequest,
+  onControlsOpenChange,
 }: NestInviteSectionProps) {
   const [copied, setCopied] = useState(false);
+  const [shareDialogInvite, setShareDialogInvite] = useState<InviteShareInput | null>(null);
+  const [toastMessage, setToastMessage] = useState('');
   const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const memberRegenerateButtonRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => () => clearTimeout(copyTimerRef.current), []);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(''), 4000);
+    return () => clearTimeout(toastTimerRef.current);
+  }, [toastMessage]);
+
+  const handleOpenShareDialog = useCallback(
+    (inviteType: InviteType, current: InviteCode | undefined) => {
+      if (!current || !activeCoop) return;
+      setShareDialogInvite({
+        coopName: activeCoop.profile.name,
+        inviteType,
+        code: current.code,
+        expiresAt: current.expiresAt,
+      });
+    },
+    [activeCoop],
+  );
+
+  useEffect(() => {
+    if (controlsOpen) {
+      memberRegenerateButtonRef.current?.focus();
+    }
+  }, [controlsOpen, focusRequest]);
+
   const invites = activeCoop?.invites ?? [];
   const canManage =
     currentMemberId && activeCoop ? canManageInvites(activeCoop, currentMemberId) : false;
+
+  const currentMemberInvite = useMemo(
+    () => (activeCoop ? getCurrentInviteForType(activeCoop, 'member') : undefined),
+    [activeCoop],
+  );
+  const currentTrustedInvite = useMemo(
+    () => (activeCoop ? getCurrentInviteForType(activeCoop, 'trusted') : undefined),
+    [activeCoop],
+  );
+
+  function inviteMeta(inviteType: InviteType) {
+    if (!activeCoop) {
+      return { current: undefined, status: 'missing' as const };
+    }
+
+    const current = inviteType === 'member' ? currentMemberInvite : currentTrustedInvite;
+    return {
+      current,
+      status: current
+        ? getComputedInviteStatus(current)
+        : hasInviteHistoryForType(activeCoop, inviteType)
+          ? ('revoked' as const)
+          : ('missing' as const),
+    };
+  }
+
+  const memberInviteMeta = inviteMeta('member');
+  const trustedInviteMeta = inviteMeta('trusted');
 
   const handleCopyInviteCode = async () => {
     if (!inviteResult) return;
@@ -52,32 +155,125 @@ export function NestInviteSection({
     }
   };
 
+  async function handleCopyCanonicalInvite(invite: InviteCode | undefined) {
+    if (!invite) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(invite.code);
+      setCopied(true);
+      clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API may fail if document is not focused
+    }
+  }
+
+  function renderCanonicalInviteCard(
+    inviteType: InviteType,
+    options: {
+      current: InviteCode | undefined;
+      status: 'active' | 'used' | 'expired' | 'revoked' | 'missing';
+      regenerateRef?: RefObject<HTMLButtonElement | null>;
+    },
+  ) {
+    const label = inviteTypeLabel(inviteType);
+    const disableCopy = !options.current;
+    const disableRevoke = !options.current;
+
+    return (
+      <div className="panel-card">
+        <div className="detail-grid">
+          <div>
+            <strong>{label} invite</strong>
+            <p className="helper-text">{describeCurrentInvite(options.current, options.status)}</p>
+          </div>
+          <div className="badge-row">
+            <span className="badge">{canonicalInviteStatusLabel(options.status)}</span>
+          </div>
+        </div>
+        <div className="field-grid">
+          <label htmlFor={`${inviteType}-current-code`}>Current code</label>
+          <textarea
+            id={`${inviteType}-current-code`}
+            readOnly
+            value={options.current?.code ?? 'No current code'}
+          />
+        </div>
+        <div className="action-row">
+          <button
+            className="primary-button"
+            disabled={
+              !options.current ||
+              options.status === 'missing' ||
+              options.status === 'revoked' ||
+              options.status === 'expired'
+            }
+            onClick={() => handleOpenShareDialog(inviteType, options.current)}
+            type="button"
+          >
+            Share
+          </button>
+          <button
+            className="secondary-button"
+            disabled={disableCopy}
+            onClick={() => void handleCopyCanonicalInvite(options.current)}
+            type="button"
+          >
+            {copied && !disableCopy ? 'Copied!' : 'Copy Code'}
+          </button>
+          <button
+            className="secondary-button"
+            onClick={() => createInvite(inviteType)}
+            ref={options.regenerateRef}
+            type="button"
+          >
+            Regenerate
+          </button>
+          <button
+            className="secondary-button"
+            disabled={disableRevoke}
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Revoke the current ${label.toLowerCase()} invite? Anyone who has not used it yet will be unable to join.`,
+                )
+              ) {
+                revokeInviteType(inviteType);
+              }
+            }}
+            type="button"
+          >
+            Revoke
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <details className="panel-card collapsible-card">
+      <details
+        className="panel-card collapsible-card"
+        onToggle={(event) => onControlsOpenChange((event.currentTarget as HTMLDetailsElement).open)}
+        open={controlsOpen}
+      >
         <summary>
           <h2>Invite the Flock</h2>
         </summary>
         <div className="collapsible-card__content stack">
           <p className="helper-text">
-            Bring in trusted helpers or regular members with a simple invite.
+            Keep one canonical member code and one canonical trusted code for this coop.
           </p>
-          <div className="action-row">
-            <button
-              className="secondary-button"
-              onClick={() => createInvite('trusted')}
-              type="button"
-            >
-              Trusted Member Invite
-            </button>
-            <button
-              className="secondary-button"
-              onClick={() => createInvite('member')}
-              type="button"
-            >
-              Member Invite
-            </button>
-          </div>
+          {renderCanonicalInviteCard('member', {
+            current: memberInviteMeta.current,
+            status: memberInviteMeta.status,
+            regenerateRef: memberRegenerateButtonRef,
+          })}
+          {renderCanonicalInviteCard('trusted', {
+            current: trustedInviteMeta.current,
+            status: trustedInviteMeta.status,
+          })}
           {inviteResult ? (
             <div className="field-grid">
               <label htmlFor="invite-code">Fresh invite code</label>
@@ -133,7 +329,6 @@ export function NestInviteSection({
         </div>
       </details>
 
-      {/* --- Invite list with status + revoke --- */}
       {activeCoop && invites.length > 0 ? (
         <details className="panel-card collapsible-card">
           <summary>
@@ -143,7 +338,9 @@ export function NestInviteSection({
             <ul className="list-reset stack" style={{ fontSize: '0.85rem' }}>
               {invites.map((invite) => {
                 const status = getComputedInviteStatus(invite);
-                const creatorMember = activeCoop.members.find((m) => m.id === invite.createdBy);
+                const creatorMember = activeCoop.members.find(
+                  (member) => member.id === invite.createdBy,
+                );
                 return (
                   <li
                     key={invite.id}
@@ -160,7 +357,7 @@ export function NestInviteSection({
                       }}
                     >
                       <div>
-                        <strong>{invite.type === 'trusted' ? 'Trusted' : 'Member'} invite</strong>
+                        <strong>{inviteTypeLabel(invite.type)} invite</strong>
                         <span
                           className="badge"
                           style={{
@@ -212,8 +409,8 @@ export function NestInviteSection({
                     {invite.revokedBy ? (
                       <div className="helper-text">
                         Revoked by{' '}
-                        {activeCoop.members.find((m) => m.id === invite.revokedBy)?.displayName ??
-                          invite.revokedBy}
+                        {activeCoop.members.find((member) => member.id === invite.revokedBy)
+                          ?.displayName ?? invite.revokedBy}
                         {invite.revokedAt
                           ? ` on ${new Date(invite.revokedAt).toLocaleDateString()}`
                           : ''}
@@ -225,6 +422,21 @@ export function NestInviteSection({
             </ul>
           </div>
         </details>
+      ) : null}
+
+      {shareDialogInvite ? (
+        <InviteShareComposer
+          invite={shareDialogInvite}
+          onClose={() => setShareDialogInvite(null)}
+          onToast={setToastMessage}
+          variant="nest"
+        />
+      ) : null}
+
+      {toastMessage ? (
+        <output aria-live="polite" className="nest-toast">
+          {toastMessage}
+        </output>
       ) : null}
     </>
   );

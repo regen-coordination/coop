@@ -60,7 +60,7 @@ function WorkspaceIcon() {
 export function SidepanelApp() {
   const { preference, setTheme } = useCoopTheme();
   const [panelTab, setPanelTab] = useState<SidepanelTab>('roost');
-  const [synthesisSegment, setSynthesisSegment] = useState<SidepanelIntentSegment>('signals');
+  const [synthesisSegment, setSynthesisSegment] = useState<SidepanelIntentSegment>('review');
   const [focusedDraftId, setFocusedDraftId] = useState<string | undefined>();
   const [focusedSignalId, setFocusedSignalId] = useState<string | undefined>();
   const [focusedObservationId, setFocusedObservationId] = useState<string | undefined>();
@@ -201,25 +201,27 @@ export function SidepanelApp() {
           <>
             {message ? <div className="panel-card helper-text">{message}</div> : null}
 
-            {agentDelta?.focusIntent ? (
-              <NotificationBanner
-                id={`agent-delta-${agentDelta.emittedAt}`}
-                message={agentDelta.message}
-                actionLabel="Open"
-                onAction={() =>
-                  void applySidepanelIntent(agentDelta.focusIntent as SidepanelIntent)
-                }
-              />
-            ) : null}
+            <div className="sidepanel-banner-overlay">
+              {agentDelta?.focusIntent ? (
+                <NotificationBanner
+                  id={`agent-delta-${agentDelta.emittedAt}`}
+                  message={agentDelta.message}
+                  actionLabel="Open"
+                  onAction={() =>
+                    void applySidepanelIntent(agentDelta.focusIntent as SidepanelIntent)
+                  }
+                />
+              ) : null}
 
-            {(dashboard?.summary.pendingDrafts ?? 0) > 0 && (
-              <NotificationBanner
-                id={`roundup-${dashboard?.summary.lastCaptureAt ?? 'none'}`}
-                message={`${dashboard?.summary.pendingDrafts} chicken${dashboard?.summary.pendingDrafts === 1 ? '' : 's'} waiting for review.`}
-                actionLabel="Review"
-                onAction={() => setPanelTab('chickens')}
-              />
-            )}
+              {(dashboard?.summary.pendingDrafts ?? 0) > 0 && (
+                <NotificationBanner
+                  id={`roundup-${dashboard?.summary.lastCaptureAt ?? 'none'}`}
+                  message={`${dashboard?.summary.pendingDrafts} chicken${dashboard?.summary.pendingDrafts === 1 ? '' : 's'} waiting for review.`}
+                  actionLabel="Review"
+                  onAction={() => setPanelTab('chickens')}
+                />
+              )}
+            </div>
 
             <SidepanelTabRouter
               panelTab={panelTab}
@@ -241,18 +243,9 @@ export function SidepanelApp() {
           onNavigate={setPanelTab}
           showNestTab={hasTrustedNodeAccess}
           badges={{
-            roost:
-              dashboard?.operator.policyActionQueue?.filter(
-                (b) =>
-                  (b.status === 'proposed' || b.status === 'approved') &&
-                  (b.actionClass === 'green-goods-add-gardener' ||
-                    b.actionClass === 'green-goods-remove-gardener'),
-              ).length ?? 0,
-            chickens:
-              (dashboard?.summary.pendingDrafts ?? 0) +
-              (dashboard?.summary.routedTabs ?? 0) +
-              (dashboard?.summary.staleObservationCount ?? 0),
-            coops: (dashboard?.coops ?? []).length,
+            roost: 0,
+            chickens: dashboard?.summary.pendingDrafts ?? 0,
+            coops: 0,
             nest:
               (dashboard?.operator.policyActionQueue?.filter(
                 (b) => b.status === 'proposed' || b.status === 'approved',

@@ -1,5 +1,4 @@
 import type { SoundPreferences, UiPreferences } from '@coop/shared';
-import { useState } from 'react';
 import { PopupChoiceGroup } from './PopupChoiceGroup';
 import type { PopupThemePreference } from './popup-types';
 
@@ -7,15 +6,12 @@ export function PopupProfilePanel(props: {
   soundPreferences: SoundPreferences;
   uiPreferences: UiPreferences;
   themePreference: PopupThemePreference;
-  coops: Array<{ name: string; inviteCode?: string }>;
+  coops: Array<{ name: string }>;
   accountLabel: string;
-  onCreate: () => void;
-  onJoin: () => void;
   onToggleSound: (enabled: boolean) => void | Promise<void>;
   onToggleNotifications: (enabled: boolean) => void | Promise<void>;
   onSetAgentCadence: (minutes: UiPreferences['agentCadenceMinutes']) => void | Promise<void>;
   onSetTheme: (theme: PopupThemePreference) => void;
-  onCopyInviteCode: (coopName: string, code: string) => void;
 }) {
   const {
     soundPreferences,
@@ -23,15 +19,11 @@ export function PopupProfilePanel(props: {
     themePreference,
     coops,
     accountLabel,
-    onCreate,
-    onJoin,
     onToggleSound,
     onToggleNotifications,
     onSetAgentCadence,
     onSetTheme,
-    onCopyInviteCode,
   } = props;
-  const [copiedCoopName, setCopiedCoopName] = useState<string | null>(null);
 
   return (
     <section aria-labelledby="popup-profile-title" className="popup-screen">
@@ -52,23 +44,7 @@ export function PopupProfilePanel(props: {
             {coops.map((coop) => (
               <div className="popup-profile-panel__coop-item" key={coop.name}>
                 <span className="popup-mini-pill popup-mini-pill--muted">{coop.name}</span>
-                {coop.inviteCode ? (
-                  <button
-                    className="popup-text-button popup-text-button--small"
-                    onClick={() => {
-                      const code = coop.inviteCode;
-                      if (!code) return;
-                      onCopyInviteCode(coop.name, code);
-                      setCopiedCoopName(coop.name);
-                      setTimeout(() => setCopiedCoopName(null), 2000);
-                    }}
-                    type="button"
-                  >
-                    {copiedCoopName === coop.name ? 'Copied!' : 'Copy Invite'}
-                  </button>
-                ) : (
-                  <span className="popup-footnote">No invite code yet</span>
-                )}
+                <span className="popup-footnote">Member context</span>
               </div>
             ))}
           </div>

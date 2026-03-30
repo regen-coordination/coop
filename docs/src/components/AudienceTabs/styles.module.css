@@ -3,10 +3,10 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem;
-  border: 1px solid rgba(79, 46, 31, 0.12);
+  border: 1px solid var(--coop-border-soft);
   border-radius: 999px;
-  background: rgba(255, 252, 249, 0.82);
-  box-shadow: 0 8px 20px rgba(79, 46, 31, 0.08);
+  background: var(--coop-audience-tabs-bg);
+  box-shadow: var(--coop-shadow-sm);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -18,7 +18,7 @@
   min-width: 7rem;
   padding: 0.55rem 0.95rem;
   border-radius: 999px;
-  color: #6b4a36;
+  color: var(--coop-text-secondary);
   font-weight: 700;
   line-height: 1;
   text-decoration: none;
@@ -27,20 +27,25 @@
 }
 
 .tab:hover {
-  color: #4f2e1f;
-  background: rgba(79, 46, 31, 0.06);
+  color: var(--coop-text-primary);
+  background: var(--coop-audience-hover-bg);
   text-decoration: none;
 }
 
 .tabActive {
-  background: #4f2e1f;
-  box-shadow: 0 8px 20px rgba(79, 46, 31, 0.16);
-  color: #fff;
+  background: var(--coop-audience-active-bg);
+  box-shadow: var(--coop-shadow-sm);
+  color: var(--coop-audience-active-text);
 }
 
 .tabActive:hover {
-  color: #fff;
-  background: #4f2e1f;
+  color: var(--coop-audience-active-text);
+  background: var(--coop-audience-active-bg);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--ifm-color-primary-light);
+  outline-offset: 2px;
 }
 
 @media (max-width: 996px) {

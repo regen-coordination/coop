@@ -36,6 +36,12 @@ describe('webauthn bridge', () => {
         },
       },
     });
+
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
   });
 
   afterEach(() => {
@@ -234,5 +240,30 @@ describe('webauthn bridge', () => {
       ok: false,
       error: 'The user dismissed the passkey prompt.',
     });
+  });
+
+  it('ignores bridge requests from hidden or unfocused extension surfaces', async () => {
+    const getCredential = vi.fn();
+    Object.defineProperty(navigator, 'credentials', {
+      configurable: true,
+      value: {
+        get: getCredential,
+      },
+    });
+    vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+
+    registerWebAuthnCredentialBridge();
+    expect(listener).toBeDefined();
+
+    const sendResponse = vi.fn();
+    const returned = listener?.(
+      { type: WEBAUTHN_BRIDGE_MESSAGE },
+      { id: 'coop-extension-id' } as chrome.runtime.MessageSender,
+      sendResponse,
+    );
+
+    expect(returned).toBeUndefined();
+    expect(getCredential).not.toHaveBeenCalled();
+    expect(sendResponse).not.toHaveBeenCalled();
   });
 });

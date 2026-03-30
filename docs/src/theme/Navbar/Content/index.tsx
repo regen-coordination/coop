@@ -2,6 +2,7 @@ import { ErrorCauseBoundary, ThemeClassNames, useThemeConfig } from '@docusaurus
 import type { NavbarItemConfig } from '@docusaurus/theme-common';
 import { splitNavbarItems, useNavbarMobileSidebar } from '@docusaurus/theme-common/internal';
 import AudienceTabs from '@site/src/components/AudienceTabs';
+import NavbarColorModeToggle from '@theme/Navbar/ColorModeToggle';
 import NavbarLogo from '@theme/Navbar/Logo';
 import NavbarMobileSidebarToggle from '@theme/Navbar/MobileSidebar/Toggle';
 import NavbarItem from '@theme/NavbarItem';
@@ -56,6 +57,7 @@ export default function NavbarContent() {
         className={`${ThemeClassNames.layout.navbar.containerRight} navbar__items navbar__items--right ${styles.right}`}
       >
         <NavbarItems items={rightItems} />
+        <NavbarColorModeToggle className={styles.colorModeToggle} />
       </div>
     </div>
   );

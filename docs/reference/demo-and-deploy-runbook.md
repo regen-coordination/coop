@@ -43,6 +43,18 @@ COOP_TUNNEL_APP_HOSTNAME=local.coop.town
 
 Other defaults are safe: sepolia, mock onchain/archive, session off.
 
+If you want live Sepolia rehearsals against local receiver + signaling while developing the
+extension, use the profile commands instead of editing `.env.local`:
+
+```bash
+bun run dev:app
+bun run dev:api
+bun run dev:extension:local-live-sepolia
+```
+
+That profile lives at `config/env/profiles/local-live-sepolia.env` and only overrides the
+mode/origin values baked into the extension bundle.
+
 If you also need the docs site, make sure the shell is using Node 22 from `.mise.toml` before you
 run `bun run docs:dev` or `bun run docs:build`.
 
@@ -51,6 +63,12 @@ run `bun run docs:dev` or `bun run docs:build`.
 ```bash
 bun install
 bun dev
+```
+
+To stop the full local dev environment and clean up orphan listeners:
+
+```bash
+bun run dev:stop
 ```
 
 Expected surfaces:
@@ -140,7 +158,8 @@ This is the release target.
 
 - Production signaling server: `wss://api.coop.town`
 - Yjs document sync: `wss://api.coop.town/yws`
-- Deploy with `flyctl deploy -a coop` from `packages/api/`
+- Primary path: GitHub Actions deploys `packages/api` to Fly.io on `main`
+- Manual fallback: `flyctl deploy -a coop` from `packages/api/`
 - Health check: `https://api.coop.town/health`
 
 ### Staged Launch Gate
@@ -205,6 +224,7 @@ bun run validate:production-live-readiness
 
 Profile files live at:
 
+- `config/env/profiles/local-live-sepolia.env`
 - `config/env/profiles/public-release.env`
 - `config/env/profiles/operator-live.env`
 

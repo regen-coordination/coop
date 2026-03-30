@@ -10,7 +10,10 @@ const buildCacheDir = path.join(
   'coop-e2e-extension-build',
   crypto.createHash('sha1').update(rootDir).digest('hex'),
 );
-const builtExtensionDir = path.join(rootDir, 'packages/extension/.output/chrome-mv3');
+const builtExtensionDirCandidates = [
+  path.join(rootDir, 'packages/extension/dist/chrome-mv3'),
+  path.join(rootDir, 'packages/extension/.output/chrome-mv3'),
+];
 const extensionDir = path.join(buildCacheDir, 'chrome-mv3');
 const buildLockDir = path.join(buildCacheDir, 'lock');
 const buildStampPath = path.join(buildCacheDir, 'stamp.json');
@@ -102,7 +105,21 @@ function latestInputMtimeMs() {
   }, 0);
 }
 
+function resolveBuiltExtensionDir() {
+  return (
+    builtExtensionDirCandidates.find((candidate) =>
+      fs.existsSync(path.join(candidate, 'manifest.json')),
+    ) ?? builtExtensionDirCandidates[0]
+  );
+}
+
+function latestBuiltOutputMtimeMs() {
+  const builtExtensionDir = resolveBuiltExtensionDir();
+  return latestMtimeMs(builtExtensionDir);
+}
+
 function copyBuildToCache() {
+  const builtExtensionDir = resolveBuiltExtensionDir();
   const manifestPath = path.join(builtExtensionDir, 'manifest.json');
   if (!fs.existsSync(manifestPath)) {
     throw new Error(`Expected ${manifestPath} to exist after building the extension.`);
@@ -123,7 +140,8 @@ function hasMatchingBuild(signature, minBuiltAtMs) {
     return false;
   }
 
-  return fs.statSync(manifestPath).mtimeMs >= minBuiltAtMs;
+  const cachedBuildMtimeMs = fs.statSync(manifestPath).mtimeMs;
+  return cachedBuildMtimeMs >= minBuiltAtMs && cachedBuildMtimeMs >= latestBuiltOutputMtimeMs();
 }
 
 function removeStaleLockIfNeeded() {
