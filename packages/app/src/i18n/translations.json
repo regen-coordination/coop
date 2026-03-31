@@ -82,7 +82,75 @@
       "persona": "Personal",
       "family": "Family",
       "friends": "Friends",
-      "community": "Community"
+      "community": "Community",
+      "personaTone": "Personal focus and reflection",
+      "familyTone": "Household memory and support",
+      "friendsTone": "Shared momentum with trusted peers",
+      "communityTone": "Collective coordination and stewardship"
+    },
+    "chickens": {
+      "tabs": "Tabs",
+      "notes": "Notes",
+      "ideas": "Ideas",
+      "signals": "Signals",
+      "links": "Links",
+      "drafts": "Drafts",
+      "threads": "Threads",
+      "clips": "Clips",
+      "bookmarks": "Bookmarks",
+      "photos": "Photos",
+      "voiceMemos": "Voice Memos",
+      "receipts": "Receipts"
+    },
+    "chickenThoughts": {
+      "tabs": {
+        "kicker": "Browser tab",
+        "text": "This grant lead is worth the follow-up."
+      },
+      "notes": {
+        "kicker": "Field note",
+        "text": "Member energy is shifting this week."
+      },
+      "ideas": {
+        "kicker": "Loose thread",
+        "text": "Reconnect this after the meeting."
+      },
+      "signals": {
+        "kicker": "Call clip",
+        "text": "Save the key moment before it drifts."
+      },
+      "links": {
+        "kicker": "Saved link",
+        "text": "This keeps coming back up in conversations."
+      },
+      "drafts": {
+        "kicker": "Draft",
+        "text": "Half-finished but worth keeping close."
+      },
+      "threads": {
+        "kicker": "Thread",
+        "text": "Conversation fragments from last week."
+      },
+      "clips": {
+        "kicker": "Clip",
+        "text": "Audio moment worth revisiting."
+      },
+      "bookmarks": {
+        "kicker": "Bookmark",
+        "text": "This link keeps coming back up."
+      },
+      "photos": {
+        "kicker": "Photo",
+        "text": "Captured in the field last Tuesday."
+      },
+      "voiceMemos": {
+        "kicker": "Voice memo",
+        "text": "Quick capture from the walk home."
+      },
+      "receipts": {
+        "kicker": "Receipt",
+        "text": "Proof of the contribution last month."
+      }
     }
   },
   "pt": {
@@ -168,7 +236,75 @@
       "persona": "Pessoal",
       "family": "Família",
       "friends": "Amigos",
-      "community": "Comunidade"
+      "community": "Comunidade",
+      "personaTone": "Foco pessoal e reflexão",
+      "familyTone": "Memória familiar e apoio",
+      "friendsTone": "Momentum compartilhado com pares confiáveis",
+      "communityTone": "Coordenação coletiva e administração"
+    },
+    "chickens": {
+      "tabs": "Abas",
+      "notes": "Notas",
+      "ideas": "Ideias",
+      "signals": "Sinais",
+      "links": "Links",
+      "drafts": "Rascunhos",
+      "threads": "Tópicos",
+      "clips": "Clipes",
+      "bookmarks": "Favoritos",
+      "photos": "Fotos",
+      "voiceMemos": "Notas de Voz",
+      "receipts": "Recibos"
+    },
+    "chickenThoughts": {
+      "tabs": {
+        "kicker": "Aba do navegador",
+        "text": "Este lead de concessão vale o acompanhamento."
+      },
+      "notes": {
+        "kicker": "Nota de campo",
+        "text": "A energia dos membros está mudando esta semana."
+      },
+      "ideas": {
+        "kicker": "Fio solto",
+        "text": "Reconecte isto após a reunião."
+      },
+      "signals": {
+        "kicker": "Clipe de chamada",
+        "text": "Salve o momento-chave antes que ele se dissipe."
+      },
+      "links": {
+        "kicker": "Link salvo",
+        "text": "Isto continua aparecendo em conversas."
+      },
+      "drafts": {
+        "kicker": "Rascunho",
+        "text": "Inacabado mas vale a pena manter perto."
+      },
+      "threads": {
+        "kicker": "Tópico",
+        "text": "Fragmentos de conversa da semana passada."
+      },
+      "clips": {
+        "kicker": "Clipe",
+        "text": "Momento de áudio que vale a pena revisitar."
+      },
+      "bookmarks": {
+        "kicker": "Favorito",
+        "text": "Este link continua aparecendo."
+      },
+      "photos": {
+        "kicker": "Foto",
+        "text": "Capturada no campo terça-feira passada."
+      },
+      "voiceMemos": {
+        "kicker": "Nota de voz",
+        "text": "Captura rápida do caminho de volta para casa."
+      },
+      "receipts": {
+        "kicker": "Recibo",
+        "text": "Prova da contribuição do mês passado."
+      }
     }
   },
   "es": {
@@ -253,7 +389,75 @@
       "persona": "Personal",
       "family": "Familia",
       "friends": "Amigos",
-      "community": "Comunidad"
+      "community": "Comunidad",
+      "personaTone": "Enfoque personal y reflexión",
+      "familyTone": "Memoria familiar y apoyo",
+      "friendsTone": "Impulso compartido con compañeros de confianza",
+      "communityTone": "Coordinación colectiva y administración"
+    },
+    "chickens": {
+      "tabs": "Pestañas",
+      "notes": "Notas",
+      "ideas": "Ideas",
+      "signals": "Señales",
+      "links": "Enlaces",
+      "drafts": "Borradores",
+      "threads": "Conversaciones",
+      "clips": "Clips",
+      "bookmarks": "Marcadores",
+      "photos": "Fotos",
+      "voiceMemos": "Notas de Voz",
+      "receipts": "Recibos"
+    },
+    "chickenThoughts": {
+      "tabs": {
+        "kicker": "Pestaña del navegador",
+        "text": "Este lead de subvención vale la pena seguir."
+      },
+      "notes": {
+        "kicker": "Nota de campo",
+        "text": "La energía de los miembros está cambiando esta semana."
+      },
+      "ideas": {
+        "kicker": "Hilo suelto",
+        "text": "Reconecta esto después de la reunión."
+      },
+      "signals": {
+        "kicker": "Clip de llamada",
+        "text": "Guarda el momento clave antes de que se disipe."
+      },
+      "links": {
+        "kicker": "Enlace guardado",
+        "text": "Esto sigue apareciendo en conversaciones."
+      },
+      "drafts": {
+        "kicker": "Borrador",
+        "text": "A medio terminar pero vale la pena mantener cerca."
+      },
+      "threads": {
+        "kicker": "Conversación",
+        "text": "Fragmentos de conversación de la semana pasada."
+      },
+      "clips": {
+        "kicker": "Clip",
+        "text": "Momento de audio que vale la pena revisar."
+      },
+      "bookmarks": {
+        "kicker": "Marcador",
+        "text": "Este enlace sigue apareciendo."
+      },
+      "photos": {
+        "kicker": "Foto",
+        "text": "Capturada en el campo el martes pasado."
+      },
+      "voiceMemos": {
+        "kicker": "Nota de voz",
+        "text": "Captura rápida del camino a casa."
+      },
+      "receipts": {
+        "kicker": "Recibo",
+        "text": "Prueba de la contribución del mes pasado."
+      }
     }
   },
   "zh": {
