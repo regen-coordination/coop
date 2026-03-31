@@ -62,7 +62,10 @@ export default function WelcomeHero() {
           <Link to="/builder/getting-started" className={styles.featureCard}>
             <p className={styles.eyebrow}>Builder</p>
             <h3>Install &amp; Build</h3>
-            <p>Download the extension package, load it into Chrome, or jump into the repo to contribute.</p>
+            <p>
+              Download the extension package, load it into Chrome, or jump into the repo to
+              contribute.
+            </p>
           </Link>
         </div>
       </div>

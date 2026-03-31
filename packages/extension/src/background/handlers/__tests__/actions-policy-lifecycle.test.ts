@@ -101,10 +101,7 @@ function makeBundle(overrides: Partial<ActionBundle> = {}): ActionBundle {
   } as ActionBundle;
 }
 
-function makeHistoryEntry(
-  coopId: string,
-  eventType: ActionLogEntry['eventType'],
-): ActionLogEntry {
+function makeHistoryEntry(coopId: string, eventType: ActionLogEntry['eventType']): ActionLogEntry {
   return {
     id: `log-${coopId}-${eventType}`,
     coopId,

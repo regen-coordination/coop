@@ -103,13 +103,7 @@ export const howItWorksCards: StoryCard[] = [
 ];
 
 export const teamMembers = ['Afolabi Aiyeloja', 'Luiz Fernando', 'Sofia Villareal'];
-export const partnerMarks = [
-  'Coop',
-  'Greenpill',
-  'Greenpill Dev Guild',
-  'ReFi DAO',
-  'Green Goods',
-];
+export const partnerMarks = ['Coop', 'Greenpill', 'Greenpill Dev Guild', 'ReFi DAO', 'Green Goods'];
 
 /** Map community labels to specific arrival chickens */
 export const arrivalChickenCommunities: Record<string, string> = {

@@ -44,8 +44,8 @@ export function NestReceiverSection({
         </summary>
         <div className="collapsible-card__content stack">
           <p className="helper-text">
-            Manage paired devices. Anything hatched on a phone lands here first and stays private
-            to the paired member until it is turned into a draft and shared.
+            Manage paired devices. Anything hatched on a phone lands here first and stays private to
+            the paired member until it is turned into a draft and shared.
           </p>
           <div className="action-row">
             <button className="primary-button" onClick={createReceiverPairing} type="button">

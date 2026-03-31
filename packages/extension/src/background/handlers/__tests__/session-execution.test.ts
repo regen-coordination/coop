@@ -35,7 +35,9 @@ const sharedMocks = vi.hoisted(() => ({
     privateKey: '0x3333333333333333333333333333333333333333333333333333333333333333',
   })),
   createSessionWrappingSecret: vi.fn(async () => 'wrap-secret'),
-  decryptSessionPrivateKey: vi.fn(async () => '0x4444444444444444444444444444444444444444444444444444444444444444'),
+  decryptSessionPrivateKey: vi.fn(
+    async () => '0x4444444444444444444444444444444444444444444444444444444444444444',
+  ),
   encryptSessionPrivateKey: vi.fn(async () => ({
     cipherText: 'cipher',
   })),
@@ -58,24 +60,29 @@ const sharedMocks = vi.hoisted(() => ({
     ...capability,
     status: 'revoked',
   })),
-  rotateSessionCapability: vi.fn((input: {
-    capability: SessionCapability;
-    sessionAddress: string;
-    validatorAddress: string;
-    validatorInitData: string;
-  }) => ({
-    ...input.capability,
-    sessionAddress: input.sessionAddress,
-    validatorAddress: input.validatorAddress,
-    validatorInitData: input.validatorInitData,
-    updatedAt: '2026-03-29T00:00:00.000Z',
-  })),
+  rotateSessionCapability: vi.fn(
+    (input: {
+      capability: SessionCapability;
+      sessionAddress: string;
+      validatorAddress: string;
+      validatorInitData: string;
+    }) => ({
+      ...input.capability,
+      sessionAddress: input.sessionAddress,
+      validatorAddress: input.validatorAddress,
+      validatorInitData: input.validatorInitData,
+      updatedAt: '2026-03-29T00:00:00.000Z',
+    }),
+  ),
   saveEncryptedSessionMaterial: vi.fn(async () => undefined),
   saveSessionCapability: vi.fn(async () => undefined),
   saveSessionCapabilityLogEntry: vi.fn(async () => undefined),
   validateSessionCapabilityForBundle: vi.fn(),
   wrapUseSessionSignature: vi.fn(
-    ({ capability, validatorSignature }: { capability: SessionCapability; validatorSignature: string }) =>
+    ({
+      capability,
+      validatorSignature,
+    }: { capability: SessionCapability; validatorSignature: string }) =>
       `wrapped:${capability.id}:${validatorSignature}`,
   ),
 }));
@@ -329,9 +336,7 @@ describe('session execution paths', () => {
         sendTransaction,
       },
     });
-    rhinestoneMocks.checkModuleInstalled
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
+    rhinestoneMocks.checkModuleInstalled.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     sharedMocks.checkSessionCapabilityEnabled.mockResolvedValue(false);
 
     const result = await ensureSessionCapabilityReadyLive({
@@ -490,10 +495,7 @@ describe('session execution paths', () => {
   });
 
   it('logs validation rejections and throws the last rejection reason when no capability is usable', async () => {
-    const capabilities = [
-      makeCapability({ id: 'cap-1' }),
-      makeCapability({ id: 'cap-2' }),
-    ];
+    const capabilities = [makeCapability({ id: 'cap-1' }), makeCapability({ id: 'cap-2' })];
     sharedMocks.listSessionCapabilities.mockResolvedValue(capabilities);
     sharedMocks.validateSessionCapabilityForBundle
       .mockReturnValueOnce({

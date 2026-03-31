@@ -23,7 +23,7 @@ The demo needs to prove six things quickly:
 
 1. Coop has a real product surface, not a concept deck.
 2. Coop creates a real shared coordination space.
-3. Coop captures and synthesizes knowledge locally.
+3. Coop captures and synthesizes knowledge into opportunity locally.
 4. Coop requires human review before shared publication.
 5. Coop can create durable archive and proof.
 6. Coop can bridge from shared knowledge into bounded onchain action.
@@ -77,7 +77,7 @@ Suggested duration: 15 to 20 seconds
 
 > Communities do not have an information problem. They have a fragmentation problem. Coop helps a
 > group capture signal where it already works, refine it locally, review it deliberately, and turn
-> it into shared memory and coordinated action.
+> it into shared memory, opportunity, and coordinated action.
 
 ### Proof point
 
@@ -147,7 +147,7 @@ Suggested duration: 60 to 75 seconds
 ### Talk track
 
 > The agent is structuring knowledge in-browser. At this point nothing has been shared. The system
-> is helping the group interpret signal before publication.
+> is helping the group interpret signal into opportunity before publication.
 
 ### Proof point
 
@@ -215,8 +215,9 @@ Suggested duration: 35 to 50 seconds
 
 ### Talk track
 
-> Coop does not stop at memory. It can connect shared knowledge to bounded onchain action. The
-> important point is that high-stakes execution is scoped by role, policy, and human confirmation.
+> Coop does not stop at memory. It can connect shared knowledge to bounded onchain action and, over
+> time, to clearer capital-formation workflows. The important point is that high-stakes execution is
+> scoped by role, policy, and human confirmation.
 
 ### Proof point
 
@@ -242,8 +243,9 @@ Suggested duration: 45 to 60 seconds
 ### Talk track
 
 > The immediate loop is capture, synthesize, review, publish, archive, and act. The larger vision
-> is Coop as community-owned coordination infrastructure: a knowledge graph, a policy layer, an
-> archive layer, and an action layer that communities can actually trust.
+> is Coop as community-owned coordination infrastructure: a knowledge graph, an opportunity and
+> capital-formation layer, a policy layer, an archive layer, and an action layer that communities
+> can actually trust.
 
 ### Mention briefly
 

@@ -55,9 +55,7 @@ function makeActiveCoop(overrides: Partial<CoopSharedState> = {}): CoopSharedSta
   } as unknown as CoopSharedState;
 }
 
-function buildProps(
-  overrides: Partial<NestSettingsSectionProps> = {},
-): NestSettingsSectionProps {
+function buildProps(overrides: Partial<NestSettingsSectionProps> = {}): NestSettingsSectionProps {
   return {
     dashboard: {
       activeCoopId: 'coop-1',

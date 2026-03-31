@@ -710,7 +710,10 @@ export function addInviteToState(state: CoopSharedState, invite: InviteCode) {
  * @param inviteType - Invite type to inspect
  * @returns True when at least one invite of the requested type exists
  */
-export function hasInviteHistoryForType(state: Pick<CoopSharedState, 'invites'>, inviteType: InviteType) {
+export function hasInviteHistoryForType(
+  state: Pick<CoopSharedState, 'invites'>,
+  inviteType: InviteType,
+) {
   return (state.invites ?? []).some((invite) => invite.type === inviteType);
 }
 

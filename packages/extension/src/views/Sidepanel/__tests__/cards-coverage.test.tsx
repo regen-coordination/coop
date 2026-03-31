@@ -138,7 +138,9 @@ describe('sidepanel cards coverage', () => {
     expect(screen.getByText('River Coop')).toBeInTheDocument();
     expect(screen.getByText('Polish suggestion')).toBeInTheDocument();
     expect(
-      screen.getByText('Hides your name, not the content. Sharing still publishes this draft to the coop.'),
+      screen.getByText(
+        'Hides your name, not the content. Sharing still publishes this draft to the coop.',
+      ),
     ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Title'), {

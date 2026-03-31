@@ -20,6 +20,10 @@ For current grant targets, see [Grant Landscape](/reference/grant-landscape-2026
 Coop should monetize the coordination infrastructure that creates ongoing leverage or ongoing cost,
 not the basic right to capture, refine, and review knowledge locally.
 
+Coop's product value proposition includes helping communities turn knowledge into opportunity,
+funding readiness, and capital formation. The business model should monetize the infrastructure
+around that process, not tax every act of community sensemaking itself.
+
 That means the base loop should remain accessible:
 
 - capture

@@ -7,10 +7,12 @@ const sharedMocks = vi.hoisted(() => ({
   listReceiverCaptures: vi.fn(),
   listReviewDrafts: vi.fn(),
   saveAgentObservation: vi.fn(async () => undefined),
-  updateAgentObservation: vi.fn((observation: Record<string, unknown>, patch: Record<string, unknown>) => ({
-    ...observation,
-    ...patch,
-  })),
+  updateAgentObservation: vi.fn(
+    (observation: Record<string, unknown>, patch: Record<string, unknown>) => ({
+      ...observation,
+      ...patch,
+    }),
+  ),
 }));
 
 const contextMocks = vi.hoisted(() => ({
@@ -66,7 +68,9 @@ vi.mock('../agent-observation-emitters', () => ({
   syncHighConfidenceDraftObservations: emitterMocks.syncHighConfidenceDraftObservations,
 }));
 
-const { reconcileAgentObservations, syncAgentObservations } = await import('../agent-reconciliation');
+const { reconcileAgentObservations, syncAgentObservations } = await import(
+  '../agent-reconciliation'
+);
 
 function makeCoop(overrides: Record<string, unknown> = {}) {
   return {
@@ -222,7 +226,8 @@ describe('agent reconciliation helpers', () => {
       },
     ]);
     conditionMocks.isGreenGoodsSyncNeeded.mockImplementation(
-      (greenGoods: { gardenAddress?: string } | undefined) => greenGoods?.gardenAddress === '0xgarden',
+      (greenGoods: { gardenAddress?: string } | undefined) =>
+        greenGoods?.gardenAddress === '0xgarden',
     );
     conditionMocks.isGreenGoodsGapAdminSyncNeeded.mockImplementation(
       (coop: { profile: { id: string } }) => coop.profile.id === 'coop-2',

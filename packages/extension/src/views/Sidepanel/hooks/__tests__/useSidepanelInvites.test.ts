@@ -34,9 +34,7 @@ function makeActiveMember(): ActiveMember {
   } as ActiveMember;
 }
 
-function makeInviteResult(
-  overrides: Partial<InviteResult> = {},
-): InviteResult {
+function makeInviteResult(overrides: Partial<InviteResult> = {}): InviteResult {
   return {
     id: 'invite-1',
     type: 'member',

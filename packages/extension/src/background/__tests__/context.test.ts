@@ -35,11 +35,13 @@ const sharedMocks = vi.hoisted(() => ({
   getSoundPreferences: vi.fn(),
   getTrustedNodeArchiveConfig: vi.fn(),
   getUiPreferences: vi.fn(),
-  mergeCoopArchiveConfig: vi.fn((config: Record<string, unknown>, secrets: Record<string, unknown>) => ({
-    ...config,
-    ...secrets,
-    merged: true,
-  })),
+  mergeCoopArchiveConfig: vi.fn(
+    (config: Record<string, unknown>, secrets: Record<string, unknown>) => ({
+      ...config,
+      ...secrets,
+      merged: true,
+    }),
+  ),
   setSoundPreferences: vi.fn(async () => undefined),
   setTrustedNodeArchiveConfig: vi.fn(async () => undefined),
   setUiPreferences: vi.fn(async () => undefined),

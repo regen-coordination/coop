@@ -11,8 +11,8 @@ execution plan.
 ## 1. One-Line Vision
 
 Coop becomes the operating system for community-owned coordination: a way for groups to capture
-what they know, turn it into shared sensemaking, preserve it as durable memory, and act on it
-without surrendering privacy, agency, or governance to a centralized platform.
+what they know, turn it into shared sensemaking and opportunity, preserve it as durable memory, and
+act on it without surrendering privacy, agency, or governance to a centralized platform.
 
 ## 2. The Problem Behind The Product
 
@@ -32,6 +32,8 @@ Useful context does not reliably become:
 
 - shared memory
 - coordinated interpretation
+- legible opportunity
+- funding readiness
 - durable evidence
 - accountable next steps
 
@@ -52,7 +54,7 @@ conversation.
 
 The system helps a group interpret signal locally before it becomes shared state. The point is not
 to flood the group with generated text. The point is to turn fragments into legible opportunities,
- claims, evidence, and next steps.
+funding leads, claims, evidence, and next steps.
 
 ### 3. Memory layer
 
@@ -62,7 +64,8 @@ survive staff churn, tool churn, and hosting churn.
 ### 4. Action layer
 
 Communities should be able to connect knowledge to bounded execution: publishing, delegation,
-archive, funding, governance, Green Goods work, and other forms of accountable action.
+archive, capital formation, funding, governance, Green Goods work, and other forms of accountable
+action.
 
 ## 4. Why This Matters
 
@@ -71,6 +74,7 @@ If communities cannot preserve and interpret their own knowledge, they cannot co
 That shows up as:
 
 - repeated work
+- missed opportunities
 - weak funding continuity
 - poor governance memory
 - hidden power accumulation
@@ -81,6 +85,7 @@ Coop aims at a different posture:
 
 - local by default
 - explicit when shared
+- opportunity-aware when structured
 - durable when kept
 - bounded when acted on
 
@@ -92,7 +97,8 @@ as an external guidance layer for the vision. The generative standards are espec
 
 ### Sensemaking Standard
 
-The vision is not "store more things." It is "help groups make sense together."
+The vision is not "store more things." It is "help groups make sense together so they can see where
+real opportunity, capital formation, and collective action are possible."
 
 That means Coop should improve a community's ability to:
 
@@ -153,11 +159,15 @@ This is the current product center of gravity:
 - archive
 - bounded action
 
+This horizon should already feel like "knowledge into opportunity," especially for funding leads,
+grant work, and capital formation briefs.
+
 ### Horizon 2: Shared sensemaking surface
 
 This is where the product becomes more obviously collective:
 
 - richer graph exploration
+- clearer opportunity and funding pathways
 - stronger review rituals
 - clearer archive and proof visibility
 - cross-device continuity
@@ -171,6 +181,16 @@ This is where the primitives become reusable across different community forms:
 - public-goods teams
 - cooperative projects
 - governance groups
+- capital allocators and grant circles
+
+In concrete terms, Coop OS should eventually be understandable as a community runtime made of:
+
+- member devices running capture and review surfaces
+- a shared coordination layer for policy, sync, memory, and proofs
+- optional steward-operated hardware for always-on services such as local model caching, call
+  ingestion, archive jobs, and coordination relays
+- action integrations that can route structured opportunity into funding, staking, grants, or other
+  bounded capital flows
 
 ### Horizon 4: Protocol-level public good
 
@@ -181,12 +201,19 @@ This is the longest horizon:
 - accountable knowledge-to-action rails
 - community ownership over the coordination substrate itself
 
+For Greenpill Dev Guild, one concrete expression of this horizon is Coop acting as the knowledge,
+evidence, and deliberation layer around a public-goods staking protocol: signal comes in, the coop
+structures it, members review it, and capital allocation can happen against a more legible public
+record.
+
 ## 8. Vision Outcomes
 
 If the vision is successful, communities should be able to say:
 
 - we lose less important context
 - we can see what matters sooner
+- we can turn research into opportunity faster
+- we can assemble better funding and capital-formation context
 - our shared memory survives turnover
 - our decisions are easier to trace and justify
 - our coordination does not depend on trusting one central platform to remember everything for us

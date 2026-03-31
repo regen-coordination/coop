@@ -10,9 +10,7 @@ export function resolvePreviewCardImageUrl(
   item: Pick<ReviewDraft | Artifact, 'previewImageUrl' | 'sources'>,
 ) {
   return (
-    item.previewImageUrl ??
-    item.sources[0]?.socialPreviewImageUrl ??
-    item.sources[0]?.faviconUrl
+    item.previewImageUrl ?? item.sources[0]?.socialPreviewImageUrl ?? item.sources[0]?.faviconUrl
   );
 }
 

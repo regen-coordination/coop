@@ -10,8 +10,8 @@ and not the monetization doc.
 
 ## 1. Strategic Thesis
 
-Coop wins if it becomes the most trustworthy path from fragmented context to shared action for
-small and medium-sized communities.
+Coop wins if it becomes the most trustworthy path from fragmented context to shared action and
+capital formation for small and medium-sized communities.
 
 That means we are not trying to win by:
 
@@ -20,7 +20,8 @@ That means we are not trying to win by:
 - being the most onchain-maximal product
 - being a generic productivity suite
 
-We are trying to win by being the clearest and safest coordination membrane.
+We are trying to win by being the clearest and safest coordination membrane from knowledge into
+opportunity.
 
 ## 2. Four Core Tenets
 
@@ -103,21 +104,36 @@ Many products will promise more autonomy faster. Coop should resist that pressur
 care about durable memory, funding, governance, and impact work need trustworthy structure more
 than they need maximal automation.
 
-### Bet 2: Shared memory is a wedge into broader coordination
+### Bet 2: Knowledge into opportunity is the wedge
+
+The product gets materially stronger when capture and synthesis do not end at insight. They should
+help a community move toward:
+
+- funding leads
+- capital formation briefs
+- partnership opportunities
+- clearer next-step proposals
 
 If Coop becomes the place where a group's most useful context matures, then archive, delegation,
 proof, and action rails become natural extensions rather than forced add-ons.
 
-### Bet 3: Open, local, and verifiable is a real market position
+### Bet 3: Shared memory makes capital formation legible
+
+If Coop becomes the place where a group's strongest evidence matures, then grants, funding
+decisions, public-goods staking, and other capital-allocation workflows can point to a clearer
+shared record instead of private fragments and informal memory.
+
+### Bet 4: Open, local, and verifiable is a real market position
 
 There is a meaningful group of communities, builders, and funders that want an alternative to
 cloud-dependent coordination systems with unclear ownership boundaries.
 
-### Bet 4: The first wedge is communities with real coordination pressure
+### Bet 5: The first wedge is communities with real coordination pressure
 
 The strongest early users are not passive consumers. They are groups already doing:
 
 - grant coordination
+- capital allocation
 - ecosystem research
 - governance work
 - regenerative or place-based collaboration
@@ -189,9 +205,11 @@ The product should make roles, escalation, and bounded authority more legible ov
 Near-term strategy is working if:
 
 - the demo story is legible without heavy explanation
+- the product can show how captured knowledge becomes opportunity
 - first-run trust boundaries are easy to explain
 - early communities can use the product without custom hand-holding every time
 - archive and action rails strengthen the memory story instead of confusing it
+- capital-formation and funding use cases feel native instead of bolted on
 - the team can describe current posture honestly without weakening the long-term case
 
 ## 8. Relationship To Other Docs

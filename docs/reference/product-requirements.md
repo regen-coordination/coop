@@ -27,6 +27,16 @@ Enable communities to coordinate around knowledge, including funding leads, evid
 ### Alignment
 Coop implements the Ethereum Foundation's March 2026 Mandate (CROPS: Censorship Resistance, Open Source, Privacy, Security) through passkey-first identity, P2P sync, local-first data, and durable Filecoin archiving.
 
+#### Auth Model Glossary
+
+| Term | Definition |
+|------|-----------|
+| **Invite** | A capability token granting permission to join a coop and bootstrap sync. Not a peer-identity proof. |
+| **Sync room** | Capability-based admission using a shared room secret. Peers are not individually authenticated by passkey during sync. |
+| **Passkey** | Device-local identity root and signer for onchain actions. Created before create/join; required for member account prediction. |
+| **Member account** | Canonical personal onchain address (Kernel smart account) predicted at create/join time, deployed lazily on first transaction. |
+| **Trusted join** | Grants trusted role and queues a `safe-add-owner-requested` observation for later Safe owner addition. Does not mutate the Safe inline. |
+
 ---
 
 ## 2. Target Users
@@ -126,7 +136,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 2. Select invite type: `member` or `trusted`
 3. Background worker:
    - Embeds full coop bootstrap snapshot in invite
-   - Signs with HMAC-SHA256 using room's `inviteSigningSecret`
+   - Generates integrity proof by hashing the invite payload with the room's `inviteSigningSecret` (SHA-256)
    - Sets expiry: 24h (member) / 48h (trusted)
    - Encodes as base64 URL string
 4. Display invite code (copyable)
@@ -136,7 +146,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 - Invite code is copyable to clipboard
 - Code contains embedded coop state (offline-capable join)
 - Code expires after configured duration
-- HMAC proof verifiable by join flow
+- Integrity proof verifiable by join flow
 
 ---
 
@@ -150,7 +160,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 2. Paste invite code into "Join" form
 3. Enter display name + seed contribution
 4. Background worker:
-   - Decodes invite, verifies HMAC proof
+   - Decodes invite, verifies integrity proof (SHA-256 hash)
    - Checks expiry
    - Creates member with passkey identity
    - Applies join to Yjs doc
@@ -981,7 +991,7 @@ Handles all business logic, storage, and message routing for the extension. Not 
 | Identity | Passkey (WebAuthn), no custodial keys |
 | Data at rest | IndexedDB (browser sandbox) |
 | Data in transit | WebRTC (DTLS encryption) |
-| Invite integrity | HMAC-SHA256 proof |
+| Invite integrity | SHA-256 hash proof (concatenated secret + payload) |
 | Session encryption | AES-GCM with PBKDF2 (120K iterations) |
 | Archive integrity | Content-addressing (IPFS CIDs) |
 | Smart sessions | ERC-4337 with time + usage limits |

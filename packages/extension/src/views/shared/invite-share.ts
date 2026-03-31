@@ -59,9 +59,7 @@ export function buildInviteShareContent(input: InviteShareInput): InviteShareCon
     : memberMessage(coopName, code, expiresAt);
 
   return {
-    previewTitle: isTrusted
-      ? `Trusted invite to ${coopName}`
-      : `Member invite to ${coopName}`,
+    previewTitle: isTrusted ? `Trusted invite to ${coopName}` : `Member invite to ${coopName}`,
     previewBody: message,
     shareText: message,
     trustedWarning: isTrusted ? TRUSTED_WARNING : null,

@@ -8,7 +8,12 @@
  * import from 'packages/shared/src/__tests__/fixtures'.
  */
 
-import { createCoop, type CoopSharedState, type ReceiverCapture, type ReceiverPairingRecord } from '@coop/shared';
+import {
+  createCoop,
+  type CoopSharedState,
+  type ReceiverCapture,
+  type ReceiverPairingRecord,
+} from '@coop/shared';
 import { vi } from 'vitest';
 import { makeArtifact, makeSetupInsights } from '../../../../shared/src/__tests__/fixtures';
 
@@ -76,20 +81,18 @@ export function makeCoopState(overrides: Partial<CoopSharedState> = {}): CoopSha
       active: true,
       ...overrides.profile,
     },
-    members:
-      overrides.members ??
-      [
-        {
-          ...baseState.members[0],
-          id: 'member-1',
-          displayName: 'Ava',
-          role: 'creator',
-          address: creatorAddress,
-          joinedAt: '2026-03-20T00:00:00.000Z',
-          authMode: 'passkey',
-          identityWarning: 'Device bound.',
-        },
-      ],
+    members: overrides.members ?? [
+      {
+        ...baseState.members[0],
+        id: 'member-1',
+        displayName: 'Ava',
+        role: 'creator',
+        address: creatorAddress,
+        joinedAt: '2026-03-20T00:00:00.000Z',
+        authMode: 'passkey',
+        identityWarning: 'Device bound.',
+      },
+    ],
     rituals: [],
     artifacts: [],
     reviewBoard: [],

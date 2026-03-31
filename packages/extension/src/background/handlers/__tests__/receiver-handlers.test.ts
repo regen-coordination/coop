@@ -8,7 +8,9 @@ import {
 
 const sharedMocks = vi.hoisted(() => ({
   assertReceiverSyncEnvelope: vi.fn(),
-  buildReceiverPairingDeepLink: vi.fn((_base: string, code: string) => `https://receiver.test/${code}`),
+  buildReceiverPairingDeepLink: vi.fn(
+    (_base: string, code: string) => `https://receiver.test/${code}`,
+  ),
   createReceiverDraftSeed: vi.fn(),
   createReceiverPairingPayload: vi.fn(),
   deleteReviewDraft: vi.fn(async () => undefined),
@@ -187,8 +189,8 @@ describe('receiver handlers', () => {
     });
     sharedMocks.getReceiverCapture.mockResolvedValue(null);
     sharedMocks.getReviewDraft.mockResolvedValue(null);
-    sharedMocks.resolveDraftTargetCoopIdsForUi.mockImplementation(
-      (targets: string[]) => targets.filter(Boolean),
+    sharedMocks.resolveDraftTargetCoopIdsForUi.mockImplementation((targets: string[]) =>
+      targets.filter(Boolean),
     );
     sharedMocks.createReceiverDraftSeed.mockReturnValue(freshDraft);
     sharedMocks.updateReceiverCapture.mockImplementation(async (_db, _id, patch) => ({
@@ -299,7 +301,10 @@ describe('receiver handlers', () => {
     });
 
     expect(result).toEqual({ ok: true });
-    expect(sharedMocks.setActiveReceiverPairing).toHaveBeenCalledWith(expect.anything(), 'pairing-1');
+    expect(sharedMocks.setActiveReceiverPairing).toHaveBeenCalledWith(
+      expect.anything(),
+      'pairing-1',
+    );
     expect(contextMocks.ensureReceiverSyncOffscreenDocument).toHaveBeenCalledTimes(1);
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
       type: 'refresh-receiver-bindings',
@@ -476,7 +481,9 @@ describe('receiver handlers', () => {
     expect(result.ok).toBe(true);
     expect(sharedMocks.createReceiverDraftSeed).toHaveBeenCalledTimes(1);
     expect(sharedMocks.saveReviewDraft).toHaveBeenCalledWith(expect.anything(), expect.anything());
-    expect(agentMocks.syncHighConfidenceDraftObservations).toHaveBeenCalledWith([expect.anything()]);
+    expect(agentMocks.syncHighConfidenceDraftObservations).toHaveBeenCalledWith([
+      expect.anything(),
+    ]);
     expect(agentMocks.requestAgentCycle).toHaveBeenCalledWith('receiver-draft:draft-1');
     expect(sharedMocks.updateReceiverCapture).toHaveBeenCalledWith(
       expect.anything(),

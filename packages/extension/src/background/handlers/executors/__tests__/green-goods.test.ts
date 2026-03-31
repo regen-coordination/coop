@@ -847,7 +847,8 @@ describe('Green Goods executors', () => {
 
     expect(result).toEqual({
       ok: false,
-      error: 'A live archive config is required before Green Goods Hypercert packaging can execute.',
+      error:
+        'A live archive config is required before Green Goods Hypercert packaging can execute.',
     });
     expect(mocks.logPrivilegedAction).toHaveBeenCalledWith(
       expect.objectContaining({

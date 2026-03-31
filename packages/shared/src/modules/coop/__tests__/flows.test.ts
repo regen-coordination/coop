@@ -768,14 +768,10 @@ describe('create, join, and publish flows', () => {
     });
 
     expect(
-      revoked.invites.filter(
-        (invite) => invite.type === 'member' && invite.status !== 'revoked',
-      ),
+      revoked.invites.filter((invite) => invite.type === 'member' && invite.status !== 'revoked'),
     ).toHaveLength(0);
     expect(
-      revoked.invites.filter(
-        (invite) => invite.type === 'trusted' && invite.status !== 'revoked',
-      ),
+      revoked.invites.filter((invite) => invite.type === 'trusted' && invite.status !== 'revoked'),
     ).toHaveLength(1);
   });
 

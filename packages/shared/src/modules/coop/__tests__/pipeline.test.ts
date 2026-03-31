@@ -102,9 +102,7 @@ describe('pipeline', () => {
 
     expect(pipeline.extract.cleanedTitle).toContain('Watershed grant roundup');
     expect(pipeline.extract.faviconUrl).toBe('https://example.org/favicon.ico');
-    expect(pipeline.extract.socialPreviewImageUrl).toBe(
-      'https://example.org/social-preview.png',
-    );
+    expect(pipeline.extract.socialPreviewImageUrl).toBe('https://example.org/social-preview.png');
     expect(pipeline.extract.previewImageUrl).toBe('https://example.org/social-preview.png');
     expect(pipeline.drafts).toHaveLength(1);
     expect(pipeline.drafts[0]?.category).toBe('funding-lead');

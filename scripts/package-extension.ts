@@ -44,7 +44,9 @@ for (let index = 1; index < args.length; index += 1) {
 }
 
 if (filename && (path.basename(filename) !== filename || !filename.endsWith('.zip'))) {
-  console.error('Custom archive filenames must be plain .zip filenames without directory segments.');
+  console.error(
+    'Custom archive filenames must be plain .zip filenames without directory segments.',
+  );
   process.exit(1);
 }
 

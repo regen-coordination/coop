@@ -159,7 +159,9 @@ beforeEach(() => {
       available: true,
       detail: 'Safe deployments are available.',
     });
-  mocks.isTrustedNodeRole.mockImplementation((role: string) => role === 'creator' || role === 'trusted');
+  mocks.isTrustedNodeRole.mockImplementation(
+    (role: string) => role === 'creator' || role === 'trusted',
+  );
   mocks.appendPrivilegedActionLog.mockImplementation((current, entry) => [...current, entry]);
   mocks.createPrivilegedActionLogEntry.mockImplementation((entry) => ({
     id: 'log-1',
@@ -269,7 +271,11 @@ describe('background operator helpers', () => {
     mocks.getCoops.mockResolvedValue([coop]);
 
     expect(findAuthenticatedCoopMember(coop, creatorSession)?.id).toBe('member-1');
-    expect(findAuthenticatedCoopMember(coop, { primaryAddress: '0x3333333333333333333333333333333333333333' })).toBeUndefined();
+    expect(
+      findAuthenticatedCoopMember(coop, {
+        primaryAddress: '0x3333333333333333333333333333333333333333',
+      }),
+    ).toBeUndefined();
 
     const creatorResult = await requireCreatorGrantManager(
       coop.profile.id,

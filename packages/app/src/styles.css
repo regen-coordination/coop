@@ -1557,8 +1557,7 @@ pre {
   padding: 1.35rem 1.5rem;
   border: 1px solid rgba(39, 20, 14, 0.14);
   border-radius: 1.75rem;
-  background:
-    radial-gradient(circle at top right, rgba(253, 138, 1, 0.16), transparent 30%),
+  background: radial-gradient(circle at top right, rgba(253, 138, 1, 0.16), transparent 30%),
     linear-gradient(180deg, rgba(255, 248, 242, 0.96) 0%, rgba(252, 245, 239, 0.96) 100%);
   box-shadow: var(--coop-shadow-md);
 }
@@ -1603,10 +1602,7 @@ pre {
   color: var(--coop-brown);
   font-size: 0.95rem;
   font-weight: 700;
-  transition:
-    transform 160ms ease,
-    background-color 160ms ease,
-    color 160ms ease;
+  transition: transform 160ms ease, background-color 160ms ease, color 160ms ease;
 }
 
 .landing-builder-strip-actions a:hover {

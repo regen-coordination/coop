@@ -289,7 +289,9 @@ describe('action executor modules', () => {
     sharedMocks.getReviewDraft.mockResolvedValue(undefined);
     const executors = buildReviewExecutors(makeExecutorContext());
 
-    await expect(executors['publish-ready-draft']?.({ draftId: 'missing-draft', targetCoopIds: [] })).resolves.toEqual({
+    await expect(
+      executors['publish-ready-draft']?.({ draftId: 'missing-draft', targetCoopIds: [] }),
+    ).resolves.toEqual({
       ok: false,
       error: 'Draft not found.',
     });
@@ -302,7 +304,9 @@ describe('action executor modules', () => {
     });
     const executors = buildReviewExecutors(makeExecutorContext());
 
-    await expect(executors['publish-ready-draft']?.({ draftId: 'draft-1', targetCoopIds: ['coop-1'] })).resolves.toEqual({
+    await expect(
+      executors['publish-ready-draft']?.({ draftId: 'draft-1', targetCoopIds: ['coop-1'] }),
+    ).resolves.toEqual({
       ok: false,
       error: 'Draft is not publishable.',
     });

@@ -33,17 +33,23 @@ vi.mock('@coop/shared', async (importOriginal) => {
       memberDisplayName,
     })),
     getAuthSession: vi.fn().mockResolvedValue({
+      authMode: 'passkey',
       displayName: 'Mina',
       primaryAddress: '0x1111111111111111111111111111111111111111',
+      createdAt: '2026-03-01T00:00:00.000Z',
+      identityWarning: '',
       passkey: {
-        credentialId: 'credential-1',
+        id: 'credential-1',
         rpId: 'coop.test',
-        publicKey: 'public-key',
-        counter: 0,
+        publicKey: '0xabcdef1234567890',
       },
     }),
     deployCoopSafe: vi.fn(),
     setAnchorCapability: vi.fn(),
+    predictMemberAccountAddress: vi
+      .fn()
+      .mockResolvedValue('0x2222222222222222222222222222222222222222'),
+    saveLocalMemberSignerBinding: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -57,6 +63,7 @@ vi.mock('../../context', () => ({
     coopDocs: { toArray: vi.fn().mockResolvedValue([]) },
     privacyIdentities: { get: vi.fn(), put: vi.fn() },
     stealthKeyPairs: { get: vi.fn(), put: vi.fn() },
+    localMemberSignerBindings: { put: vi.fn() },
   },
   getCoops: vi.fn().mockResolvedValue([]),
   saveState: vi.fn(),
@@ -105,9 +112,11 @@ vi.mock('../agent', () => ({
 
 const { handleCreateCoop, handleJoinCoop, handleResolveOnchainState, handleSetAnchorMode } =
   await import('../coop');
-const { notifyExtensionEvent, saveState, setLocalSetting } = await import('../../context');
+const { getCoops, notifyExtensionEvent, saveState, setLocalSetting } = await import(
+  '../../context'
+);
 const { getOperatorState, logPrivilegedAction } = await import('../../operator');
-const { ensureOnboardingBurst } = await import('../agent');
+const { emitAgentObservationIfMissing, ensureOnboardingBurst } = await import('../agent');
 const shared = await import('@coop/shared');
 
 describe('coop handlers', () => {
@@ -388,5 +397,320 @@ describe('coop handlers', () => {
         },
       }),
     ).rejects.toThrow();
+  });
+
+  it('rejects coop creation when no passkey session exists', async () => {
+    vi.mocked(shared.getAuthSession).mockResolvedValueOnce(null);
+
+    const result = await handleCreateCoop({
+      type: 'create-coop',
+      payload: {
+        coopName: 'No Passkey Coop',
+        purpose: 'Should fail because no passkey session.',
+        creatorDisplayName: 'Anon',
+        captureMode: 'manual',
+        seedContribution: 'Nothing to contribute yet.',
+        setupInsights: {
+          summary: 'N/A',
+          crossCuttingPainPoints: ['None'],
+          crossCuttingOpportunities: ['None'],
+          lenses: [
+            {
+              lens: 'capital-formation',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('passkey session'),
+    });
+    expect(vi.mocked(saveState)).not.toHaveBeenCalled();
+  });
+
+  it('predicts creator member account address after creating a coop', async () => {
+    const result = await handleCreateCoop({
+      type: 'create-coop',
+      payload: {
+        coopName: 'Account Prediction Coop',
+        purpose: 'Test that creator account prediction runs.',
+        creatorDisplayName: 'Mina',
+        captureMode: 'manual',
+        seedContribution: 'Testing the member account prediction flow.',
+        creator: {
+          id: 'member-creator-1',
+          displayName: 'Mina',
+          role: 'creator',
+          authMode: 'passkey',
+          address: '0x1111111111111111111111111111111111111111',
+          joinedAt: '2026-03-01T00:00:00.000Z',
+          identityWarning: '',
+          passkeyCredentialId: 'credential-1',
+        },
+        setupInsights: {
+          summary: 'A coop for testing account prediction.',
+          crossCuttingPainPoints: ['Knowledge fragmentation'],
+          crossCuttingOpportunities: ['Shared artifacts'],
+          lenses: [
+            {
+              lens: 'capital-formation',
+              currentState: 'No shared funding leads.',
+              painPoints: 'Leads get lost.',
+              improvements: 'Capture into coop feed.',
+            },
+            {
+              lens: 'impact-reporting',
+              currentState: 'Metrics gathered manually.',
+              painPoints: 'Evidence arrives late.',
+              improvements: 'Collect evidence steadily.',
+            },
+            {
+              lens: 'governance-coordination',
+              currentState: 'Decisions spread across tools.',
+              painPoints: 'Follow-up items slip.',
+              improvements: 'Shared review queue.',
+            },
+            {
+              lens: 'knowledge-garden-resources',
+              currentState: 'Resources in individual tabs.',
+              painPoints: 'Repeated research.',
+              improvements: 'Shared references.',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(vi.mocked(shared.predictMemberAccountAddress)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        coopId: expect.any(String),
+        memberId: 'member-creator-1',
+        chainKey: expect.any(String),
+      }),
+    );
+    expect(vi.mocked(shared.saveLocalMemberSignerBinding)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        coopId: expect.any(String),
+        memberId: 'member-creator-1',
+        accountAddress: '0x2222222222222222222222222222222222222222',
+        passkeyCredentialId: 'credential-1',
+      }),
+    );
+    // saveState called at least twice: initial save + post-prediction save
+    expect(vi.mocked(saveState).mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('rejects coop join when no passkey session exists', async () => {
+    vi.mocked(shared.getAuthSession).mockResolvedValueOnce(null);
+
+    // Mock parseInviteCode so it succeeds (the passkey guard is after invite parsing)
+    const parseInviteSpy = vi.spyOn(shared, 'parseInviteCode').mockReturnValueOnce({
+      bootstrap: {
+        coopId: 'coop-stub',
+        coopName: 'Stub Coop',
+        inviterDisplayName: 'Creator',
+        syncRoom: { id: 'room-1', secret: 'secret', inviteSigningSecret: 'sig-secret' },
+        onchainState: { chainKey: 'sepolia', chainId: 11155111, safeCapability: 'mock' },
+      },
+      proof: 'stub-proof',
+    } as unknown as ReturnType<typeof shared.parseInviteCode>);
+
+    const result = await handleJoinCoop({
+      type: 'join-coop',
+      payload: {
+        inviteCode: 'stub-invite-code',
+        displayName: 'Ari',
+        seedContribution: 'I bring field notes.',
+      },
+    });
+
+    parseInviteSpy.mockRestore();
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('passkey session'),
+    });
+  });
+
+  it('rejects join via real invite when no passkey session exists', async () => {
+    // Create a coop to get a valid invite from it
+    const createResult = await handleCreateCoop({
+      type: 'create-coop',
+      payload: {
+        coopName: 'Invite Source Coop',
+        purpose: 'Source for join-without-auth test.',
+        creatorDisplayName: 'Mina',
+        captureMode: 'manual',
+        seedContribution: 'Creating coop to generate invite.',
+        setupInsights: {
+          summary: 'Minimal coop for invite generation.',
+          crossCuttingPainPoints: ['None'],
+          crossCuttingOpportunities: ['None'],
+          lenses: [
+            {
+              lens: 'capital-formation',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+            {
+              lens: 'impact-reporting',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+            {
+              lens: 'governance-coordination',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+            {
+              lens: 'knowledge-garden-resources',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+          ],
+        },
+      },
+    });
+    expect(createResult.ok).toBe(true);
+    const coopState = createResult.data as NonNullable<typeof createResult.data>;
+
+    const creatorId = coopState.members[0].id;
+    const invite = shared.generateInviteCode({
+      state: coopState,
+      createdBy: creatorId,
+      type: 'member',
+    });
+
+    vi.mocked(getCoops).mockResolvedValueOnce([coopState]);
+    vi.mocked(shared.getAuthSession).mockResolvedValueOnce(null);
+
+    const joinResult = await handleJoinCoop({
+      type: 'join-coop',
+      payload: {
+        inviteCode: invite.code,
+        displayName: 'Ghost',
+        seedContribution: 'Will not land.',
+      },
+    });
+
+    expect(joinResult).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('passkey session'),
+    });
+  });
+
+  it('predicts account and emits safe-add-owner-requested for trusted join without Safe mutation', async () => {
+    const createResult = await handleCreateCoop({
+      type: 'create-coop',
+      payload: {
+        coopName: 'Trusted Join Coop',
+        purpose: 'Validate trusted member account prediction and safe-add-owner emit.',
+        creatorDisplayName: 'Mina',
+        captureMode: 'manual',
+        seedContribution: 'Creating coop for trusted join test.',
+        setupInsights: {
+          summary: 'Trusted join test coop.',
+          crossCuttingPainPoints: ['None'],
+          crossCuttingOpportunities: ['None'],
+          lenses: [
+            {
+              lens: 'capital-formation',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+            {
+              lens: 'impact-reporting',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+            {
+              lens: 'governance-coordination',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+            {
+              lens: 'knowledge-garden-resources',
+              currentState: 'N/A',
+              painPoints: 'N/A',
+              improvements: 'N/A',
+            },
+          ],
+        },
+      },
+    });
+    expect(createResult.ok).toBe(true);
+    const coopState = createResult.data as NonNullable<typeof createResult.data>;
+
+    const creatorId = coopState.members[0].id;
+    const trustedInvite = shared.generateInviteCode({
+      state: coopState,
+      createdBy: creatorId,
+      type: 'trusted',
+    });
+
+    vi.mocked(getCoops).mockResolvedValueOnce([coopState]);
+
+    // Pass an explicit member with passkeyCredentialId so provisionMemberAccounts creates an account
+    const joinResult = await handleJoinCoop({
+      type: 'join-coop',
+      payload: {
+        inviteCode: trustedInvite.code,
+        displayName: 'Kai',
+        seedContribution: 'Trusted member joining to validate safe-add-owner.',
+        member: {
+          id: 'member-kai',
+          displayName: 'Kai',
+          role: 'trusted',
+          authMode: 'passkey',
+          address: '0x3333333333333333333333333333333333333333',
+          joinedAt: '2026-03-01T00:00:00.000Z',
+          identityWarning: '',
+          passkeyCredentialId: 'credential-kai',
+        },
+      },
+    });
+
+    expect(joinResult.ok).toBe(true);
+
+    const joinedState = joinResult.data;
+    const joinedMember = joinedState.members.find(
+      (m: { displayName: string }) => m.displayName === 'Kai',
+    );
+    expect(joinedMember).toBeDefined();
+    expect(joinedMember?.role).toBe('trusted');
+    const memberAccount = joinedState.memberAccounts.find(
+      (a: { memberId: string }) => a.memberId === joinedMember?.id,
+    );
+    expect(memberAccount).toBeDefined();
+    expect(memberAccount?.status).toBe('predicted');
+    expect(memberAccount?.accountAddress).toBe('0x2222222222222222222222222222222222222222');
+
+    expect(vi.mocked(emitAgentObservationIfMissing)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: 'safe-add-owner-requested',
+        coopId: coopState.profile.id,
+        payload: expect.objectContaining({
+          memberId: joinedMember?.id,
+          ownerAddress: '0x2222222222222222222222222222222222222222',
+          memberRole: 'trusted',
+        }),
+      }),
+    );
+
+    expect(vi.mocked(shared.deployCoopSafe)).not.toHaveBeenCalled();
   });
 });

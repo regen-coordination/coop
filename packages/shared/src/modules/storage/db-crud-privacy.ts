@@ -42,10 +42,7 @@ export async function getPrivacyIdentitiesForCoop(db: CoopDexie, coopId: string)
   return hydrated.filter((record): record is PrivacyIdentityRecord => Boolean(record));
 }
 
-export async function listPrivacyIdentities(
-  db: CoopDexie,
-  options?: { requireSecrets?: boolean },
-) {
+export async function listPrivacyIdentities(db: CoopDexie, options?: { requireSecrets?: boolean }) {
   const records = await db.privacyIdentities.toArray();
   const hydrated = await Promise.all(
     records.map((record) =>

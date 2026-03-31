@@ -609,7 +609,7 @@ button:focus-visible,
   cursor: pointer;
 }
 
-.popup-toggle-field input[type='checkbox'] {
+.popup-toggle-field input[type="checkbox"] {
   width: 16px;
   height: 16px;
   accent-color: var(--coop-green);
@@ -921,8 +921,14 @@ button:focus-visible,
 }
 
 @keyframes yard-tooltip-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .popup-action-grid {
@@ -2188,7 +2194,8 @@ body::-webkit-scrollbar,
 }
 
 @keyframes chicken-idle {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -2197,23 +2204,52 @@ body::-webkit-scrollbar,
 }
 
 @keyframes chicken-cackle {
-  0%, 100% { transform: rotate(0) scale(1); }
-  15% { transform: rotate(-8deg) scale(1.08); }
-  30% { transform: rotate(6deg) scale(1.04); }
-  50% { transform: rotate(-5deg) scale(1.02); }
-  70% { transform: rotate(3deg); }
-  85% { transform: rotate(-1deg); }
+  0%,
+  100% {
+    transform: rotate(0) scale(1);
+  }
+  15% {
+    transform: rotate(-8deg) scale(1.08);
+  }
+  30% {
+    transform: rotate(6deg) scale(1.04);
+  }
+  50% {
+    transform: rotate(-5deg) scale(1.02);
+  }
+  70% {
+    transform: rotate(3deg);
+  }
+  85% {
+    transform: rotate(-1deg);
+  }
 }
 
 @keyframes chicken-rooster {
-  0% { transform: rotate(0) scale(1); }
-  10% { transform: rotate(-12deg) scale(1.2) translateY(-2px); }
-  25% { transform: rotate(10deg) scale(1.15) translateY(-3px); }
-  40% { transform: rotate(-8deg) scale(1.1) translateY(-1px); }
-  55% { transform: rotate(6deg) scale(1.05); }
-  70% { transform: rotate(-4deg) scale(1.02); }
-  85% { transform: rotate(2deg); }
-  100% { transform: rotate(0) scale(1); }
+  0% {
+    transform: rotate(0) scale(1);
+  }
+  10% {
+    transform: rotate(-12deg) scale(1.2) translateY(-2px);
+  }
+  25% {
+    transform: rotate(10deg) scale(1.15) translateY(-3px);
+  }
+  40% {
+    transform: rotate(-8deg) scale(1.1) translateY(-1px);
+  }
+  55% {
+    transform: rotate(6deg) scale(1.05);
+  }
+  70% {
+    transform: rotate(-4deg) scale(1.02);
+  }
+  85% {
+    transform: rotate(2deg);
+  }
+  100% {
+    transform: rotate(0) scale(1);
+  }
 }
 
 .popup-yard__chicken {
