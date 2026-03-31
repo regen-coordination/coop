@@ -21,7 +21,7 @@
   transition: all 0.2s ease;
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--coop-brown);
+  color: #3d2415;
   letter-spacing: 0.04em;
   box-shadow: 0 4px 16px rgba(79, 46, 31, 0.1);
   backdrop-filter: blur(8px);
@@ -42,14 +42,14 @@
   display: inline-block;
   min-width: 1.4rem;
   text-align: center;
-  color: var(--coop-brown);
+  color: #3d2415;
 }
 
 .language-selector-chevron {
   width: 1.2rem;
   height: 1.2rem;
-  opacity: 0.8;
-  color: var(--coop-brown);
+  opacity: 0.85;
+  color: #3d2415;
   transition: transform 0.2s ease;
 }
 
@@ -97,13 +97,13 @@
   text-align: left;
   font-size: 0.85rem;
   font-weight: 500;
-  color: var(--coop-brown);
+  color: #3d2415;
   font-family: inherit;
 }
 
 .language-selector-option:hover {
   background: rgba(90, 125, 16, 0.06);
-  color: var(--coop-brown);
+  color: #3d2415;
 }
 
 .language-selector-option.is-active {

@@ -445,17 +445,12 @@ export function App({
             },
           });
 
-          // Heading card and team fade in together at scroll start, stay visible through mid-scroll,
-          // then fade out as the coop house rises
+          // Heading card and team already visible at start (no fade-in animation)
+          // They stay visible through mid-scroll, then fade out as the coop house rises
           arrivalTimeline
-            .fromTo(whyBuildCard, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0 }, 0)
-            .fromTo(whyBuildTeam, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0 }, 0)
-            .fromTo(
-              whyBuildTeamMembers,
-              { autoAlpha: 0, scale: 0.9 },
-              { autoAlpha: 1, scale: 1, stagger: 0.02 },
-              0,
-            )
+            .set(whyBuildCard, { autoAlpha: 1, y: 0 }, 0)
+            .set(whyBuildTeam, { autoAlpha: 1, y: 0 }, 0)
+            .set(whyBuildTeamMembers, { autoAlpha: 1, scale: 1 }, 0)
             .to(whyBuildCard, { autoAlpha: 0, y: -20, scale: 0.96 }, 0.32)
             .to(whyBuildTeam, { autoAlpha: 0, y: -14 }, 0.34)
             .to(whyBuildTeamMembers, { autoAlpha: 0, y: -10, stagger: 0.02 }, 0.36)
