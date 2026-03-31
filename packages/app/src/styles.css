@@ -1527,73 +1527,90 @@ pre {
 
 .why-build-scene-team {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  pointer-events: none;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 50%;
+  width: fit-content;
+  pointer-events: auto;
   z-index: 4;
-  visibility: hidden;
   opacity: 0;
+  visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(79, 46, 31, 0.08), rgba(90, 125, 16, 0.04));
+  border: 1px solid rgba(255, 252, 246, 0.15);
+  border-radius: 1rem;
+  backdrop-filter: blur(8px);
 }
 
 .scene-team-label {
-  position: absolute;
-  left: max(1rem, calc((100% - 1120px) / 2));
-  top: 34%;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 252, 246, 0.7);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+  color: rgba(255, 252, 246, 0.75);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  margin: 0;
+}
+
+.team-members-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
 }
 
 .scene-team-member {
-  position: absolute;
-  display: grid;
-  justify-items: center;
-  gap: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
   opacity: 0.92;
   pointer-events: auto;
+  transition: transform 0.3s ease;
+}
+
+.scene-team-member:hover {
+  transform: scale(1.05);
 }
 
 .scene-team-member .team-avatar {
-  width: 2.8rem;
-  height: 2.8rem;
+  width: 3.2rem;
+  height: 3.2rem;
   border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 252, 246, 0.9);
-  border: 2px solid rgba(79, 46, 31, 0.15);
-  box-shadow: 0 4px 12px rgba(79, 46, 31, 0.12);
-  font-size: 0.85rem;
+  background: linear-gradient(135deg, rgba(255, 252, 246, 0.95), rgba(248, 240, 220, 0.9));
+  border: 2px solid rgba(79, 46, 31, 0.2);
+  box-shadow: 0 8px 24px rgba(79, 46, 31, 0.15);
+  font-size: 1rem;
   font-weight: 700;
   color: var(--coop-brown);
 }
 
 .scene-team-name {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: rgba(255, 252, 246, 0.88);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  color: rgba(255, 252, 246, 0.92);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   white-space: nowrap;
+  text-align: center;
 }
 
 .scene-team-left {
-  left: max(1.5rem, calc((100% - 1120px) / 2 + 0.5rem));
-  top: 40%;
+  position: static;
 }
 
 .scene-team-right-top {
-  left: max(6.5rem, calc((100% - 1120px) / 2 + 5.5rem));
-  top: 40%;
+  position: static;
 }
 
 .scene-team-right-bottom {
-  left: max(11.5rem, calc((100% - 1120px) / 2 + 10.5rem));
-  top: 40%;
+  position: static;
 }
 
 .landing-builder-strip {

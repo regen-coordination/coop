@@ -269,7 +269,8 @@ export function App({
             arrivalJourneyRef.current?.querySelector<HTMLDivElement>('.why-build-scene-team') ??
             null;
           const whyBuildTeamMembers = Array.from(
-            whyBuildTeam?.querySelectorAll<HTMLElement>('.scene-team-member') ?? [],
+            whyBuildTeam?.querySelectorAll<HTMLElement>('.team-members-grid .scene-team-member') ??
+              [],
           );
 
           const arrivalCoopParts = {
@@ -444,30 +445,20 @@ export function App({
             },
           });
 
-          // Heading card and team fade in quickly at scroll start, stay visible through mid-scroll,
-          // then fade out faster as the coop house rises
+          // Heading card and team fade in at scroll start, stay visible through mid-scroll,
+          // then fade out as the coop house rises
           arrivalTimeline
-            .fromTo(
-              whyBuildCard,
-              { autoAlpha: 0, y: 12 },
-              { autoAlpha: 1, y: 0, duration: 0.02 },
-              0,
-            )
-            .fromTo(
-              whyBuildTeam,
-              { autoAlpha: 0, y: 10 },
-              { autoAlpha: 1, y: 0, duration: 0.03 },
-              0.01,
-            )
+            .fromTo(whyBuildCard, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0 }, 0)
+            .fromTo(whyBuildTeam, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0 }, 0.02)
             .fromTo(
               whyBuildTeamMembers,
               { autoAlpha: 0, scale: 0.9 },
-              { autoAlpha: 1, scale: 1, stagger: 0.01, duration: 0.03 },
-              0.02,
+              { autoAlpha: 1, scale: 1, stagger: 0.03 },
+              0.04,
             )
-            .to(whyBuildCard, { autoAlpha: 0, y: -20, scale: 0.96 }, 0.28)
-            .to(whyBuildTeam, { autoAlpha: 0, y: -14 }, 0.3)
-            .to(whyBuildTeamMembers, { autoAlpha: 0, y: -10, stagger: 0.02 }, 0.32)
+            .to(whyBuildCard, { autoAlpha: 0, y: -20, scale: 0.96 }, 0.32)
+            .to(whyBuildTeam, { autoAlpha: 0, y: -14 }, 0.34)
+            .to(whyBuildTeamMembers, { autoAlpha: 0, y: -10, stagger: 0.02 }, 0.36)
             .fromTo(
               arrivalGlowLeftRef.current,
               { x: '-10vw', y: '3vh', scale: 0.9 },
@@ -1476,18 +1467,14 @@ export function App({
               </div>
 
               <div className="why-build-scene-team" aria-label={t('why_build.builtByTeam')}>
-                <span className="scene-team-label">Built by the Coop team</span>
-                <div className="scene-team-member scene-team-left">
-                  <span className="team-avatar">{initialsForName(teamMembers[0])}</span>
-                  <span className="scene-team-name">{teamMembers[0]}</span>
-                </div>
-                <div className="scene-team-member scene-team-right-top">
-                  <span className="team-avatar">{initialsForName(teamMembers[1])}</span>
-                  <span className="scene-team-name">{teamMembers[1]}</span>
-                </div>
-                <div className="scene-team-member scene-team-right-bottom">
-                  <span className="team-avatar">{initialsForName(teamMembers[2])}</span>
-                  <span className="scene-team-name">{teamMembers[2]}</span>
+                <span className="scene-team-label">{t('why_build.builtByTeam')}</span>
+                <div className="team-members-grid">
+                  {teamMembers.map((member) => (
+                    <div className="scene-team-member" key={member}>
+                      <span className="team-avatar">{initialsForName(member)}</span>
+                      <span className="scene-team-name">{member}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
