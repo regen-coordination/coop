@@ -1,13 +1,19 @@
 ---
 feature: hackathon-release-readiness
-title: Hackathon Release Readiness QA pass 2
+title: Hackathon release QA pass 2
 lane: qa
 agent: claude
-status: backlog
+status: blocked
 source_branch: main
 work_branch: qa/claude/hackathon-release-readiness
 depends_on:
   - qa-codex.todo.md
+  - ../lanes/docs.claude.todo.md
+tags:
+  - Testing
+  - Demo
+  - Polish
+  - Documentation
 skills:
   - qa
   - ui
@@ -19,22 +25,29 @@ updated: 2026-03-30
 
 # QA Pass 2
 
-Claude runs the second QA pass only after Codex QA is done and `handoff/qa-claude/hackathon-release-readiness` exists.
+## Category
+
+Testing, manual UX acceptance, and demo rehearsal.
 
 ## Focus
 
-- UX regressions
-- Interaction gaps
-- End-to-end behavior
-- Accessibility and visual issues
+- user trust and clarity
+- landing/install/docs sanity
+- demo flow smoothness
+- polish triage after the technical gate is green
 
 ## Tasks
 
-- [ ] Validate the primary flow from the user perspective
-- [ ] Note findings with file references
-- [ ] Fix or hand off issues as appropriate
+- [ ] Walk the full story: landing -> install -> create or join -> passkey explanation -> pair
+      device -> synthesize in Chickens -> invite/share -> archive/Filecoin -> Green Goods
+      touchpoint.
+- [ ] Check that privacy and local-first claims feel explicit and believable to a first-time user.
+- [ ] Rehearse the demo flow and trim wording or sequencing friction where needed.
+- [ ] Record only high-signal issues in `../eval/qa-report.md`, clearly separating blockers from
+      nice-to-have polish.
 
 ## Verification
 
-- [ ] Appropriate E2E or manual validation was run
-- [ ] Findings are captured in `../eval/qa-report.md`
+- [ ] Manual walkthrough completed
+- [ ] Docs/install path sanity-checked
+- [ ] Findings captured with a clear blocker vs polish split

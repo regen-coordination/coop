@@ -1,17 +1,23 @@
-# QA Report For Hackathon Release Readiness
+# QA Report
 
-## QA Pass 1: Claude
-
-- Status:
-- Commands:
-- Findings:
-
-## QA Pass 2: Codex
+## Codex QA Pass
 
 - Status:
-- Commands:
-- Findings:
+- Commands run:
+- Result:
+- Blockers:
+- Residual risks:
 
-## Residual Risk
+## Claude QA Pass
 
-- Any known gaps left after both passes
+- Status:
+- Manual flow checked:
+- Result:
+- Blockers:
+- Nice-to-have polish:
+
+## Release Decision
+
+- Mock-first release candidate:
+- Live-demo path:
+- Notes:
