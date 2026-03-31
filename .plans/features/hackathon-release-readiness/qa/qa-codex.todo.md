@@ -3,7 +3,7 @@ feature: hackathon-release-readiness
 title: Hackathon release QA pass 1
 lane: qa
 agent: codex
-status: blocked
+status: done
 source_branch: main
 work_branch: qa/codex/hackathon-release-readiness
 depends_on:
