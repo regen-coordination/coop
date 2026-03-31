@@ -3601,14 +3601,60 @@ pre {
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--coop-space-sm);
+  gap: 1rem;
   align-items: start;
+  padding: 1rem;
+  border-radius: var(--coop-radius-card);
+  border: 1px solid rgba(79, 46, 31, 0.12);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(252, 248, 244, 0.88));
+  transition: all var(--coop-ease);
+}
+
+.detail-grid > div {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.detail-grid strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--coop-brown);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .helper-text {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   color: var(--coop-brown-soft);
-  margin: 0.15rem 0 0;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.check-list {
+  margin: 0;
+  padding: 1rem 1rem 1rem 1.5rem;
+  list-style: none;
+  border-radius: var(--coop-radius-card);
+  border: 1.5px solid rgba(90, 125, 16, 0.18);
+  background: linear-gradient(135deg, rgba(90, 125, 16, 0.06), rgba(253, 138, 1, 0.02));
+  display: grid;
+  gap: 0.6rem;
+}
+
+.check-list li {
+  position: relative;
+  padding-left: 1.4rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--coop-brown);
+}
+
+.check-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+  color: rgba(90, 125, 16, 0.72);
 }
 
 .summary-card {
@@ -4079,30 +4125,52 @@ html.has-receiver {
 
 .receiver-form {
   display: grid;
-  gap: 0.85rem;
-  margin-top: 1rem;
+  gap: 0.95rem;
+  margin-top: 1.2rem;
 }
 
 .receiver-label {
   font-weight: 700;
+  font-size: 0.95rem;
   color: var(--coop-brown);
+  text-transform: capitalize;
 }
 
 .receiver-form textarea {
   width: 100%;
-  min-height: 11rem;
-  padding: 1rem 1.1rem;
-  border-radius: var(--coop-radius-card);
-  border: 1px solid var(--coop-line);
-  background: rgba(255, 255, 255, 0.82);
+  min-height: 11.5rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: var(--coop-radius-input);
+  border: 1.5px solid rgba(79, 46, 31, 0.15);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(252, 248, 244, 0.9));
   color: var(--coop-brown);
   resize: vertical;
   font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  transition: all var(--coop-ease);
+  -webkit-appearance: none;
+}
+
+.receiver-form textarea::placeholder {
+  color: rgba(79, 46, 31, 0.5);
+}
+
+.receiver-form textarea:focus {
+  outline: none;
+  border-color: rgba(79, 46, 31, 0.28);
+  box-shadow: 0 0 0 3px rgba(79, 46, 31, 0.06);
 }
 
 .receiver-error {
-  color: var(--coop-error);
+  color: rgba(220, 74, 62, 0.85);
   font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: var(--coop-radius-chip);
+  background: rgba(220, 74, 62, 0.08);
+  border: 1.5px solid rgba(220, 74, 62, 0.2);
+  margin: -0.5rem 0 0;
 }
 
 .receiver-capture-card::before,
@@ -4822,17 +4890,20 @@ button.sync-pill {
 
 .qr-scanner-dialog {
   border: none;
-  padding: var(--coop-space-md);
+  padding: 1.2rem;
   max-width: min(24rem, calc(100vw - 2rem));
   width: 100%;
   border-radius: var(--coop-radius-card);
-  background: rgba(255, 252, 249, 0.96);
-  backdrop-filter: blur(12px);
+  background: linear-gradient(135deg, rgba(255, 252, 249, 0.98), rgba(248, 240, 220, 0.96));
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: 0 20px 50px rgba(79, 46, 31, 0.12);
 }
 
 .qr-scanner-dialog::backdrop {
-  background: rgba(39, 20, 14, 0.6);
-  backdrop-filter: blur(6px);
+  background: rgba(39, 20, 14, 0.68);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -5803,7 +5874,59 @@ button.sync-pill {
   }
 
   .receiver-form textarea {
-    background: rgba(30, 24, 20, 0.82);
+    background: linear-gradient(180deg, rgba(30, 24, 20, 0.88), rgba(26, 20, 16, 0.92));
+    border-color: rgba(232, 213, 196, 0.12);
+    color: rgba(232, 213, 196, 0.95);
+  }
+
+  .receiver-form textarea::placeholder {
+    color: rgba(232, 213, 196, 0.4);
+  }
+
+  .receiver-form textarea:focus {
+    border-color: rgba(232, 213, 196, 0.2);
+    box-shadow: 0 0 0 3px rgba(232, 213, 196, 0.04);
+  }
+
+  .receiver-label {
+    color: rgba(232, 213, 196, 0.95);
+  }
+
+  .receiver-error {
+    background: rgba(220, 74, 62, 0.08);
+    border-color: rgba(220, 74, 62, 0.2);
+    color: rgba(220, 74, 62, 0.85);
+  }
+
+  .detail-grid {
+    border-color: rgba(232, 213, 196, 0.1);
+    background: linear-gradient(135deg, rgba(30, 24, 20, 0.88), rgba(26, 20, 16, 0.92));
+  }
+
+  .detail-grid strong {
+    color: rgba(232, 213, 196, 0.95);
+  }
+
+  .helper-text {
+    color: rgba(232, 213, 196, 0.6);
+  }
+
+  .check-list {
+    border-color: rgba(138, 184, 64, 0.14);
+    background: linear-gradient(135deg, rgba(90, 125, 16, 0.06), rgba(253, 138, 1, 0.02));
+    color: rgba(232, 213, 196, 0.95);
+  }
+
+  .check-list li::before {
+    color: rgba(138, 184, 64, 0.6);
+  }
+
+  .qr-scanner-dialog {
+    background: linear-gradient(135deg, rgba(30, 24, 20, 0.96), rgba(26, 20, 16, 0.94));
+  }
+
+  .qr-scanner-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.72);
   }
 
   .board-topbar,
