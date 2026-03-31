@@ -643,6 +643,248 @@ pre {
   box-shadow: inset 0 0 0 1px rgba(90, 125, 16, 0.14);
 }
 
+/* Extension Preview Section */
+
+.extension-preview-section {
+  padding: 3rem 1rem;
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.5) 0%, rgba(255, 248, 240, 0.8) 100%);
+}
+
+.extension-preview-wrapper {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.extension-preview-content {
+  display: grid;
+  gap: 2rem;
+}
+
+.extension-preview-heading {
+  max-width: 52rem;
+  text-align: left;
+  margin: 0;
+}
+
+.extension-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+.extension-preview-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(255, 252, 246, 0.98), rgba(248, 240, 220, 0.96));
+  border-radius: var(--coop-radius-card-lg);
+  border: 1px solid rgba(79, 46, 31, 0.12);
+  box-shadow: 0 12px 32px rgba(79, 46, 31, 0.08);
+}
+
+.extension-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--coop-brown);
+}
+
+.extension-preview-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.8rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--coop-green-12) 80%, white),
+    color-mix(in srgb, var(--coop-green-12) 50%, white)
+  );
+  color: var(--coop-green);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.extension-preview-mockup {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.mockup-frame {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 0.6rem;
+  border: 1px solid rgba(79, 46, 31, 0.1);
+  overflow: hidden;
+}
+
+.mockup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid rgba(79, 46, 31, 0.08);
+}
+
+.mockup-sidebar-header {
+  padding: 0.6rem 0.8rem;
+  border-bottom: none;
+}
+
+.mockup-logo {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--coop-brown);
+}
+
+.mockup-button-group {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.mockup-icon-btn {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 0.4rem;
+  background: rgba(200, 140, 100, 0.1);
+  border: 1px solid rgba(79, 46, 31, 0.1);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.mockup-header-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--coop-brown);
+}
+
+.mockup-body {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.mockup-sidebar-body {
+  gap: 0.4rem;
+}
+
+.mockup-section {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.mockup-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(79, 46, 31, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mockup-content {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.mockup-chip {
+  display: inline-flex;
+  padding: 0.4rem 0.8rem;
+  background: rgba(90, 125, 16, 0.1);
+  border: 1px solid rgba(90, 125, 16, 0.2);
+  border-radius: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--coop-green);
+  font-weight: 500;
+}
+
+.mockup-textarea {
+  width: 100%;
+  height: 2rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(79, 46, 31, 0.1);
+  border-radius: 0.4rem;
+}
+
+.mockup-button {
+  padding: 0.6rem 1rem;
+  background: var(--coop-green);
+  color: white;
+  border: none;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.mockup-button:hover {
+  background: color-mix(in srgb, var(--coop-green) 85%, black);
+}
+
+.mockup-item {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 0.4rem;
+}
+
+.mockup-item-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 0.3rem;
+  background: rgba(200, 140, 100, 0.2);
+  flex-shrink: 0;
+}
+
+.mockup-item-content {
+  display: grid;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.mockup-item-title {
+  width: 80%;
+  height: 0.6rem;
+  background: rgba(79, 46, 31, 0.15);
+  border-radius: 0.2rem;
+}
+
+.mockup-item-subtitle {
+  width: 60%;
+  height: 0.4rem;
+  background: rgba(79, 46, 31, 0.08);
+  border-radius: 0.2rem;
+}
+
+.mockup-benefit {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+}
+
+.mockup-benefit-icon {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: rgba(90, 125, 16, 0.2);
+  flex-shrink: 0;
+}
+
+.mockup-benefit-text {
+  font-size: 0.8rem;
+  color: var(--coop-brown);
+  font-weight: 500;
+}
+
 .ritual-section {
   position: relative;
   z-index: 2;
@@ -4890,11 +5132,19 @@ button.sync-pill {
   .how-works-card::after {
     display: none;
   }
+
+  .extension-preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 1024px) {
   .receiver-main {
     max-width: 64rem;
+  }
+
+  .extension-preview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
