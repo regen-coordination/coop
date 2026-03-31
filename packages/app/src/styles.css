@@ -2755,15 +2755,24 @@ pre {
   align-items: center;
   justify-content: center;
   border-radius: var(--coop-radius-pill);
-  padding: 0.9rem 1.2rem;
+  padding: 0.95rem 1.3rem;
   border: 1px solid transparent;
-  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+  font-weight: 600;
+  transition: all 200ms ease;
   text-decoration: none;
   cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .button:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 46, 31, 0.12);
+}
+
+.button:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 4px rgba(79, 46, 31, 0.08);
 }
 
 .button:disabled {
@@ -2773,19 +2782,31 @@ pre {
 }
 
 .button-primary {
-  background: var(--coop-brown);
+  background: linear-gradient(135deg, rgba(79, 46, 31, 0.95), var(--coop-brown));
   color: white;
+  box-shadow: 0 2px 8px rgba(79, 46, 31, 0.12);
+}
+
+.button-primary:hover {
+  box-shadow: 0 6px 16px rgba(79, 46, 31, 0.16);
 }
 
 .button-secondary {
-  background: rgba(255, 255, 255, 0.68);
-  border-color: var(--coop-line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(252, 248, 244, 0.84));
+  border-color: rgba(79, 46, 31, 0.12);
   color: var(--coop-brown);
+  box-shadow: 0 2px 6px rgba(79, 46, 31, 0.06);
+}
+
+.button-secondary:hover {
+  border-color: rgba(79, 46, 31, 0.18);
+  box-shadow: 0 4px 12px rgba(79, 46, 31, 0.1);
 }
 
 .button-small {
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1.05rem;
   min-height: 44px;
+  font-size: 0.9rem;
 }
 
 .landing-main .button {
@@ -4589,9 +4610,51 @@ html.has-receiver {
   align-items: center;
   width: fit-content;
   border-radius: var(--coop-radius-pill);
-  padding: 0.34rem 0.74rem;
-  font-size: 0.78rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.79rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: all var(--coop-ease);
+  border: 1.5px solid transparent;
+}
+
+.sync-pill.is-local-only {
+  background: rgba(79, 46, 31, 0.08);
+  color: rgba(79, 46, 31, 0.75);
+  border-color: rgba(79, 46, 31, 0.14);
+}
+
+.sync-pill.is-queued {
+  background: rgba(253, 138, 1, 0.12);
+  color: rgba(253, 138, 1, 0.85);
+  border-color: rgba(253, 138, 1, 0.2);
+}
+
+.sync-pill.is-synced {
+  background: rgba(90, 125, 16, 0.12);
+  color: rgba(90, 125, 16, 0.85);
+  border-color: rgba(90, 125, 16, 0.2);
+}
+
+.sync-pill.is-failed {
+  background: rgba(220, 74, 62, 0.12);
+  color: rgba(220, 74, 62, 0.85);
+  border-color: rgba(220, 74, 62, 0.2);
+}
+
+button.sync-pill {
+  border: none;
+  cursor: pointer;
+  background: none;
+  padding: 0;
+}
+
+button.sync-pill:hover {
+  opacity: 0.85;
+}
+
+button.sync-pill:active {
+  transform: scale(0.96);
 }
 
 .nest-item-chick {
@@ -4654,14 +4717,15 @@ button.sync-pill {
 
 .sync-pill-popover {
   margin: 0;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--coop-line);
+  padding: 0.55rem 0.85rem;
+  border: 1.5px solid rgba(79, 46, 31, 0.12);
   border-radius: var(--coop-radius-chip);
-  background: rgba(255, 252, 249, 0.96);
-  backdrop-filter: blur(12px);
-  font-size: 0.75rem;
-  color: var(--coop-brown-soft);
-  box-shadow: var(--coop-shadow-sm);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(252, 248, 244, 0.94));
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(14px) saturate(1.1);
+  font-size: 0.76rem;
+  color: rgba(79, 46, 31, 0.7);
+  box-shadow: 0 4px 12px rgba(79, 46, 31, 0.08);
 }
 
 .sync-pill-popover::backdrop {
@@ -4834,12 +4898,12 @@ button.sync-pill {
   border-radius: var(--coop-radius-card);
   background: linear-gradient(
     90deg,
-    var(--coop-brown-6) 25%,
-    var(--coop-brown-12) 50%,
-    var(--coop-brown-6) 75%
+    rgba(79, 46, 31, 0.08) 25%,
+    rgba(79, 46, 31, 0.14) 50%,
+    rgba(79, 46, 31, 0.08) 75%
   );
   background-size: 200% 100%;
-  animation: skeleton-pulse 1.5s ease infinite;
+  animation: skeleton-pulse 1.8s ease-in-out infinite;
 }
 
 .skeleton-card {
@@ -6166,5 +6230,66 @@ button.sync-pill {
 
   .boot-card .quiet-note {
     color: rgba(232, 213, 196, 0.6);
+  }
+
+  .button-primary {
+    background: linear-gradient(135deg, rgba(48, 36, 28, 0.95), rgba(42, 32, 24, 0.92));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .button-primary:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
+  }
+
+  .button-secondary {
+    background: linear-gradient(180deg, rgba(48, 36, 28, 0.88), rgba(42, 32, 24, 0.92));
+    border-color: rgba(232, 213, 196, 0.12);
+    color: rgba(232, 213, 196, 0.9);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+  }
+
+  .button-secondary:hover {
+    border-color: rgba(232, 213, 196, 0.18);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .sync-pill.is-local-only {
+    background: rgba(232, 213, 196, 0.08);
+    color: rgba(232, 213, 196, 0.7);
+    border-color: rgba(232, 213, 196, 0.12);
+  }
+
+  .sync-pill.is-queued {
+    background: rgba(253, 138, 1, 0.12);
+    color: rgba(253, 138, 1, 0.8);
+    border-color: rgba(253, 138, 1, 0.18);
+  }
+
+  .sync-pill.is-synced {
+    background: rgba(138, 184, 64, 0.12);
+    color: rgba(138, 184, 64, 0.8);
+    border-color: rgba(138, 184, 64, 0.18);
+  }
+
+  .sync-pill.is-failed {
+    background: rgba(220, 74, 62, 0.12);
+    color: rgba(220, 74, 62, 0.8);
+    border-color: rgba(220, 74, 62, 0.18);
+  }
+
+  .sync-pill-popover {
+    background: linear-gradient(135deg, rgba(30, 24, 20, 0.96), rgba(26, 20, 16, 0.94));
+    border-color: rgba(232, 213, 196, 0.1);
+    color: rgba(232, 213, 196, 0.7);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(232, 213, 196, 0.06) 25%,
+      rgba(232, 213, 196, 0.1) 50%,
+      rgba(232, 213, 196, 0.06) 75%
+    );
   }
 }
