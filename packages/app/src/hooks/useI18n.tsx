@@ -1,4 +1,4 @@
-import { type ReactNode, createContext, useContext, useState } from 'react';
+import { type ReactNode, createContext, useContext, useEffect, useState } from 'react';
 // biome-ignore lint/suspicious/noExplicitAny: allow any for JSON import
 import translations from '../i18n/translations.json';
 
@@ -11,9 +11,29 @@ interface I18nContextType {
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
+const STORAGE_KEY = 'coop_language';
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<LanguageCode>('en');
+  const [language, setLanguageState] = useState<LanguageCode>('en');
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize language from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored && ['en', 'pt', 'es', 'zh', 'fr'].includes(stored)) {
+        setLanguageState(stored as LanguageCode);
+      }
+      setIsInitialized(true);
+    }
+  }, []);
+
+  const setLanguage = (lang: LanguageCode) => {
+    setLanguageState(lang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, lang);
+    }
+  };
 
   const t = (key: string, defaultValue = key): string => {
     const keys = key.split('.');
@@ -28,10 +48,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return typeof value === 'string' ? value : defaultValue;
   };
 
+  // Don't render children until initialized to avoid hydration mismatch
+  if (!isInitialized) {
+    return <>{children}</>;
+  }
+
   return (
-    <I18nContext.Provider value={{ language, setLanguage, t }}>
-      {children}
-    </I18nContext.Provider>
+    <I18nContext.Provider value={{ language, setLanguage, t }}>{children}</I18nContext.Provider>
   );
 }
 

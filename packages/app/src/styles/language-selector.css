@@ -42,12 +42,14 @@
   display: inline-block;
   min-width: 1.4rem;
   text-align: center;
+  color: #1a0f0a;
 }
 
 .language-selector-chevron {
   width: 1.2rem;
   height: 1.2rem;
-  opacity: 0.6;
+  opacity: 0.7;
+  color: #2a1810;
   transition: transform 0.2s ease;
 }
 

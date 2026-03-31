@@ -1181,8 +1181,8 @@ export function App({
                         {String(index + 1).padStart(2, '0')}
                       </span>
                       <div className="how-works-card-copy">
-                        <h3>{card.title}</h3>
-                        <p>{card.detail}</p>
+                        <h3>{t(`how_works.card${index + 1}.title`)}</h3>
+                        <p>{t(`how_works.card${index + 1}.detail`)}</p>
                       </div>
                       <div className="how-works-thought-bubble" aria-hidden="true">
                         <div className="thought-bubble-inner">
