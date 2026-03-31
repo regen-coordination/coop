@@ -165,6 +165,10 @@ const config: Config = {
           title: 'Builder',
           items: [
             { label: 'Getting Started', to: '/builder/getting-started' },
+            {
+              label: 'Releases',
+              href: 'https://github.com/greenpill-dev-guild/coop/releases',
+            },
             { label: 'Architecture', to: '/builder/architecture' },
             { label: 'Integrations', to: '/builder/integrations' },
           ],

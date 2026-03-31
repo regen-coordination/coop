@@ -9,6 +9,7 @@ import { createId, decodeBase64Url, encodeBase64Url, hashText, nowIso } from '..
 
 const RECEIVER_PAIRING_PREFIX = 'coop-receiver:';
 const RECEIVER_PROTOCOL_PREFIX = 'web+coop-receiver:';
+const REDACTED_RECEIVER_PAIR_SECRET_PREFIX = 'encrypted://local/receiver-pairing/';
 
 export function deriveReceiverRoomId(coopId: string, memberId: string, pairSecret: string) {
   return `receiver-room-${hashText(`${coopId}:${memberId}:${pairSecret}`).slice(2, 18)}`;
@@ -95,8 +96,8 @@ export { filterUsableSignalingUrls as filterUsableReceiverSignalingUrls } from '
 export function getReceiverPairingStatus(
   pairing: Pick<
     ReceiverPairingRecord,
-    'coopId' | 'memberId' | 'pairSecret' | 'roomId' | 'expiresAt' | 'active' | 'signalingUrls'
-  >,
+    'coopId' | 'memberId' | 'roomId' | 'expiresAt' | 'active' | 'signalingUrls'
+  > & { pairSecret?: string },
   nowMs = Date.now(),
 ) {
   if (pairing.active === false) {
@@ -106,12 +107,20 @@ export function getReceiverPairingStatus(
     } as const;
   }
 
-  const derivedRoomId = deriveReceiverRoomId(pairing.coopId, pairing.memberId, pairing.pairSecret);
-  if (pairing.roomId !== derivedRoomId) {
-    return {
-      status: 'invalid',
-      message: 'Receiver pairing context is invalid. Accept a fresh pairing link.',
-    } as const;
+  const pairSecret = pairing.pairSecret;
+  const hasVerifiablePairSecret =
+    typeof pairSecret === 'string' &&
+    pairSecret.length > 0 &&
+    !pairSecret.startsWith(REDACTED_RECEIVER_PAIR_SECRET_PREFIX);
+
+  if (hasVerifiablePairSecret) {
+    const derivedRoomId = deriveReceiverRoomId(pairing.coopId, pairing.memberId, pairSecret);
+    if (pairing.roomId !== derivedRoomId) {
+      return {
+        status: 'invalid',
+        message: 'Receiver pairing context is invalid. Accept a fresh pairing link.',
+      } as const;
+    }
   }
 
   if (isReceiverPairingExpired(pairing, nowMs)) {

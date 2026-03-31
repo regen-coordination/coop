@@ -89,6 +89,25 @@ describe('db-maintenance', () => {
       title: 'Local file',
     });
     const memory = makeAgentMemory({ id: 'memory-clear' });
+    const privacyIdentity = {
+      id: 'privacy-clear',
+      coopId: 'coop-1',
+      memberId: 'member-1',
+      commitment: 'commitment-clear',
+      publicKey: ['pub-x-clear', 'pub-y-clear'] as [string, string],
+      exportedPrivateKey: 'private-key-clear',
+      createdAt: NOW,
+    };
+    const stealthKeyPair = {
+      id: 'stealth-clear',
+      coopId: 'coop-1',
+      spendingKey: `0x${'ab'.repeat(32)}`,
+      viewingKey: `0x${'cd'.repeat(32)}`,
+      spendingPublicKey: `0x${'ef'.repeat(33)}`,
+      viewingPublicKey: `0x${'12'.repeat(33)}`,
+      metaAddress: `0x${'34'.repeat(67)}`,
+      createdAt: NOW,
+    };
 
     await db.tabCandidates.add(candidate);
     await db.pageExtracts.add(extract);
@@ -113,6 +132,8 @@ describe('db-maintenance', () => {
       candidateIds: [candidate.id],
     } as never);
     await db.agentMemories.add(memory as never);
+    await db.privacyIdentities.add(privacyIdentity as never);
+    await db.stealthKeyPairs.add(stealthKeyPair as never);
     await db.encryptedLocalPayloads.put(
       await buildEncryptedLocalPayloadRecord({
         db,
@@ -132,6 +153,8 @@ describe('db-maintenance', () => {
     await expect(db.tabRoutings.count()).resolves.toBe(0);
     await expect(db.captureRuns.count()).resolves.toBe(0);
     await expect(db.agentMemories.count()).resolves.toBe(0);
+    await expect(db.privacyIdentities.count()).resolves.toBe(0);
+    await expect(db.stealthKeyPairs.count()).resolves.toBe(0);
     await expect(db.encryptedLocalPayloads.count()).resolves.toBe(0);
   });
 
@@ -249,6 +272,25 @@ describe('db-maintenance', () => {
       title: 'Blob only',
     });
     const memory = makeAgentMemory({ id: 'memory-migrate' });
+    const privacyIdentity = {
+      id: 'privacy-migrate',
+      coopId: 'coop-1',
+      memberId: 'member-1',
+      commitment: 'commitment-migrate',
+      publicKey: ['pub-x-migrate', 'pub-y-migrate'] as [string, string],
+      exportedPrivateKey: 'private-key-migrate',
+      createdAt: NOW,
+    };
+    const stealthKeyPair = {
+      id: 'stealth-migrate',
+      coopId: 'coop-1',
+      spendingKey: `0x${'aa'.repeat(32)}`,
+      viewingKey: `0x${'bb'.repeat(32)}`,
+      spendingPublicKey: `0x${'cc'.repeat(33)}`,
+      viewingPublicKey: `0x${'dd'.repeat(33)}`,
+      metaAddress: `0x${'ee'.repeat(67)}`,
+      createdAt: NOW,
+    };
 
     await db.tabCandidates.add(candidate);
     await db.pageExtracts.add(extract as never);
@@ -259,6 +301,8 @@ describe('db-maintenance', () => {
       { captureId: blobOnlyCapture.id, blob: new Blob(['blob-only'], { type: 'audio/webm' }) },
     ]);
     await db.agentMemories.add(memory as never);
+    await db.privacyIdentities.add(privacyIdentity as never);
+    await db.stealthKeyPairs.add(stealthKeyPair as never);
     await db.encryptedLocalPayloads.put(
       await buildEncryptedLocalPayloadRecord({
         db,
@@ -270,7 +314,7 @@ describe('db-maintenance', () => {
 
     const migrated = await migrateLegacySensitiveRecords(db);
 
-    expect(migrated).toBe(6);
+    expect(migrated).toBe(8);
     await expect(
       getEncryptedLocalPayloadRecord(db, 'tab-candidate', candidate.id),
     ).resolves.toBeDefined();
@@ -288,6 +332,12 @@ describe('db-maintenance', () => {
     ).resolves.toBeDefined();
     await expect(
       getEncryptedLocalPayloadRecord(db, 'agent-memory', memory.id),
+    ).resolves.toBeDefined();
+    await expect(
+      getEncryptedLocalPayloadRecord(db, 'privacy-identity', privacyIdentity.id),
+    ).resolves.toBeDefined();
+    await expect(
+      getEncryptedLocalPayloadRecord(db, 'stealth-key-pair', stealthKeyPair.id),
     ).resolves.toBeDefined();
 
     const blobPayload = await getEncryptedLocalPayloadRecord(

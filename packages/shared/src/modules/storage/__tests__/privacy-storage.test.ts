@@ -3,6 +3,7 @@ import type { PrivacyIdentityRecord, StealthKeyPairRecord } from '../../../contr
 import {
   type CoopDexie,
   createCoopDb,
+  getEncryptedLocalPayloadRecord,
   getPrivacyIdentitiesForCoop,
   getPrivacyIdentity,
   getStealthKeyPair,
@@ -76,6 +77,21 @@ describe('privacy identity storage', () => {
     const result = await getPrivacyIdentity(db, 'coop-1', 'member-1');
     expect(result?.commitment).toBe('new-commitment-value');
   });
+
+  it('stores the private key in encrypted local payload storage and leaves only a redacted row', async () => {
+    const db = freshDb();
+    await savePrivacyIdentity(db, record);
+
+    const rawRecord = await db.privacyIdentities.get(record.id);
+    expect(rawRecord?.commitment).toBe(record.commitment);
+    expect(rawRecord?.exportedPrivateKey).toContain('encrypted://local/privacy-identity/');
+
+    const payload = await getEncryptedLocalPayloadRecord(db, 'privacy-identity', record.id);
+    expect(payload?.entityId).toBe(record.id);
+
+    const hydrated = await getPrivacyIdentity(db, 'coop-1', 'member-1');
+    expect(hydrated).toEqual(record);
+  });
 });
 
 describe('stealth key pair storage', () => {
@@ -110,5 +126,21 @@ describe('stealth key pair storage', () => {
     await saveStealthKeyPair(db, updated);
     const result = await getStealthKeyPair(db, 'coop-1');
     expect(result?.metaAddress).toBe('st:eth:0xnewmeta');
+  });
+
+  it('stores stealth private keys in encrypted local payload storage and leaves only public metadata in the row', async () => {
+    const db = freshDb();
+    await saveStealthKeyPair(db, keyPair);
+
+    const rawRecord = await db.stealthKeyPairs.get(keyPair.id);
+    expect(rawRecord?.metaAddress).toBe(keyPair.metaAddress);
+    expect(rawRecord?.spendingKey).toContain('encrypted://local/stealth-key-pair/');
+    expect(rawRecord?.viewingKey).toContain('encrypted://local/stealth-key-pair/');
+
+    const payload = await getEncryptedLocalPayloadRecord(db, 'stealth-key-pair', keyPair.id);
+    expect(payload?.entityId).toBe(keyPair.id);
+
+    const hydrated = await getStealthKeyPair(db, 'coop-1');
+    expect(hydrated).toEqual(keyPair);
   });
 });

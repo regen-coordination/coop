@@ -116,12 +116,13 @@ The extension also owns the user-facing state cues:
 bun install && cd packages/extension && bun run build
 ```
 
-Then load `packages/extension/.output/chrome-mv3` as an unpacked extension in Chrome. Full
+Then load `packages/extension/dist/chrome-mv3` as an unpacked extension in Chrome. Full
 instructions are in [Extension Install & Distribution](/reference/extension-install-and-distribution).
 
 The reference install doc describes three practical paths:
 
-- **Unpacked install** from `packages/extension/.output/chrome-mv3` (developers)
+- **Rolling GitHub prerelease** from `builder-latest` (builders who want the freshest packaged build)
+- **Unpacked install** from `packages/extension/dist/chrome-mv3` (developers building from source)
 - **Zip distribution** for trusted early-access testers outside the Chrome Web Store
 - **Chrome Web Store rollout** once the extension is ready for broader release
 

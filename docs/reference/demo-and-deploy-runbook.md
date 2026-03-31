@@ -129,7 +129,7 @@ Expected surfaces:
 - App / receiver PWA: `http://127.0.0.1:3001` or `https://local.coop.town`
 - Signaling: `ws://127.0.0.1:4444` or `wss://dev-api.coop.town`
 - Production fallback signaling: `wss://api.coop.town`
-- Extension bundle: `packages/extension/.output/chrome-mv3`
+- Extension bundle: `packages/extension/dist/chrome-mv3`
 
 To run services individually instead of `bun dev`:
 
@@ -144,7 +144,7 @@ bun run dev:api
 1. Open `chrome://extensions`.
 2. Turn on `Developer mode`.
 3. Click `Load unpacked`.
-4. Select `packages/extension/.output/chrome-mv3`.
+4. Select `packages/extension/dist/chrome-mv3`.
 5. Reload the extension after each rebuild.
 6. Pin the extension and open the sidepanel.
 
@@ -179,7 +179,7 @@ Notes:
 ### Demo Flow
 
 1. Both developers run `bun run dev:extension`.
-2. Both load the unpacked extension from `packages/extension/.output/chrome-mv3`.
+2. Both load the unpacked extension from `packages/extension/dist/chrome-mv3`.
 3. Dev A creates or opens the coop locally in the extension.
 4. Dev A generates a receiver pairing.
 5. Dev B opens `https://coop.town/pair`.
@@ -204,8 +204,8 @@ This is the release target.
 - Launch order:
   1. `Unlisted`
   2. `Public`
-- Build from `packages/extension/.output/chrome-mv3`.
-- Zip the contents of `packages/extension/.output/chrome-mv3` with files at the archive root.
+- Build from `packages/extension/dist/chrome-mv3`.
+- Package the release zip from the canonical build output with `bun run package:extension:public-release`.
 
 ### Signaling
 
@@ -451,7 +451,7 @@ Use this before demos and before production launch.
    green and the live env contract is complete, then run
    `bun run validate:production-live-readiness`.
 5. Build the extension.
-6. Zip the contents of `packages/extension/.output/chrome-mv3` at the archive root.
+6. Package the extension from `packages/extension/dist/chrome-mv3` with files at the archive root.
 7. Upload to the Chrome Web Store dashboard.
 8. Start as `Unlisted`.
 9. Add clear reviewer notes for sidepanel entry, passkey flows, mock vs live modes, receiver

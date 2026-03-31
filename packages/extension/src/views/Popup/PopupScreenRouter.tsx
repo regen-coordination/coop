@@ -8,6 +8,7 @@ import { PopupHomeScreen } from './PopupHomeScreen';
 import { PopupInviteHubScreen } from './PopupInviteHubScreen';
 import { PopupInviteSuccessScreen } from './PopupInviteSuccessScreen';
 import { PopupJoinCoopScreen } from './PopupJoinCoopScreen';
+import { PopupJoinSuccessScreen } from './PopupJoinSuccessScreen';
 import { PopupNoCoopScreen } from './PopupNoCoopScreen';
 import { PopupProfilePanel } from './PopupProfilePanel';
 import type { PopupOrchestrationState } from './hooks/usePopupOrchestration';
@@ -77,6 +78,14 @@ export function PopupScreenRouter({ state }: { state: PopupOrchestrationState })
           onRegenerateInvite={state.regenerateInviteCode}
           onRevokeInvite={state.revokeInviteType}
         />
+      </ErrorBoundary>
+    );
+  }
+
+  if (currentScreen === 'join-success') {
+    return (
+      <ErrorBoundary>
+        <PopupJoinSuccessScreen coop={state.joinedCoop} onEnterCoop={state.enterJoinedCoop} />
       </ErrorBoundary>
     );
   }

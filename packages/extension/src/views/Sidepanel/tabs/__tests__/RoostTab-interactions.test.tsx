@@ -122,6 +122,7 @@ function createCoop(overrides: Partial<CoopSharedState> = {}): CoopSharedState {
     memberAccounts: [],
     greenGoods: {
       enabled: true,
+      status: 'linked',
       gardenAddress: undefined,
       memberBindings: [],
       lastWorkSubmissionAt: undefined,
@@ -157,8 +158,12 @@ function buildProps(overrides: Partial<RoostTabProps> = {}): RoostTabProps {
       pendingDrafts: 3,
       staleObservationCount: 1,
     } as RoostTabProps['summary'],
+    agentDashboard: null,
     onProvisionMemberOnchainAccount: vi.fn(),
     onSubmitGreenGoodsWorkSubmission: vi.fn(),
+    onRunAgentCycle: vi.fn(),
+    onApproveAgentPlan: vi.fn(),
+    onRejectAgentPlan: vi.fn(),
     onOpenSynthesisSegment: vi.fn(),
     ...overrides,
   };
@@ -170,6 +175,59 @@ afterEach(() => {
 });
 
 describe('RoostTab interactions', () => {
+  it('defaults to the Focus sub-tab', () => {
+    render(<RoostTab {...buildProps()} />);
+
+    const focusButton = screen.getByRole('button', { name: /focus/i });
+    expect(focusButton.className).toContain('is-active');
+    expect(screen.getByText(/what's next/i)).toBeInTheDocument();
+  });
+
+  it('switches between Focus, Agent, and Garden sub-tabs', async () => {
+    const user = userEvent.setup();
+    render(<RoostTab {...buildProps()} />);
+
+    // Focus is default
+    expect(screen.getByText(/what's next/i)).toBeInTheDocument();
+
+    // Switch to Agent
+    await user.click(screen.getByRole('button', { name: /^agent$/i }));
+    expect(screen.queryByText(/what's next/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /run now/i })).toBeInTheDocument();
+
+    // Switch to Garden
+    await user.click(screen.getByRole('button', { name: /garden/i }));
+    expect(screen.queryByRole('button', { name: /run now/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/capital & payouts/i)).toBeInTheDocument();
+
+    // Switch back to Focus
+    await user.click(screen.getByRole('button', { name: /focus/i }));
+    expect(screen.getByText(/what's next/i)).toBeInTheDocument();
+  });
+
+  it("shows What's Next items when drafts and stale observations exist", () => {
+    render(<RoostTab {...buildProps()} />);
+
+    expect(screen.getByText(/3 drafts ready for review/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 stale observation/i)).toBeInTheDocument();
+  });
+
+  it('shows "All caught up" when no items need attention', () => {
+    render(
+      <RoostTab
+        {...buildProps({
+          summary: {
+            routedTabs: 0,
+            pendingDrafts: 0,
+            staleObservationCount: 0,
+          } as RoostTabProps['summary'],
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/all caught up/i)).toBeInTheDocument();
+  });
+
   it('opens review and switches the active coop', async () => {
     const user = userEvent.setup();
     const alpha = createCoop();
@@ -195,19 +253,33 @@ describe('RoostTab interactions', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Beta Coop' }));
-    await user.click(screen.getByRole('button', { name: /review chickens/i }));
+    await user.click(screen.getByRole('button', { name: /review/i }));
 
     expect(selectActiveCoop).toHaveBeenCalledWith('coop-2');
     expect(onOpenSynthesisSegment).toHaveBeenCalledWith('review');
   });
 
-  it('shows the setup warning when Green Goods is disabled for the coop', () => {
+  it('triggers agent cycle from the Agent tab Run Now button', async () => {
+    const user = userEvent.setup();
+    const onRunAgentCycle = vi.fn();
+
+    render(<RoostTab {...buildProps({ onRunAgentCycle })} />);
+
+    await user.click(screen.getByRole('button', { name: /^agent$/i }));
+    await user.click(screen.getByRole('button', { name: /run now/i }));
+
+    expect(onRunAgentCycle).toHaveBeenCalledOnce();
+  });
+
+  it('shows progressive onboarding on Garden tab when garden is requested', async () => {
+    const user = userEvent.setup();
     render(
       <RoostTab
         {...buildProps({
           activeCoop: createCoop({
             greenGoods: {
-              enabled: false,
+              enabled: true,
+              status: 'requested',
               gardenAddress: undefined,
               memberBindings: [],
             },
@@ -216,25 +288,61 @@ describe('RoostTab interactions', () => {
       />,
     );
 
-    expect(screen.getByText(/green goods is not enabled for this coop yet/i)).toBeInTheDocument();
-    expect(screen.queryByTestId('gg-summary')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /garden/i }));
+
+    expect(screen.getByText(/garden requested/i)).toBeInTheDocument();
+    expect(screen.getByText(/operator agent will provision/i)).toBeInTheDocument();
   });
 
-  it('asks for the member context before provisioning when no active member is selected', () => {
+  it('shows provision button on Garden tab when garden is linked but member needs account', async () => {
+    const user = userEvent.setup();
     render(
       <RoostTab
         {...buildProps({
-          activeMember: undefined,
+          activeCoop: createCoop({
+            greenGoods: {
+              enabled: true,
+              status: 'linked',
+              gardenAddress: '0xgarden',
+              memberBindings: [],
+            },
+            memberAccounts: [],
+          }),
         })}
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: /garden/i }));
+
+    expect(screen.getByText(/garden is live/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/open this coop as the member who should own the garden account/i),
+      screen.getByRole('button', { name: /provision my garden account/i }),
     ).toBeInTheDocument();
   });
 
-  it('renders the Green Goods workflow for the active member and filters gardener bundles', async () => {
+  it('shows the disabled state on Garden tab when Green Goods is off', async () => {
+    const user = userEvent.setup();
+    render(
+      <RoostTab
+        {...buildProps({
+          activeCoop: createCoop({
+            greenGoods: {
+              enabled: false,
+              status: 'disabled',
+              gardenAddress: undefined,
+              memberBindings: [],
+            },
+          }),
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /garden/i }));
+
+    expect(screen.getByText(/green goods is not enabled/i)).toBeInTheDocument();
+  });
+
+  it('renders the Green Goods workflow on the Garden tab when ready and filters gardener bundles', async () => {
     const user = userEvent.setup();
     const activeCoop = createCoop({
       memberAccounts: [
@@ -247,6 +355,7 @@ describe('RoostTab interactions', () => {
       ],
       greenGoods: {
         enabled: true,
+        status: 'linked',
         gardenAddress: '0xgarden',
         lastWorkSubmissionAt: '2026-03-01T12:00:00.000Z',
         memberBindings: [
@@ -286,6 +395,9 @@ describe('RoostTab interactions', () => {
       />,
     );
 
+    // Switch to Garden tab to see Green Goods content
+    await user.click(screen.getByRole('button', { name: /garden/i }));
+
     await user.click(screen.getByRole('button', { name: /provision garden access/i }));
     await user.click(screen.getByRole('button', { name: /submit mocked work/i }));
 
@@ -308,6 +420,8 @@ describe('RoostTab interactions', () => {
       metadataCid: 'bafy-meta',
       mediaCids: ['bafy-media'],
     });
-    expect(screen.queryByText(/provision your garden account and wait for garden linking/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/provision your garden account and wait for garden linking/i),
+    ).not.toBeInTheDocument();
   });
 });

@@ -5,7 +5,7 @@ slug: /reference/chrome-web-store-checklist
 
 # Chrome Web Store Submission Checklist
 
-Date: March 28, 2026
+Date: March 30, 2026
 
 ## Build And Audit
 
@@ -15,7 +15,7 @@ Date: March 28, 2026
    `bun run validate:store-readiness`, `bun run validate:production-readiness`.
 3. Only if the candidate enables live Safe, session-key, or archive rails and the live env
    contract is complete, run `bun run validate:production-live-readiness`.
-4. Confirm the extension zip is created from `packages/extension/.output/chrome-mv3` with files at the archive root.
+4. Confirm the extension zip is created from `packages/extension/dist/chrome-mv3` with files at the archive root.
 
 ## Manual Verification
 
@@ -41,7 +41,7 @@ last staged-launch blocker after the automated bar passes.
 
 1. Confirm executable runtime assets are packaged with the extension and no remote `.js`, `.mjs`, or `.wasm` URLs appear in the built output.
 2. Confirm host permissions stay on the exact receiver-origin allowlist.
-3. Confirm hidden junk files such as `.DS_Store` are absent from `packages/extension/.output/chrome-mv3`.
+3. Confirm hidden junk files such as `.DS_Store` are absent from `packages/extension/dist/chrome-mv3`.
 4. Confirm built bundles still avoid `eval` and `new Function`.
 5. Confirm sensitive local browsing payloads can be cleared from the UI.
 6. Confirm release notes mention that remote knowledge-skill import is quarantined from the shipped build.

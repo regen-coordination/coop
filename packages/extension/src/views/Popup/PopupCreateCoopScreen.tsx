@@ -1,6 +1,6 @@
 import { PopupOnboardingHero } from './PopupOnboardingHero';
 import type { PopupCreateFormState } from './popup-types';
-import { passkeyTrustDetail, passkeyTrustLabel } from '../shared/coop-copy';
+import { passkeyTrustDetail, passkeyTrustLabel, purposeHelpDetail } from '../shared/coop-copy';
 import { Tooltip } from '../shared/Tooltip';
 
 export function PopupCreateCoopScreen(props: {
@@ -61,7 +61,25 @@ export function PopupCreateCoopScreen(props: {
 
         <label className="popup-field">
           <div className="popup-field__label-row">
-            <span>What is this coop for?</span>
+            <span className="popup-field__label-with-help">
+              Curate your coop's focus
+              <Tooltip content={purposeHelpDetail} placement="below">
+                {({ targetProps }) => (
+                  <button
+                    {...targetProps}
+                    aria-label="Purpose help"
+                    className="popup-info-bubble popup-info-bubble--inline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.open('https://coop.town', '_blank');
+                    }}
+                    type="button"
+                  >
+                    ?
+                  </button>
+                )}
+              </Tooltip>
+            </span>
             <button
               aria-label="Paste purpose"
               className="popup-field-action"
@@ -73,7 +91,7 @@ export function PopupCreateCoopScreen(props: {
           </div>
           <textarea
             onChange={(event) => onChange({ purpose: event.target.value })}
-            placeholder="Paste or write what this coop is gathering."
+            placeholder="What will your coop gather and act on?"
             value={form.purpose}
           />
         </label>
@@ -87,8 +105,8 @@ export function PopupCreateCoopScreen(props: {
             />
             <span>Enable Green Goods</span>
             <Tooltip
-              label="Green Goods lets your coop route shared work into verifiable real-world actions. Learn more at docs.coop.town"
-              position="top"
+              content="Green Goods lets your coop route shared work into verifiable real-world actions."
+              placement="above"
             >
               {({ targetProps }) => (
                 <button
@@ -97,7 +115,7 @@ export function PopupCreateCoopScreen(props: {
                   className="popup-info-bubble"
                   onClick={(e) => {
                     e.preventDefault();
-                    window.open('https://docs.coop.town/community/road-ahead', '_blank');
+                    window.open('https://docs.greengoods.app', '_blank');
                   }}
                   type="button"
                 >
@@ -106,12 +124,16 @@ export function PopupCreateCoopScreen(props: {
               )}
             </Tooltip>
           </label>
-          <span className="popup-hint" title={passkeyTrustDetail}>
-            {passkeyTrustLabel}
-          </span>
           <button className="popup-primary-action" disabled={disabled} type="submit">
             {submitting ? 'Creating...' : 'Create Coop'}
           </button>
+          <Tooltip content={passkeyTrustDetail} placement="above">
+            {({ targetProps }) => (
+              <span {...targetProps} className="popup-hint">
+                {passkeyTrustLabel}
+              </span>
+            )}
+          </Tooltip>
         </div>
       </form>
     </section>

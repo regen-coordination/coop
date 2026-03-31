@@ -5,7 +5,7 @@ slug: /privacy-policy
 
 # Coop Privacy Policy
 
-Date: March 20, 2026
+Date: March 30, 2026
 
 This policy describes how the Coop browser extension and related Coop browser surfaces handle user
 data.
@@ -20,14 +20,26 @@ agent memory by default.
 
 When you use the extension, Coop may store the following on your device:
 
-- captured tab metadata such as titles, URLs, and timestamps
-- page extracts and review drafts you create or edit
-- screenshots or other receiver-capture payloads
-- local agent memory and observation records
+- captured tab metadata such as titles, URLs, favicons, and timestamps
+- automatically extracted page content including headings, paragraphs, meta descriptions, and social
+  preview images from captured tabs
+- review drafts you create or edit
+- screenshots captured via the extension
+- audio recordings and their local transcriptions (via on-device Whisper model)
+- photos, files, and links received from paired companion devices
+- local agent memory, observation records, and cross-session context that the in-browser AI agent
+  builds over time based on your browsing patterns and captured content
 - local coop configuration, device pairing state, and UI preferences
+- local privacy material such as membership-proof identities and stealth key pairs
+
+If you enable the optional passive capture feature (capture on tab close), Coop may also capture tab
+metadata when you close browser tabs, without requiring an explicit capture action each time. This
+feature is off by default and can be toggled in extension settings.
 
 Sensitive browsing-derived payloads are stored in encrypted form in the extension's local database.
-Operational metadata needed for ordering, sync state, and UI rendering may remain in plaintext.
+Privacy identities, stealth key material, and other sensitive local payloads are also stored in
+encrypted form. Operational metadata needed for ordering, sync state, and UI rendering may remain
+in plaintext.
 
 ## What Leaves The Device
 
@@ -47,20 +59,41 @@ your capture history.
 
 ## Third-Party Services
 
-Coop may contact third-party infrastructure in limited cases:
+Coop may contact third-party infrastructure in the following cases:
 
-- signaling servers that relay peer-sync traffic
-- browser platform services such as passkeys / WebAuthn
-- model or asset hosts that serve open model weights for local browser inference
+- **Signaling servers** (`api.coop.town`) that relay peer-sync traffic for WebRTC connection setup
+- **Google STUN servers** (`stun.l.google.com`, `stun1.l.google.com`) used for WebRTC NAT
+  traversal — these servers receive your IP address but no captured content
+- **WebSocket document sync** (`api.coop.town/yws`) used as a fallback when direct peer connections
+  are not available — shared coop state (published artifacts, member info) passes through this
+  server with TLS encryption in transit
+- **Browser platform services** such as passkeys / WebAuthn
+- **Model hosts** that serve open model weights for local browser inference, including HuggingFace
+  (`huggingface.co`) and MLC AI (`mlc.ai`) — model weights are downloaded once and cached locally
 
-The exact model-download endpoints used for a given release are recorded in the Chrome Web Store
-reviewer notes for that release.
+When optional modes are enabled:
+
+- **Pimlico** (`api.pimlico.io`) — contacted for ERC-4337 bundler and paymaster services when
+  onchain mode is set to `live`; receives transaction data
+- **Storacha** (`storacha.link`) — contacted for IPFS/Filecoin uploads when archive mode is set to
+  `live`; receives the content you choose to archive
+
+The exact model-download endpoints used for a given release are also recorded in the Chrome Web
+Store reviewer notes for that release.
 
 ## Encryption And Retention
 
 - Sensitive local browsing payloads are encrypted at rest with a locally generated secret.
 - Orphaned raw blobs and stale encrypted browsing payloads are pruned automatically after 30 days.
 - You can clear encrypted local capture history from the extension UI.
+
+## Permissions
+
+The extension requests access to your browser tabs, active tab content, storage, notifications, and
+a side panel. It also requests optional broad host permissions (`http://*/*`, `https://*/*`) that are
+not granted by default — Chrome prompts you individually when the extension needs to read content
+from a specific site for tab capture. You can review and revoke these permissions at any time in
+Chrome's extension settings.
 
 ## Authentication And Identity
 

@@ -43,9 +43,9 @@ describe('capture preflight', () => {
 
     const result = await preflightManualCapture();
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, needsPermission: false });
     expect(contains).toHaveBeenCalledWith({
-      origins: ['http://127.0.0.1/*'],
+      origins: ['http://*/*', 'https://*/*'],
     });
     expect(request).not.toHaveBeenCalled();
   });
@@ -78,7 +78,7 @@ describe('capture preflight', () => {
     expect(result).toEqual({
       label: 'This site',
       detail:
-        'Coop already has site access here, so roundup can inspect this page without another prompt.',
+        'Coop already has site access here, so roundup can inspect this page without another prompt. Captures still stay local until you share them.',
       tone: 'ok',
     });
     expect(contains).toHaveBeenCalledWith({
@@ -95,7 +95,7 @@ describe('capture preflight', () => {
     expect(result).toEqual({
       label: 'On demand',
       detail:
-        'Capture this tab still works from the popup. Coop will ask for broader roundup access only when needed.',
+        'Capture this tab still works from the popup. Coop asks for broader roundup access only when needed, and captures stay local until you share them.',
       tone: 'ok',
     });
   });

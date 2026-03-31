@@ -44,7 +44,8 @@ export function NestReceiverSection({
         </summary>
         <div className="collapsible-card__content stack">
           <p className="helper-text">
-            Manage paired devices. Anything hatched on a phone lands here first.
+            Manage paired devices. Anything hatched on a phone lands here first and stays private
+            to the paired member until it is turned into a draft and shared.
           </p>
           <div className="action-row">
             <button className="primary-button" onClick={createReceiverPairing} type="button">
@@ -117,7 +118,10 @@ export function NestReceiverSection({
           <h2>Pocket Coop Finds</h2>
         </summary>
         <div className="collapsible-card__content stack">
-          <p className="helper-text">Things hatched on the phone land here first.</p>
+          <p className="helper-text">
+            Things hatched on the phone land here first. Nothing in this intake publishes to shared
+            coop memory automatically.
+          </p>
           <div className="receiver-intake-list">
             {receiverIntake.map((capture) => (
               <ReceiverIntakeCard key={capture.id} capture={capture} draftEditor={draftEditor} />

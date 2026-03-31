@@ -277,7 +277,7 @@ describe('agent cycle integration', () => {
         };
       });
 
-      const capturedCount = await runCaptureForTabs(
+      const captureResult = await runCaptureForTabs(
         [
           {
             id: 7,
@@ -289,7 +289,7 @@ describe('agent cycle integration', () => {
         { drainAgent: false },
       );
 
-      expect(capturedCount).toBe(1);
+      expect(captureResult.count).toBe(1);
 
       await runAgentCycle({ force: true, reason: 'integration-routing' });
 
@@ -410,7 +410,7 @@ describe('agent cycle integration', () => {
         };
       });
 
-      const capturedCount = await runCaptureForTabs(
+      const captureResult = await runCaptureForTabs(
         [
           {
             id: 8,
@@ -428,7 +428,7 @@ describe('agent cycle integration', () => {
         { drainAgent: false },
       );
 
-      expect(capturedCount).toBe(2);
+      expect(captureResult.count).toBe(2);
       expect(await listPageExtracts(runtimeDb)).toHaveLength(1);
 
       const observations = await listAgentObservations(runtimeDb);

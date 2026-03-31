@@ -47,11 +47,52 @@ export function parseSkillMd(raw: string): {
 // 2. Fetch and parse a SKILL.md URL
 // ---------------------------------------------------------------------------
 
+/**
+ * Validate that a skill URL is safe to fetch.
+ * Blocks private/loopback IPs, non-HTTPS protocols (except localhost dev),
+ * and other SSRF vectors.
+ */
+function assertSafeSkillUrl(raw: string): URL {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`Invalid knowledge skill URL: ${raw}`);
+  }
+
+  // Only allow http(s) protocols
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error(`Knowledge skill URL must use HTTPS. Received: ${url.protocol}`);
+  }
+
+  // Block private/reserved IP ranges and localhost in production
+  const hostname = url.hostname;
+  const isLocal =
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '[::1]' ||
+    hostname === '0.0.0.0';
+  const isPrivateRange =
+    hostname.startsWith('10.') ||
+    hostname.startsWith('192.168.') ||
+    hostname.startsWith('169.254.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+
+  if (isLocal || isPrivateRange) {
+    throw new Error(`Knowledge skill URL must not target private or local addresses: ${hostname}`);
+  }
+
+  return url;
+}
+
 export async function fetchKnowledgeSkill(url: string): Promise<{
   name: string;
   description: string;
   content: string;
 }> {
+  assertSafeSkillUrl(url);
+
   let response: Response;
   try {
     response = await fetch(url);
@@ -150,6 +191,13 @@ export async function discoverSkillIndex(
     const linkName = match[1];
     const linkPath = match[2];
     const resolvedUrl = new URL(linkPath, rootUrl).href;
+
+    // Validate each resolved sub-skill URL before including it
+    try {
+      assertSafeSkillUrl(resolvedUrl);
+    } catch {
+      continue;
+    }
 
     results.push({
       name: linkName,

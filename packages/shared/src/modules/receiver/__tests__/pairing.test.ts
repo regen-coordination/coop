@@ -160,6 +160,31 @@ describe('receiver pairing payloads', () => {
     });
   });
 
+  it('accepts dashboard-redacted pair secrets without marking the pairing invalid', () => {
+    const record = toReceiverPairingRecord(
+      createReceiverPairingPayload({
+        coopId: 'coop-6b',
+        coopDisplayName: 'Signal Coop',
+        memberId: 'member-6b',
+        memberDisplayName: 'Ira',
+        signalingUrls: ['ws://127.0.0.1:4444'],
+      }),
+      '2026-03-11T18:05:00.000Z',
+    );
+
+    expect(
+      getReceiverPairingStatus(
+        {
+          ...record,
+          pairSecret: `encrypted://local/receiver-pairing/${record.pairingId}`,
+        },
+        nowMs,
+      ),
+    ).toMatchObject({
+      status: 'ready',
+    });
+  });
+
   it('returns only ready active pairings for offscreen sync binding', () => {
     const ready = toReceiverPairingRecord(
       createReceiverPairingPayload({

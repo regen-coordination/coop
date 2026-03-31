@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveExtensionBuildDir } from '../packages/extension/src/build/artifacts';
 import {
   resolveReceiverBridgeMatches,
   validateStoreReceiverAppUrl,
@@ -10,7 +11,7 @@ import { loadRootEnv, repoRoot } from './load-root-env';
 
 loadRootEnv();
 
-const extensionDistDir = path.join(repoRoot, 'packages/extension/.output/chrome-mv3');
+const extensionDistDir = resolveExtensionBuildDir(repoRoot);
 const manifestPath = path.join(extensionDistDir, 'manifest.json');
 const requiredDocPaths = [
   'docs/community/privacy-policy.md',
@@ -148,14 +149,14 @@ async function main() {
   if (!fs.existsSync(extensionDistDir)) {
     fail(
       errors,
-      'Missing packages/extension/.output/chrome-mv3. Run `cd packages/extension && bun run build` first.',
+      'Missing packages/extension/dist/chrome-mv3. Run `cd packages/extension && bun run build` first.',
     );
   }
 
   if (!fs.existsSync(manifestPath)) {
     fail(
       errors,
-      'Missing packages/extension/.output/chrome-mv3/manifest.json. Run a fresh extension build first.',
+      'Missing packages/extension/dist/chrome-mv3/manifest.json. Run a fresh extension build first.',
     );
   }
 

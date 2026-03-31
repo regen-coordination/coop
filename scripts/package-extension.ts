@@ -3,12 +3,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import {
+  resolveExtensionArchivePath,
+  resolveExtensionArchivesDir,
+  resolveExtensionBuildDir,
+} from '../packages/extension/src/build/artifacts';
 import { repoRoot } from './load-root-env';
 
-const profile = process.argv[2];
+const args = process.argv.slice(2);
+const profile = args[0];
 
 if (!profile) {
-  console.error('Usage: bun run ./scripts/package-extension.ts <profile>');
+  console.error('Usage: bun run ./scripts/package-extension.ts <profile> [--filename <name.zip>]');
   process.exit(1);
 }
 
@@ -20,11 +26,35 @@ if (!allowedProfiles.has(profile)) {
   process.exit(1);
 }
 
-const extensionRoot = path.join(repoRoot, 'packages', 'extension');
-const buildDir = path.join(extensionRoot, 'dist', 'chrome-mv3');
-const archivesDir = path.join(extensionRoot, 'dist', 'archives');
+let filename: string | null = null;
+for (let index = 1; index < args.length; index += 1) {
+  const arg = args[index];
+  if (arg === '--filename') {
+    filename = args[index + 1] ?? null;
+    if (!filename) {
+      console.error('Expected a filename after --filename.');
+      process.exit(1);
+    }
+    index += 1;
+    continue;
+  }
+
+  console.error(`Unknown argument "${arg}".`);
+  process.exit(1);
+}
+
+if (filename && (path.basename(filename) !== filename || !filename.endsWith('.zip'))) {
+  console.error('Custom archive filenames must be plain .zip filenames without directory segments.');
+  process.exit(1);
+}
+
+const buildDir = resolveExtensionBuildDir(repoRoot);
+const archivesDir = resolveExtensionArchivesDir(repoRoot);
 const timestamp = new Date().toISOString().replaceAll(':', '-');
-const archivePath = path.join(archivesDir, `coop-extension-${profile}-${timestamp}.zip`);
+const archivePath = resolveExtensionArchivePath(
+  repoRoot,
+  filename ?? `coop-extension-${profile}-${timestamp}.zip`,
+);
 
 function run(command: string[], cwd = repoRoot) {
   const result = spawnSync(command[0], command.slice(1), {
@@ -57,6 +87,7 @@ if (!fs.existsSync(path.join(buildDir, 'manifest.json'))) {
 }
 
 fs.mkdirSync(archivesDir, { recursive: true });
+fs.rmSync(archivePath, { force: true });
 run(['zip', '-qr', archivePath, '.'], buildDir);
 
 console.log(`[package:extension] Created ${path.relative(repoRoot, archivePath)}`);

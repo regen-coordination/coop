@@ -84,8 +84,12 @@ function buildProps(overrides: Partial<RoostTabProps> = {}): RoostTabProps {
     selectActiveCoop: vi.fn(),
     greenGoodsActionQueue: [],
     summary: null,
+    agentDashboard: null,
     onProvisionMemberOnchainAccount: vi.fn(),
     onSubmitGreenGoodsWorkSubmission: vi.fn(),
+    onRunAgentCycle: vi.fn(),
+    onApproveAgentPlan: vi.fn(),
+    onRejectAgentPlan: vi.fn(),
     onOpenSynthesisSegment: vi.fn(),
     ...overrides,
   };
@@ -147,5 +151,33 @@ describe('RoostTab subheader integration', () => {
     const activeTag = document.querySelector('.popup-subheader__tag.is-active');
     expect(activeTag).not.toBeNull();
     expect(activeTag?.textContent).toBe('Alpha Coop');
+  });
+
+  it('renders Focus, Agent, and Garden sub-tab pills', () => {
+    render(<RoostTab {...buildProps()} />);
+
+    const nav = document.querySelector('.nest-sub-tabs');
+    expect(nav).not.toBeNull();
+    expect(screen.getByRole('button', { name: /focus/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^agent$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /garden/i })).toBeInTheDocument();
+  });
+
+  it('shows badge on Focus pill when drafts or stale items exist', () => {
+    render(
+      <RoostTab
+        {...buildProps({
+          summary: {
+            routedTabs: 0,
+            pendingDrafts: 2,
+            staleObservationCount: 1,
+          } as RoostTabProps['summary'],
+        })}
+      />,
+    );
+
+    const badge = document.querySelector('.nest-sub-tabs .nest-badge');
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toBe('3');
   });
 });

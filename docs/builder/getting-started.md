@@ -7,9 +7,30 @@ slug: /builder/getting-started
 
 This page is the builder onramp for the whole monorepo, not only the extension.
 
+## Builder Downloads
+
+- [Latest builder build](https://github.com/greenpill-dev-guild/coop/releases/tag/builder-latest)
+- [Install guide](/builder/getting-started#quick-install-extension-only)
+- [All releases](https://github.com/greenpill-dev-guild/coop/releases)
+
+The rolling `builder-latest` prerelease is updated from successful merges to `main`. Stable tagged
+releases remain available on the main GitHub Releases page when you want a versioned artifact.
+
 ## Quick Install (Extension Only)
 
-If you just want to run the Coop extension locally and skip the rest of the monorepo setup for now:
+If you want the packaged extension without cloning the repo:
+
+1. Download the latest builder build from [GitHub Releases](https://github.com/greenpill-dev-guild/coop/releases/tag/builder-latest)
+2. Unzip `coop-extension-builder-latest.zip` into a local folder
+3. Open `chrome://extensions`
+4. Turn on **Developer mode** (top-right toggle)
+5. Click **Load unpacked**
+6. Select the unzipped folder containing `manifest.json`
+7. Pin the extension and open the sidepanel
+
+That path is the fastest way to install the freshest builder build from GitHub.
+
+If you want to build the extension locally from source instead:
 
 ```bash
 git clone https://github.com/greenpill-dev-guild/coop.git
@@ -23,7 +44,7 @@ Then load the extension in Chrome:
 1. Open `chrome://extensions`
 2. Turn on **Developer mode** (top-right toggle)
 3. Click **Load unpacked**
-4. Select the folder `packages/extension/.output/chrome-mv3`
+4. Select the folder `packages/extension/dist/chrome-mv3`
 5. Pin the extension and open the sidepanel
 
 That is enough to explore the popup, sidepanel, and local mock workflows. Rebuild with `bun run build` after code changes and reload the extension in Chrome.

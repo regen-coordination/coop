@@ -362,6 +362,34 @@ button:disabled {
   line-height: 1.5;
 }
 
+.empty-state--illustrated {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px 16px;
+}
+
+.empty-state__icon {
+  width: 32px;
+  height: 32px;
+  color: var(--coop-text-soft);
+  opacity: 0.35;
+}
+
+.empty-state__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.empty-state__text {
+  color: var(--coop-text-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
 .summary-card {
   padding: 0.85rem;
   border-radius: var(--coop-radius-photo);

@@ -36,6 +36,7 @@ function normalizeScreen(screen: string | undefined): PopupScreen {
     case 'join':
     case 'invites':
     case 'invite-success':
+    case 'join-success':
     case 'drafts':
     case 'draft-detail':
     case 'feed':

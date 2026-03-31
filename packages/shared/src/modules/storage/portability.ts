@@ -11,6 +11,12 @@ import { base64ToBytes, bytesToBase64, nowIso } from '../../utils';
 import { clearDerivedKeyCache, clearWrappingSecretCache } from './db';
 import type { CoopDexie } from './db';
 import { listCoopArchiveSecrets, setCoopArchiveSecrets } from './db-crud-coop';
+import {
+  listPrivacyIdentities,
+  listStealthKeyPairs,
+  savePrivacyIdentity,
+  saveStealthKeyPair,
+} from './db-crud-privacy';
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -452,8 +458,8 @@ export async function exportCryptoKeyBundle(db: CoopDexie, passphrase: string): 
   ] = await Promise.all([
     db.identities.toArray(),
     db.localMemberSignerBindings.toArray(),
-    db.privacyIdentities.toArray(),
-    db.stealthKeyPairs.toArray(),
+    listPrivacyIdentities(db, { requireSecrets: true }),
+    listStealthKeyPairs(db, { requireSecrets: true }),
     db.encryptedSessionMaterials.toArray(),
   ]);
 
@@ -524,13 +530,13 @@ export async function importCryptoKeyBundle(
 
   // Restore privacy identities
   if (bundle.privacyIdentities.length > 0) {
-    await db.privacyIdentities.bulkPut(bundle.privacyIdentities);
+    await Promise.all(bundle.privacyIdentities.map((record) => savePrivacyIdentity(db, record)));
   }
   imported.privacyIdentities = bundle.privacyIdentities.length;
 
   // Restore stealth key pairs
   if (bundle.stealthKeyPairs.length > 0) {
-    await db.stealthKeyPairs.bulkPut(bundle.stealthKeyPairs);
+    await Promise.all(bundle.stealthKeyPairs.map((record) => saveStealthKeyPair(db, record)));
   }
   imported.stealthKeyPairs = bundle.stealthKeyPairs.length;
 

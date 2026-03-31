@@ -5,6 +5,7 @@ import { nowIso } from '../../utils';
 import { hydrateCoopDoc } from '../coop/sync';
 import { saveAgentMemory } from './db-crud-agent';
 import { savePageExtract, saveReviewDraft, saveTabCandidate } from './db-crud-content';
+import { savePrivacyIdentity, saveStealthKeyPair } from './db-crud-privacy';
 import { persistReceiverCapture } from './db-crud-receiver';
 import {
   LOCAL_DATA_RETENTION_MS,
@@ -15,8 +16,10 @@ import {
   hydrateReceiverCaptureRecord,
   looksRedactedAgentMemory,
   looksRedactedPageExtract,
+  looksRedactedPrivacyIdentity,
   looksRedactedReceiverCapture,
   looksRedactedReviewDraft,
+  looksRedactedStealthKeyPair,
   looksRedactedTabCandidate,
 } from './db-encryption';
 import type { CoopDexie } from './db-schema';
@@ -35,6 +38,8 @@ export async function clearSensitiveLocalData(db: CoopDexie) {
       db.tabRoutings,
       db.captureRuns,
       db.agentMemories,
+      db.privacyIdentities,
+      db.stealthKeyPairs,
       db.encryptedLocalPayloads,
     ] as unknown as Parameters<CoopDexie['transaction']>[1],
     async () => {
@@ -47,6 +52,8 @@ export async function clearSensitiveLocalData(db: CoopDexie) {
         db.tabRoutings.clear(),
         db.captureRuns.clear(),
         db.agentMemories.clear(),
+        db.privacyIdentities.clear(),
+        db.stealthKeyPairs.clear(),
         db.encryptedLocalPayloads.clear(),
       ]);
     },
@@ -135,13 +142,16 @@ export async function pruneSensitiveLocalData(db: CoopDexie) {
 }
 
 export async function migrateLegacySensitiveRecords(db: CoopDexie) {
-  const [candidateRows, extractRows, draftRows, captureRows, memoryRows] = await Promise.all([
-    db.tabCandidates.toArray(),
-    db.pageExtracts.toArray(),
-    db.reviewDrafts.toArray(),
-    db.receiverCaptures.toArray(),
-    db.agentMemories.toArray(),
-  ]);
+  const [candidateRows, extractRows, draftRows, captureRows, memoryRows, privacyRows, stealthRows] =
+    await Promise.all([
+      db.tabCandidates.toArray(),
+      db.pageExtracts.toArray(),
+      db.reviewDrafts.toArray(),
+      db.receiverCaptures.toArray(),
+      db.agentMemories.toArray(),
+      db.privacyIdentities.toArray(),
+      db.stealthKeyPairs.toArray(),
+    ]);
 
   let migrated = 0;
 
@@ -203,6 +213,22 @@ export async function migrateLegacySensitiveRecords(db: CoopDexie) {
     const payload = await getEncryptedLocalPayloadRecord(db, 'agent-memory', memory.id);
     if (!payload && !looksRedactedAgentMemory(memory)) {
       await saveAgentMemory(db, memory);
+      migrated += 1;
+    }
+  }
+
+  for (const record of privacyRows) {
+    const payload = await getEncryptedLocalPayloadRecord(db, 'privacy-identity', record.id);
+    if (!payload && !looksRedactedPrivacyIdentity(record)) {
+      await savePrivacyIdentity(db, record);
+      migrated += 1;
+    }
+  }
+
+  for (const record of stealthRows) {
+    const payload = await getEncryptedLocalPayloadRecord(db, 'stealth-key-pair', record.id);
+    if (!payload && !looksRedactedStealthKeyPair(record)) {
+      await saveStealthKeyPair(db, record);
       migrated += 1;
     }
   }

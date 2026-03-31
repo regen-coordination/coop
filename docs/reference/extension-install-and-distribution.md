@@ -5,12 +5,33 @@ slug: /reference/extension-install-and-distribution
 
 # Coop Extension Install And Distribution
 
-Date: March 28, 2026
+Date: March 30, 2026
 
 This document covers extension-specific install and rollout. The full local demo, peer pairing, and
 production deployment flow lives in [Demo & Deploy Runbook](/reference/demo-and-deploy-runbook).
 The current public-release boundary lives in
 [Current Release Status](/reference/current-release-status).
+
+## GitHub Releases
+
+### Rolling Builder Prerelease
+
+The primary builder download path is the rolling GitHub prerelease:
+
+- [builder-latest release page](https://github.com/greenpill-dev-guild/coop/releases/tag/builder-latest)
+- [direct builder zip](https://github.com/greenpill-dev-guild/coop/releases/download/builder-latest/coop-extension-builder-latest.zip)
+
+This prerelease is updated from successful merges to `main` and is the easiest way to grab a fresh
+packaged build without cloning the repo first.
+
+### Stable Tagged Releases
+
+Versioned `v*` releases remain available on the main Releases page:
+
+- [all GitHub releases](https://github.com/greenpill-dev-guild/coop/releases)
+
+Use those when you want a more deliberate, versioned artifact instead of the rolling builder
+channel.
 
 ## Fastest Path: Unpacked Install From Source
 
@@ -28,7 +49,7 @@ Load into Chrome:
 1. Open `chrome://extensions`
 2. Turn on **Developer mode** (top-right toggle)
 3. Click **Load unpacked**
-4. Select the folder `packages/extension/.output/chrome-mv3`
+4. Select the folder `packages/extension/dist/chrome-mv3`
 5. Pin the extension icon and open the sidepanel from the toolbar
 
 After code changes, rebuild with `bun run build` in `packages/extension/` and click the
@@ -98,20 +119,17 @@ The canonical receiver protocol, route ownership, and member-private intake flow
 
 ## Early Access Distribution (Zip)
 
-For sharing with trusted testers who will not clone the repo:
+For sharing a local unpublished build with trusted testers who will not clone the repo:
 
 ### Builder: Create The Zip
 
 ```bash
-cd packages/extension
-bun run build
-cd .output/chrome-mv3
-zip -r ../coop-extension.zip .
+bun run package:extension:public-release
 ```
 
-The zip is at `packages/extension/.output/coop-extension.zip`. Share it directly or upload it
-to a file host. The archive must contain `manifest.json` at the root -- do not zip the parent
-folder.
+The package script writes archives into `packages/extension/dist/archives/`. Share the generated zip
+directly or upload it to a file host. The archive contains `manifest.json` at the root, so testers
+can unzip it and load that folder directly in Chrome.
 
 ### Tester: Install From Zip
 
@@ -140,8 +158,9 @@ Release checklist:
 5. Built archives land in `packages/extension/dist/archives/`.
 6. Raw unpacked extension output lands in `packages/extension/dist/chrome-mv3`.
 7. Record the first-run local-AI network trace for reviewer notes.
-8. Upload the generated archive to the Chrome Web Store dashboard, or share it directly with trusted testers for manual unpacked install.
-9. Add reviewer notes for sidepanel entry, passkey setup, receiver pairing and private intake,
+8. Keep the rolling builder prerelease (`builder-latest`) separate from versioned tagged releases intended for broader stability.
+9. Upload the generated archive to the Chrome Web Store dashboard, or share it directly with trusted testers for manual unpacked install.
+10. Add reviewer notes for sidepanel entry, passkey setup, receiver pairing and private intake,
    mock vs live modes, Smart Session limits for Green Goods actions, opt-in scheduled capture, and
    local-first data handling.
 

@@ -588,6 +588,21 @@ describe('NestReceiverSection', () => {
     expect(pairingButtons).toHaveLength(2);
   });
 
+  it('explains the private receiver boundary clearly', () => {
+    render(<NestReceiverSection {...baseProps()} />);
+
+    expect(
+      screen.getByText(
+        /manage paired devices\. anything hatched on a phone lands here first and stays private to the paired member until it is turned into a draft and shared\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /things hatched on the phone land here first\. nothing in this intake publishes to shared coop memory automatically\./i,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('calls selectReceiverPairing when a pairing is clicked', async () => {
     const selectReceiverPairing = vi.fn();
     const user = userEvent.setup();

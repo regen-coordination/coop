@@ -440,7 +440,7 @@ button:focus-visible,
 }
 
 .popup-subheader--home-status {
-  grid-template-columns: minmax(0, 1.24fr) minmax(0, 0.88fr) minmax(0, 0.88fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .popup-subheader--equal .popup-tooltip {
@@ -640,6 +640,18 @@ button:focus-visible,
   border-color: var(--coop-green);
 }
 
+.popup-info-bubble--inline {
+  width: 15px;
+  height: 15px;
+  font-size: 0.6rem;
+}
+
+.popup-field__label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .popup-form__footer {
   position: fixed;
   bottom: 0;
@@ -648,13 +660,14 @@ button:focus-visible,
   display: grid;
   gap: 6px;
   padding: 10px 14px 14px;
-  background: var(--coop-bg);
+  background: color-mix(in srgb, var(--coop-bg) 97%, var(--coop-brown) 3%);
   border-top: 1px solid var(--coop-border);
   z-index: var(--coop-z-sticky);
+  backdrop-filter: blur(8px);
 }
 
 .popup-screen--onboarding .popup-form {
-  padding-bottom: 110px;
+  padding-bottom: 130px;
 }
 
 .popup-hint {
@@ -803,11 +816,19 @@ button:focus-visible,
 .popup-yard__chicken {
   position: absolute;
   display: block;
-  transform: translate(-50%, -50%);
-  transition: width 300ms ease, height 300ms ease;
+  translate: -50% -50%;
+  cursor: pointer;
+  transition: left 4s ease-in-out, top 4s ease-in-out, width 300ms ease, height 300ms ease;
 }
 
 .popup-yard__chicken svg {
+  width: 100%;
+  height: 100%;
+  transition: transform 200ms ease;
+}
+
+.popup-yard__chicken-body {
+  display: block;
   width: 100%;
   height: 100%;
 }
@@ -858,6 +879,50 @@ button:focus-visible,
   border: 1.5px dashed var(--coop-text-soft);
   border-radius: 50%;
   opacity: 0.4;
+}
+
+/* Yard tooltip */
+.popup-yard__tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  background: var(--coop-brown);
+  color: var(--coop-cream);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  pointer-events: none;
+  z-index: 10;
+  max-width: 180px;
+  opacity: 0;
+  animation: yard-tooltip-in 120ms ease forwards;
+}
+
+.popup-yard__tooltip--below {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+
+.popup-yard__tooltip-title {
+  display: block;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.popup-yard__tooltip-detail {
+  display: block;
+  opacity: 0.7;
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+@keyframes yard-tooltip-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .popup-action-grid {
@@ -1912,32 +1977,98 @@ body::-webkit-scrollbar,
   gap: 10px;
 }
 
+.popup-invite-lanes {
+  display: grid;
+  gap: 10px;
+}
+
 .popup-invite-card {
   display: grid;
   gap: 8px;
-  border: 1px solid color-mix(in srgb, var(--coop-border) 84%, transparent);
-  border-radius: var(--coop-radius-button);
-  background: color-mix(in srgb, var(--coop-field) 86%, transparent);
-  padding: 10px;
+  border: 1px solid var(--coop-border);
+  border-radius: var(--coop-radius-photo);
+  background: var(--coop-panel);
+  padding: 12px;
+}
+
+.popup-invite-card__header {
+  display: grid;
+  gap: 2px;
+}
+
+.popup-invite-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.popup-invite-card__label {
+  font-size: 0.88rem;
+}
+
+.popup-invite-card__desc {
+  font-size: 0.75rem;
+  color: var(--coop-text-soft);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.popup-invite-card__code-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .popup-invite-card__code {
-  display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border-radius: var(--coop-radius-button);
   border: 1px solid var(--coop-border);
   background: var(--popup-mark-bg);
   color: var(--coop-text);
   font-family: ui-monospace, "SFMono-Regular", "SF Mono", "Roboto Mono", monospace;
   font-size: 0.78rem;
-  line-height: 1.45;
-  padding: 10px 12px;
-  word-break: break-all;
-  white-space: pre-wrap;
+  line-height: 1;
+  padding: 8px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .popup-invite-card__code.is-empty {
   color: var(--coop-text-soft);
+}
+
+.popup-invite-card__copy-btn {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: var(--coop-radius-button);
+  border: 1px solid var(--coop-border);
+  background: var(--coop-field);
+  color: var(--coop-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.popup-invite-card__copy-btn:hover {
+  background: var(--coop-green);
+  color: #fff;
+  border-color: var(--coop-green);
+}
+
+.popup-invite-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.popup-invite-card__secondary-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .popup-mini-pill--success {
@@ -2045,32 +2176,60 @@ body::-webkit-scrollbar,
 @keyframes chicken-enter {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.5);
+    transform: scale(0.5);
   }
   60% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.08);
+    transform: scale(1.08);
   }
   100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
   }
 }
 
 @keyframes chicken-idle {
   0%, 100% {
-    transform: translate(-50%, -50%) translateY(0);
+    transform: translateY(0);
   }
   50% {
-    transform: translate(-50%, -50%) translateY(-1.5px);
+    transform: translateY(-1.5px);
   }
+}
+
+@keyframes chicken-cackle {
+  0%, 100% { transform: rotate(0) scale(1); }
+  15% { transform: rotate(-8deg) scale(1.08); }
+  30% { transform: rotate(6deg) scale(1.04); }
+  50% { transform: rotate(-5deg) scale(1.02); }
+  70% { transform: rotate(3deg); }
+  85% { transform: rotate(-1deg); }
+}
+
+@keyframes chicken-rooster {
+  0% { transform: rotate(0) scale(1); }
+  10% { transform: rotate(-12deg) scale(1.2) translateY(-2px); }
+  25% { transform: rotate(10deg) scale(1.15) translateY(-3px); }
+  40% { transform: rotate(-8deg) scale(1.1) translateY(-1px); }
+  55% { transform: rotate(6deg) scale(1.05); }
+  70% { transform: rotate(-4deg) scale(1.02); }
+  85% { transform: rotate(2deg); }
+  100% { transform: rotate(0) scale(1); }
 }
 
 .popup-yard__chicken {
   animation: chicken-enter 400ms ease-out both;
 }
 
-.popup-yard__chicken--idle {
-  animation: chicken-enter 400ms ease-out both, chicken-idle 4s ease-in-out infinite;
+.popup-yard__chicken-body--idle {
+  animation: chicken-idle 4s ease-in-out infinite;
+}
+
+.popup-yard__chicken-body--cackle {
+  animation: chicken-cackle 300ms ease both;
+}
+
+.popup-yard__chicken-body--rooster {
+  animation: chicken-rooster 500ms ease both;
 }
 
 /* ── List item entry animation ── */
@@ -2249,6 +2408,47 @@ body::-webkit-scrollbar,
 .popup-text-button--primary {
   font-weight: 700;
   color: var(--coop-green, #5a7d10);
+}
+
+.popup-text-button--danger {
+  color: var(--coop-error, #c0392b);
+  font-size: 0.78rem;
+}
+
+/* ── Join Success Screen ── */
+
+.popup-join-success__details {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--coop-border);
+  border-radius: var(--coop-radius-photo);
+  background: var(--coop-panel);
+  padding: 16px;
+}
+
+.popup-join-success__stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.popup-join-success__stat-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--coop-green);
+  line-height: 1;
+}
+
+.popup-join-success__stat-label {
+  font-size: 0.88rem;
+  color: var(--coop-text-soft);
+}
+
+.popup-join-success__purpose {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--coop-text-soft);
 }
 
 .popup-invite-success__share-actions {

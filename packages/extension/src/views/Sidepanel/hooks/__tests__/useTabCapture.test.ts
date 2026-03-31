@@ -5,11 +5,13 @@ const {
   preflightActiveTabCaptureMock,
   preflightManualCaptureMock,
   preflightScreenshotCaptureMock,
+  requestBroadHostAccessMock,
   sendRuntimeMessageMock,
 } = vi.hoisted(() => ({
   preflightActiveTabCaptureMock: vi.fn(),
   preflightManualCaptureMock: vi.fn(),
   preflightScreenshotCaptureMock: vi.fn(),
+  requestBroadHostAccessMock: vi.fn(),
   sendRuntimeMessageMock: vi.fn(),
 }));
 
@@ -21,6 +23,7 @@ vi.mock('../../../shared/capture-preflight', () => ({
   preflightActiveTabCapture: preflightActiveTabCaptureMock,
   preflightManualCapture: preflightManualCaptureMock,
   preflightScreenshotCapture: preflightScreenshotCaptureMock,
+  requestBroadHostAccess: requestBroadHostAccessMock,
 }));
 
 const { useTabCapture } = await import('../useTabCapture');
@@ -37,14 +40,19 @@ function makeDeps(overrides: Partial<Parameters<typeof useTabCapture>[0]> = {}) 
 describe('useTabCapture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    preflightManualCaptureMock.mockResolvedValue({ ok: true });
+    preflightManualCaptureMock.mockResolvedValue({ ok: true, needsPermission: false });
     preflightActiveTabCaptureMock.mockResolvedValue({ ok: true });
     preflightScreenshotCaptureMock.mockResolvedValue({ ok: true });
+    requestBroadHostAccessMock.mockResolvedValue(true);
   });
 
   it('stops manual capture when preflight fails', async () => {
     const deps = makeDeps();
-    preflightManualCaptureMock.mockResolvedValue({ ok: false, error: 'Grant tab access first.' });
+    preflightManualCaptureMock.mockResolvedValue({
+      ok: false,
+      needsPermission: false,
+      error: 'Grant tab access first.',
+    });
 
     const { result } = renderHook(() => useTabCapture(deps));
 

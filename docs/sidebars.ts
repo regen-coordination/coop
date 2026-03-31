@@ -87,6 +87,20 @@ const sidebars: SidebarsConfig = {
       items: [
         {
           type: 'category',
+          label: 'Narrative & Strategy',
+          collapsed: true,
+          items: [
+            'reference/hackathon-demo-and-vision-outline',
+            'reference/hackathon-demo-video-outline',
+            'reference/coop-vision',
+            'reference/coop-strategy',
+            'reference/coop-monetization-path',
+            'reference/coordination-integrity-review-framework',
+            'reference/future-features-deep-dive',
+          ],
+        },
+        {
+          type: 'category',
           label: 'Architecture',
           collapsed: true,
           items: [

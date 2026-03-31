@@ -367,7 +367,48 @@ export function createLocalEnhancementAdapter(input?: {
   };
 }
 
+/** Boilerplate terms from default coop templates that add noise to keyword matching. */
+const KEYWORD_BANK_STOPWORDS = new Set([
+  'artifacts',
+  'context',
+  'coop',
+  'devices',
+  'evidence',
+  'exists',
+  'findings',
+  'focus',
+  'leads',
+  'loose',
+  'next',
+  'notes',
+  'reduce',
+  'repeated',
+  'research',
+  'scattered',
+  'shared',
+  'signals',
+  'steps',
+  'surface',
+  'tabs',
+  'tighten',
+  'turn',
+  'across',
+  'into',
+  'that',
+  'with',
+  'your',
+]);
+
 function keywordBank(coop: CoopSharedState) {
+  // Prioritize user-supplied purpose and name — these are the strongest signals
+  // about what this coop actually cares about.
+  const purposeTerms = [coop.profile.name, coop.profile.purpose];
+  const soulTerms = [
+    coop.soul.purposeStatement,
+    coop.soul.usefulSignalDefinition,
+    coop.soul.whyThisCoopExists,
+    ...coop.soul.artifactFocus,
+  ];
   const setupTerms = coop.setupInsights.lenses.flatMap((lens) => [
     lens.currentState,
     lens.painPoints,
@@ -378,25 +419,17 @@ function keywordBank(coop: CoopSharedState) {
     artifact.summary,
     ...artifact.tags,
   ]);
-  const soulTerms = [
-    coop.profile.name,
-    coop.profile.purpose,
-    coop.soul.purposeStatement,
-    coop.soul.usefulSignalDefinition,
-    coop.soul.whyThisCoopExists,
-    ...coop.soul.artifactFocus,
-  ];
   const memoryTerms = [
     ...coop.memoryProfile.topDomains.map((item) => item.domain),
     ...coop.memoryProfile.topTags.map((item) => item.tag),
   ];
 
   return unique(
-    [...setupTerms, ...artifactTerms, ...soulTerms, ...memoryTerms]
+    [...purposeTerms, ...soulTerms, ...setupTerms, ...artifactTerms, ...memoryTerms]
       .join(' ')
       .toLowerCase()
       .split(/[^a-z0-9]+/)
-      .filter((word) => word.length > 3),
+      .filter((word) => word.length > 3 && !KEYWORD_BANK_STOPWORDS.has(word)),
   );
 }
 
@@ -420,7 +453,12 @@ function scoreAgainstCoop(extract: ReadablePageExtract, coop: CoopSharedState) {
   const domainBoost =
     coop.memoryProfile.topDomains.find((entry) => entry.domain === extract.domain)?.acceptCount ??
     0;
-  return clamp((titleMatches * 0.12 + bodyMatches * 0.03 + domainBoost * 0.05) / 4, 0.08, 0.98);
+
+  // Raw score: title matches are strong signals, body matches add breadth,
+  // domain history gives continuity. No arbitrary divisor — let the matches
+  // speak directly, then use a soft ceiling via clamp.
+  const raw = titleMatches * 0.12 + bodyMatches * 0.04 + Math.min(domainBoost, 3) * 0.06;
+  return clamp(raw, 0.08, 0.98);
 }
 
 function classifyLenses(extract: ReadablePageExtract, insights: SetupInsights) {

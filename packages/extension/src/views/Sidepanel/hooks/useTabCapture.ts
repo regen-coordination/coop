@@ -4,6 +4,7 @@ import {
   preflightActiveTabCapture,
   preflightManualCapture,
   preflightScreenshotCapture,
+  requestBroadHostAccess,
 } from '../../shared/capture-preflight';
 import type { SidepanelTab } from '../sidepanel-tabs';
 
@@ -16,7 +17,14 @@ export function useTabCapture(deps: {
 
   async function runManualCapture() {
     const preflight = await preflightManualCapture();
-    if (!preflight.ok) {
+    if (!preflight.ok && preflight.needsPermission) {
+      // Sidepanel survives permission dialogs — safe to request directly.
+      const granted = await requestBroadHostAccess();
+      if (!granted) {
+        setMessage('Site access is needed to round up tabs. Please grant access and try again.');
+        return;
+      }
+    } else if (!preflight.ok) {
       setMessage(preflight.error);
       return;
     }

@@ -142,7 +142,7 @@ describe('useCaptureActions', () => {
       expect(setMessage).toHaveBeenCalledWith('Something broke');
     });
 
-    it('stops before the runtime call when webpage access preflight fails', async () => {
+    it('stops before the runtime call when webpage access is denied', async () => {
       installChromeMocks({
         permissions: {
           contains: vi.fn().mockResolvedValue(false),
@@ -158,7 +158,7 @@ describe('useCaptureActions', () => {
 
       expect(mockSendRuntimeMessage).not.toHaveBeenCalled();
       expect(setMessage).toHaveBeenCalledWith(
-        'Coop needs webpage access to round up and capture standard sites.',
+        'Site access is needed to round up tabs. Please grant access and try again.',
       );
     });
   });

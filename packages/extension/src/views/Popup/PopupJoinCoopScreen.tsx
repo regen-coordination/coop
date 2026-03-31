@@ -1,6 +1,7 @@
 import { PopupOnboardingHero } from './PopupOnboardingHero';
 import type { PopupJoinFormState } from './popup-types';
 import { passkeyTrustDetail, passkeyTrustLabel } from '../shared/coop-copy';
+import { Tooltip } from '../shared/Tooltip';
 
 export function PopupJoinCoopScreen(props: {
   form: PopupJoinFormState;
@@ -70,12 +71,16 @@ export function PopupJoinCoopScreen(props: {
         </label>
 
         <div className="popup-form__footer">
-          <span className="popup-hint" title={passkeyTrustDetail}>
-            {passkeyTrustLabel}
-          </span>
           <button className="popup-primary-action" disabled={disabled} type="submit">
             {submitting ? 'Joining...' : 'Join Coop'}
           </button>
+          <Tooltip content={passkeyTrustDetail} placement="above">
+            {({ targetProps }) => (
+              <span {...targetProps} className="popup-hint">
+                {passkeyTrustLabel}
+              </span>
+            )}
+          </Tooltip>
         </div>
       </form>
     </section>

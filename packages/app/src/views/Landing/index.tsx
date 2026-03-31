@@ -44,6 +44,10 @@ import type {
 
 export { buildLandingSetupPacket, emptyLandingTranscripts };
 
+const BUILDER_RELEASES_URL = 'https://github.com/greenpill-dev-guild/coop/releases';
+const BUILDER_LATEST_RELEASE_URL = `${BUILDER_RELEASES_URL}/tag/builder-latest`;
+const BUILDER_INSTALL_GUIDE_URL = 'https://docs.coop.town/builder/getting-started';
+
 export function App({
   devEnvironment = null,
 }: {
@@ -1490,6 +1494,31 @@ export function App({
           </div>
         </section>
       </main>
+
+      <section className="landing-builder-strip" aria-labelledby="builder-downloads">
+        <div className="landing-builder-strip-inner">
+          <div className="landing-builder-strip-copy">
+            <p className="eyebrow">For builders</p>
+            <h2 id="builder-downloads">Download the packaged extension from GitHub Releases</h2>
+            <p>
+              Use the rolling <code>builder-latest</code> prerelease for the freshest green build
+              from <code>main</code>, then follow the install guide to load it into Chrome.
+            </p>
+          </div>
+
+          <div className="landing-builder-strip-actions">
+            <a href={BUILDER_LATEST_RELEASE_URL} target="_blank" rel="noopener noreferrer">
+              Latest builder build
+            </a>
+            <a href={BUILDER_INSTALL_GUIDE_URL} target="_blank" rel="noopener noreferrer">
+              Install guide
+            </a>
+            <a href={BUILDER_RELEASES_URL} target="_blank" rel="noopener noreferrer">
+              All releases
+            </a>
+          </div>
+        </div>
+      </section>
 
       <footer className="landing-footer" id="resources">
         <div className="landing-footer-inner">

@@ -151,19 +151,21 @@ export function SidepanelApp() {
           )}
         </Tooltip>
         <div className="sidepanel-header__actions">
-          <Tooltip content="Pair a Device" placement="below">
-            {({ targetProps }) => (
-              <button
-                {...targetProps}
-                className="popup-icon-button"
-                onClick={orchestration.createReceiverPairing}
-                type="button"
-                aria-label="Pair a Device"
-              >
-                <PairDeviceIcon />
-              </button>
-            )}
-          </Tooltip>
+          {activeCoop ? (
+            <Tooltip content="Pair a Device" placement="below">
+              {({ targetProps }) => (
+                <button
+                  {...targetProps}
+                  className="popup-icon-button"
+                  onClick={orchestration.createReceiverPairing}
+                  type="button"
+                  aria-label="Pair a Device"
+                >
+                  <PairDeviceIcon />
+                </button>
+              )}
+            </Tooltip>
+          ) : null}
           <Tooltip content="Open popup" placement="below">
             {({ targetProps }) => (
               <button

@@ -369,7 +369,7 @@ export function DraftCard({
             />
             <span className="label-quiet">Publish anonymously</span>
             <span className="hint" style={{ fontSize: '0.75rem', opacity: 0.6 }}>
-              Hide author name, prove membership with ZK
+              Hides your name, not the content. Sharing still publishes this draft to the coop.
             </span>
           </label>
         ) : null}

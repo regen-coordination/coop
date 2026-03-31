@@ -80,6 +80,15 @@ describe('landing page', () => {
     expect(screen.queryByText(/^get started$/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reset ritual/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /github/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /download the packaged extension/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /latest builder build/i })).toHaveAttribute(
+      'href',
+      'https://github.com/greenpill-dev-guild/coop/releases/tag/builder-latest',
+    );
+    expect(screen.getByRole('link', { name: /install guide/i })).toHaveAttribute(
+      'href',
+      'https://docs.coop.town/builder/getting-started',
+    );
   });
 
   it('updates the ritual shell audience state when a different audience is selected', () => {

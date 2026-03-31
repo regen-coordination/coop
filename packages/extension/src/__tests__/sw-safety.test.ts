@@ -23,10 +23,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseAst } from 'vite';
 import { describe, expect, it } from 'vitest';
+import { resolveExtensionBuildDir } from '../build/artifacts';
 
 // ---- helpers ----------------------------------------------------------------
 
-const distDir = path.resolve(__dirname, '../../.output/chrome-mv3');
+const repoRoot = path.resolve(__dirname, '../../../..');
+const distDir = resolveExtensionBuildDir(repoRoot);
 const bgPath = path.join(distDir, 'background.js');
 const distExists = fs.existsSync(bgPath);
 const requireDist = process.env.COOP_REQUIRE_EXTENSION_DIST === '1';
@@ -236,7 +238,7 @@ describe('service-worker safety (built output)', () => {
     maybeIt('requires a fresh extension build', () => {
       expect(
         distExists,
-        'Expected packages/extension/.output/chrome-mv3/background.js to exist. Run the extension build first.',
+        'Expected packages/extension/dist/chrome-mv3/background.js to exist. Run the extension build first.',
       ).toBe(true);
     });
     return;

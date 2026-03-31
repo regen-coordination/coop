@@ -9,6 +9,8 @@ async function openPopupToScreen(screen: 'create' | 'join') {
     // Fall through — popup will open to its default screen.
   }
   chrome.action?.openPopup?.();
+  // Close the sidepanel so the user can focus on the popup create/join flow.
+  window.close();
 }
 
 export function SidepanelWelcomeView() {

@@ -10,7 +10,11 @@ import {
   buildEncryptedLocalPayloadRecord,
   createCoopDb,
   getCoopArchiveSecrets,
+  getPrivacyIdentity,
+  getStealthKeyPair,
   saveCoopState,
+  savePrivacyIdentity,
+  saveStealthKeyPair,
   setCoopArchiveSecrets,
 } from '../db';
 import {
@@ -281,7 +285,7 @@ describe('portability', () => {
         exportedPrivateKey: '0xdeadbeef',
         createdAt: NOW,
       };
-      await sourceDb.privacyIdentities.put(privacyId);
+      await savePrivacyIdentity(sourceDb, privacyId);
 
       // Seed stealth key pair
       const stealthKP = {
@@ -294,7 +298,7 @@ describe('portability', () => {
         metaAddress: `0x${'34'.repeat(67)}`,
         createdAt: NOW,
       };
-      await sourceDb.stealthKeyPairs.put(stealthKP);
+      await saveStealthKeyPair(sourceDb, stealthKP);
 
       // Seed encrypted session material
       const sessionMaterial = {
@@ -334,14 +338,14 @@ describe('portability', () => {
       expect(restoredIdentities[0].displayName).toBe('Porter');
 
       // Verify privacy identity restored
-      const restoredPrivacy = await targetDb.privacyIdentities.toArray();
-      expect(restoredPrivacy).toHaveLength(1);
-      expect(restoredPrivacy[0].commitment).toBe('0xaabbccdd');
+      const restoredPrivacy = await getPrivacyIdentity(targetDb, 'coop-1', 'member-1');
+      expect(restoredPrivacy?.commitment).toBe('0xaabbccdd');
+      expect(restoredPrivacy?.exportedPrivateKey).toBe('0xdeadbeef');
 
       // Verify stealth key pair restored
-      const restoredStealth = await targetDb.stealthKeyPairs.toArray();
-      expect(restoredStealth).toHaveLength(1);
-      expect(restoredStealth[0].coopId).toBe('coop-1');
+      const restoredStealth = await getStealthKeyPair(targetDb, 'coop-1');
+      expect(restoredStealth?.coopId).toBe('coop-1');
+      expect(restoredStealth?.spendingKey).toBe(stealthKP.spendingKey);
 
       // Verify session material restored
       const restoredSession = await targetDb.encryptedSessionMaterials.toArray();

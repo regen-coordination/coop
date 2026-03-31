@@ -23,6 +23,34 @@ import {
 } from './chickens-filters';
 
 // ---------------------------------------------------------------------------
+// Icons
+// ---------------------------------------------------------------------------
+
+function ChickenIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+      <ellipse cx="10" cy="11" rx="5.5" ry="4.5" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="6" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4 7.5l-1.5-.8" stroke="currentColor" strokeLinecap="round" strokeWidth="1.3" />
+      <path d="M5.2 6l-.4-1.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.2" />
+      <circle cx="5.4" cy="7.6" fill="currentColor" r="0.6" />
+      <path
+        d="M8 15.5l-1 3M12 15.5l1 3"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.2"
+      />
+      <path
+        d="M14.5 9c1-.3 1.8-1 2-1.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.2"
+      />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -682,7 +710,12 @@ export function ChickensTab({
             ))}
           </div>
         ) : (
-          <div className="empty-state">Round up some tabs to see chickens here.</div>
+          <div className="empty-state empty-state--illustrated">
+            <div className="empty-state__icon">
+              <ChickenIcon />
+            </div>
+            <span className="empty-state__text">Round up your loose chickens</span>
+          </div>
         )
       ) : sharedTimeGroups.length > 0 ? (
         <div className="stack">
@@ -701,7 +734,12 @@ export function ChickensTab({
           ))}
         </div>
       ) : (
-        <div className="empty-state">Nothing shared yet.</div>
+        <div className="empty-state empty-state--illustrated">
+          <div className="empty-state__icon">
+            <ChickenIcon />
+          </div>
+          <span className="empty-state__text">Nothing shared yet</span>
+        </div>
       )}
     </section>
   );

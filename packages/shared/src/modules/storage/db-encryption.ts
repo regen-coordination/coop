@@ -2,17 +2,21 @@ import type {
   AgentMemory,
   EncryptedLocalPayload,
   EncryptedLocalPayloadKind,
+  PrivacyIdentityRecord,
   ReadablePageExtract,
   ReceiverCapture,
   ReviewDraft,
+  StealthKeyPairRecord,
   TabCandidate,
 } from '../../contracts/schema';
 import {
   agentMemorySchema,
   encryptedLocalPayloadSchema,
+  privacyIdentityRecordSchema,
   readablePageExtractSchema,
   receiverCaptureSchema,
   reviewDraftSchema,
+  stealthKeyPairRecordSchema,
   tabCandidateSchema,
 } from '../../contracts/schema';
 import { base64ToBytes, bytesToBase64, nowIso } from '../../utils';
@@ -59,6 +63,10 @@ export function buildEncryptedLocalPayloadId(kind: EncryptedLocalPayloadKind, en
 
 function buildEncryptedPlaceholderUrl(kind: EncryptedLocalPayloadKind, entityId: string) {
   return `${LOCAL_DATA_PLACEHOLDER_PREFIX}/${kind}/${entityId}`;
+}
+
+function buildEncryptedPlaceholderValue(kind: EncryptedLocalPayloadKind, valueId: string) {
+  return `${LOCAL_DATA_PLACEHOLDER_PREFIX}/${kind}/${valueId}`;
 }
 
 export function buildRedactedTabCandidate(candidate: TabCandidate): TabCandidate {
@@ -119,6 +127,25 @@ export function buildRedactedAgentMemory(memory: AgentMemory): AgentMemory {
   });
 }
 
+export function buildRedactedPrivacyIdentityRecord(
+  record: PrivacyIdentityRecord,
+): PrivacyIdentityRecord {
+  return privacyIdentityRecordSchema.parse({
+    ...record,
+    exportedPrivateKey: buildEncryptedPlaceholderValue('privacy-identity', record.id),
+  });
+}
+
+export function buildRedactedStealthKeyPairRecord(
+  record: StealthKeyPairRecord,
+): StealthKeyPairRecord {
+  return stealthKeyPairRecordSchema.parse({
+    ...record,
+    spendingKey: buildEncryptedPlaceholderValue('stealth-key-pair', `${record.id}/spending`),
+    viewingKey: buildEncryptedPlaceholderValue('stealth-key-pair', `${record.id}/viewing`),
+  });
+}
+
 export function looksRedactedTabCandidate(candidate: TabCandidate) {
   return candidate.url.startsWith(`${LOCAL_DATA_PLACEHOLDER_PREFIX}/tab-candidate/`);
 }
@@ -139,6 +166,17 @@ export function looksRedactedReceiverCapture(capture: ReceiverCapture) {
 
 export function looksRedactedAgentMemory(memory: AgentMemory) {
   return memory.content === 'Encrypted local memory';
+}
+
+export function looksRedactedPrivacyIdentity(record: PrivacyIdentityRecord) {
+  return record.exportedPrivateKey.startsWith(`${LOCAL_DATA_PLACEHOLDER_PREFIX}/privacy-identity/`);
+}
+
+export function looksRedactedStealthKeyPair(record: StealthKeyPairRecord) {
+  return (
+    record.spendingKey.startsWith(`${LOCAL_DATA_PLACEHOLDER_PREFIX}/stealth-key-pair/`) &&
+    record.viewingKey.startsWith(`${LOCAL_DATA_PLACEHOLDER_PREFIX}/stealth-key-pair/`)
+  );
 }
 
 export async function ensureLocalDataWrappingSecret(db: CoopDexie) {
@@ -313,6 +351,40 @@ export function resolvePageExtractPayloadExpiry(extract: ReadablePageExtract) {
   return new Date(new Date(extract.createdAt).getTime() + LOCAL_DATA_RETENTION_MS).toISOString();
 }
 
+async function hydratePrivacyIdentityRecordInternal(
+  db: CoopDexie,
+  record: PrivacyIdentityRecord,
+  options?: { requireSecret?: boolean },
+) {
+  const decrypted = await loadEncryptedJsonPayload(db, 'privacy-identity', record.id, (value) =>
+    privacyIdentityRecordSchema.parse(value),
+  );
+  if (decrypted) {
+    return decrypted;
+  }
+  if (options?.requireSecret && looksRedactedPrivacyIdentity(record)) {
+    throw new Error(`Privacy identity secret is unavailable for ${record.id}.`);
+  }
+  return record;
+}
+
+async function hydrateStealthKeyPairRecordInternal(
+  db: CoopDexie,
+  record: StealthKeyPairRecord,
+  options?: { requireSecret?: boolean },
+) {
+  const decrypted = await loadEncryptedJsonPayload(db, 'stealth-key-pair', record.id, (value) =>
+    stealthKeyPairRecordSchema.parse(value),
+  );
+  if (decrypted) {
+    return decrypted;
+  }
+  if (options?.requireSecret && looksRedactedStealthKeyPair(record)) {
+    throw new Error(`Stealth key pair secret is unavailable for ${record.id}.`);
+  }
+  return record;
+}
+
 export async function hydrateTabCandidateRecord(db: CoopDexie, candidate?: TabCandidate) {
   if (!candidate) {
     return undefined;
@@ -366,4 +438,26 @@ export async function hydrateAgentMemoryRecord(db: CoopDexie, memory?: AgentMemo
       agentMemorySchema.parse(value),
     )) ?? memory
   );
+}
+
+export async function hydratePrivacyIdentityRecord(
+  db: CoopDexie,
+  record?: PrivacyIdentityRecord,
+  options?: { requireSecret?: boolean },
+) {
+  if (!record) {
+    return undefined;
+  }
+  return hydratePrivacyIdentityRecordInternal(db, record, options);
+}
+
+export async function hydrateStealthKeyPairRecord(
+  db: CoopDexie,
+  record?: StealthKeyPairRecord,
+  options?: { requireSecret?: boolean },
+) {
+  if (!record) {
+    return undefined;
+  }
+  return hydrateStealthKeyPairRecordInternal(db, record, options);
 }

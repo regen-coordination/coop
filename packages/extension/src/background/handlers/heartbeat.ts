@@ -103,11 +103,7 @@ async function checkUnreviewedObservations(now: number): Promise<number> {
           ? '24h'
           : 'pending';
 
-    console.warn('[heartbeat] unreviewed agent observation older than 24h', {
-      id: observation.id,
-      trigger: observation.trigger,
-      createdAt: observation.createdAt,
-    });
+    console.warn('[heartbeat] unreviewed agent observation older than 24h');
     await notifyExtensionEvent({
       eventKind: 'stale-observation',
       entityId: observation.id,

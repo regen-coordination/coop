@@ -1,5 +1,5 @@
 import type { ArtifactCategory } from '@coop/shared';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PopupSubheader, type PopupSubheaderTag } from './PopupSubheader';
 import type { PopupRecordingStatus } from './hooks/usePopupRecording';
 
@@ -19,6 +19,23 @@ function categoryGroup(cat?: ArtifactCategory): string | undefined {
   if (cat === 'ritual' || cat === 'coop-soul' || cat === 'setup-insight') return 'ritual';
   if (cat === 'seed-contribution') return 'seed';
   return undefined;
+}
+
+function categoryLabel(cat?: ArtifactCategory): string {
+  if (!cat) return 'Loose chicken';
+  const labels: Record<string, string> = {
+    thought: 'Thought',
+    insight: 'Insight',
+    opportunity: 'Opportunity',
+    'funding-lead': 'Funding Lead',
+    resource: 'Resource',
+    evidence: 'Evidence',
+    ritual: 'Ritual',
+    'coop-soul': 'Coop Soul',
+    'setup-insight': 'Setup Insight',
+    'seed-contribution': 'Seed',
+  };
+  return labels[cat] || 'Chicken';
 }
 
 /* ── Deterministic pseudo-random from string ID ── */
@@ -70,9 +87,14 @@ function ChickenIcon({ flip }: { flip?: boolean }) {
   );
 }
 
-function ChickIcon() {
+function ChickIcon({ flip }: { flip?: boolean }) {
   return (
-    <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+    <svg
+      aria-hidden="true"
+      fill="none"
+      style={flip ? { transform: 'scaleX(-1)' } : undefined}
+      viewBox="0 0 16 16"
+    >
       <ellipse cx="8" cy="9.5" rx="4.5" ry="3.8" stroke="currentColor" strokeWidth="1.3" />
       <circle cx="8" cy="5.5" r="3" stroke="currentColor" strokeWidth="1.3" />
       <circle cx="6.8" cy="5" fill="currentColor" r="0.5" />
@@ -161,17 +183,81 @@ function ChickenYard({
 }: {
   items: YardItem[];
 }) {
-  const positions = useMemo(() => {
+  /* Stable key for the current item set — avoids resetting positions on referential changes */
+  const itemKey = items.map((i) => i.id).join(',');
+
+  const chickenConfig = useMemo(() => {
     return items.map((item) => {
       const h = hashId(item.id);
       const rng = seededRandom(h);
       return {
-        x: 8 + rng() * 84, // 8-92% horizontal
-        y: 10 + rng() * 72, // 10-82% vertical
-        flip: rng() > 0.5,
+        initialX: 8 + rng() * 84,
+        initialY: 10 + rng() * 72,
+        initialFlip: rng() > 0.5,
+        roamDuration: 3 + rng() * 3,
       };
     });
-  }, [items]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: itemKey tracks actual item set
+  }, [itemKey]);
+
+  const [positions, setPositions] = useState(() =>
+    chickenConfig.map((c) => ({
+      x: c.initialX,
+      y: c.initialY,
+      flip: c.initialFlip,
+      roamDuration: c.roamDuration,
+    })),
+  );
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [clickedIndex, setClickedIndex] = useState<number | null>(null);
+
+  /* Sync positions when the item set changes */
+  useEffect(() => {
+    setPositions(
+      chickenConfig.map((c) => ({
+        x: c.initialX,
+        y: c.initialY,
+        flip: c.initialFlip,
+        roamDuration: c.roamDuration,
+      })),
+    );
+  }, [chickenConfig]);
+
+  /* Roaming: periodically move a random chicken to a new nearby target.
+   * Interval must exceed the CSS transition duration (3–6s) to avoid
+   * restarting transitions before they complete, which causes jank. */
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    const interval = setInterval(() => {
+      setPositions((prev) => {
+        const next = [...prev];
+        // Move just one chicken per tick for a gentle, low-cost animation
+        const i = Math.floor(Math.random() * items.length);
+        const current = next[i];
+        if (!current || Math.random() < 0.3) return prev; // sometimes skip — chicken is pecking
+
+        const dx = (Math.random() - 0.5) * 18;
+        const dy = (Math.random() - 0.5) * 12;
+        const newX = Math.max(8, Math.min(92, current.x + dx));
+        const newY = Math.max(10, Math.min(82, current.y + dy));
+        const flip = newX !== current.x ? newX > current.x : current.flip;
+        const roamDuration = 3 + Math.random() * 3;
+
+        next[i] = { x: newX, y: newY, flip, roamDuration };
+        return next;
+      });
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [items.length]);
+
+  /* Clear click animation after it finishes */
+  useEffect(() => {
+    if (clickedIndex === null) return;
+    const timer = setTimeout(() => setClickedIndex(null), 500);
+    return () => clearTimeout(timer);
+  }, [clickedIndex]);
 
   const chickenSize = items.length > 0 ? Math.max(12, Math.min(20, 160 / items.length)) : 20;
 
@@ -190,25 +276,57 @@ function ChickenYard({
     <div className="popup-yard" aria-label="Chicken yard">
       {items.map((item, i) => {
         const pos = positions[i];
+        if (!pos) return null;
+        const config = chickenConfig[i];
         const catGroup = categoryGroup(item.category);
         const externalClass = item.isExternal ? ' popup-yard__chicken--external' : '';
-        const tooltipLabel =
-          item.title || (item.type === 'draft' ? 'Draft chicken' : 'Shared chick');
+        const isClicked = clickedIndex === i;
+        const bodyAnimClass = isClicked
+          ? item.isExternal
+            ? 'popup-yard__chicken-body--cackle'
+            : 'popup-yard__chicken-body--rooster'
+          : 'popup-yard__chicken-body--idle';
+
         return (
           <span
-            className={`popup-yard__chicken popup-yard__chicken--${item.type} popup-yard__chicken--idle${externalClass}`}
+            className={`popup-yard__chicken popup-yard__chicken--${item.type}${externalClass}`}
             data-category={catGroup}
             key={item.id}
+            onClick={() => setClickedIndex(i)}
+            onMouseEnter={() => setHoveredIndex(i)}
+            onMouseLeave={() => setHoveredIndex(null)}
             style={{
               left: `${pos.x}%`,
               top: `${pos.y}%`,
               width: item.type === 'artifact' ? chickenSize * 0.75 : chickenSize,
               height: item.type === 'artifact' ? chickenSize * 0.75 : chickenSize,
-              animationDelay: `${i * 60}ms, ${400 + i * 200}ms`,
+              animationDelay: `${i * 60}ms`,
+              transitionDuration: `${pos.roamDuration}s, ${pos.roamDuration}s, 0.3s, 0.3s`,
             }}
-            title={tooltipLabel}
           >
-            {item.type === 'draft' ? <ChickenIcon flip={pos.flip} /> : <ChickIcon />}
+            <span
+              className={`popup-yard__chicken-body ${bodyAnimClass}`}
+              style={!isClicked ? { animationDelay: `${400 + i * 200}ms` } : undefined}
+            >
+              {item.type === 'draft' ? (
+                <ChickenIcon flip={pos.flip} />
+              ) : (
+                <ChickIcon flip={pos.flip} />
+              )}
+            </span>
+            {hoveredIndex === i && (
+              <span
+                className={`popup-yard__tooltip${pos.y < 25 ? ' popup-yard__tooltip--below' : ''}`}
+              >
+                <span className="popup-yard__tooltip-title">
+                  {item.title || (item.type === 'draft' ? 'Untitled draft' : 'Shared item')}
+                </span>
+                <span className="popup-yard__tooltip-detail">
+                  {categoryLabel(item.category)}
+                  {item.isExternal ? ' · Shared' : ' · Draft'}
+                </span>
+              </span>
+            )}
           </span>
         );
       })}

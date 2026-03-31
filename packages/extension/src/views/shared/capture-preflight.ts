@@ -22,48 +22,34 @@ async function queryActiveTab() {
   }
 }
 
-async function ensureStandardHostAccess(urls: string[] = []) {
-  if (!chrome.permissions?.contains || !chrome.permissions?.request) {
-    return { ok: true } as const;
-  }
-
-  const originPatterns = Array.from(
-    new Set(urls.map((url) => toOriginPattern(url)).filter((value) => value !== null)),
-  );
-
-  if (originPatterns.length === 0) {
-    return { ok: true } as const;
-  }
-
-  const missingOrigins: string[] = [];
-  for (const origin of originPatterns) {
-    const hasAccess = await chrome.permissions.contains({
-      origins: [origin],
-    });
-    if (!hasAccess) {
-      missingOrigins.push(origin);
-    }
-  }
-
-  if (missingOrigins.length === 0) {
-    return { ok: true } as const;
-  }
-
+/**
+ * Check whether broad host permissions are already granted.
+ * This never triggers a permission dialog — safe to call from the popup.
+ */
+async function hasBroadHostAccess(): Promise<boolean> {
   try {
-    const granted = await chrome.permissions.request({
-      origins: missingOrigins,
+    if (!chrome.permissions?.contains) return true;
+    return await chrome.permissions.contains({
+      origins: [...STANDARD_HOST_ORIGINS],
     });
-    return granted
-      ? ({ ok: true } as const)
-      : ({
-          ok: false,
-          error: 'Coop needs webpage access to round up and capture standard sites.',
-        } as const);
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : 'Could not request webpage access.',
-    } as const;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Request broad host permissions. This opens a native dialog that will
+ * close the popup in Chromium (known bug). Only call from the sidepanel
+ * or a dedicated tab context when possible.
+ */
+export async function requestBroadHostAccess(): Promise<boolean> {
+  try {
+    if (!chrome.permissions?.request) return true;
+    return await chrome.permissions.request({
+      origins: [...STANDARD_HOST_ORIGINS],
+    });
+  } catch {
+    return false;
   }
 }
 
@@ -74,6 +60,7 @@ export async function preflightManualCapture() {
   } catch (error) {
     return {
       ok: false,
+      needsPermission: false,
       error: error instanceof Error ? error.message : 'Could not inspect open tabs.',
     } as const;
   }
@@ -82,11 +69,25 @@ export async function preflightManualCapture() {
   if (supportedTabs.length === 0) {
     return {
       ok: false,
+      needsPermission: false,
       error: 'Open at least one standard web page before rounding up tabs.',
     } as const;
   }
 
-  return ensureStandardHostAccess(supportedTabs.flatMap((tab) => (tab.url ? [tab.url] : [])));
+  // Only CHECK permissions — never request from here. Requesting opens a
+  // native dialog that kills the popup in Chromium (crbug.com/40721470).
+  // The caller decides how to handle missing permissions.
+  const hasAccess = await hasBroadHostAccess();
+  if (!hasAccess) {
+    return {
+      ok: false,
+      needsPermission: true,
+      error:
+        'Coop needs site access to inspect and round up your tabs. Captures stay local until you share them.',
+    } as const;
+  }
+
+  return { ok: true, needsPermission: false } as const;
 }
 
 export async function preflightActiveTabCapture() {
@@ -148,13 +149,13 @@ export async function getActiveTabCaptureAccessStatus() {
       ? ({
           label: 'This site',
           detail:
-            'Coop already has site access here, so roundup can inspect this page without another prompt.',
+            'Coop already has site access here, so roundup can inspect this page without another prompt. Captures still stay local until you share them.',
           tone: 'ok' as const,
         } as const)
       : ({
           label: 'On demand',
           detail:
-            'Capture this tab still works from the popup. Coop will ask for broader roundup access only when needed.',
+            'Capture this tab still works from the popup. Coop asks for broader roundup access only when needed, and captures stay local until you share them.',
           tone: 'ok' as const,
         } as const);
   } catch {
@@ -166,4 +167,4 @@ export async function getActiveTabCaptureAccessStatus() {
   }
 }
 
-export { isStandardWebUrl, STANDARD_HOST_ORIGINS, toOriginPattern };
+export { hasBroadHostAccess, isStandardWebUrl, STANDARD_HOST_ORIGINS, toOriginPattern };

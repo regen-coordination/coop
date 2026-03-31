@@ -11,6 +11,7 @@ export type PopupScreen =
   | 'join'
   | 'invites'
   | 'invite-success'
+  | 'join-success'
   | 'drafts'
   | 'draft-detail'
   | 'feed'

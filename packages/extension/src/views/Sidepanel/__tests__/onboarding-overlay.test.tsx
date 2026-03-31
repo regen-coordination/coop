@@ -12,32 +12,40 @@ describe('OnboardingOverlay', () => {
     cleanup();
   });
 
-  it('has exactly 3 onboarding steps', () => {
-    expect(onboardingSteps).toHaveLength(3);
+  it('has exactly 4 onboarding steps', () => {
+    expect(onboardingSteps).toHaveLength(4);
   });
 
-  it('covers Chickens, Roost, and Feed tabs', () => {
+  it('covers Privacy, Chickens, Roost, and Feed tabs', () => {
     const tabs = onboardingSteps.map((s) => s.tab);
-    expect(tabs).toEqual(['Chickens', 'Roost', 'Feed']);
+    expect(tabs).toEqual(['Privacy', 'Chickens', 'Roost', 'Feed']);
   });
 
-  it('renders step 0 content when shown', () => {
+  it('renders step 0 privacy consent content when shown', () => {
     render(<OnboardingOverlay step={0} onAdvance={() => {}} onDismiss={() => {}} />);
     expect(screen.getByRole('dialog', { name: /welcome to coop/i })).toBeInTheDocument();
+    expect(screen.getByText('Your data stays local')).toBeInTheDocument();
+    expect(
+      screen.getByText(/captures tab titles, page content, screenshots, and audio locally/),
+    ).toBeInTheDocument();
+  });
+
+  it('renders step 1 content', () => {
+    render(<OnboardingOverlay step={1} onAdvance={() => {}} onDismiss={() => {}} />);
     expect(screen.getByText('Loose Chickens')).toBeInTheDocument();
     expect(
       screen.getByText(/watches your open tabs and catches the useful ones/),
     ).toBeInTheDocument();
   });
 
-  it('renders step 1 content', () => {
-    render(<OnboardingOverlay step={1} onAdvance={() => {}} onDismiss={() => {}} />);
+  it('renders step 2 content', () => {
+    render(<OnboardingOverlay step={2} onAdvance={() => {}} onDismiss={() => {}} />);
     expect(screen.getByText('The Roost')).toBeInTheDocument();
     expect(screen.getByText(/tidy, and shape your catches into drafts/)).toBeInTheDocument();
   });
 
-  it('renders step 2 content', () => {
-    render(<OnboardingOverlay step={2} onAdvance={() => {}} onDismiss={() => {}} />);
+  it('renders step 3 content', () => {
+    render(<OnboardingOverlay step={3} onAdvance={() => {}} onDismiss={() => {}} />);
     expect(screen.getByText('Coop Feed')).toBeInTheDocument();
     expect(screen.getByText(/good finds turn into shared opportunities/)).toBeInTheDocument();
   });
@@ -53,12 +61,12 @@ describe('OnboardingOverlay', () => {
   });
 
   it('shows "Get started" button on the final step', () => {
-    render(<OnboardingOverlay step={2} onAdvance={() => {}} onDismiss={() => {}} />);
+    render(<OnboardingOverlay step={3} onAdvance={() => {}} onDismiss={() => {}} />);
     expect(screen.getByRole('button', { name: 'Get started' })).toBeInTheDocument();
   });
 
   it('does not show "Skip" button on the final step', () => {
-    render(<OnboardingOverlay step={2} onAdvance={() => {}} onDismiss={() => {}} />);
+    render(<OnboardingOverlay step={3} onAdvance={() => {}} onDismiss={() => {}} />);
     expect(screen.queryByRole('button', { name: 'Skip' })).not.toBeInTheDocument();
   });
 
@@ -81,7 +89,7 @@ describe('OnboardingOverlay', () => {
   it('calls onAdvance when "Get started" is clicked on the final step', async () => {
     const user = userEvent.setup();
     const onAdvance = vi.fn();
-    render(<OnboardingOverlay step={2} onAdvance={onAdvance} onDismiss={() => {}} />);
+    render(<OnboardingOverlay step={3} onAdvance={onAdvance} onDismiss={() => {}} />);
     await user.click(screen.getByRole('button', { name: 'Get started' }));
     expect(onAdvance).toHaveBeenCalledOnce();
   });
@@ -91,7 +99,7 @@ describe('OnboardingOverlay', () => {
       <OnboardingOverlay step={1} onAdvance={() => {}} onDismiss={() => {}} />,
     );
     const dots = container.querySelectorAll('.onboarding-dot');
-    expect(dots).toHaveLength(3);
+    expect(dots).toHaveLength(4);
   });
 
   it('marks the active dot and done dots correctly', () => {
@@ -103,6 +111,8 @@ describe('OnboardingOverlay', () => {
     expect(dots[1]).toHaveClass('is-active');
     expect(dots[2]).not.toHaveClass('is-active');
     expect(dots[2]).not.toHaveClass('is-done');
+    expect(dots[3]).not.toHaveClass('is-active');
+    expect(dots[3]).not.toHaveClass('is-done');
   });
 
   it('returns null when step is null', () => {

@@ -3,4 +3,8 @@ export const passkeyTrustLabel = 'Secured with a passkey';
 
 /** Full explanation shown on hover/click. */
 export const passkeyTrustDetail =
-  'Coop uses a passkey so this browser can prove it is you — no wallet extension or shared password needed. Come back with the same browser profile to keep access simple.';
+  'Your passkey is how Coop knows it\u2019s you \u2014 simple, secure, no passwords needed.';
+
+/** Tooltip for the coop purpose field help bubble. */
+export const purposeHelpDetail =
+  'Not sure where to start? Visit coop.town to curate your coop \u2014 from personal to community \u2014 then bring your focus here.';

@@ -8,6 +8,7 @@ import {
   preflightActiveTabCapture,
   preflightManualCapture,
   preflightScreenshotCapture,
+  requestBroadHostAccess,
 } from './capture-preflight';
 
 export function useCaptureActions(deps: {
@@ -68,7 +69,27 @@ export function useCaptureActions(deps: {
   async function runManualCapture() {
     if (isCapturing) return;
     const preflight = await preflightManualCapture();
-    if (!preflight.ok) {
+
+    if (!preflight.ok && preflight.needsPermission) {
+      // Permission request opens a native dialog that will likely close the
+      // popup (Chromium bug crbug.com/40721470). The background service worker
+      // has a chrome.permissions.onAdded listener that automatically triggers a
+      // capture cycle when broad host access is granted, so the roundup still
+      // completes even if this popup is destroyed.
+      setMessage('Requesting site access…');
+      try {
+        const granted = await requestBroadHostAccess();
+        if (!granted) {
+          setMessage('Site access is needed to round up tabs. Please grant access and try again.');
+          return;
+        }
+        // If the popup survived the permission dialog, fall through to
+        // the normal capture flow below.
+      } catch {
+        // Popup is closing — background onAdded listener will handle capture.
+        return;
+      }
+    } else if (!preflight.ok) {
       setMessage(preflight.error);
       return;
     }

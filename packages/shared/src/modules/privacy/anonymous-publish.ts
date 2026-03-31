@@ -1,6 +1,7 @@
 import { Identity } from '@semaphore-protocol/core';
 import type { MembershipProof } from '../../contracts/schema';
 import { type CoopDexie, getPrivacyIdentitiesForCoop, getPrivacyIdentity } from '../storage/db';
+import { LOCAL_DATA_PLACEHOLDER_PREFIX } from '../storage/db-encryption';
 import { createMembershipGroup } from './membership';
 import { generateMembershipProof } from './membership-proof';
 
@@ -20,6 +21,9 @@ export async function generateAnonymousPublishProof(
   // 1. Get this member's privacy identity
   const identityRecord = await getPrivacyIdentity(db, input.coopId, input.memberId);
   if (!identityRecord) return null;
+  if (identityRecord.exportedPrivateKey.startsWith(LOCAL_DATA_PLACEHOLDER_PREFIX)) {
+    return null;
+  }
 
   // 2. Get all member commitments for the coop
   const allIdentities = await getPrivacyIdentitiesForCoop(db, input.coopId);

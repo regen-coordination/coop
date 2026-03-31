@@ -2,7 +2,13 @@ import type { InviteType } from '@coop/shared';
 import type { PopupInviteCardItem } from './popup-types';
 
 function inviteTypeLabel(inviteType: InviteType) {
-  return inviteType === 'trusted' ? 'Trusted' : 'Member';
+  return inviteType === 'trusted' ? 'Trusted Invite' : 'Member Invite';
+}
+
+function inviteTypeDescription(inviteType: InviteType) {
+  return inviteType === 'trusted'
+    ? 'Grants stewardship access to help manage the coop.'
+    : 'Lets someone join, capture, and participate.';
 }
 
 function inviteStatusTone(status: PopupInviteCardItem['status']) {
@@ -36,23 +42,9 @@ function inviteStatusLabel(status: PopupInviteCardItem['status']) {
   }
 }
 
-function inviteStatusDescription(invite: PopupInviteCardItem) {
-  if (invite.status === 'missing') {
-    return 'No invite history yet for this lane.';
-  }
-  if (invite.status === 'revoked') {
-    return 'This lane is currently closed until you regenerate a code.';
-  }
-  if (invite.status === 'expired') {
-    return 'This code expired. Regenerate it before sharing.';
-  }
-  if (invite.status === 'used') {
-    return invite.usedCount === 1
-      ? 'This code has already admitted 1 member and is still valid for new joins.'
-      : `This code has already admitted ${invite.usedCount} members and is still valid for new joins.`;
-  }
-
-  return 'This code is current and ready to share.';
+function truncateCode(code: string) {
+  if (code.length <= 16) return code;
+  return `${code.slice(0, 8)}…${code.slice(-6)}`;
 }
 
 export function PopupInviteTypeCard(props: {
@@ -65,62 +57,74 @@ export function PopupInviteTypeCard(props: {
 }) {
   const { coopName, invite, onShare, onCopy, onRegenerate, onRevoke } = props;
   const label = inviteTypeLabel(invite.inviteType);
-  const disableShare =
-    !invite.code ||
-    invite.status === 'missing' ||
-    invite.status === 'revoked' ||
-    invite.status === 'expired';
-  const disableCopy = !invite.code;
-  const disableRevoke = invite.status === 'missing' || invite.status === 'revoked';
+  const hasCode = Boolean(invite.code);
+  const canShare =
+    hasCode &&
+    invite.status !== 'missing' &&
+    invite.status !== 'revoked' &&
+    invite.status !== 'expired';
+  const canRevoke = invite.status !== 'missing' && invite.status !== 'revoked';
 
   return (
     <article className="popup-invite-card">
-      <div className="popup-section-heading">
-        <strong>{label}</strong>
-        <span className={`popup-mini-pill popup-mini-pill--${inviteStatusTone(invite.status)}`}>
-          {inviteStatusLabel(invite.status)}
-        </span>
+      <div className="popup-invite-card__header">
+        <div className="popup-invite-card__title-row">
+          <strong className="popup-invite-card__label">{label}</strong>
+          <span className={`popup-mini-pill popup-mini-pill--${inviteStatusTone(invite.status)}`}>
+            {inviteStatusLabel(invite.status)}
+          </span>
+        </div>
+        <p className="popup-invite-card__desc">{inviteTypeDescription(invite.inviteType)}</p>
       </div>
-      <code className={`popup-invite-card__code${invite.code ? '' : ' is-empty'}`}>
-        {invite.code ?? 'No current code'}
-      </code>
-      <p className="popup-footnote">{inviteStatusDescription(invite)}</p>
-      <div className="popup-row-actions">
+
+      {hasCode ? (
+        <div className="popup-invite-card__code-row">
+          <code className="popup-invite-card__code">{truncateCode(invite.code!)}</code>
+          <button
+            aria-label={`Copy ${label.toLowerCase()} code for ${coopName}`}
+            className="popup-invite-card__copy-btn"
+            onClick={onCopy}
+            type="button"
+          >
+            Copy
+          </button>
+        </div>
+      ) : (
+        <div className="popup-invite-card__code-row">
+          <code className="popup-invite-card__code is-empty">No code yet</code>
+        </div>
+      )}
+
+      <div className="popup-invite-card__actions">
         <button
-          aria-label={`Share ${label.toLowerCase()} invite for ${coopName}`}
+          aria-label={`Share ${label.toLowerCase()} for ${coopName}`}
           className="popup-text-button popup-text-button--primary"
-          disabled={disableShare}
+          disabled={!canShare}
           onClick={onShare}
           type="button"
         >
           Share
         </button>
-        <button
-          aria-label={`Copy ${label.toLowerCase()} invite code for ${coopName}`}
-          className="popup-text-button"
-          disabled={disableCopy}
-          onClick={onCopy}
-          type="button"
-        >
-          Copy Code
-        </button>
-        <button
-          aria-label={`Regenerate ${label.toLowerCase()} invite for ${coopName}`}
-          className="popup-text-button"
-          onClick={onRegenerate}
-          type="button"
-        >
-          Regenerate
-        </button>
-        <button
-          aria-label={`Revoke ${label.toLowerCase()} invite for ${coopName}`}
-          className="popup-text-button"
-          disabled={disableRevoke}
-          onClick={onRevoke}
-          type="button"
-        >
-          Revoke
-        </button>
+        <span className="popup-invite-card__secondary-actions">
+          <button
+            aria-label={`Regenerate ${label.toLowerCase()} for ${coopName}`}
+            className="popup-text-button"
+            onClick={onRegenerate}
+            type="button"
+          >
+            Regenerate
+          </button>
+          {canRevoke ? (
+            <button
+              aria-label={`Revoke ${label.toLowerCase()} for ${coopName}`}
+              className="popup-text-button popup-text-button--danger"
+              onClick={onRevoke}
+              type="button"
+            >
+              Revoke
+            </button>
+          ) : null}
+        </span>
       </div>
     </article>
   );

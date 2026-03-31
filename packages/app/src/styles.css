@@ -1541,6 +1541,80 @@ pre {
   top: 40%;
 }
 
+.landing-builder-strip {
+  position: relative;
+  z-index: 3;
+  padding: 0 2rem 1.5rem;
+}
+
+.landing-builder-strip-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) auto;
+  gap: 1.5rem;
+  align-items: center;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.35rem 1.5rem;
+  border: 1px solid rgba(39, 20, 14, 0.14);
+  border-radius: 1.75rem;
+  background:
+    radial-gradient(circle at top right, rgba(253, 138, 1, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(255, 248, 242, 0.96) 0%, rgba(252, 245, 239, 0.96) 100%);
+  box-shadow: var(--coop-shadow-md);
+}
+
+.landing-builder-strip-copy h2,
+.landing-builder-strip-copy p {
+  margin: 0;
+}
+
+.landing-builder-strip-copy h2 {
+  color: var(--coop-brown);
+  font-size: clamp(1.55rem, 2vw, 2rem);
+}
+
+.landing-builder-strip-copy p {
+  margin-top: 0.5rem;
+  color: var(--coop-brown-soft);
+  line-height: 1.6;
+}
+
+.landing-builder-strip-copy code {
+  font-family: "SFMono-Regular", "JetBrains Mono", monospace;
+  font-size: 0.92em;
+}
+
+.landing-builder-strip-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.landing-builder-strip-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(39, 20, 14, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--coop-brown);
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.landing-builder-strip-actions a:hover {
+  transform: translateY(-1px);
+  background: rgba(39, 20, 14, 0.96);
+  color: #fff8f2;
+}
+
 .landing-footer {
   position: relative;
   z-index: 3;
@@ -2988,6 +3062,15 @@ pre {
   .landing-footer-inner {
     flex-direction: column;
     text-align: center;
+  }
+
+  .landing-builder-strip-inner {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .landing-builder-strip-actions {
+    justify-content: center;
   }
 
   .hero-shell {

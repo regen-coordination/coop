@@ -22,16 +22,21 @@ afterEach(() => {
 const mockCoopDocsGet = vi.fn();
 const mockCoopDocsPut = vi.fn();
 
+const mockCoopDocsTable = {
+  toArray: vi.fn().mockResolvedValue([]),
+  get: mockCoopDocsGet,
+  put: mockCoopDocsPut,
+};
+
 vi.mock('../../context', () => ({
   db: {
-    coopDocs: {
-      toArray: vi.fn().mockResolvedValue([]),
-      get: mockCoopDocsGet,
-      put: mockCoopDocsPut,
-    },
+    coopDocs: mockCoopDocsTable,
     settings: { get: vi.fn(), put: vi.fn() },
     receiverPairings: { get: vi.fn() },
     receiverCaptures: { get: vi.fn() },
+    transaction: vi.fn((_mode: string, _table: unknown, callback: () => Promise<void>) =>
+      callback(),
+    ),
   },
   getCoops: vi.fn(),
   saveState: vi.fn(),
@@ -306,9 +311,8 @@ describe('canonical invite handlers', () => {
       ),
     ).toHaveLength(2);
     expect(
-      savedState.invites.find(
-        (invite) => invite.type === 'member' && invite.status !== 'revoked',
-      )?.id,
+      savedState.invites.find((invite) => invite.type === 'member' && invite.status !== 'revoked')
+        ?.id,
     ).toBe(freshInvite.id);
   });
 

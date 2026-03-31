@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import readline from 'node:readline';
+import { resolveExtensionBuildDir } from '../packages/extension/src/build/artifacts';
 import { loadRootEnv, repoRoot } from './load-root-env';
 
 loadRootEnv();
@@ -14,7 +15,8 @@ const LOCAL_HOST = '127.0.0.1';
 const DEFAULT_APP_PORT = 3001;
 const DEFAULT_API_PORT = 4444;
 const DEFAULT_DOCS_PORT = 3003;
-const EXTENSION_OUTPUT_DIR = path.join(repoRoot, 'packages/extension/.output/chrome-mv3');
+const EXTENSION_OUTPUT_DIR = resolveExtensionBuildDir(repoRoot);
+const EXTENSION_CHROME_DATA = path.join(repoRoot, 'packages/extension/.wxt/chrome-data');
 const DEV_STATE_DIR = path.join(repoRoot, 'packages/app/public/__coop_dev__');
 const DEV_STATE_PATH = path.join(DEV_STATE_DIR, 'state.json');
 
@@ -393,6 +395,69 @@ function toWebsocketUrl(httpUrl: string) {
   return next.toString();
 }
 
+/**
+ * Resolve the Chrome/Chromium binary path. Checks standard locations
+ * and falls back to whatever `which` finds.
+ */
+function findChromiumBinary(): string | undefined {
+  const candidates = [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+    `${process.env.HOME}/.Trash/Google Chrome.app/Contents/MacOS/Google Chrome`,
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Fallback: check PATH
+  const result = spawnSync('which', ['google-chrome'], { encoding: 'utf8', stdio: 'pipe' });
+  if (result.status === 0 && result.stdout.trim()) {
+    return result.stdout.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Launch Chrome with the WXT profile directly (no CDP). The profile at
+ * .wxt/chrome-data already has the extension registered from a prior run.
+ * This avoids the flaky web-ext-run CDP channel that tears down the Vite
+ * dev server when the connection drops.
+ */
+function launchChromeDirect(startUrl: string): ManagedProcess | undefined {
+  const binary = findChromiumBinary();
+  if (!binary) {
+    console.log('[dev] No Chromium binary found — open a browser and load the extension manually.');
+    return undefined;
+  }
+
+  const args = [
+    `--user-data-dir=${EXTENSION_CHROME_DATA}`,
+    '--disable-background-timer-throttling',
+    '--disable-default-apps',
+    '--no-first-run',
+    `--load-extension=${EXTENSION_OUTPUT_DIR}`,
+    startUrl,
+  ];
+
+  console.log(`[dev] Launching Chrome: ${path.basename(binary)}`);
+
+  const child = spawn(binary, args, {
+    cwd: repoRoot,
+    stdio: 'ignore',
+    detached: true,
+  });
+
+  // Don't let the Chrome process keep the coordinator alive
+  child.unref();
+
+  return { label: 'chrome', child, allowExit: true };
+}
+
 function printSummary(state: DevState) {
   console.log('\n[dev] Coop dev environment is ready.');
   console.log(`[dev] app:      ${state.app.localUrl}`);
@@ -740,6 +805,12 @@ async function main() {
   await extensionReady.promise;
   state.extension.status = 'ready';
   writeDevState(state);
+
+  // Launch Chrome directly instead of relying on web-ext CDP
+  const chromeProcess = launchChromeDirect(state.extension.receiverAppUrl);
+  if (chromeProcess) {
+    trackManagedProcess(chromeProcess);
+  }
 
   heartbeat.current = setInterval(() => {
     writeDevState(state);

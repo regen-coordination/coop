@@ -1,7 +1,5 @@
 {
-  "registryAddress": null,
-  "deployTxHash": null,
-  "deployedAt": null,
+  "deployedAt": "2026-03-31T05:42:07.797Z",
   "chainId": 314159,
-  "note": "Deploy with: forge create --rpc-url https://api.calibration.node.glif.io/rpc/v1 --private-key $DEPLOYER_PRIVATE_KEY src/CoopRegistry.sol:CoopRegistry"
+  "note": "Deployed via forge create with keystore account green-goods-deployer"
 }

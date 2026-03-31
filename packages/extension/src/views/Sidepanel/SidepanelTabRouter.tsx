@@ -113,8 +113,12 @@ export function SidepanelTabRouter({
             selectActiveCoop={selectActiveCoop}
             greenGoodsActionQueue={dashboard?.operator.policyActionQueue ?? []}
             summary={dashboard?.summary ?? null}
+            agentDashboard={agentDashboard}
             onProvisionMemberOnchainAccount={handleProvisionMemberOnchainAccount}
             onSubmitGreenGoodsWorkSubmission={handleSubmitGreenGoodsWorkSubmission}
+            onRunAgentCycle={handleRunAgentCycle}
+            onApproveAgentPlan={handleApproveAgentPlan}
+            onRejectAgentPlan={handleRejectAgentPlan}
             onOpenSynthesisSegment={(segment) =>
               void onApplySidepanelIntent({
                 tab: 'chickens',

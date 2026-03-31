@@ -2,6 +2,11 @@ import { useEffect, useRef } from 'react';
 
 export const onboardingSteps = [
   {
+    tab: 'Privacy' as const,
+    title: 'Your data stays local',
+    body: 'Coop captures tab titles, page content, screenshots, and audio locally on your device. Nothing leaves until you choose to share. All captures are encrypted at rest.',
+  },
+  {
     tab: 'Chickens' as const,
     title: 'Loose Chickens',
     body: 'Coop watches your open tabs and catches the useful ones here. All local, all private.',
