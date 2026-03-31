@@ -462,8 +462,10 @@ export async function buildProactiveSignals(input: {
         updatedAt: ranked[0]?.updatedAt ?? top.updatedAt,
       } satisfies ProactiveSignal;
     })
-    .filter((signal): signal is ProactiveSignal => Boolean(signal))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    .filter((signal) => signal !== null)
+    .sort((left: ProactiveSignal, right: ProactiveSignal) =>
+      left.updatedAt.localeCompare(right.updatedAt),
+    );
 }
 
 export async function buildSummary(): Promise<{ summary: RuntimeSummary; drafts: ReviewDraft[] }> {

@@ -55,6 +55,8 @@ export default defineContentScript({
         return;
       }
 
+      const requestId = data.requestId as string;
+
       chrome.runtime.sendMessage(
         {
           type: 'ingest-receiver-capture',
@@ -64,7 +66,7 @@ export default defineContentScript({
           const runtimeError = chrome.runtime.lastError;
           if (runtimeError) {
             postResponse({
-              requestId: data.requestId,
+              requestId,
               ok: false,
               error: runtimeError.message || 'Receiver bridge sync failed.',
             });
@@ -72,7 +74,7 @@ export default defineContentScript({
           }
 
           postResponse({
-            requestId: data.requestId,
+            requestId,
             ok: Boolean(response?.ok),
             data: response?.data,
             error: response?.ok

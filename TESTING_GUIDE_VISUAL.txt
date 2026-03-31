@@ -1,0 +1,263 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         COOP TESTING GUIDE VISUAL                            ║
+║                       Reading Order & Quick Navigation                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+👉 START HERE
+   │
+   ├─ START_HERE.md (overview + next steps)
+   │  │ Read this first to understand the mission
+   │  │
+   │  └─→ SETUP_FOR_TESTING.md (detailed walkthrough)
+   │     │ Follow steps 1-3 to set up
+   │     │ Then test flows 1-6
+   │     │
+   │     ├─ .env.local (create this file)
+   │     ├─ bun run dev:app (terminal tab 1)
+   │     ├─ bun run dev:extension (terminal tab 2)
+   │     ├─ bun run dev:api (terminal tab 3)
+   │     └─ chrome://extensions (load unpacked)
+   │
+   └─→ While Testing
+      │
+      ├─ QUICK_TEST_REFERENCE.md (quick lookup)
+      │  Keep this open while testing flows
+      │
+      └─ TESTING_ISSUES.md (add bugs here)
+         Fill out as you find issues
+
+
+════════════════════════════════════════════════════════════════════════════════
+THE 6 FLOWS
+════════════════════════════════════════════════════════════════════════════════
+
+    Flow 1: Extension Basics
+    ├─ Load extension ✓
+    ├─ Check settings ✓
+    └─ No errors ✓
+         │
+         └─→ Time: 5 min
+
+    Flow 2: Coop Creation
+    ├─ Create coop ✓
+    ├─ Pick preset ✓
+    ├─ See all tabs ✓
+    └─ State badge correct ✓
+         │
+         └─→ Time: 10 min
+
+    Flow 3: Peer Sync (2-Profile)
+    ├─ Generate pairing code ✓
+    ├─ Profile B joins ✓
+    ├─ Both see coop ✓
+    └─ Sync healthy ✓
+         │
+         └─→ Time: 15 min
+
+    Flow 4: Receiver Pairing
+    ├─ Accept pairing at /pair ✓
+    ├─ Capture voice/link/photo ✓
+    ├─ Item in Profile A Feed ✓
+    └─ Metadata shows ✓
+         │
+         └─→ Time: 10 min
+
+    Flow 5: Capture → Publish
+    ├─ Move to Roost ✓
+    ├─ Edit item ✓
+    ├─ Publish ✓
+    ├─ Item on /board ✓
+    └─ No errors ✓
+         │
+         └─→ Time: 10 min
+
+    Flow 6: Archive & Export
+    ├─ Create snapshot ✓
+    ├─ Export receipt ✓
+    ├─ File downloads ✓
+    └─ Receipt valid ✓
+         │
+         └─→ Time: 10 min
+
+
+════════════════════════════════════════════════════════════════════════════════
+WHEN YOU FIND A BUG
+════════════════════════════════════════════════════════════════════════════════
+
+    1. Open TESTING_ISSUES.md
+    2. Copy the issue template
+    3. Fill in:
+       • What flow you're on
+       • Steps to reproduce
+       • Expected behavior
+       • Actual behavior
+       • Console error (if any)
+       • Severity: blocker | major | minor | polish
+
+    Example:
+
+       ### Flow 2 – Coop creation fails
+
+       **Component:** extension
+       **Severity:** major
+
+       **Steps to Reproduce:**
+       1. Click "Create Coop"
+       2. Pick "Friends" preset
+       3. Enter name
+       4. Click Create
+
+       **Expected:**
+       Coop appears in list
+
+       **Actual:**
+       Error: "Failed to create"
+
+       **Console Error:**
+       TypeError: name is undefined
+
+
+════════════════════════════════════════════════════════════════════════════════
+QUICK TERMINAL COMMANDS
+════════════════════════════════════════════════════════════════════════════════
+
+Setup (do once):
+  $ cd /root/Zettelkasten/03\ Libraries/coop
+  $ cat > .env.local << 'EOF'
+  VITE_COOP_CHAIN=sepolia
+  VITE_COOP_ONCHAIN_MODE=mock
+  VITE_COOP_ARCHIVE_MODE=mock
+  VITE_COOP_SESSION_MODE=off
+  VITE_COOP_RECEIVER_APP_URL=http://127.0.0.1:3001
+  VITE_COOP_SIGNALING_URLS=ws://127.0.0.1:4444
+  EOF
+
+Start servers (3 tabs):
+  Tab 1: $ bun run dev:app
+  Tab 2: $ bun run dev:extension
+  Tab 3: $ bun run dev:api
+
+Load extension:
+  • Chrome: chrome://extensions/
+  • Enable Developer Mode
+  • Load Unpacked
+  • Select: packages/extension/dist
+  • Open Sidepanel
+
+
+════════════════════════════════════════════════════════════════════════════════
+KEY URLs
+════════════════════════════════════════════════════════════════════════════════
+
+App/Receiver:        http://127.0.0.1:3001
+Pairing Page:        http://127.0.0.1:3001/pair
+Receiver Capture:    http://127.0.0.1:3001/receiver
+Inbox:               http://127.0.0.1:3001/inbox
+Board:               http://127.0.0.1:3001/board/
+Extension Settings:  chrome://extensions/
+Browser Console:     F12 → Console Tab
+
+
+════════════════════════════════════════════════════════════════════════════════
+TESTING STATUS
+════════════════════════════════════════════════════════════════════════════════
+
+Flow 1 (Extension Basics)          [ ] Pass [ ] Partial [ ] Fail
+Flow 2 (Coop Creation)             [ ] Pass [ ] Partial [ ] Fail
+Flow 3 (Peer Sync)                 [ ] Pass [ ] Partial [ ] Fail
+Flow 4 (Receiver Pairing)          [ ] Pass [ ] Partial [ ] Fail
+Flow 5 (Capture → Publish)         [ ] Pass [ ] Partial [ ] Fail
+Flow 6 (Archive & Export)          [ ] Pass [ ] Partial [ ] Fail
+
+Issues Found: _____ (total)
+Blockers:     _____ (prevents testing)
+Major:        _____ (blocks feature)
+Minor:        _____ (UX/polish)
+
+
+════════════════════════════════════════════════════════════════════════════════
+TROUBLESHOOTING QUICK LOOKUP
+════════════════════════════════════════════════════════════════════════════════
+
+Problem: "Extension won't load"
+  → Check .env.local exists at repo root
+  → Kill dev:extension, restart it
+  → Delete packages/extension/dist, rebuild
+
+Problem: "Can't pair with receiver"
+  → Check bun run dev:api is running (Tab 3)
+  → Verify signaling URL in Settings
+
+Problem: "No sync between profiles"
+  → Check both profiles have SAME signaling URL in .env.local
+  → Restart all 3 servers
+  → Reload extension in chrome://extensions
+
+Problem: "Console shows errors"
+  → Screenshot the error
+  → Note the file and line number
+  → Add to issue report
+
+Problem: "Config change not applied"
+  → Edit .env.local
+  → Kill dev:extension (Ctrl+C)
+  → Restart: bun run dev:extension
+  → Reload extension in Chrome
+
+
+════════════════════════════════════════════════════════════════════════════════
+SIGN-OFF CHECKLIST
+════════════════════════════════════════════════════════════════════════════════
+
+Before telling Afo "testing complete":
+
+  [ ] All 6 flows tested (at least once)
+  [ ] Issues documented in TESTING_ISSUES.md
+  [ ] Each issue has:
+      [ ] Clear title
+      [ ] Steps to reproduce
+      [ ] Expected vs. actual
+      [ ] Component & severity
+  [ ] Each flow marked as ✅ / ⚠️ / ❌
+  [ ] No blockers left unresolved (or documented why)
+  [ ] Website/PWA feedback added
+
+
+════════════════════════════════════════════════════════════════════════════════
+REFERENCE DOCUMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+START_HERE.md              ← You are here (overview)
+SETUP_FOR_TESTING.md       ← Step-by-step walkthrough (detailed)
+QUICK_TEST_REFERENCE.md    ← One-page cheat sheet (keep handy)
+TESTING_ISSUES.md          ← Issue tracker (fill as you test)
+DEMO_AND_DEPLOY_RUNBOOK    ← Optional (detailed technical reference)
+
+
+════════════════════════════════════════════════════════════════════════════════
+TIMELINE
+════════════════════════════════════════════════════════════════════════════════
+
+  Now (2026-03-16):
+    ✓ You have instructions
+    → Start setup (15 min)
+
+  Next 1-2 weeks:
+    → Test flows 1-6 (3-6 hours)
+    → Document issues
+    → Give Afo the list
+
+  After:
+    → Afo iterates & fixes
+    → You might test again
+    → Repeat until all blockers cleared
+
+
+════════════════════════════════════════════════════════════════════════════════
+
+Ready? Open START_HERE.md and begin.
+
+Good luck! 🚀
+
+════════════════════════════════════════════════════════════════════════════════

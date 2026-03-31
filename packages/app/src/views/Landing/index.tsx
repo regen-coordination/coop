@@ -2,7 +2,10 @@ import type { SetupInsightsInput } from '@coop/shared';
 import { getRitualLenses } from '@coop/shared';
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { DevTunnelBadge } from '../../components/DevTunnelBadge';
+import { LanguageSelector } from '../../components/LanguageSelector';
 import type { DevEnvironmentState } from '../../dev-environment';
+import { useI18n } from '../../hooks/useI18n';
+import { useScrollHijack } from '../../hooks/useScrollHijack';
 import { ChickenSprite, CoopIllustration } from './landing-animations';
 import {
   LANDING_DRAFT_STORAGE_KEY,
@@ -51,8 +54,9 @@ const BUILDER_INSTALL_GUIDE_URL = 'https://docs.coop.town/builder/getting-starte
 export function App({
   devEnvironment = null,
 }: {
-  devEnvironment?: DevEnvironmentState | null;
+  devEnvironmentState?: DevEnvironmentState | null;
 }) {
+  const { t } = useI18n();
   const initialDraftRef = useRef<LandingDraft | null>(null);
 
   if (!initialDraftRef.current) {
@@ -165,6 +169,9 @@ export function App({
       mediaQuery.removeEventListener('change', updatePreference);
     };
   }, []);
+
+  // Enable scroll hijack for ritual section (1.8x slowdown for demo control)
+  useScrollHijack(ritualSectionRef, true, 1.8);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -302,7 +309,7 @@ export function App({
               trigger: storyJourneyRef.current,
               start: 'top top',
               end: 'bottom bottom',
-              scrub: 0.96,
+              scrub: 0.8,
             },
           });
 
@@ -441,34 +448,34 @@ export function App({
               trigger: arrivalJourneyRef.current,
               start: 'top top',
               end: 'bottom bottom',
-              scrub: 0.98,
+              scrub: 0.8,
             },
           });
 
-          // Heading card and team fade in immediately, stay visible through mid-scroll,
-          // then fade out as the coop house rises
+          // Heading card and team fade in quickly at scroll start, stay visible through mid-scroll,
+          // then fade out faster as the coop house rises
           arrivalTimeline
             .fromTo(
               whyBuildCard,
               { autoAlpha: 0, y: 12 },
-              { autoAlpha: 1, y: 0, duration: 0.04 },
+              { autoAlpha: 1, y: 0, duration: 0.02 },
               0,
             )
             .fromTo(
               whyBuildTeam,
               { autoAlpha: 0, y: 10 },
-              { autoAlpha: 1, y: 0, duration: 0.05 },
-              0.02,
+              { autoAlpha: 1, y: 0, duration: 0.03 },
+              0.01,
             )
             .fromTo(
               whyBuildTeamMembers,
               { autoAlpha: 0, scale: 0.9 },
-              { autoAlpha: 1, scale: 1, stagger: 0.02, duration: 0.05 },
-              0.04,
+              { autoAlpha: 1, scale: 1, stagger: 0.01, duration: 0.03 },
+              0.02,
             )
-            .to(whyBuildCard, { autoAlpha: 0, y: -20, scale: 0.96 }, 0.45)
-            .to(whyBuildTeam, { autoAlpha: 0, y: -14 }, 0.48)
-            .to(whyBuildTeamMembers, { autoAlpha: 0, y: -10, stagger: 0.03 }, 0.5)
+            .to(whyBuildCard, { autoAlpha: 0, y: -20, scale: 0.96 }, 0.28)
+            .to(whyBuildTeam, { autoAlpha: 0, y: -14 }, 0.3)
+            .to(whyBuildTeamMembers, { autoAlpha: 0, y: -10, stagger: 0.02 }, 0.32)
             .fromTo(
               arrivalGlowLeftRef.current,
               { x: '-10vw', y: '3vh', scale: 0.9 },
@@ -1062,6 +1069,8 @@ export function App({
     <div className="page-shell landing-shell" ref={landingRootRef}>
       <div className="backdrop landing-backdrop" />
 
+      <LanguageSelector />
+
       <header className="landing-topbar">
         <div className="topbar">
           <a aria-label="Coop landing page" className="hero-logo" href="#meadow">
@@ -1182,6 +1191,12 @@ export function App({
                         <h3>{card.title}</h3>
                         <p>{card.detail}</p>
                       </div>
+                      <div className="how-works-thought-bubble" aria-hidden="true">
+                        <div className="thought-bubble-inner">
+                          <span className="thought-bubble-emoji">🐔</span>
+                        </div>
+                        <div className="thought-bubble-pointer" />
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -1299,10 +1314,6 @@ export function App({
                         </div>
 
                         <div className="flashcard-front-bottom">
-                          <span aria-hidden="true" className="flashcard-action-mark">
-                            <span />
-                            <span />
-                          </span>
                           {isDone ? (
                             <span className="flashcard-check" aria-label="Complete">
                               &#10003;
@@ -1396,6 +1407,111 @@ export function App({
                   : 'Open a card to start capturing.'}
               </p>
             )}
+          </div>
+        </section>
+
+        <section className="section extension-preview-section" id="extension-preview">
+          <div className="extension-preview-wrapper">
+            <div className="extension-preview-content">
+              <div className="section-heading extension-preview-heading">
+                <h2>Meet the extension</h2>
+                <p className="lede">
+                  Your browser becomes your capture station. Highlight, clip, and save — all without
+                  breaking focus.
+                </p>
+              </div>
+
+              <div className="extension-preview-grid">
+                <div className="extension-preview-card extension-popup-card">
+                  <div className="extension-preview-title">
+                    <span className="extension-preview-number">1</span>
+                    <span>Quick capture</span>
+                  </div>
+                  <div className="extension-preview-mockup extension-popup-mockup">
+                    <div className="mockup-frame">
+                      <div className="mockup-header">
+                        <div className="mockup-button-group">
+                          <button className="mockup-icon-btn" disabled aria-label="back" />
+                          <button className="mockup-icon-btn" disabled aria-label="forward" />
+                          <button className="mockup-icon-btn" disabled aria-label="menu" />
+                        </div>
+                      </div>
+                      <div className="mockup-body">
+                        <div className="mockup-section">
+                          <div className="mockup-label">From page</div>
+                          <div className="mockup-content">
+                            <div className="mockup-chip">Selected text</div>
+                          </div>
+                        </div>
+                        <div className="mockup-section">
+                          <div className="mockup-label">Add note</div>
+                          <div className="mockup-textarea" />
+                        </div>
+                        <div className="mockup-button">Capture to Coop</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="extension-preview-card extension-sidebar-card">
+                  <div className="extension-preview-title">
+                    <span className="extension-preview-number">2</span>
+                    <span>Review & refine</span>
+                  </div>
+                  <div className="extension-preview-mockup extension-sidebar-mockup">
+                    <div className="mockup-frame">
+                      <div className="mockup-header mockup-sidebar-header">
+                        <div className="mockup-logo">Coop</div>
+                      </div>
+                      <div className="mockup-body mockup-sidebar-body">
+                        <div className="mockup-item">
+                          <div className="mockup-item-icon" />
+                          <div className="mockup-item-content">
+                            <div className="mockup-item-title" />
+                            <div className="mockup-item-subtitle" />
+                          </div>
+                        </div>
+                        <div className="mockup-item">
+                          <div className="mockup-item-icon" />
+                          <div className="mockup-item-content">
+                            <div className="mockup-item-title" />
+                            <div className="mockup-item-subtitle" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="extension-preview-card extension-benefit-card">
+                  <div className="extension-preview-title">
+                    <span className="extension-preview-number">3</span>
+                    <span>Publish together</span>
+                  </div>
+                  <div className="extension-preview-mockup extension-benefit-mockup">
+                    <div className="mockup-frame">
+                      <div className="mockup-header">
+                        <div className="mockup-header-text">Ready to publish?</div>
+                      </div>
+                      <div className="mockup-body">
+                        <div className="mockup-benefit">
+                          <div className="mockup-benefit-icon" />
+                          <div className="mockup-benefit-text">2 members reviewing</div>
+                        </div>
+                        <div className="mockup-benefit">
+                          <div className="mockup-benefit-icon" />
+                          <div className="mockup-benefit-text">12 opportunities</div>
+                        </div>
+                        <div className="mockup-benefit">
+                          <div className="mockup-benefit-icon" />
+                          <div className="mockup-benefit-text">Saved to archive</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
