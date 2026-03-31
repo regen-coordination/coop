@@ -7,18 +7,18 @@ export interface CaptureSnapshot {
   previewImageUrl?: string;
 }
 
-function getMetaContent(source: Document, selectors: string[]) {
-  for (const selector of selectors) {
-    const value = source.querySelector(selector)?.getAttribute('content')?.trim();
-    if (value) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
 export function extractPageSnapshot(source: Document = document): CaptureSnapshot {
+  const getMetaContent = (selectors: string[]) => {
+    for (const selector of selectors) {
+      const value = source.querySelector(selector)?.getAttribute('content')?.trim();
+      if (value) {
+        return value;
+      }
+    }
+
+    return undefined;
+  };
+
   const headings = Array.from(source.querySelectorAll('h1, h2, h3'))
     .map((node) => node.textContent?.trim() ?? '')
     .filter(Boolean)
@@ -27,7 +27,7 @@ export function extractPageSnapshot(source: Document = document): CaptureSnapsho
     .map((node) => node.textContent?.trim() ?? '')
     .filter(Boolean)
     .slice(0, 12);
-  const socialPreviewImageUrl = getMetaContent(source, [
+  const socialPreviewImageUrl = getMetaContent([
     'meta[property="og:image:secure_url"]',
     'meta[property="og:image"]',
     'meta[name="twitter:image:src"]',

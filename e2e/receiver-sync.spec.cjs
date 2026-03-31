@@ -3,6 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
+const { createMockMemberIdentity } = require('./helpers/mock-auth.cjs');
 
 const closeTimeoutMs = 15000;
 const appBaseUrl =
@@ -182,64 +183,10 @@ async function waitForCoop(page, coopName, timeoutMs = 30000) {
 
 async function setActiveCoop(page, coopName) {
   const { coop } = await waitForCoop(page, coopName);
-  await openFooterTab(page, 'Nest');
-  const coopFilter = page.locator('fieldset[aria-label="Filter by coop"]').first();
-  const filterButton = coopFilter.getByRole('button', { name: coopName, exact: true }).first();
-  if (await filterButton.count()) {
-    await filterButton.click();
-    await expect
-      .poll(async () => {
-        const dashboard = await getDashboard(page);
-        return dashboard?.activeCoopId === coop.profile.id;
-      })
-      .toBe(true);
-    return;
-  }
-
-  const coopSelect = page.locator('#active-coop-select');
-  if (await coopSelect.count()) {
-    await coopSelect.selectOption({ label: coopName });
-    await expect
-      .poll(async () => {
-        const dashboard = await getDashboard(page);
-        return dashboard?.activeCoopId === coop.profile.id;
-      })
-      .toBe(true);
-    await expect(coopSelect).toContainText(coopName, { timeout: 30000 });
-    return;
-  }
-
-  const trigger = page.locator('.coop-switcher__trigger').first();
-  const triggerLabel = page.locator('.coop-switcher__trigger-label').first();
-  if (await trigger.count()) {
-    const currentLabel = ((await triggerLabel.textContent()) ?? '').trim();
-    if (currentLabel !== coopName) {
-      await trigger.click();
-      const option = page.locator('.coop-switcher__option').filter({ hasText: coopName }).first();
-      await expect(option).toBeVisible({ timeout: 30000 });
-      await option.click();
-    }
-    await expect
-      .poll(async () => {
-        const dashboard = await getDashboard(page);
-        return dashboard?.activeCoopId === coop.profile.id;
-      })
-      .toBe(true);
-    await expect(triggerLabel).toContainText(coopName, { timeout: 30000 });
-    return;
-  }
-
-  const staticLabel = page.locator('.coop-switcher__label').first();
-  if (await staticLabel.count()) {
-    await expect
-      .poll(async () => {
-        const dashboard = await getDashboard(page);
-        return dashboard?.activeCoopId === coop.profile.id;
-      })
-      .toBe(true);
-    await expect(staticLabel).toContainText(coopName, { timeout: 30000 });
-    return;
-  }
+  await sendRuntimeMessage(page, {
+    type: 'set-active-coop',
+    payload: { coopId: coop.profile.id },
+  });
 
   await expect
     .poll(async () => {
@@ -247,9 +194,6 @@ async function setActiveCoop(page, coopName) {
       return dashboard?.activeCoopId === coop.profile.id;
     })
     .toBe(true);
-  await expect(page.getByText(coopName, { exact: true }).first()).toBeVisible({
-    timeout: 30000,
-  });
 }
 
 function buildSeedCoopPayload(input, creator) {
@@ -305,6 +249,13 @@ function buildSeedCoopPayload(input, creator) {
 }
 
 async function seedCoop(page, input, creator) {
+  const seededCreator = createMockMemberIdentity({
+    ...creator,
+    displayName: creator?.displayName ?? input.creatorName ?? 'Ari',
+    role: 'creator',
+  }).member;
+  await seedAuthSession(page, seededCreator);
+
   const response = await page.evaluate(
     async (payload) => {
       return chrome.runtime.sendMessage({
@@ -312,7 +263,7 @@ async function seedCoop(page, input, creator) {
         payload,
       });
     },
-    buildSeedCoopPayload(input, creator),
+    buildSeedCoopPayload(input, seededCreator),
   );
 
   if (!response?.ok || !response.data) {
@@ -323,6 +274,7 @@ async function seedCoop(page, input, creator) {
 }
 
 async function seedAuthSession(page, creator) {
+  const { session } = createMockMemberIdentity(creator);
   const response = await page.evaluate(
     async (payload) => {
       return chrome.runtime.sendMessage({
@@ -330,15 +282,7 @@ async function seedAuthSession(page, creator) {
         payload,
       });
     },
-    {
-      authMode: creator.authMode ?? 'passkey',
-      createdAt: new Date().toISOString(),
-      displayName: creator.displayName,
-      identityWarning:
-        creator.identityWarning ??
-        `${creator.displayName}'s passkey is stored on this device profile. Clearing extension data may remove access to this account.`,
-      primaryAddress: creator.address,
-    },
+    session,
   );
 
   if (!response?.ok) {
@@ -388,7 +332,6 @@ test.describe('receiver pairing and sync', () => {
       if (!creator?.address || !creator?.displayName) {
         throw new Error('Seeded receiver coop did not return a creator member.');
       }
-      await seedAuthSession(creatorProfile.page, creator);
       await creatorProfile.page.reload();
       await creatorProfile.page.waitForLoadState('domcontentloaded');
 

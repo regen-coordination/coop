@@ -73,6 +73,6 @@ describe('ChickensTab compact cards', () => {
       />,
     );
 
-    expect(screen.getByText('Round up some tabs to see chickens here.')).toBeTruthy();
+    expect(screen.getByText('Round up your loose chickens')).toBeTruthy();
   });
 });

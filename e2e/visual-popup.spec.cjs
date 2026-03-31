@@ -2,6 +2,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
+const { createMockMemberIdentity } = require('./helpers/mock-auth.cjs');
 
 const closeTimeoutMs = 5000;
 
@@ -67,7 +68,18 @@ async function ensurePopupHasCoop(page) {
     return;
   }
 
-  await page.evaluate(async () => {
+  const { member: creator, session } = createMockMemberIdentity({
+    displayName: 'Ari',
+    role: 'creator',
+  });
+  await page.evaluate(async (payload) => {
+    await chrome.runtime.sendMessage({
+      type: 'set-auth-session',
+      payload,
+    });
+  }, session);
+
+  await page.evaluate(async (creatorPayload) => {
     await chrome.runtime.sendMessage({
       type: 'create-coop',
       payload: {
@@ -107,9 +119,10 @@ async function ensurePopupHasCoop(page) {
             },
           ],
         },
+        creator: creatorPayload,
       },
     });
-  });
+  }, creator);
 
   await page.reload();
   await page.waitForLoadState('domcontentloaded');

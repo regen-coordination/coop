@@ -2,6 +2,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
+const { createMockMemberIdentity } = require('./helpers/mock-auth.cjs');
 
 const closeTimeoutMs = 15_000;
 const popupSnapshotKey = 'coop:popup-snapshot';
@@ -231,22 +232,10 @@ async function waitForPopupSnapshotValue(
 }
 
 async function seedPopupCoop(popupPage, coopName) {
-  const response = await popupPage.evaluate(async (payload) => {
-    return chrome.runtime.sendMessage({
-      type: 'create-coop',
-      payload,
-    });
-  }, popupCoopPayload(coopName));
-
-  if (!response?.ok) {
-    throw new Error(response?.error ?? 'Could not create popup test coop.');
-  }
-
-  const creator = response.data?.members?.[0];
-  if (!creator?.address || !creator?.displayName) {
-    throw new Error('Popup smoke seed coop did not return a creator member.');
-  }
-
+  const { member: creator, session } = createMockMemberIdentity({
+    displayName: 'Popup Tester',
+    role: 'creator',
+  });
   const authResponse = await popupPage.evaluate(
     async (payload) => {
       return chrome.runtime.sendMessage({
@@ -254,19 +243,22 @@ async function seedPopupCoop(popupPage, coopName) {
         payload,
       });
     },
-    {
-      authMode: creator.authMode ?? 'passkey',
-      createdAt: new Date().toISOString(),
-      displayName: creator.displayName,
-      identityWarning:
-        creator.identityWarning ??
-        `${creator.displayName}'s passkey is stored on this device profile. Clearing extension data may remove access to this account.`,
-      primaryAddress: creator.address,
-    },
+    session,
   );
 
   if (!authResponse?.ok) {
     throw new Error(authResponse?.error ?? 'Could not seed popup auth session.');
+  }
+
+  const response = await popupPage.evaluate(async (payload) => {
+    return chrome.runtime.sendMessage({
+      type: 'create-coop',
+      payload,
+    });
+  }, { ...popupCoopPayload(coopName), creator });
+
+  if (!response?.ok) {
+    throw new Error(response?.error ?? 'Could not create popup test coop.');
   }
 
   await popupPage.reload();

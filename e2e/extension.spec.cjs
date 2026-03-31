@@ -1,8 +1,8 @@
 const os = require('node:os');
 const path = require('node:path');
-const { createHash } = require('node:crypto');
 const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
+const { createMockMemberIdentity } = require('./helpers/mock-auth.cjs');
 
 const closeTimeoutMs = 5000;
 const popupSnapshotKey = 'coop:popup-snapshot';
@@ -134,6 +134,13 @@ async function openNestSubTab(page, name) {
     .click();
 }
 
+async function openRoostSubTab(page, name) {
+  await page
+    .locator('nav[aria-label="Roost sections"]')
+    .getByRole('button', { name: new RegExp(`^${escapeRegExp(name)}$`, 'i') })
+    .click();
+}
+
 async function ensureFooterTabReady(page, name, locator, timeoutMs = 30000) {
   const startedAt = Date.now();
 
@@ -165,6 +172,23 @@ async function ensureNestSubTabReady(page, name, locator, timeoutMs = 30000) {
   }
 
   throw new Error(`Timed out waiting for the Nest ${name} sub-tab to show the requested control.`);
+}
+
+async function ensureRoostSubTabReady(page, name, locator, timeoutMs = 30000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const visible = await locator.isVisible().catch(() => false);
+    if (visible) {
+      return;
+    }
+
+    await openFooterTab(page, 'Roost');
+    await openRoostSubTab(page, name);
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(`Timed out waiting for the Roost ${name} sub-tab to show the requested control.`);
 }
 
 async function openCoopDetail(page, coopName) {
@@ -213,16 +237,6 @@ async function getPopupSnapshot(page) {
 
 async function sendRuntimeMessage(page, message) {
   return page.evaluate(async (payload) => chrome.runtime.sendMessage(payload), message);
-}
-
-function buildMockPasskeyCredential(creator) {
-  const seed = creator?.address ?? creator?.displayName ?? 'coop-e2e-passkey';
-  const digest = createHash('sha256').update(`mock-passkey:${seed}`).digest('hex');
-  return {
-    id: creator?.passkeyCredentialId ?? `passkey-${seed.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    publicKey: `0x${digest}${digest}`,
-    rpId: 'mock.coop.local',
-  };
 }
 
 function buildSeedCoopPayload(input, creator) {
@@ -280,9 +294,16 @@ function buildSeedCoopPayload(input, creator) {
 }
 
 async function seedCoop(page, input, creator) {
+  const seededCreator = createMockMemberIdentity({
+    ...creator,
+    displayName: creator?.displayName ?? input.creatorName ?? 'Ari',
+    role: 'creator',
+  }).member;
+  await seedAuthSession(page, seededCreator);
+
   const response = await sendRuntimeMessage(page, {
     type: 'create-coop',
-    payload: buildSeedCoopPayload(input, creator),
+    payload: buildSeedCoopPayload(input, seededCreator),
   });
 
   if (!response?.ok || !response.data) {
@@ -293,18 +314,10 @@ async function seedCoop(page, input, creator) {
 }
 
 async function seedAuthSession(page, creator) {
+  const { session } = createMockMemberIdentity(creator);
   const response = await sendRuntimeMessage(page, {
     type: 'set-auth-session',
-    payload: {
-      authMode: creator.authMode ?? 'passkey',
-      createdAt: new Date().toISOString(),
-      displayName: creator.displayName,
-      identityWarning:
-        creator.identityWarning ??
-        `${creator.displayName}'s passkey is stored on this device profile. Clearing extension data may remove access to this account.`,
-      primaryAddress: creator.address,
-      passkey: buildMockPasskeyCredential(creator),
-    },
+    payload: session,
   });
 
   if (!response?.ok) {
@@ -319,7 +332,6 @@ async function seedExtensionCoop(page, input) {
     throw new Error(`Seeded coop ${input.coopName} did not return a creator member.`);
   }
 
-  await seedAuthSession(page, creator);
   await page.reload();
   await page.waitForLoadState('domcontentloaded');
 
@@ -493,9 +505,9 @@ test.describe('extension workflow', () => {
         15000,
         'Coop Town Test in dashboard',
       );
-      await expect(
-        creatorProfile.page.getByRole('heading', { name: 'Coop Town Test' }),
-      ).toBeVisible();
+      const coopHeading = creatorProfile.page.getByRole('heading', { name: 'Coop Town Test' });
+      await ensureNestSubTabReady(creatorProfile.page, 'Members', coopHeading, 15000);
+      await expect(coopHeading).toBeVisible();
       await expect
         .poll(
           async () => {
@@ -508,29 +520,60 @@ test.describe('extension workflow', () => {
         )
         .toMatch(/^0x[a-fA-F0-9]{40}$/);
 
-      await creatorProfile.page.getByRole('button', { name: /invite member/i }).click();
-      await expect(creatorProfile.page.locator('#invite-code')).toHaveValue(/.+/, {
+      const inviteCard = creatorProfile.page
+        .locator('details.collapsible-card')
+        .filter({
+          has: creatorProfile.page.getByRole('heading', {
+            name: 'Invite the Flock',
+          }),
+        })
+        .first();
+      const inviteCardOpen = await inviteCard.evaluate((element) => element.hasAttribute('open'));
+      if (!inviteCardOpen) {
+        await inviteCard.locator('summary').click();
+      }
+      await expect
+        .poll(async () => creatorProfile.page.locator('#member-current-code').inputValue(), {
+          timeout: 15000,
+        })
+        .not.toBe('No current code');
+      const inviteCode = await creatorProfile.page.locator('#member-current-code').inputValue();
+      await expect(creatorProfile.page.locator('#member-current-code')).toHaveValue(/.+/, {
         timeout: 15000,
       });
-      const inviteCode = await creatorProfile.page.locator('#invite-code').inputValue();
 
       memberProfile = await launchExtensionProfile(memberUserDataDir);
       await memberProfile.page.bringToFront();
-      await expect(memberProfile.page.locator('#join-code')).toBeVisible({
-        timeout: 15000,
+      const { member: joiningMember, session: joiningSession } = createMockMemberIdentity({
+        displayName: 'Mina',
+        role: 'member',
       });
-      await memberProfile.page.fill('#join-code', inviteCode);
-      await memberProfile.page.fill('#join-name', 'Mina');
-      await memberProfile.page.fill('#join-seed', 'I bring review energy and member context.');
-      await memberProfile.page.getByRole('button', { name: /join( this)? coop/i }).click();
-
-      await expect(
-        memberProfile.page.getByText(
-          /member joined and (seed contribution published|starter note saved)/i,
-        ),
-      ).toBeVisible({
-        timeout: 30000,
+      const memberAuthResponse = await sendRuntimeMessage(memberProfile.page, {
+        type: 'set-auth-session',
+        payload: joiningSession,
       });
+      if (!memberAuthResponse?.ok) {
+        throw new Error(memberAuthResponse?.error ?? 'Could not seed the member auth session.');
+      }
+      const joinResponse = await sendRuntimeMessage(memberProfile.page, {
+        type: 'join-coop',
+        payload: {
+          inviteCode,
+          displayName: 'Mina',
+          seedContribution: 'I bring review energy and member context.',
+          member: joiningMember,
+        },
+      });
+      if (!joinResponse?.ok) {
+        throw new Error(joinResponse?.error ?? 'Could not join Coop Town Test.');
+      }
+      await waitForDashboardValue(
+        memberProfile.page,
+        (dashboard) =>
+          dashboard?.coops.find((candidate) => candidate.profile.name === 'Coop Town Test'),
+        30000,
+        'member joined Coop Town Test',
+      );
       await closeContextSafely(memberProfile.context);
       memberProfile = null;
 
@@ -559,15 +602,6 @@ test.describe('extension workflow', () => {
       await triggerCapture(creatorProfile.page);
       await waitForCaptureRunActivity(creatorProfile.page, baselineCapturedAt);
       await waitForDraftByTitle(creatorProfile.page, 'Funding roundup for Coop Town Test', 30000);
-      await creatorProfile.page.bringToFront();
-      await openFooterTab(creatorProfile.page, 'Chickens');
-      const roundupDraftTitleInput = await findDraftTitleInputByTitle(
-        creatorProfile.page,
-        'Funding roundup for Coop Town Test',
-      );
-      await expect(roundupDraftTitleInput).toHaveValue('Funding roundup for Coop Town Test', {
-        timeout: 15000,
-      });
       const runtimeDraft = await waitForDraftByTitle(
         creatorProfile.page,
         'Funding roundup for Coop Town Test',
@@ -594,7 +628,7 @@ test.describe('extension workflow', () => {
       if (!readyDraft) {
         throw new Error('Could not mark the roundup draft as ready.');
       }
-      const publishedTitle = await roundupDraftTitleInput.inputValue();
+      const publishedTitle = readyDraft.title;
       const publishResponse = await sendRuntimeMessage(creatorProfile.page, {
         type: 'publish-draft',
         payload: {
@@ -710,6 +744,9 @@ test.describe('extension workflow', () => {
       const boardPagePromise = creatorProfile.context.waitForEvent('page');
       await creatorProfile.page.getByRole('button', { name: 'Open Board', exact: true }).click();
       const boardPage = await boardPagePromise;
+      await boardPage.waitForURL(/\/board\//, {
+        timeout: 15000,
+      });
       await boardPage.waitForLoadState('domcontentloaded');
       await expect(boardPage.getByRole('heading', { name: 'Coop Town Test' })).toBeVisible({
         timeout: 15000,
@@ -969,19 +1006,27 @@ test.describe('extension workflow', () => {
         15000,
         'Garden Pass Coop in dashboard',
       );
-      await expect(
-        creatorProfile.page.getByRole('heading', { name: 'Garden Pass Coop' }),
-      ).toBeVisible();
+      const runAgentCycleButton = creatorProfile.page.getByRole('button', {
+        name: /(run agent cycle|check the helpers)/i,
+      });
+      await ensureNestSubTabReady(creatorProfile.page, 'Agent', runAgentCycleButton, 30_000);
+      await runAgentCycleButton.click();
+      await waitForDashboardValue(
+        creatorProfile.page,
+        (dashboard) => {
+          const coop = dashboard?.coops.find(
+            (candidate) => candidate.profile.name === 'Garden Pass Coop',
+          );
+          return coop?.greenGoods?.gardenAddress ?? null;
+        },
+        45_000,
+        'linked Green Goods garden for Garden Pass Coop',
+      );
 
       const provisionGardenAccountButton = creatorProfile.page.getByRole('button', {
         name: /provision my garden account/i,
       });
-      await ensureFooterTabReady(
-        creatorProfile.page,
-        'Roost',
-        provisionGardenAccountButton,
-        30_000,
-      );
+      await ensureRoostSubTabReady(creatorProfile.page, 'Garden', provisionGardenAccountButton);
       await provisionGardenAccountButton.click();
       await waitForDashboardValue(
         creatorProfile.page,

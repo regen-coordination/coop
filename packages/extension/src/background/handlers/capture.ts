@@ -275,19 +275,27 @@ export async function runCaptureCycle() {
 }
 
 async function resolveMostRecentStandardActiveTab() {
+  const selectMostRecentSupportedTab = (tabs: chrome.tabs.Tab[]) =>
+    tabs
+      .filter(
+        (tab): tab is chrome.tabs.Tab & { url: string } =>
+          Boolean(tab.url && isSupportedUrl(tab.url)),
+      )
+      .sort((left, right) => (right.lastAccessed ?? 0) - (left.lastAccessed ?? 0))[0] ?? null;
+
   const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (currentTab?.url && isSupportedUrl(currentTab.url)) {
     return currentTab;
   }
 
   const activeTabs = await chrome.tabs.query({ active: true });
-  return (
-    activeTabs
-      .filter((tab): tab is chrome.tabs.Tab & { url: string } =>
-        Boolean(tab.url && isSupportedUrl(tab.url)),
-      )
-      .sort((left, right) => (right.lastAccessed ?? 0) - (left.lastAccessed ?? 0))[0] ?? null
-  );
+  const activeStandardTab = selectMostRecentSupportedTab(activeTabs);
+  if (activeStandardTab) {
+    return activeStandardTab;
+  }
+
+  const allTabs = await chrome.tabs.query({});
+  return selectMostRecentSupportedTab(allTabs);
 }
 
 export async function captureActiveTab() {

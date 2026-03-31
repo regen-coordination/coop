@@ -26,7 +26,7 @@ import {
   matchesCoopFilter,
   normalizeCoopIds,
   popupReviewStatus,
-  popupStatusIndicator,
+  popupSyncStatus,
   toDraftItems,
   toFeedItems,
 } from '../helpers';
@@ -967,7 +967,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
 
   const statusIndicator = useMemo(
     () =>
-      popupStatusIndicator({
+      popupSyncStatus({
         syncLabel: dashboard?.summary?.syncLabel ?? snapshot?.syncLabel,
         syncDetail: dashboard?.summary?.syncDetail ?? snapshot?.syncDetail,
         syncTone: dashboard?.summary?.syncTone ?? snapshot?.syncTone,
@@ -996,7 +996,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     {
       id: 'status',
       label: 'Status',
-      value: statusIndicator.value,
+      value: statusIndicator.label,
       tone: statusIndicator.tone,
       detail: statusIndicator.detail,
     },

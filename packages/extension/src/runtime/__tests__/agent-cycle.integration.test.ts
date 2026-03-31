@@ -289,7 +289,7 @@ describe('agent cycle integration', () => {
         { drainAgent: false },
       );
 
-      expect(captureResult.count).toBe(1);
+      expect(captureResult).toBe(1);
 
       await runAgentCycle({ force: true, reason: 'integration-routing' });
 
@@ -428,7 +428,7 @@ describe('agent cycle integration', () => {
         { drainAgent: false },
       );
 
-      expect(captureResult.count).toBe(2);
+      expect(captureResult).toBe(2);
       expect(await listPageExtracts(runtimeDb)).toHaveLength(1);
 
       const observations = await listAgentObservations(runtimeDb);

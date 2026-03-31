@@ -197,6 +197,58 @@ describe('capture handlers', () => {
     });
   });
 
+  it('falls back to the most recently focused supported tab when no standard tab is active', async () => {
+    chromeTabsMock.query
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          url: 'chrome-extension://coop/popup.html',
+          title: 'Coop Popup',
+          windowId: 2,
+          lastAccessed: 20,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          url: 'chrome-extension://coop/popup.html',
+          title: 'Coop Popup',
+          windowId: 2,
+          lastAccessed: 20,
+        },
+        {
+          id: 21,
+          url: 'https://example.com/roundup',
+          title: 'Roundup Target',
+          windowId: 3,
+          lastAccessed: 200,
+        },
+      ]);
+    chromeScrMock.executeScript.mockResolvedValue([
+      {
+        result: {
+          title: 'Roundup Target',
+          metaDescription: 'Recent research.',
+          headings: ['Roundup'],
+          paragraphs: ['Important context'],
+          previewImageUrl: undefined,
+        },
+      },
+    ]);
+
+    const count = await captureActiveTab();
+
+    expect(count).toBe(1);
+    expect(chromeTabsMock.query).toHaveBeenNthCalledWith(1, { active: true, currentWindow: true });
+    expect(chromeTabsMock.query).toHaveBeenNthCalledWith(2, { active: true });
+    expect(chromeTabsMock.query).toHaveBeenNthCalledWith(3, {});
+    expect(chromeScrMock.executeScript).toHaveBeenCalledWith({
+      target: { tabId: 21 },
+      func: expect.any(Function),
+    });
+  });
+
   it('records a failed capture run when scripting throws', async () => {
     chromeTabsMock.query.mockResolvedValue([
       { id: 20, url: 'https://restricted.com', windowId: 1, title: 'Restricted' },

@@ -174,8 +174,7 @@ describe('PopupApp', () => {
     render(<PopupApp />);
 
     const homeStatus = await screen.findByLabelText('Home status');
-    expect(within(homeStatus).getByRole('button', { name: 'Health: Ready' })).toBeInTheDocument();
-    expect(within(homeStatus).getByRole('button', { name: 'Sync: Idle' })).toBeInTheDocument();
+    expect(within(homeStatus).getByRole('button', { name: 'Status: Idle' })).toBeInTheDocument();
     expect(within(homeStatus).getByRole('button', { name: 'Review: 0' })).toBeInTheDocument();
     expect(screen.queryByText('Status at a glance')).not.toBeInTheDocument();
     expect(screen.queryByText('Why these states?')).not.toBeInTheDocument();
@@ -504,7 +503,11 @@ describe('PopupApp', () => {
     });
 
     let view = render(<PopupApp />);
-    expect(await screen.findByText('Idle')).toBeInTheDocument();
+    expect(
+      await within(await screen.findByLabelText('Home status')).findByRole('button', {
+        name: 'Status: Idle',
+      }),
+    ).toBeInTheDocument();
 
     mockSendRuntimeMessage.mockReset();
     installDefaultRuntimeHandlers(
@@ -523,7 +526,11 @@ describe('PopupApp', () => {
     );
     view.unmount();
     view = render(<PopupApp />);
-    expect(await screen.findByText('Local')).toBeInTheDocument();
+    expect(
+      await within(await screen.findByLabelText('Home status')).findByRole('button', {
+        name: 'Status: Local',
+      }),
+    ).toBeInTheDocument();
 
     mockSendRuntimeMessage.mockReset();
     mockSendRuntimeMessage.mockImplementation(async (message: { type: string }) => {
@@ -854,9 +861,6 @@ describe('PopupApp', () => {
     expect(screen.getByText('Member Only Coop')).toBeInTheDocument();
     expect(screen.getByText('Reusable')).toBeInTheDocument();
     expect(
-      screen.getByText('This code has already admitted 1 member and is still valid for new joins.'),
-    ).toBeInTheDocument();
-    expect(
       screen.getByText(
         'Open this coop as a creator or trusted member to copy, rotate, or revoke its canonical invite codes.',
       ),
@@ -873,7 +877,7 @@ describe('PopupApp', () => {
     expect(await screen.findByText('COOP-MEMBER-1')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Revoke member invite for Starter Coop' }));
-    expect(await screen.findByText('No current code')).toBeInTheDocument();
+    expect(await screen.findByText('No code yet')).toBeInTheDocument();
   });
 
   it('shows post-create invite success and enters the new coop', async () => {
@@ -898,15 +902,13 @@ describe('PopupApp', () => {
     await user.click(await screen.findByRole('button', { name: 'Create a Coop' }));
     fireEvent.change(screen.getByLabelText('Coop name'), { target: { value: 'Fresh Coop' } });
     fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Ava' } });
-    fireEvent.change(screen.getByPlaceholderText('Paste or write what this coop is gathering.'), {
+    fireEvent.change(screen.getByPlaceholderText('What will your coop gather and act on?'), {
       target: { value: 'Keep fresh invite flows visible.' },
     });
 
     await user.click(screen.getByRole('button', { name: 'Create Coop' }));
 
-    expect(
-      await screen.findByText('Fresh Coop is ready to welcome people in.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Fresh Coop is ready.')).toBeInTheDocument();
     expect(screen.getByText('COOP-MEMBER-1')).toBeInTheDocument();
     expect(screen.getByText('COOP-TRUSTED-2')).toBeInTheDocument();
 

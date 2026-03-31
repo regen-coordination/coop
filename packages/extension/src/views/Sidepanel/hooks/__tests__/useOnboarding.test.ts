@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { onboardingSteps } from '../../OnboardingOverlay';
 import { ONBOARDING_KEY, useOnboarding } from '../useOnboarding';
 
 // --- chrome.storage.sync mock ---
@@ -84,10 +85,9 @@ describe('useOnboarding', () => {
     const { result } = renderHook(() => useOnboarding());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    // Advance through all 3 steps (0 -> 1 -> 2 -> dismiss)
-    act(() => result.current.advance()); // 0 -> 1
-    act(() => result.current.advance()); // 1 -> 2
-    act(() => result.current.advance()); // 2 -> dismiss
+    for (let index = 0; index < onboardingSteps.length; index += 1) {
+      act(() => result.current.advance());
+    }
 
     expect(result.current.step).toBeNull();
     expect(storageMock.sync.set).toHaveBeenCalledWith({ [ONBOARDING_KEY]: true });

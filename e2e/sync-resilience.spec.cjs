@@ -2,6 +2,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { chromium, expect, test } = require('@playwright/test');
 const { ensureExtensionBuilt, extensionDir } = require('./helpers/extension-build.cjs');
+const { createMockMemberIdentity } = require('./helpers/mock-auth.cjs');
 
 const closeTimeoutMs = 15_000;
 const degradedSyncNote =
@@ -154,12 +155,30 @@ async function openPopup(context, extensionId) {
 }
 
 async function seedSyncCoop(popupPage, coopName) {
+  const { member: creator, session } = createMockMemberIdentity({
+    displayName: 'Sync Tester',
+    role: 'creator',
+  });
+  const authResponse = await popupPage.evaluate(
+    async (payload) => {
+      return chrome.runtime.sendMessage({
+        type: 'set-auth-session',
+        payload,
+      });
+    },
+    session,
+  );
+
+  if (!authResponse?.ok) {
+    throw new Error(authResponse?.error ?? 'Could not seed sync resilience auth session.');
+  }
+
   const response = await popupPage.evaluate(async (payload) => {
     return chrome.runtime.sendMessage({
       type: 'create-coop',
       payload,
     });
-  }, syncCoopPayload(coopName));
+  }, { ...syncCoopPayload(coopName), creator });
 
   if (!response?.ok) {
     throw new Error(response?.error ?? 'Could not create sync resilience test coop.');

@@ -339,7 +339,7 @@ describe('ChickensTab interactions', () => {
       />,
     );
 
-    expect(screen.getByText(/round up some tabs to see chickens here/i)).toBeInTheDocument();
+    expect(screen.getByText(/round up your loose chickens/i)).toBeInTheDocument();
   });
 
   it('shows the empty state when there are no shared artifacts', () => {
