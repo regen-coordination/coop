@@ -21,7 +21,7 @@
   transition: all 0.2s ease;
   font-size: 0.75rem;
   font-weight: 700;
-  color: #2a1810;
+  color: var(--coop-brown);
   letter-spacing: 0.04em;
   box-shadow: 0 4px 16px rgba(79, 46, 31, 0.1);
   backdrop-filter: blur(8px);
@@ -42,14 +42,14 @@
   display: inline-block;
   min-width: 1.4rem;
   text-align: center;
-  color: #1a0f0a;
+  color: var(--coop-brown);
 }
 
 .language-selector-chevron {
   width: 1.2rem;
   height: 1.2rem;
-  opacity: 0.7;
-  color: #2a1810;
+  opacity: 0.8;
+  color: var(--coop-brown);
   transition: transform 0.2s ease;
 }
 
@@ -97,7 +97,7 @@
   text-align: left;
   font-size: 0.85rem;
   font-weight: 500;
-  color: #2a1810;
+  color: var(--coop-brown);
   font-family: inherit;
 }
 
