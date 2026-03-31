@@ -83,8 +83,10 @@ function buildProps(overrides: Partial<RoostTabProps> = {}): RoostTabProps {
     allCoops: [coop],
     selectActiveCoop: vi.fn(),
     greenGoodsActionQueue: [],
+    summary: null,
     onProvisionMemberOnchainAccount: vi.fn(),
     onSubmitGreenGoodsWorkSubmission: vi.fn(),
+    onOpenSynthesisSegment: vi.fn(),
     ...overrides,
   };
 }

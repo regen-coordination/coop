@@ -6,6 +6,7 @@ import type { PopupRecordingStatus } from './hooks/usePopupRecording';
 export interface YardItem {
   id: string;
   type: 'draft' | 'artifact';
+  title?: string;
   category?: ArtifactCategory;
   isExternal?: boolean;
 }
@@ -191,9 +192,11 @@ function ChickenYard({
         const pos = positions[i];
         const catGroup = categoryGroup(item.category);
         const externalClass = item.isExternal ? ' popup-yard__chicken--external' : '';
+        const tooltipLabel =
+          item.title || (item.type === 'draft' ? 'Draft chicken' : 'Shared chick');
         return (
           <span
-            className={`popup-yard__chicken popup-yard__chicken--${item.type}${externalClass}`}
+            className={`popup-yard__chicken popup-yard__chicken--${item.type} popup-yard__chicken--idle${externalClass}`}
             data-category={catGroup}
             key={item.id}
             style={{
@@ -201,8 +204,9 @@ function ChickenYard({
               top: `${pos.y}%`,
               width: item.type === 'artifact' ? chickenSize * 0.75 : chickenSize,
               height: item.type === 'artifact' ? chickenSize * 0.75 : chickenSize,
-              animationDelay: `${i * 60}ms`,
+              animationDelay: `${i * 60}ms, ${400 + i * 200}ms`,
             }}
+            title={tooltipLabel}
           >
             {item.type === 'draft' ? <ChickenIcon flip={pos.flip} /> : <ChickIcon />}
           </span>

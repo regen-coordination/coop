@@ -16,7 +16,6 @@ import { FilterPopover } from './FilterPopover';
 import {
   type ChickensFilterState,
   type TimeGroup,
-  applyChickensFilters,
   buildCategoryOptions,
   groupByTime,
   isFilterActive,
@@ -53,6 +52,35 @@ function formatCategoryLabel(value: string) {
     .split('-')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
     .join(' ');
+}
+
+/** Resolve the best preview image URL from draft or artifact metadata. */
+function resolvePreviewImage(item: ReviewItem): string | undefined {
+  if (item.draft?.previewImageUrl) return item.draft.previewImageUrl;
+  if (item.signal?.url) {
+    // No direct previewImageUrl on signals, fall through
+  }
+  return undefined;
+}
+
+/** Build a favicon URL from a domain string using Google's public service. */
+function faviconUrl(domain: string | undefined): string | undefined {
+  if (!domain) return undefined;
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
+}
+
+/** Extract the source domain from a review item. */
+function resolveSourceDomain(item: ReviewItem): string | undefined {
+  if (item.draft?.sources[0]?.domain) return item.draft.sources[0].domain;
+  if (item.signal?.domain) return item.signal.domain;
+  return undefined;
+}
+
+/** Extract the source URL from a review item. */
+function resolveSourceUrl(item: ReviewItem): string | undefined {
+  if (item.draft?.sources[0]?.url) return item.draft.sources[0].url;
+  if (item.signal?.url) return item.signal.url;
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,15 +167,17 @@ function buildReviewItems(
 // Compact card component
 // ---------------------------------------------------------------------------
 
-function CompactCard(props: {
+/** Render push controls per spec: drafts only, coop count determines layout. */
+function PushControls(props: {
   item: ReviewItem;
   coops: CoopSharedState[];
   draftEditor?: ReturnType<typeof useDraftEditor>;
-  focused?: boolean;
 }) {
-  const { item, coops, draftEditor, focused } = props;
+  const { item, coops, draftEditor } = props;
   const [showPicker, setShowPicker] = useState(false);
-  const visibleTags = item.tags.slice(0, 3);
+
+  // Push controls are only for drafts
+  if (item.kind !== 'draft' || !item.draft || !draftEditor) return null;
 
   const handlePush = (coopId: string) => {
     if (item.draft && draftEditor) {
@@ -159,73 +189,175 @@ function CompactCard(props: {
     setShowPicker(false);
   };
 
-  return (
-    <article className="compact-card" data-focused={focused || undefined} data-kind={item.kind}>
-      <div className="compact-card__header">
-        <span className="badge badge--neutral compact-card__category">
-          {formatCategoryLabel(item.category)}
-        </span>
-        <span className="meta-text">{formatRelativeTime(item.timestamp)}</span>
-      </div>
-
-      <strong className="compact-card__title">{item.title}</strong>
-
-      {item.insight ? <p className="compact-card__insight">{item.insight}</p> : null}
-
-      {visibleTags.length > 0 ? (
-        <div className="compact-card__tags">
-          {visibleTags.map((tag) => (
-            <span className="badge badge--neutral compact-card__tag" key={`${item.id}:${tag}`}>
-              #{tag}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
+  // 0 targets: "Select coops"
+  if (coops.length === 0) {
+    return (
       <div className="compact-card__actions">
-        <div className="compact-card__push-wrap">
+        <button
+          className="compact-card__push-btn compact-card__push-btn--muted"
+          disabled
+          type="button"
+        >
+          Select coops
+        </button>
+      </div>
+    );
+  }
+
+  // 1 target: "Push to <Coop>"
+  if (coops.length === 1) {
+    return (
+      <div className="compact-card__actions">
+        <button
+          className="compact-card__push-btn"
+          onClick={() => handlePush(coops[0].profile.id)}
+          type="button"
+        >
+          Push to {coops[0].profile.name}
+        </button>
+      </div>
+    );
+  }
+
+  // 2-4 targets: equal target pills
+  if (coops.length <= 4) {
+    return (
+      <div className="compact-card__actions compact-card__actions--pills">
+        {coops.map((coop) => (
           <button
-            className="compact-card__push-btn"
-            onClick={() => {
-              if (coops.length === 1) {
-                handlePush(coops[0].profile.id);
-              } else {
-                setShowPicker((prev) => !prev);
-              }
-            }}
+            className="compact-card__target-pill"
+            key={coop.profile.id}
+            onClick={() => handlePush(coop.profile.id)}
             type="button"
           >
-            Push &rarr;
+            {coop.profile.name}
           </button>
-          {showPicker && coops.length > 1 ? (
-            <ul className="compact-card__coop-picker">
-              {coops.map((coop) => (
-                <li key={coop.profile.id}>
-                  <button onClick={() => handlePush(coop.profile.id)} type="button">
-                    {coop.profile.name}
-                  </button>
-                </li>
+        ))}
+      </div>
+    );
+  }
+
+  // 5+ targets: selector/dropdown
+  return (
+    <div className="compact-card__actions">
+      <div className="compact-card__push-wrap">
+        <button
+          className="compact-card__push-btn"
+          onClick={() => setShowPicker((prev) => !prev)}
+          type="button"
+        >
+          Push to...
+        </button>
+        {showPicker ? (
+          <ul className="compact-card__coop-picker">
+            {coops.map((coop) => (
+              <li key={coop.profile.id}>
+                <button onClick={() => handlePush(coop.profile.id)} type="button">
+                  {coop.profile.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CompactCard(props: {
+  item: ReviewItem;
+  coops: CoopSharedState[];
+  draftEditor?: ReturnType<typeof useDraftEditor>;
+  focused?: boolean;
+}) {
+  const { item, coops, draftEditor, focused } = props;
+  const visibleTags = item.tags.slice(0, 3);
+  const previewImage = resolvePreviewImage(item);
+  const sourceDomain = resolveSourceDomain(item);
+  const sourceUrl = resolveSourceUrl(item);
+  const favicon = faviconUrl(sourceDomain);
+
+  return (
+    <article className="compact-card" data-focused={focused || undefined} data-kind={item.kind}>
+      <div className="compact-card__body">
+        {/* Left preview rail */}
+        {previewImage ? (
+          <div className="compact-card__preview-rail">
+            <img alt="" className="compact-card__preview-img" loading="lazy" src={previewImage} />
+          </div>
+        ) : null}
+
+        <div className="compact-card__content">
+          <div className="compact-card__header">
+            <span className="badge badge--neutral compact-card__category">
+              {formatCategoryLabel(item.category)}
+            </span>
+            <span className="meta-text">{formatRelativeTime(item.timestamp)}</span>
+          </div>
+
+          <strong className="compact-card__title">{item.title}</strong>
+
+          {item.insight ? <p className="compact-card__insight">{item.insight}</p> : null}
+
+          {/* Source row with favicon and domain */}
+          {sourceDomain ? (
+            <div className="compact-card__source-row">
+              {favicon ? (
+                <img
+                  alt=""
+                  className="compact-card__favicon"
+                  height={14}
+                  loading="lazy"
+                  src={favicon}
+                  width={14}
+                />
+              ) : null}
+              {sourceUrl ? (
+                <a
+                  className="compact-card__source-link"
+                  href={sourceUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {sourceDomain}
+                </a>
+              ) : (
+                <span className="compact-card__source-domain">{sourceDomain}</span>
+              )}
+            </div>
+          ) : null}
+
+          {visibleTags.length > 0 ? (
+            <div className="compact-card__tags">
+              {visibleTags.map((tag) => (
+                <span className="badge badge--neutral compact-card__tag" key={`${item.id}:${tag}`}>
+                  #{tag}
+                </span>
               ))}
-            </ul>
+            </div>
           ) : null}
         </div>
       </div>
 
+      {/* Push controls — drafts only, layout depends on coop count */}
+      <PushControls item={item} coops={coops} draftEditor={draftEditor} />
+
       <details className="compact-card__more">
-        <summary>More</summary>
+        <summary>Details</summary>
         <div className="compact-card__expanded">
           {item.signal ? (
             <>
+              {item.signal.targetCoops[0]?.rationale ? (
+                <div className="compact-card__detail-row">
+                  <span className="compact-card__detail-label">Why it matters</span>
+                  <p>{item.signal.targetCoops[0].rationale}</p>
+                </div>
+              ) : null}
               {item.signal.targetCoops[0]?.suggestedNextStep ? (
                 <div className="compact-card__detail-row">
                   <span className="compact-card__detail-label">Next move</span>
                   <p>{item.signal.targetCoops[0].suggestedNextStep}</p>
                 </div>
-              ) : null}
-              {item.signal.url ? (
-                <a className="source-link" href={item.signal.url} rel="noreferrer" target="_blank">
-                  {item.signal.domain || item.signal.url}
-                </a>
               ) : null}
               {item.signal.targetCoops.length > 0 ? (
                 <div className="badge-row">
@@ -257,16 +389,6 @@ function CompactCard(props: {
                   <p>{item.draft.suggestedNextStep}</p>
                 </div>
               ) : null}
-              {item.draft.sources[0]?.url ? (
-                <a
-                  className="source-link"
-                  href={item.draft.sources[0].url}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {item.draft.sources[0].domain || item.draft.sources[0].url}
-                </a>
-              ) : null}
             </>
           ) : null}
           {item.staleObservation ? (
@@ -288,38 +410,84 @@ function CompactCard(props: {
 function CompactSharedCard(props: { artifact: Artifact; coopName?: string }) {
   const { artifact, coopName } = props;
   const visibleTags = artifact.tags.slice(0, 3);
+  const previewImage = artifact.previewImageUrl;
+  const sourceDomain = artifact.sources[0]?.domain;
+  const sourceUrl = artifact.sources[0]?.url;
+  const favicon = faviconUrl(sourceDomain);
 
   return (
     <article className="compact-card" data-kind="shared">
-      <div className="compact-card__header">
-        {coopName ? (
-          <span className="badge compact-card__category">{coopName}</span>
-        ) : (
-          <span className="badge badge--neutral compact-card__category">
-            {formatCategoryLabel(artifact.category)}
-          </span>
-        )}
-        <span className="meta-text">{formatRelativeTime(artifact.createdAt)}</span>
+      <div className="compact-card__body">
+        {/* Left preview rail */}
+        {previewImage ? (
+          <div className="compact-card__preview-rail">
+            <img alt="" className="compact-card__preview-img" loading="lazy" src={previewImage} />
+          </div>
+        ) : null}
+
+        <div className="compact-card__content">
+          <div className="compact-card__header">
+            {coopName ? (
+              <span className="badge compact-card__category">{coopName}</span>
+            ) : (
+              <span className="badge badge--neutral compact-card__category">
+                {formatCategoryLabel(artifact.category)}
+              </span>
+            )}
+            <span className="meta-text">{formatRelativeTime(artifact.createdAt)}</span>
+          </div>
+
+          <strong className="compact-card__title">{artifact.title}</strong>
+
+          {artifact.whyItMatters ? (
+            <p className="compact-card__insight">{artifact.whyItMatters}</p>
+          ) : null}
+
+          {/* Source row with favicon and domain */}
+          {sourceDomain ? (
+            <div className="compact-card__source-row">
+              {favicon ? (
+                <img
+                  alt=""
+                  className="compact-card__favicon"
+                  height={14}
+                  loading="lazy"
+                  src={favicon}
+                  width={14}
+                />
+              ) : null}
+              {sourceUrl ? (
+                <a
+                  className="compact-card__source-link"
+                  href={sourceUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {sourceDomain}
+                </a>
+              ) : (
+                <span className="compact-card__source-domain">{sourceDomain}</span>
+              )}
+            </div>
+          ) : null}
+
+          {visibleTags.length > 0 ? (
+            <div className="compact-card__tags">
+              {visibleTags.map((tag) => (
+                <span
+                  className="badge badge--neutral compact-card__tag"
+                  key={`${artifact.id}:${tag}`}
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      <strong className="compact-card__title">{artifact.title}</strong>
-
-      {artifact.whyItMatters ? (
-        <p className="compact-card__insight">{artifact.whyItMatters}</p>
-      ) : null}
-
-      {visibleTags.length > 0 ? (
-        <div className="compact-card__tags">
-          {visibleTags.map((tag) => (
-            <span className="badge badge--neutral compact-card__tag" key={`${artifact.id}:${tag}`}>
-              #{tag}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
       <details className="compact-card__more">
-        <summary>More</summary>
+        <summary>Details</summary>
         <div className="compact-card__expanded">
           <p className="compact-card__detail-summary">{artifact.summary}</p>
           {artifact.suggestedNextStep ? (
@@ -327,16 +495,6 @@ function CompactSharedCard(props: { artifact: Artifact; coopName?: string }) {
               <span className="compact-card__detail-label">Next move</span>
               <p>{artifact.suggestedNextStep}</p>
             </div>
-          ) : null}
-          {artifact.sources[0]?.url ? (
-            <a
-              className="source-link"
-              href={artifact.sources[0].url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {artifact.sources[0].domain || artifact.sources[0].url}
-            </a>
           ) : null}
         </div>
       </details>

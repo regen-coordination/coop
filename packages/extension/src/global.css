@@ -1253,10 +1253,10 @@ button.sidepanel-header__brand {
 .compact-card {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--coop-line);
-  border-radius: var(--coop-radius-input);
+  border-radius: 16px;
   background: var(--coop-surface-elevated);
   animation: coop-rise 320ms ease both;
 }
@@ -1264,6 +1264,68 @@ button.sidepanel-header__brand {
 .compact-card[data-focused="true"] {
   border-color: rgba(253, 138, 1, 0.45);
   box-shadow: 0 0 0 1px rgba(253, 138, 1, 0.18);
+}
+
+.compact-card__body {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.compact-card__preview-rail {
+  flex-shrink: 0;
+  width: 48px;
+  min-height: 48px;
+  border-radius: var(--coop-radius-sm, 8px);
+  overflow: hidden;
+  background: rgba(66, 40, 24, 0.04);
+}
+
+.compact-card__preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.compact-card__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.compact-card__source-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+
+.compact-card__favicon {
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.compact-card__source-link {
+  font-size: 0.72rem;
+  color: var(--coop-green);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-card__source-link:hover {
+  text-decoration: underline;
+}
+
+.compact-card__source-domain {
+  font-size: 0.72rem;
+  color: var(--coop-brown-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .compact-card__header {
@@ -1312,7 +1374,36 @@ button.sidepanel-header__brand {
 .compact-card__actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.35rem;
   margin-top: 0.15rem;
+}
+
+.compact-card__actions--pills {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.compact-card__target-pill {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid rgba(90, 125, 16, 0.25);
+  border-radius: var(--coop-radius-pill);
+  background: rgba(90, 125, 16, 0.08);
+  color: var(--coop-green);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--coop-ease), transform var(--coop-ease);
+}
+
+.compact-card__target-pill:hover {
+  background: rgba(90, 125, 16, 0.16);
+  transform: translateY(-1px);
+}
+
+.compact-card__push-btn--muted {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .compact-card__push-wrap {
@@ -1488,6 +1579,101 @@ button.sidepanel-header__brand {
 .stub-card .badge {
   background: rgba(253, 138, 1, 0.15);
   color: var(--coop-orange);
+}
+
+/* ---- Roost tab layout ---- */
+
+.roost-hero-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.roost-hero-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.roost-hero-card__header h2 {
+  margin: 0;
+}
+
+.roost-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.roost-stat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.55rem 0.35rem;
+  border-radius: var(--coop-radius-input);
+  background: rgba(66, 40, 24, 0.04);
+}
+
+.roost-stat-cell__value {
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--coop-brown);
+}
+
+.roost-stat-cell__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--coop-brown-soft);
+}
+
+.roost-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.roost-activity-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--coop-radius-sm, 8px);
+  background: rgba(66, 40, 24, 0.04);
+}
+
+.roost-activity-item__title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--coop-brown);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roost-activity-item__meta {
+  font-size: 0.7rem;
+  color: var(--coop-brown-soft);
+}
+
+.roost-stub-card {
+  opacity: 0.6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.roost-stub-card h2 {
+  margin: 0;
+}
+
+.roost-stub-card .badge {
+  background: rgba(253, 138, 1, 0.12);
+  color: var(--coop-orange);
+  align-self: flex-start;
 }
 
 /* ---- Notification banners ---- */

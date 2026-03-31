@@ -1,4 +1,5 @@
 import type { ActionBundle, CoopSharedState } from '@coop/shared';
+import { useMemo } from 'react';
 import type { RuntimeSummary, SidepanelIntentSegment } from '../../../runtime/messages';
 import { PopupSubheader, type PopupSubheaderTag } from '../../Popup/PopupSubheader';
 import { SidepanelSubheader } from '../SidepanelSubheader';
@@ -88,6 +89,19 @@ export function RoostTab({
     : [];
 
   // ---------------------------------------------------------------------------
+  // Derived: recent coop activity
+  // ---------------------------------------------------------------------------
+
+  const recentArtifacts = useMemo(() => {
+    if (!activeCoop) return [];
+    return [...activeCoop.artifacts]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 3);
+  }, [activeCoop]);
+
+  const memberCount = activeCoop?.members.length ?? 0;
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -107,85 +121,111 @@ export function RoostTab({
         />
       </SidepanelSubheader>
 
-      <article className="panel-card">
-        <h2>Synthesis Summary</h2>
-        <p className="helper-text">
-          Track what the agent has routed, enriched, and left waiting for review.
-        </p>
-        <div className="badge-row">
-          <span className="badge">{summary?.routedTabs ?? 0} signals</span>
-          <span className="badge">{summary?.pendingDrafts ?? 0} drafts</span>
-          <span className="badge">{summary?.staleObservationCount ?? 0} stale</span>
+      {/* --- Synthesis at-a-glance --- */}
+      <article className="panel-card roost-hero-card">
+        <div className="roost-hero-card__header">
+          <h2>Your Workspace</h2>
+          {activeCoop ? (
+            <span className="meta-text">
+              {memberCount} member{memberCount !== 1 ? 's' : ''}
+            </span>
+          ) : null}
         </div>
-        <div className="nest-quick-actions">
-          <button
-            className="secondary-button"
-            onClick={() => onOpenSynthesisSegment('review')}
-            type="button"
-          >
-            Review Chickens
-          </button>
-        </div>
-      </article>
-
-      {/* --- 1. Garden Status Card --- */}
-      <article className="panel-card">
-        <h2>Green Goods Access</h2>
-        {!activeCoop?.greenGoods?.enabled ? (
-          <p className="helper-text">
-            Green Goods is not enabled for this coop yet. Provisioning a member garden account is
-            only useful once the coop requests a garden.
-          </p>
-        ) : !activeMember ? (
-          <p className="helper-text">
-            Open this coop as the member who should own the garden account before provisioning or
-            submitting impact.
-          </p>
-        ) : (
-          <GreenGoodsAccessSummary
-            activeCoop={activeCoop}
-            memberAccount={memberAccount}
-            memberBinding={memberBinding}
-            memberGardenerBundles={memberGardenerBundles}
-          />
-        )}
-      </article>
-
-      {/* --- 2. Quick Actions --- */}
-      <article className="panel-card">
-        <h2>Quick Actions</h2>
-        <GreenGoodsProvisionButton
-          memberAccount={memberAccount}
-          gardenAddress={activeCoop?.greenGoods?.gardenAddress}
-          canSubmit={canSubmitMemberGreenGoodsActions}
-          onProvision={onProvisionMemberOnchainAccount}
-        />
-        {canSubmitMemberGreenGoodsActions ? (
-          <div className="stack">
-            <GreenGoodsWorkSubmissionForm onSubmit={onSubmitGreenGoodsWorkSubmission} />
-            <p className="helper-text">
-              Impact certificates are packaged later from approved work and assessments through
-              operator Hypercert and Karma GAP flows. Coop currently supports direct member work
-              submissions only.
-            </p>
+        <div className="roost-summary-strip">
+          <div className="roost-stat-cell">
+            <strong className="roost-stat-cell__value">{summary?.routedTabs ?? 0}</strong>
+            <span className="roost-stat-cell__label">Signals</span>
           </div>
-        ) : (
-          <p className="helper-text">
-            Provision your garden account and wait for garden linking to unlock submissions.
-          </p>
-        )}
+          <div className="roost-stat-cell">
+            <strong className="roost-stat-cell__value">{summary?.pendingDrafts ?? 0}</strong>
+            <span className="roost-stat-cell__label">Drafts</span>
+          </div>
+          <div className="roost-stat-cell">
+            <strong className="roost-stat-cell__value">
+              {summary?.staleObservationCount ?? 0}
+            </strong>
+            <span className="roost-stat-cell__label">Stale</span>
+          </div>
+        </div>
+        <button
+          className="primary-button"
+          onClick={() => onOpenSynthesisSegment('review')}
+          type="button"
+        >
+          Review Chickens
+        </button>
       </article>
 
-      {/* --- 3. Capital & Payouts --- */}
-      <article className="panel-card stub-card">
+      {/* --- Recent coop activity --- */}
+      {recentArtifacts.length > 0 ? (
+        <article className="panel-card">
+          <h2>Recent Activity</h2>
+          <div className="roost-activity-list">
+            {recentArtifacts.map((artifact) => (
+              <div className="roost-activity-item" key={artifact.id}>
+                <span className="roost-activity-item__title">{artifact.title}</span>
+                <span className="roost-activity-item__meta">
+                  {artifact.category} &middot;{' '}
+                  {new Date(artifact.createdAt).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
+      {/* --- Green Goods section --- */}
+      {activeCoop?.greenGoods ? (
+        <article className="panel-card">
+          <h2>Green Goods</h2>
+          {!activeCoop.greenGoods.enabled ? (
+            <p className="helper-text">
+              Green Goods is not enabled for this coop yet. Provisioning a member garden account is
+              only useful once the coop requests a garden.
+            </p>
+          ) : !activeMember ? (
+            <p className="helper-text">
+              Open this coop as the member who should own the garden account before provisioning or
+              submitting impact.
+            </p>
+          ) : (
+            <>
+              <GreenGoodsAccessSummary
+                activeCoop={activeCoop}
+                memberAccount={memberAccount}
+                memberBinding={memberBinding}
+                memberGardenerBundles={memberGardenerBundles}
+              />
+              <GreenGoodsProvisionButton
+                memberAccount={memberAccount}
+                gardenAddress={activeCoop.greenGoods.gardenAddress}
+                canSubmit={canSubmitMemberGreenGoodsActions}
+                onProvision={onProvisionMemberOnchainAccount}
+              />
+            </>
+          )}
+        </article>
+      ) : null}
+
+      {canSubmitMemberGreenGoodsActions ? (
+        <article className="panel-card">
+          <h2>Submit Work</h2>
+          <GreenGoodsWorkSubmissionForm onSubmit={onSubmitGreenGoodsWorkSubmission} />
+          <p className="helper-text">
+            Impact certificates are packaged later from approved work through operator Hypercert
+            flows.
+          </p>
+        </article>
+      ) : null}
+
+      {/* --- Capital & Payouts stub --- */}
+      <article className="panel-card roost-stub-card">
         <h2>Capital &amp; Payouts</h2>
-        <p className="helper-text">View allocation proposals and claim your payouts.</p>
-        <button className="secondary-button" disabled type="button">
-          View Allocations
-        </button>
-        <span className="badge" style={{ marginTop: '0.5rem' }}>
-          Coming soon
-        </span>
+        <p className="helper-text">Allocation proposals and payout claims.</p>
+        <span className="badge">Coming soon</span>
       </article>
     </section>
   );

@@ -14,7 +14,7 @@ lanes.
 | `lanes/api.codex.todo.md` | Codex | bugs | done | 1 |
 | `lanes/contracts.codex.todo.md` | Codex | bugs | done | 1 |
 | `lanes/docs.claude.todo.md` | Claude | documentation | done | 1 and 4 |
-| `lanes/ui.claude.todo.md` | Claude | polish | blocked | 2 |
+| `lanes/ui.claude.todo.md` | Claude | polish | done | 2 |
 | `qa/qa-codex.todo.md` | Codex | testing | blocked | 3 |
 | `qa/qa-claude.todo.md` | Claude | testing | blocked | 3 |
 
@@ -148,6 +148,32 @@ cat .plans/features/hackathon-release-readiness/qa/qa-codex.todo.md | codex exec
 - Keep the UI lane on extension surfaces only.
 - At the end of Phase 2, stop and ask the human operator to validate the polished surfaces in the
   running dev environment before starting Phase 3.
+
+#### UI Lane (Claude) — Phase 2 Findings
+
+- **Chickens CompactCard**: Added left preview-image rail (uses `draft.previewImageUrl`), source row
+  with favicon (Google favicon service) and domain link, and spec-aligned push controls (0 targets:
+  disabled "Select coops"; 1 target: "Push to <Coop>"; 2-4 targets: equal pills; 5+: dropdown).
+  Moved deeper rationale into the expansion section. Push controls render only for drafts per spec.
+- **CompactSharedCard**: Same preview rail and source row treatment as review cards. Summary label
+  changed from "More" to "Details" for clarity.
+- **Roost tab**: Restructured from Green-Goods-heavy layout to action-first hierarchy. Hero card
+  shows synthesis stats (signals, drafts, stale) in a 3-column stat strip with a primary "Review
+  Chickens" CTA. Added recent activity section showing the last 3 artifacts. Green Goods section
+  conditionally renders only when `greenGoods` exists on the coop, with clear disabled/enabled
+  states. Removed duplicate "Quick Actions" card, consolidated provision button into Green Goods
+  card. Capital & Payouts remains as a restrained stub.
+- **Popup home**: Added gentle idle animation (1.5px vertical bob, 4s cycle) with staggered delays.
+  Each chicken shows its title as a native tooltip on hover. `YardItem` interface now has an optional
+  `title` field (not yet wired in orchestration — deferred, see lane defer list).
+- **CSS additions**: New compact-card body/preview-rail/content/source-row/favicon/target-pill
+  classes. New roost-hero-card/summary-strip/stat-cell/activity-list/activity-item/stub-card classes.
+  Chicken idle animation keyframes added to popup.css.
+- **Test fix**: `RoostTab-subheader.test.tsx` was missing `summary` and `onOpenSynthesisSegment`
+  props (pre-existing gap); added them. All 59 assertions pass across 6 test files; 3 test files
+  fail at Vite transform level (pre-existing `@coop/shared` schema resolution issue, not from UI
+  changes).
+- **Build**: Extension build passes cleanly.
 
 ### Phase 3
 
