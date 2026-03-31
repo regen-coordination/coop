@@ -3,7 +3,7 @@ feature: hackathon-release-readiness
 title: Hackathon release QA pass 2
 lane: qa
 agent: claude
-status: in_progress
+status: done
 source_branch: main
 work_branch: qa/claude/hackathon-release-readiness
 depends_on:

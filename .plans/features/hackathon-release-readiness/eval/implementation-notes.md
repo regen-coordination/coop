@@ -15,8 +15,8 @@ lanes.
 | `lanes/contracts.codex.todo.md` | Codex | bugs | done | 1 |
 | `lanes/docs.claude.todo.md` | Claude | documentation | done | 1 and 4 |
 | `lanes/ui.claude.todo.md` | Claude | polish | done | 2 |
-| `qa/qa-codex.todo.md` | Codex | testing | blocked | 3 |
-| `qa/qa-claude.todo.md` | Claude | testing | blocked | 3 |
+| `qa/qa-codex.todo.md` | Codex | testing | done | 3 |
+| `qa/qa-claude.todo.md` | Claude | testing | done | 3 |
 
 ## Phase 1 Findings
 

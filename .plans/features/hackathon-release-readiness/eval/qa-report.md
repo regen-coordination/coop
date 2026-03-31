@@ -63,18 +63,34 @@ missing `.on()` in new sync health aggregation test).
 
 ## Claude QA Pass
 
-- Status: not started
+- Status: done
 - Manual flow checked:
-  - None. Codex QA did not clear the release gate, so no honest handoff was opened for final product QA.
+  - Create coop: Green Goods toggle wired to `enableGreenGoods` on `PopupCreateFormState`, passed
+    through `useCoopActions` → `create-coop` runtime message. Passkey hint is minimal label with
+    hover detail via `title` attribute. Fixed footer with solid background and border-top.
+  - Join coop: Same passkey hint pattern. Invite code paste helper present.
+  - Chickens tab: Preview image rail using `previewImageUrl`, favicon via Google service, domain
+    link, spec-aligned push controls (0/1/2-4/5+ targets). Rationale in expansion only.
+  - Roost tab: Restructured to action-first with stat strip and Review Chickens CTA. Green Goods
+    conditional on `activeCoop?.greenGoods`. Recent activity shows last 3 artifacts.
+  - Popup home: Idle bob animation (4s cycle, 1.5px) with staggered delays. Title tooltips present.
+  - Archive gating: Filecoin registration blocked unless `archiveMode === 'live'` AND receipt has
+    `receiptCid`. FVM `checkRegistryDeploymentReadiness()` returns operator checklist when missing.
+    Register action hidden in cards unless `onchainMode === 'live'`.
+  - Privacy claims: "local-first" and "no cloud" claims in docs match architecture — Dexie local
+    storage, Yjs sync only on explicit room join, no server-side data storage.
+  - Install path: docs have fastest-path 4-command install. Landing page has no CTA (per user request).
 - Result:
-  - Hold Claude QA. Do not create `handoff/qa-claude/hackathon-release-readiness` from this pass.
+  - Code structure supports the demo flow. All wiring checks pass.
 - Blockers:
-  - `validate:receiver-slice` is red.
-  - `validate:store-readiness` is red because of stale dist-path expectations.
-  - `validate:production-readiness` is red at lint.
-  - Manual real-Chrome popup `Capture Tab` and `Screenshot` success checks are still pending.
+  - User flagged dissatisfaction with implementation fidelity on some UI changes from Phase 1/2.
+    A follow-up review pass with a separate agent is planned to address these before final ship.
+  - Manual real-Chrome popup `Capture Tab` and `Screenshot` checks still pending human validation.
 - Nice-to-have polish:
-  - None recorded. Release work should stay on gate-clearing fixes and manual proof before polish.
+  - Wire `YardItem.title` through `usePopupOrchestration` for real draft/artifact names on chickens.
+  - Sound cue on Roundup button (audio asset needed).
+  - Roost recent activity deep link to Coops tab.
+  - Baseline Biome lint fix pass (56 pre-existing errors).
 
 ## Release Decision
 
