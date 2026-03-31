@@ -174,12 +174,32 @@ export default defineConfig({
     },
   },
   webExt: {
-    disabled: false,
+    // Browser launch is handled by scripts/dev.ts to avoid CDP flakiness
+    // with web-ext-run (connection drops kill the Vite dev server).
+    disabled: true,
     chromiumProfile: path.resolve(extensionRoot, '.wxt/chrome-data'),
     keepProfileChanges: true,
     startUrls: [localDevStartUrl],
   },
   hooks: {
+    'vite:devServer:extendConfig': (config) => {
+      // WXT rewrites entry HTML scripts from `/src/...` to `/@fs/src/...`.
+      // Vite 6 serves /@fs/ files without running transforms, so JSX/TS
+      // source reaches the browser raw and causes SyntaxErrors.  Redirect
+      // /@fs/src/* back to /src/* which Vite DOES transform.
+      config.plugins ??= [];
+      (config.plugins as unknown[]).push({
+        name: 'coop:rewrite-fs-to-src',
+        configureServer(server: { middlewares: { use: (fn: Function) => void } }) {
+          server.middlewares.use((req: { url?: string }, _res: unknown, next: () => void) => {
+            if (req.url?.startsWith('/@fs/src/')) {
+              req.url = req.url.replace('/@fs/src/', '/src/');
+            }
+            next();
+          });
+        },
+      });
+    },
     'vite:build:extendConfig': (entrypoints, viteConfig) => {
       const shouldUseSharedChunks = entrypoints.some(
         (entrypoint) =>

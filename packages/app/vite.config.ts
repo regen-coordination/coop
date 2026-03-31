@@ -32,6 +32,7 @@ export default defineConfig({
     port: 3001,
     host: '0.0.0.0',
     strictPort: true,
+    allowedHosts: ['local.coop.town'],
   },
   preview: {
     port: 3001,
