@@ -4333,32 +4333,32 @@ html.has-receiver {
 
 .nest-item-card {
   display: grid;
-  gap: 0.6rem;
-  padding: 1.2rem;
-  padding-left: 1.4rem;
+  gap: 0.7rem;
+  padding: 1.3rem;
+  padding-left: 1.5rem;
   border-radius: var(--coop-radius-card);
-  border: 1px solid var(--coop-brown-14);
-  border-left: 3px solid var(--coop-brown-12);
-  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.88), transparent 52%),
-    linear-gradient(180deg, rgba(255, 252, 249, 0.94) 0%, rgba(247, 236, 221, 0.96) 100%);
-  box-shadow: var(--coop-shadow-sm);
-  transition: box-shadow var(--coop-ease), transform var(--coop-ease);
+  border: 1px solid rgba(79, 46, 31, 0.12);
+  border-left: 4px solid var(--coop-brown-12);
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.92), transparent 52%),
+    linear-gradient(180deg, rgba(255, 252, 249, 0.96) 0%, rgba(250, 245, 238, 0.94) 100%);
+  box-shadow: 0 2px 8px rgba(79, 46, 31, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: box-shadow var(--coop-ease), transform var(--coop-ease), border-color var(--coop-ease);
 }
 
 .nest-item-card--audio {
-  border-left-color: var(--coop-orange);
+  border-left-color: rgba(253, 138, 1, 0.72);
 }
 
 .nest-item-card--photo {
-  border-left-color: var(--coop-green);
+  border-left-color: rgba(90, 125, 16, 0.72);
 }
 
 .nest-item-card--file {
-  border-left-color: var(--coop-brown);
+  border-left-color: rgba(79, 46, 31, 0.54);
 }
 
 .nest-item-card--link {
-  border-left-color: var(--coop-mist);
+  border-left-color: rgba(191, 196, 197, 0.52);
 }
 
 .nest-item-card.is-newborn {
@@ -4370,44 +4370,52 @@ html.has-receiver {
 .inbox-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 0.85rem;
+  gap: 0.6rem;
+  padding: 0.65rem 1rem;
   border-radius: var(--coop-radius-pill);
-  background: var(--coop-brown-6);
-  font-size: 0.78rem;
-  margin-bottom: 0.25rem;
+  background: linear-gradient(135deg, rgba(90, 125, 16, 0.08), rgba(253, 138, 1, 0.04));
+  border: 1px solid rgba(90, 125, 16, 0.14);
+  font-size: 0.79rem;
+  margin-bottom: 0.35rem;
+  transition: all var(--coop-ease);
 }
 
 .inbox-header__count {
   font-weight: 700;
   color: var(--coop-brown);
+  letter-spacing: 0.01em;
 }
 
 .inbox-header__summary {
-  color: var(--coop-brown-soft);
+  color: rgba(79, 46, 31, 0.6);
+  font-weight: 500;
 }
 
 /* ── Nest item internals ── */
 
 .nest-item-title {
-  font-size: 0.95rem;
-  line-height: 1.35;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--coop-brown);
+  margin: 0;
 }
 
 .nest-item-meta {
   margin: 0;
-  font-size: 0.72rem;
-  color: var(--coop-brown-soft);
+  font-size: 0.74rem;
+  color: rgba(79, 46, 31, 0.6);
   letter-spacing: 0.01em;
 }
 
 .nest-item-link {
-  font-size: 0.78rem;
-  color: var(--coop-text-action);
+  font-size: 0.8rem;
+  color: rgba(79, 46, 31, 0.72);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   display: block;
+  word-break: break-all;
 }
 
 .nest-item-note {
@@ -4436,37 +4444,49 @@ html.has-receiver {
 .nest-sync-error {
   display: flex;
   align-items: flex-start;
-  gap: 0.55rem;
-  padding: 0.65rem 0.85rem;
+  gap: 0.65rem;
+  padding: 0.75rem 0.95rem;
   border-radius: var(--coop-radius-chip);
-  background: color-mix(in srgb, var(--coop-error) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--coop-error) 18%, transparent);
-  font-size: 0.78rem;
-  color: var(--coop-error);
-  line-height: 1.45;
+  background: rgba(220, 74, 62, 0.08);
+  border: 1.5px solid rgba(220, 74, 62, 0.2);
+  font-size: 0.8rem;
+  color: rgba(220, 74, 62, 0.85);
+  line-height: 1.5;
+  transition: all var(--coop-ease);
 }
 
 .nest-sync-error__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.2rem;
-  height: 1.2rem;
-  min-width: 1.2rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  min-width: 1.3rem;
   border-radius: 50%;
-  background: var(--coop-error);
-  color: #fff;
-  font-size: 0.65rem;
+  background: rgba(220, 74, 62, 0.14);
+  color: rgba(220, 74, 62, 0.9);
+  font-size: 0.7rem;
   font-weight: 700;
+  border: 1.5px solid rgba(220, 74, 62, 0.2);
 }
 
 /* ── Retry button (prominent in error state) ── */
 
 .nest-retry-btn {
-  background: color-mix(in srgb, var(--coop-error) 10%, rgba(255, 255, 255, 0.68));
-  border-color: color-mix(in srgb, var(--coop-error) 24%, transparent);
-  color: var(--coop-error);
+  background: rgba(220, 74, 62, 0.1);
+  border-color: rgba(220, 74, 62, 0.22);
+  color: rgba(220, 74, 62, 0.85);
   font-weight: 700;
+  transition: all var(--coop-ease);
+}
+
+.nest-retry-btn:hover {
+  background: rgba(220, 74, 62, 0.14);
+  border-color: rgba(220, 74, 62, 0.32);
+}
+
+.nest-retry-btn:active {
+  background: rgba(220, 74, 62, 0.18);
 }
 
 .nest-item-topline {
@@ -4489,10 +4509,11 @@ html.has-receiver {
 }
 
 .nest-item-chick {
-  background: var(--coop-orange-15);
+  background: rgba(253, 138, 1, 0.16);
   color: var(--coop-brown);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
+  transition: all var(--coop-ease);
 }
 
 .nest-item-title {
@@ -4509,27 +4530,15 @@ html.has-receiver {
 }
 
 .nest-item-chick--photo {
-  background: var(--coop-green-14);
+  background: rgba(90, 125, 16, 0.14);
 }
 
 .nest-item-chick--file {
-  background: var(--coop-brown-12);
+  background: rgba(79, 46, 31, 0.12);
 }
 
 .nest-item-chick--link {
-  background: var(--coop-brown-8);
-}
-
-.nest-item-chick--photo {
-  background: var(--coop-green-14);
-}
-
-.nest-item-chick--file {
-  background: var(--coop-brown-12);
-}
-
-.nest-item-chick--link {
-  background: var(--coop-brown-8);
+  background: rgba(191, 196, 197, 0.14);
 }
 
 .sync-pill.is-local-only {
@@ -4576,17 +4585,19 @@ button.sync-pill {
 .nest-photo {
   width: 100%;
   border-radius: var(--coop-radius-photo);
-  border: 1px solid var(--coop-brown-8);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 4px 12px rgba(79, 46, 31, 0.06);
+  border: 1px solid rgba(79, 46, 31, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 16px rgba(79, 46, 31, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: all var(--coop-ease);
 }
 
 .nest-audio-wrapper {
   width: 100%;
   border-radius: var(--coop-radius-photo);
-  background: linear-gradient(135deg, rgba(253, 138, 1, 0.08), rgba(255, 252, 249, 0.92));
-  border: 1px solid var(--coop-orange-16);
-  padding: 0.45rem;
+  background: linear-gradient(135deg, rgba(253, 138, 1, 0.1), rgba(255, 252, 249, 0.94));
+  border: 1.5px solid rgba(253, 138, 1, 0.22);
+  padding: 0.5rem;
+  transition: all var(--coop-ease);
 }
 
 .nest-audio-wrapper audio {
@@ -5678,23 +5689,87 @@ button.sync-pill {
     background: radial-gradient(circle, rgba(255, 170, 68, 0.12) 0%, transparent 70%);
   }
 
+  .nest-item-card {
+    border-color: rgba(232, 213, 196, 0.1);
+    background: radial-gradient(circle at top, rgba(30, 24, 20, 0.88), transparent 52%),
+      linear-gradient(180deg, rgba(30, 24, 20, 0.94) 0%, rgba(26, 20, 16, 0.96) 100%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(232, 213, 196, 0.04);
+  }
+
+  .nest-item-title {
+    color: rgba(232, 213, 196, 0.95);
+  }
+
+  .nest-item-meta {
+    color: rgba(232, 213, 196, 0.6);
+  }
+
+  .nest-item-link {
+    color: rgba(232, 213, 196, 0.7);
+  }
+
+  .nest-item-chick {
+    background: rgba(253, 138, 1, 0.12);
+    color: rgba(232, 213, 196, 0.95);
+  }
+
+  .nest-item-chick--photo {
+    background: rgba(138, 184, 64, 0.12);
+  }
+
+  .nest-item-chick--file {
+    background: rgba(232, 213, 196, 0.1);
+  }
+
+  .nest-item-chick--link {
+    background: rgba(191, 196, 197, 0.12);
+  }
+
   .inbox-header {
-    background: var(--coop-brown-8);
+    background: linear-gradient(135deg, rgba(90, 125, 16, 0.08), rgba(253, 138, 1, 0.04));
+    border-color: rgba(138, 184, 64, 0.14);
+  }
+
+  .inbox-header__count {
+    color: rgba(232, 213, 196, 0.95);
+  }
+
+  .inbox-header__summary {
+    color: rgba(232, 213, 196, 0.6);
+  }
+
+  .nest-photo {
+    border-color: rgba(232, 213, 196, 0.1);
+    background: rgba(30, 24, 20, 0.88);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(232, 213, 196, 0.04);
   }
 
   .nest-audio-wrapper {
-    background: linear-gradient(135deg, rgba(255, 170, 68, 0.08), rgba(30, 24, 20, 0.92));
-    border-color: rgba(255, 170, 68, 0.14);
+    background: linear-gradient(135deg, rgba(253, 138, 1, 0.08), rgba(30, 24, 20, 0.94));
+    border-color: rgba(253, 138, 1, 0.18);
   }
 
   .nest-sync-error {
-    background: color-mix(in srgb, var(--coop-error) 12%, transparent);
-    border-color: color-mix(in srgb, var(--coop-error) 22%, transparent);
+    background: rgba(220, 74, 62, 0.08);
+    border-color: rgba(220, 74, 62, 0.2);
+    color: rgba(220, 74, 62, 0.85);
+  }
+
+  .nest-sync-error__icon {
+    background: rgba(220, 74, 62, 0.12);
+    color: rgba(220, 74, 62, 0.9);
+    border-color: rgba(220, 74, 62, 0.18);
   }
 
   .nest-retry-btn {
-    background: color-mix(in srgb, var(--coop-error) 14%, rgba(30, 24, 20, 0.68));
-    border-color: color-mix(in srgb, var(--coop-error) 28%, transparent);
+    background: rgba(220, 74, 62, 0.1);
+    border-color: rgba(220, 74, 62, 0.2);
+    color: rgba(220, 74, 62, 0.85);
+  }
+
+  .nest-retry-btn:hover {
+    background: rgba(220, 74, 62, 0.14);
+    border-color: rgba(220, 74, 62, 0.28);
   }
 
   .receiver-appbar {
