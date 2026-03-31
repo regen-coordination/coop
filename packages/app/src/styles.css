@@ -4829,20 +4829,24 @@ button.sync-pill {
   }
 
   50% {
-    transform: translateY(-3px) scale(1.035);
-    box-shadow: 0 28px 60px rgba(253, 138, 1, 0.36), 0 0 56px rgba(253, 138, 1, 0.24);
+    transform: translateY(-4px) scale(1.04);
+    box-shadow: 0 28px 60px rgba(253, 138, 1, 0.38), 0 0 60px rgba(253, 138, 1, 0.26);
   }
 }
 
 @keyframes egg-ring-expand {
   0% {
     inset: -4%;
-    opacity: 0.6;
-    border-color: rgba(253, 138, 1, 0.35);
+    opacity: 0.7;
+    border-color: rgba(253, 138, 1, 0.4);
+  }
+
+  50% {
+    opacity: 0.35;
   }
 
   100% {
-    inset: -22%;
+    inset: -24%;
     opacity: 0;
     border-color: rgba(253, 138, 1, 0);
   }
@@ -4889,6 +4893,42 @@ button.sync-pill {
     opacity: 1;
     transform: scale(1) translateY(0);
     box-shadow: var(--coop-shadow-sm);
+  }
+}
+
+@keyframes list-item-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes boot-shell-enter {
+  0% {
+    opacity: 0;
+    filter: blur(4px);
+  }
+
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes boot-card-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -4948,23 +4988,35 @@ button.sync-pill {
 
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root) {
-    animation: vt-fade-out 150ms ease;
+    animation: vt-fade-out 200ms cubic-bezier(0.4, 0, 1, 1);
   }
 
   ::view-transition-new(root) {
-    animation: vt-fade-in 150ms ease;
+    animation: vt-fade-in 280ms cubic-bezier(0, 0, 0.2, 1);
   }
 }
 
 @keyframes vt-fade-out {
-  to {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
     opacity: 0;
+    transform: scale(0.98);
   }
 }
 
 @keyframes vt-fade-in {
-  from {
+  0% {
     opacity: 0;
+    transform: scale(1.02);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -5276,6 +5328,39 @@ button.sync-pill {
   scroll-snap-align: start;
 }
 
+/* ── Staggered list entrance animations ── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .receiver-list .nest-item-card {
+    opacity: 0;
+    animation: list-item-enter 480ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .receiver-list .nest-item-card:nth-child(1) {
+    animation-delay: 0ms;
+  }
+
+  .receiver-list .nest-item-card:nth-child(2) {
+    animation-delay: 60ms;
+  }
+
+  .receiver-list .nest-item-card:nth-child(3) {
+    animation-delay: 120ms;
+  }
+
+  .receiver-list .nest-item-card:nth-child(4) {
+    animation-delay: 180ms;
+  }
+
+  .receiver-list .nest-item-card:nth-child(5) {
+    animation-delay: 240ms;
+  }
+
+  .receiver-list .nest-item-card:nth-child(n + 6) {
+    animation-delay: 300ms;
+  }
+}
+
 /* ── Pull-to-refresh indicator ── */
 
 .pull-indicator {
@@ -5310,6 +5395,27 @@ button.sync-pill {
   .nest-item-card.is-newborn {
     animation: none;
   }
+
+  .receiver-list .nest-item-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .boot-shell {
+    animation: none;
+  }
+
+  .boot-card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
 }
 
 /* ── Receiver: heading scale override ── */
@@ -5334,6 +5440,12 @@ button.sync-pill {
     linear-gradient(180deg, #fff8f2 0%, var(--coop-cream) 42%, #fffdfb 100%);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .boot-shell {
+    animation: boot-shell-enter 600ms ease-out;
+  }
+}
+
 .boot-card {
   max-width: 26rem;
   padding: 1.5rem;
@@ -5342,6 +5454,16 @@ button.sync-pill {
   background: rgba(255, 252, 249, 0.9);
   box-shadow: var(--coop-shadow);
   text-align: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .boot-card {
+    animation: boot-card-enter 700ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.92) translateY(20px);
+    }
+  }
 }
 
 .boot-card h1 {
