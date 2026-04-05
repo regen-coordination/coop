@@ -8,6 +8,9 @@ import '../../global.css';
 window.addEventListener('unhandledrejection', (event) => {
   console.warn('[coop:sidepanel] unhandled rejection:', event.reason);
 });
+window.addEventListener('error', (event) => {
+  console.error('[coop:sidepanel] uncaught error:', event.error ?? event.message);
+});
 
 registerWebAuthnCredentialBridge();
 

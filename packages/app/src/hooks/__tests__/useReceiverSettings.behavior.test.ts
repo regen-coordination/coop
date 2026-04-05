@@ -22,8 +22,8 @@ describe('useReceiverSettings behavior', () => {
     const db = makeDb();
     const { result } = renderHook(() => useReceiverSettings(db));
 
-    let firstIdentity: Awaited<ReturnType<typeof result.current.ensureDeviceIdentity>>;
-    let secondIdentity: Awaited<ReturnType<typeof result.current.ensureDeviceIdentity>>;
+    let firstIdentity!: Awaited<ReturnType<typeof result.current.ensureDeviceIdentity>>;
+    let secondIdentity!: Awaited<ReturnType<typeof result.current.ensureDeviceIdentity>>;
     await act(async () => {
       firstIdentity = await result.current.ensureDeviceIdentity();
       secondIdentity = await result.current.ensureDeviceIdentity();

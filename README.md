@@ -127,7 +127,7 @@ Green Goods member actions.
 
 ## Architecture
 
-Bun monorepo with four runtime packages:
+Bun monorepo with four runtime packages, plus a docs workspace and a contracts sidecar:
 
 | Package | Description |
 |---------|-------------|
@@ -136,7 +136,12 @@ Bun monorepo with four runtime packages:
 | `@coop/extension` | MV3 browser extension -- popup (screen router, share menu), sidepanel (tab router, coop selector, filter popover), background handlers, offscreen workers |
 | `@coop/api` | Hono + Bun TypeScript signaling relay with optional Yjs document sync persistence, deployed on Fly.io |
 
-Build order: shared -> app -> extension (shared is the dependency root).
+Supporting directories outside the runtime four-pack:
+
+- `docs/` -- Docusaurus workspace for `docs.coop.town`
+- `packages/contracts/` -- Foundry sidecar for Solidity contracts and deployment artifacts
+
+Build order: shared -> app -> extension (shared is the dependency root for the runtime packages).
 
 ## Key Principles
 

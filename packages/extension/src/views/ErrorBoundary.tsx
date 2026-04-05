@@ -13,6 +13,13 @@ export class ErrorBoundary extends React.Component<
     return { error };
   }
 
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[coop:view] Render error boundary caught an exception.', {
+      error,
+      componentStack: info.componentStack,
+    });
+  }
+
   render() {
     if (this.state.error) {
       return (

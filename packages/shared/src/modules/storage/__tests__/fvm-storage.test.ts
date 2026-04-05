@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { createLocalFvmSignerMaterial } from '../../fvm';
 import type { CoopDexie } from '../db';
 import {
   createCoopDb,
@@ -7,7 +8,6 @@ import {
   getLocalFvmSignerBinding,
   saveLocalFvmSigner,
 } from '../db';
-import { createLocalFvmSignerMaterial } from '../../fvm';
 
 const databases: CoopDexie[] = [];
 

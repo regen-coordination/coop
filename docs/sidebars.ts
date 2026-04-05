@@ -92,7 +92,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'reference/hackathon-demo-and-vision-outline',
             'reference/hackathon-demo-video-outline',
-            'reference/hackathon-demo-voiceover-script',
+            'reference/demo-voiceover-script',
             'reference/hackathon-demo-shot-list',
             'reference/coop-vision',
             'reference/coop-strategy',
@@ -116,6 +116,7 @@ const sidebars: SidebarsConfig = {
             'reference/policy-session-permit',
             'reference/erc8004-and-api',
             'reference/skills-system-deep-dive-2026-03-20',
+            'reference/agent-threat-model',
           ],
         },
         {
@@ -144,6 +145,22 @@ const sidebars: SidebarsConfig = {
             'reference/chrome-web-store-reviewer-notes',
             'reference/production-release-checklist',
             'testing/ui-action-coverage',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Audit Prompts',
+          collapsed: true,
+          items: [
+            'reference/hackathon-sprint-audit-prompts/index',
+            'reference/hackathon-sprint-audit-prompts/validation',
+            'reference/hackathon-sprint-audit-prompts/structure',
+            'reference/hackathon-sprint-audit-prompts/testing',
+            'reference/hackathon-sprint-audit-prompts/agent-architecture',
+            'reference/hackathon-sprint-audit-prompts/design-system',
+            'reference/hackathon-sprint-audit-prompts/p2p-sync',
+            'reference/hackathon-sprint-audit-prompts/software-architecture',
+            'reference/hackathon-sprint-audit-prompts/ci-cd',
           ],
         },
         {

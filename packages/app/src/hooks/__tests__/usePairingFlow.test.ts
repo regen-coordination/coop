@@ -28,8 +28,8 @@ const {
   upsertReceiverPairingMock: vi.fn(async () => undefined),
 }));
 
-vi.mock('@coop/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@coop/shared')>();
+vi.mock('@coop/shared/app', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@coop/shared/app')>();
   return {
     ...actual,
     detectBrowserUxCapabilities: detectBrowserUxCapabilitiesMock,
@@ -45,34 +45,30 @@ vi.mock('@coop/shared', async (importOriginal) => {
   };
 });
 
-vi.mock(
-  '/Users/afo/Code/greenpill/coop/packages/shared/src/app-entry.ts',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('/Users/afo/Code/greenpill/coop/packages/shared/src/app-entry.ts')
-      >();
-    return {
-      ...actual,
-      detectBrowserUxCapabilities: detectBrowserUxCapabilitiesMock,
-      getReceiverPairingStatus: getReceiverPairingStatusMock,
-      isReceiverPairingExpired: isReceiverPairingExpiredMock,
-      nowIso: nowIsoMock,
-      parseReceiverPairingInput: parseReceiverPairingInputMock,
-      playCoopSound: playCoopSoundMock,
-      setActiveReceiverPairing: setActiveReceiverPairingMock,
-      toReceiverPairingRecord: toReceiverPairingRecordMock,
-      triggerHaptic: triggerHapticMock,
-      upsertReceiverPairing: upsertReceiverPairingMock,
-    };
-  },
-);
-
 const { usePairingFlow } = await import('../usePairingFlow');
+
+type MockPairingPayload = {
+  version: 1;
+  pairingId: string;
+  coopId: string;
+  coopDisplayName: string;
+  memberId: string;
+  memberDisplayName: string;
+  roomId: string;
+  signalingUrls: string[];
+  pairSecret: string;
+  issuedAt: string;
+  expiresAt: string;
+};
+
+type MockPairingRecord = MockPairingPayload & {
+  active: boolean;
+  acceptedAt: string;
+};
 
 function makePayload() {
   return {
-    version: 1,
+    version: 1 as const,
     pairingId: 'pairing-1',
     coopId: 'coop-1',
     coopDisplayName: 'River Coop',
@@ -83,7 +79,7 @@ function makePayload() {
     pairSecret: 'pair-secret',
     issuedAt: '2026-03-28T00:00:00.000Z',
     expiresAt: '2026-04-28T00:00:00.000Z',
-  } as never;
+  } satisfies MockPairingPayload;
 }
 
 function makePairingRecord() {
@@ -91,7 +87,7 @@ function makePairingRecord() {
     ...makePayload(),
     active: true,
     acceptedAt: '2026-03-28T03:00:00.000Z',
-  } as never;
+  } satisfies MockPairingRecord;
 }
 
 function makeDeps(overrides: Record<string, unknown> = {}) {

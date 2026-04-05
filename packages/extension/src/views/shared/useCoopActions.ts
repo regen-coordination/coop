@@ -1,5 +1,6 @@
 import {
   type AuthSession,
+  type CoopSharedState,
   type OnchainState,
   type SoundPreferences,
   createDefaultSeedContribution,
@@ -93,7 +94,7 @@ export function useCoopActions(deps: {
         globalThis.crypto?.randomUUID?.() ?? String(Date.now()),
       ].join(':');
       const onchainState = await resolveOnchainState(coopSeed);
-      const response = await sendRuntimeMessage({
+      const response = await sendRuntimeMessage<CoopSharedState>({
         type: 'create-coop',
         payload: {
           coopName: createForm.coopName,
@@ -138,7 +139,7 @@ export function useCoopActions(deps: {
         form.starterNote.trim() || "I want to help keep this coop's work visible and actionable.";
       const session = await ensureAuthSession(displayName);
       const member = sessionToMember(session, displayName, 'member');
-      const response = await sendRuntimeMessage({
+      const response = await sendRuntimeMessage<CoopSharedState>({
         type: 'join-coop',
         payload: {
           inviteCode: form.inviteCode,

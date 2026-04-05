@@ -32,8 +32,8 @@ describe('useSidepanelActions', () => {
     );
 
     await act(async () => {
-      await result.current.handleSetPolicy('archive-upload', true);
-      await result.current.handleProposeAction('archive-upload', { rootCid: 'bafy' });
+      await result.current.handleSetPolicy('archive-artifact', true);
+      await result.current.handleProposeAction('archive-artifact', { rootCid: 'bafy' });
       await result.current.handleApproveAction('bundle-1');
       await result.current.handleRejectAction('bundle-2');
       await result.current.handleExecuteAction('bundle-3');
@@ -41,12 +41,12 @@ describe('useSidepanelActions', () => {
 
     expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(1, {
       type: 'set-action-policy',
-      payload: { actionClass: 'archive-upload', approvalRequired: true },
+      payload: { actionClass: 'archive-artifact', approvalRequired: true },
     });
     expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(2, {
       type: 'propose-action',
       payload: {
-        actionClass: 'archive-upload',
+        actionClass: 'archive-artifact',
         coopId: 'coop-1',
         memberId: 'member-1',
         payload: { rootCid: 'bafy' },

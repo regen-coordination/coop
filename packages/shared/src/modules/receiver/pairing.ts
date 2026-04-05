@@ -1,10 +1,10 @@
-import { filterUsableSignalingUrls } from '@coop/api';
 import {
   type ReceiverPairingPayload,
   type ReceiverPairingRecord,
   receiverPairingPayloadSchema,
   receiverPairingRecordSchema,
 } from '../../contracts/schema';
+import { filterUsableSignalingUrls } from '../../sync-config';
 import { createId, decodeBase64Url, encodeBase64Url, hashText, nowIso } from '../../utils';
 
 const RECEIVER_PAIRING_PREFIX = 'coop-receiver:';
@@ -91,7 +91,7 @@ export function isReceiverPairingExpired(
   return Date.parse(pairing.expiresAt) <= nowMs;
 }
 
-export { filterUsableSignalingUrls as filterUsableReceiverSignalingUrls } from '@coop/api';
+export { filterUsableSignalingUrls as filterUsableReceiverSignalingUrls } from '../../sync-config';
 
 export function getReceiverPairingStatus(
   pairing: Pick<

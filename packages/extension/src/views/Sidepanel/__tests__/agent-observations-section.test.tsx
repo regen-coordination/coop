@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import AgentObservationsSection from '../operator-sections/AgentObservationsSection';
+import { AgentObservationsSection } from '../operator-sections/AgentObservationsSection';
 
 describe('AgentObservationsSection', () => {
   it('renders empty states when nothing has run yet', () => {

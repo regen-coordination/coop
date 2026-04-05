@@ -13,7 +13,7 @@ const { webLlmComplete, webLlmPrewarm, webLlmStatus, transformersPipeline } = vi
   transformersPipeline: vi.fn(),
 }));
 
-vi.mock('../agent-webllm-bridge', () => ({
+vi.mock('../agent/webllm-bridge', () => ({
   AgentWebLlmBridge: class {
     complete = webLlmComplete;
     prewarm = webLlmPrewarm;
@@ -38,7 +38,7 @@ import {
   extractJsonBlock,
   repairJson,
   teardownAgentModels,
-} from '../agent-models';
+} from '../agent/models';
 
 describe('repairJson', () => {
   it('strips control characters except newline, tab, and carriage return', () => {

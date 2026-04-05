@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ActionBundle, CoopSharedState } from '@coop/shared';
-import { makeCoopState } from '../../../../__tests__/fixtures';
+import { makeAuthSession, makeCoopState } from '../../../../__tests__/fixtures';
 import { buildGreenGoodsExecutors } from '../green-goods';
+
+const AUTH_ADDRESS = '0x1111111111111111111111111111111111111111';
 
 const mocks = vi.hoisted(() => ({
   addGreenGoodsGardener: vi.fn(),
@@ -206,9 +208,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -239,9 +241,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -298,9 +300,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -344,9 +346,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -388,9 +390,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -434,9 +436,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -473,9 +475,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -519,9 +521,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -565,9 +567,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -612,9 +614,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -655,9 +657,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -722,9 +724,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -768,8 +770,8 @@ describe('Green Goods executors', () => {
       allowsFilecoinInfo: false,
       expirationSeconds: 600,
     });
-    const uploadFile = vi.fn(async () => ({
-      toString: () => 'bafyuploaded',
+    const uploadFile = vi.fn(async (_blob: Blob) => ({
+      toString: (): string => 'bafyuploaded',
     }));
     mocks.createStorachaArchiveClient.mockResolvedValueOnce({
       did: () => 'did:key:audience',
@@ -798,9 +800,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 
@@ -837,9 +839,9 @@ describe('Green Goods executors', () => {
         ok: true,
         coop: currentCoop,
         member: { id: 'member-1', displayName: 'Ari' },
-        authSession: {
-          primaryAddress: '0x1111111111111111111111111111111111111111',
-        },
+        authSession: makeAuthSession({
+          primaryAddress: AUTH_ADDRESS,
+        }),
       },
     });
 

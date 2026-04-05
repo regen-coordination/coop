@@ -62,6 +62,7 @@ import {
   emitAudioTranscriptObservation,
   emitRoundupBatchObservation,
 } from './agent';
+import { queueFollowUp } from './follow-up';
 
 const EXPLICIT_ACTIVE_TAB_DEDUP_COOLDOWN_MS = 5_000;
 
@@ -205,22 +206,6 @@ export async function runCaptureForTabs(
     }
   }
 
-  if (coops.length > 0) {
-    await emitRoundupBatchObservation({
-      extractIds: newExtractIds,
-      candidateIds,
-      eligibleCoopIds: coops.map((coop) => coop.profile.id),
-    });
-    if (options.drainAgent && newExtractIds.length > 0) {
-      await drainAgentCycles({
-        reason: 'capture-complete',
-        force: true,
-        maxPasses: 2,
-        syncBetweenPasses: true,
-      });
-    }
-  }
-
   await db.captureRuns.put({
     id: captureRunId,
     state: lastCaptureError ? 'failed' : 'completed',
@@ -233,7 +218,28 @@ export async function runCaptureForTabs(
     syncError: Boolean(lastCaptureError),
     lastCaptureError,
   });
-  await refreshBadge();
+  if (coops.length > 0) {
+    queueFollowUp(
+      'capture',
+      'roundup-agent-work',
+      (async () => {
+        await emitRoundupBatchObservation({
+          extractIds: newExtractIds,
+          candidateIds,
+          eligibleCoopIds: coops.map((coop) => coop.profile.id),
+        });
+        if (options.drainAgent && newExtractIds.length > 0) {
+          await drainAgentCycles({
+            reason: 'capture-complete',
+            force: true,
+            maxPasses: 2,
+            syncBetweenPasses: true,
+          });
+        }
+      })(),
+    );
+  }
+  queueFollowUp('capture', 'refresh-badge', refreshBadge());
 
   if (candidates.length > 0 || skippedCount > 0) {
     const domainCount = capturedDomains.size;
@@ -705,11 +711,7 @@ export async function createNoteDraft(payload: { text: string }) {
 
   const blob = new Blob([payload.text], { type: 'text/plain' });
   const timestamp = nowIso();
-  const coops = await getCoops();
-  const authSession = await getAuthSession(db);
-  const activeContext = await getActiveReviewContextForSession(coops, authSession);
-  const activeCoop = coops.find((coop) => coop.profile.id === activeContext.activeCoopId);
-  const activeMember = resolveReceiverPairingMember(activeCoop, authSession);
+  const { coops, activeContext, activeCoop, activeMember } = await resolveCaptureContext();
 
   const capture = {
     ...createReceiverCapture({

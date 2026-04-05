@@ -7,7 +7,7 @@ import {
   detectBrowserUxCapabilities,
   getActiveReceiverPairing,
   getReceiverPairingStatus,
-} from '@coop/shared';
+} from '@coop/shared/app';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DevTunnelBadge } from './components/DevTunnelBadge';
 import { Skeleton } from './components/Skeleton';
@@ -23,7 +23,6 @@ import {
   stripDevAccessToken,
 } from './dev-environment';
 import { useCapture } from './hooks/useCapture';
-import { I18nProvider } from './hooks/useI18n';
 import { usePairingFlow } from './hooks/usePairingFlow';
 import { useReceiverSettings } from './hooks/useReceiverSettings';
 import { useReceiverSync } from './hooks/useReceiverSync';
@@ -738,11 +737,7 @@ export function RootApp({
   }
 
   if (route.kind === 'landing') {
-    return (
-      <I18nProvider>
-        <LandingPage devEnvironment={devEnvironment} />
-      </I18nProvider>
-    );
+    return <LandingPage devEnvironment={devEnvironment} />;
   }
 
   if (route.kind === 'board') {

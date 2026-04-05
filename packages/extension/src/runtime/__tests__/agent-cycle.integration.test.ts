@@ -20,7 +20,7 @@ const { mockCompleteSkillOutput } = vi.hoisted(() => ({
   mockCompleteSkillOutput: vi.fn(),
 }));
 
-vi.mock('../agent-models', () => ({
+vi.mock('../agent/models', () => ({
   completeSkillOutput: mockCompleteSkillOutput,
 }));
 
@@ -80,7 +80,7 @@ function makeAuthSession(address: string, displayName: string) {
 
 async function resetCoopExtensionDb() {
   const [{ db: runtimeDb }, { db: backgroundDb }] = await Promise.all([
-    import('../agent-runner-state'),
+    import('../agent/runner-state'),
     import('../../background/context'),
   ]);
 
@@ -94,10 +94,10 @@ async function resetCoopExtensionDb() {
 async function loadAgentIntegrationModules() {
   const [{ db: runtimeDb }, { db: backgroundDb }, captureHandlers, agentRunner] = await Promise.all(
     [
-      import('../agent-runner-state'),
+      import('../agent/runner-state'),
       import('../../background/context'),
       import('../../background/handlers/capture'),
-      import('../agent-runner'),
+      import('../agent/runner'),
     ],
   );
 

@@ -42,10 +42,11 @@ export default defineContentScript({
       if (data.source !== APP_SOURCE || typeof data.requestId !== 'string') {
         return;
       }
+      const requestId = data.requestId;
 
       if (data.type === 'ping') {
         postResponse({
-          requestId: data.requestId,
+          requestId,
           ok: true,
         });
         return;
@@ -64,7 +65,7 @@ export default defineContentScript({
           const runtimeError = chrome.runtime.lastError;
           if (runtimeError) {
             postResponse({
-              requestId: data.requestId,
+              requestId,
               ok: false,
               error: runtimeError.message || 'Receiver bridge sync failed.',
             });
@@ -72,7 +73,7 @@ export default defineContentScript({
           }
 
           postResponse({
-            requestId: data.requestId,
+            requestId,
             ok: Boolean(response?.ok),
             data: response?.data,
             error: response?.ok

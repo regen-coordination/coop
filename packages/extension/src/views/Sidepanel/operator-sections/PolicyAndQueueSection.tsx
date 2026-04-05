@@ -132,5 +132,3 @@ export function PolicyAndQueueSection(props: PolicyAndQueueSectionProps) {
     </>
   );
 }
-
-export default PolicyAndQueueSection;

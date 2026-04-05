@@ -506,7 +506,7 @@ describe('action-bundle', () => {
         domain: 'agro',
         startDate: 1_710_000_000,
         endDate: 1_710_086_400,
-        location: '',
+        location: undefined,
       });
     });
 
@@ -623,6 +623,58 @@ describe('action-bundle', () => {
         domains: ['solar', 'edu'],
         operatorAddresses: ['0x1111111111111111111111111111111111111111'],
         gardenerAddresses: ['0x2222222222222222222222222222222222222222'],
+      });
+    });
+
+    it('buildGreenGoodsCreateGardenPayload omits blank optional strings', () => {
+      const payload = buildGreenGoodsCreateGardenPayload({
+        coopId: 'coop-1',
+        name: 'Trimmed Garden',
+        slug: '   ',
+        description: 'Blank optional fields should not become invalid payload values.',
+        location: '',
+        bannerImage: '   ',
+        metadata: '',
+        weightScheme: 'linear',
+        domains: ['agro'],
+      });
+      expect(payload).toEqual({
+        coopId: 'coop-1',
+        name: 'Trimmed Garden',
+        slug: undefined,
+        description: 'Blank optional fields should not become invalid payload values.',
+        location: undefined,
+        bannerImage: undefined,
+        metadata: undefined,
+        openJoining: false,
+        maxGardeners: 0,
+        weightScheme: 'linear',
+        domains: ['agro'],
+      });
+    });
+
+    it('buildGreenGoodsCreateAssessmentPayload omits blank location', () => {
+      const payload = buildGreenGoodsCreateAssessmentPayload({
+        coopId: 'coop-1',
+        gardenAddress: '0x1111111111111111111111111111111111111111',
+        title: 'Quarterly agro assessment',
+        description: 'Watershed and soil regeneration review.',
+        assessmentConfigCid: 'bafy-assessment-config',
+        domain: 'agro',
+        startDate: 1_710_000_000,
+        endDate: 1_710_086_400,
+        location: '   ',
+      });
+      expect(payload).toEqual({
+        coopId: 'coop-1',
+        gardenAddress: '0x1111111111111111111111111111111111111111',
+        title: 'Quarterly agro assessment',
+        description: 'Watershed and soil regeneration review.',
+        assessmentConfigCid: 'bafy-assessment-config',
+        domain: 'agro',
+        startDate: 1_710_000_000,
+        endDate: 1_710_086_400,
+        location: undefined,
       });
     });
   });

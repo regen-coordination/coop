@@ -160,7 +160,16 @@ export async function updateReceiverCapture(
     ...current,
     ...patch,
   });
-  await persistReceiverCapture(db, next, await getReceiverCaptureBlob(db, captureId));
+  const capturePayload = await buildEncryptedLocalPayloadRecord({
+    db,
+    kind: 'receiver-capture',
+    entityId: next.id,
+    bytes: new TextEncoder().encode(JSON.stringify(next)),
+  });
+  await db.transaction('rw', db.receiverCaptures, db.encryptedLocalPayloads, async () => {
+    await db.receiverCaptures.put(buildRedactedReceiverCapture(next));
+    await db.encryptedLocalPayloads.put(capturePayload);
+  });
   return next;
 }
 

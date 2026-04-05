@@ -200,5 +200,3 @@ export function SessionCapabilitySection(props: SessionCapabilitySectionProps) {
     </>
   );
 }
-
-export default SessionCapabilitySection;

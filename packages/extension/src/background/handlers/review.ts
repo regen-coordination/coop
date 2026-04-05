@@ -22,6 +22,7 @@ import { db, getCoops, saveState } from '../context';
 import { refreshBadge } from '../dashboard';
 import { getActiveReviewContextForSession } from '../operator';
 import { requestAgentCycle } from './agent';
+import { queueFollowUp } from './follow-up';
 import { syncReceiverCaptureFromDraft } from './receiver';
 
 export async function publishDraftWithContext(input: {
@@ -142,8 +143,12 @@ export async function publishDraftWithContext(input: {
       updatedAt: nowIso(),
     });
   }
-  await requestAgentCycle(`publish:${validation.draft.id}`);
-  await refreshBadge();
+  queueFollowUp(
+    'review',
+    'request-agent-cycle',
+    requestAgentCycle(`publish:${validation.draft.id}`),
+  );
+  queueFollowUp('review', 'refresh-badge', refreshBadge());
 
   // Record user-feedback memory when an agent-generated draft is published
   if (validation.draft.provenance.type === 'agent') {
@@ -215,8 +220,12 @@ export async function handleUpdateReviewDraft(
     }
   }
   await syncReceiverCaptureFromDraft(validation.draft);
-  await requestAgentCycle(`draft-update:${validation.draft.id}`);
-  await refreshBadge();
+  queueFollowUp(
+    'review',
+    'request-agent-cycle',
+    requestAgentCycle(`draft-update:${validation.draft.id}`),
+  );
+  queueFollowUp('review', 'refresh-badge', refreshBadge());
 
   // Record user-feedback memory when an agent-generated draft changes workflowStage
   if (

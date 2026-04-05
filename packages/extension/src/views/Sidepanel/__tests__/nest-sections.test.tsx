@@ -306,7 +306,7 @@ function mockDraftEditorReturn() {
 
 const defaultRuntimeConfig = {
   privacyMode: 'off' as const,
-  sessionMode: 'passkey' as const,
+  sessionMode: 'mock' as const,
   onchainMode: 'mock' as const,
   archiveMode: 'mock' as const,
   chainKey: 'sepolia' as const,
@@ -1238,12 +1238,18 @@ describe('NestTab', () => {
         purpose: 'New purpose',
       },
     });
+    const baseDashboard = baseOrchestration().orchestration.dashboard;
+    if (!baseDashboard) {
+      throw new Error('Expected a dashboard fixture.');
+    }
     const first = baseOrchestration({
       activeCoop: firstCoop,
       dashboard: {
-        ...baseOrchestration().orchestration.dashboard,
+        ...baseDashboard,
         activeCoopId: firstCoop.profile.id,
         coops: [firstCoop],
+        coopBadges: baseDashboard.coopBadges,
+        drafts: baseDashboard.drafts ?? [],
       },
     });
     const { rerender } = render(<NestTab {...first} />);
@@ -1252,12 +1258,17 @@ describe('NestTab', () => {
     await user.clear(screen.getByLabelText('Purpose'));
     await user.type(screen.getByLabelText('Purpose'), 'Unsaved local edit');
 
+    if (!first.orchestration.dashboard) {
+      throw new Error('Expected the first orchestration dashboard.');
+    }
     const second = baseOrchestration({
       activeCoop: secondCoop,
       dashboard: {
         ...first.orchestration.dashboard,
         activeCoopId: secondCoop.profile.id,
         coops: [secondCoop],
+        coopBadges: first.orchestration.dashboard.coopBadges,
+        drafts: first.orchestration.dashboard.drafts ?? [],
       },
     });
     rerender(<NestTab {...second} />);

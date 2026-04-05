@@ -1,7 +1,7 @@
 import { type Address, encodeFunctionData } from 'viem';
 import type { AuthSession, OnchainState } from '../../contracts/schema';
 import { hashJson } from '../../utils';
-import type { CoopOnchainMode } from '../onchain/onchain';
+import type { CoopOnchainMode } from '../onchain';
 import { greenGoodsGardenerManagementAbi } from './greengoods-abis';
 import {
   type GreenGoodsLiveExecutor,

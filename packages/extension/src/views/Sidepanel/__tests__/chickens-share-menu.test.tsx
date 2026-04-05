@@ -1,28 +1,14 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { makeDashboardResponse } from '../../../__tests__/fixtures';
 import type { DashboardResponse } from '../../../runtime/messages';
 import { ChickensTab } from '../tabs/ChickensTab';
 
 function makeDashboard(): DashboardResponse {
-  return {
-    coops: [
-      {
-        profile: { id: 'coop-1', name: 'Test Coop' },
-        artifacts: [],
-      },
-    ],
-    candidates: [],
-    proactiveSignals: [],
-    receiverCaptures: [],
-    runtimeConfig: {
-      archiveMode: 'mock',
-      onchainMode: 'mock',
-      privacyMode: 'off',
-      hasApiKey: false,
-    },
-    summary: { pendingDrafts: 0 },
-  } as unknown as DashboardResponse;
+  return makeDashboardResponse({
+    coops: [makeDashboardResponse().coops[0]],
+  });
 }
 
 function makeTabCapture() {
@@ -30,7 +16,7 @@ function makeTabCapture() {
     runManualCapture: vi.fn(),
     runActiveTabCapture: vi.fn(),
     captureVisibleScreenshotAction: vi.fn(),
-  } as ReturnType<typeof import('../hooks/useTabCapture').useTabCapture>;
+  } as unknown as ReturnType<typeof import('../hooks/useTabCapture').useTabCapture>;
 }
 
 function makeDraftEditor() {
@@ -52,7 +38,7 @@ function makeDraftEditor() {
     convertReceiverCapture: vi.fn(),
     archiveReceiverCapture: vi.fn(),
     toggleReceiverCaptureArchiveWorthiness: vi.fn(),
-  } as ReturnType<typeof import('../hooks/useDraftEditor').useDraftEditor>;
+  } as unknown as ReturnType<typeof import('../hooks/useDraftEditor').useDraftEditor>;
 }
 
 describe('ChickensTab compact cards', () => {

@@ -417,7 +417,28 @@ IMPORTANT: Only read files in packages/extension. Do NOT read files in other pac
 - **Prompt before issues** — ask user before creating GitHub issues
 - **Check for drift** — verify skill references match actual codebase
 
+## Audit vs Principles — Complementary Boundary
+
+| Concern | `/audit` owns | `/principles` owns |
+|---------|--------------|-------------------|
+| Dead code (unused files, exports, deps) | Yes | No (defers to audit) |
+| LOC / god-object thresholds (>500 lines) | Yes | No (defers to audit) |
+| Type errors, lint, TODO markers | Yes | No |
+| Layer violations (business logic in wrong package) | Yes | No (defers to audit) |
+| Dependency health (outdated, unused) | Yes | No |
+| SRP (mixed concerns, not just LOC) | No | Yes |
+| OCP, LSP, ISP, DIP | No | Yes |
+| DRY (duplicated logic across packages) | No | Yes |
+| KISS (over-engineering, complexity) | No | Yes |
+| YAGNI (speculative abstractions) | No | Yes |
+| SOC (concern leakage patterns) | No | Yes |
+| EDA, ADR, C4 | No | Yes |
+| ACID, BASE, CAP | No | Yes |
+
+**Rule**: If a finding is about *what's broken or dead*, it's an audit finding. If it's about *whether the design is sound*, it's a principles finding. When in doubt, report it in your skill and note the cross-reference.
+
 ## Related Skills
 
+- `principles` — Design-level analysis (SOLID, DRY, KISS, SOC, EDA, ACID/BASE/CAP). Audit finds what's broken or dead; principles evaluates whether the design is sound. Defer design-pattern judgments to `/principles`.
 - `testing` — Coverage analysis and test gap identification
 - `review` — PR-scoped review for specific changes

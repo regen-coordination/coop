@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeReviewDraft } from '@coop/shared/testing';
+import { makeCoopState } from '../../../__tests__/fixtures';
 
 const sharedMocks = vi.hoisted(() => ({
   isArchiveReceiptRefreshable: vi.fn(),
@@ -72,25 +74,28 @@ const { reconcileAgentObservations, syncAgentObservations } = await import(
   '../agent-reconciliation'
 );
 
-function makeCoop(overrides: Record<string, unknown> = {}) {
-  return {
+function makeCoop(overrides: Parameters<typeof makeCoopState>[0] = {}) {
+  return makeCoopState({
     profile: {
       id: 'coop-1',
       name: 'Alpha Coop',
     },
     members: [
       {
+        ...makeCoopState().members[0],
         id: 'member-1',
         role: 'creator',
         address: '0x1111111111111111111111111111111111111111',
       },
       {
+        ...makeCoopState().members[0],
         id: 'member-2',
         role: 'trusted',
         address: '0x2222222222222222222222222222222222222222',
       },
     ],
     onchainState: {
+      ...makeCoopState().onchainState,
       safeAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       safeCapability: 'ready',
     },
@@ -98,7 +103,7 @@ function makeCoop(overrides: Record<string, unknown> = {}) {
     archiveReceipts: [],
     rituals: [],
     ...overrides,
-  };
+  });
 }
 
 describe('agent reconciliation helpers', () => {
@@ -169,8 +174,8 @@ describe('agent reconciliation helpers', () => {
         enabled: true,
         status: 'requested',
         requestedAt: '2026-03-28T00:00:00.000Z',
-        weightScheme: 'equal',
-        domainMask: ['food'],
+        weightScheme: 'linear',
+        domains: ['agro'],
       },
     });
     const linkedCoop = makeCoop({
@@ -182,28 +187,55 @@ describe('agent reconciliation helpers', () => {
       greenGoods: {
         enabled: true,
         status: 'linked',
-        gardenAddress: '0xgarden',
+        gardenAddress: '0x1234567890abcdef1234567890abcdef12345678',
         gapAdminAddresses: [],
       },
       archiveReceipts: [
         {
           id: 'receipt-1',
+          targetCoopId: 'coop-2',
+          artifactIds: [],
+          bundleReference: 'bundle-1',
           rootCid: 'bafyroot',
+          shardCids: ['bafyshard'],
+          pieceCids: ['bafypiece'],
+          gatewayUrl: 'https://storacha.link/ipfs/bafyroot',
+          uploadedAt: '2026-03-20T00:00:00.000Z',
           scope: 'artifact',
-          filecoinStatus: 'submitted',
+          filecoinStatus: 'offered',
+          delegationIssuer: 'did:web:coop.test',
+          contentEncoding: 'plain-json',
+          delegation: {
+            issuer: 'did:web:coop.test',
+            mode: 'live',
+            allowsFilecoinInfo: true,
+          },
           followUp: {
+            refreshCount: 0,
             lastRefreshedAt: '2026-03-20T00:00:00.000Z',
           },
+          filecoinInfo: {
+            pieceCid: 'bafypiece',
+            aggregates: [],
+            deals: [],
+          },
+          anchorStatus: 'pending',
         },
       ],
-      rituals: [{ weeklyReviewCadence: 'friday' }],
+      rituals: [
+        {
+          weeklyReviewCadence: 'Friday review',
+          namedMoments: ['Funding scan'],
+          facilitatorExpectation: 'Rotate facilitation through the coop.',
+          defaultCapturePosture: 'Manual round-up is primary.',
+        },
+      ],
     });
     const drafts = [
-      {
+      makeReviewDraft({
         id: 'draft-1',
-        status: 'accepted',
         suggestedTargetCoopIds: ['coop-2'],
-      },
+      }),
     ];
 
     contextMocks.getCoops.mockResolvedValue([coopNeedingGarden, linkedCoop]);
@@ -227,7 +259,7 @@ describe('agent reconciliation helpers', () => {
     ]);
     conditionMocks.isGreenGoodsSyncNeeded.mockImplementation(
       (greenGoods: { gardenAddress?: string } | undefined) =>
-        greenGoods?.gardenAddress === '0xgarden',
+        greenGoods?.gardenAddress === '0x1234567890abcdef1234567890abcdef12345678',
     );
     conditionMocks.isGreenGoodsGapAdminSyncNeeded.mockImplementation(
       (coop: { profile: { id: string } }) => coop.profile.id === 'coop-2',

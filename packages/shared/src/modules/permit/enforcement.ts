@@ -1,7 +1,6 @@
 import type { DelegatedActionClass, ExecutionPermit } from '../../contracts/schema';
 import { nowIso } from '../../utils';
-import type { ReplayGuard } from '../policy/replay';
-import { checkReplayId } from '../policy/replay';
+import { type ReplayGuard, checkReplayId } from '../policy';
 
 export type PermitValidationResult =
   | { ok: true }

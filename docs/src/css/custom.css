@@ -3,7 +3,7 @@
    Bridges Coop design tokens to Docusaurus IFM variables for light and dark modes.
    ========================================================================== */
 
-/* ── Coop Design Tokens (mirrored from packages/shared/src/styles/tokens.css) ── */
+/* ── Coop Design Tokens (mirrored subset from packages/shared/src/styles/tokens.css) ── */
 
 :root {
   /* Palette */

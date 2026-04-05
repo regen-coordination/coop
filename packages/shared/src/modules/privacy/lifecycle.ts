@@ -6,7 +6,8 @@
  */
 
 import { createId, nowIso } from '../../utils';
-import { computeStealthMetaAddress, generateStealthKeys } from '../stealth/stealth';
+import { computeStealthMetaAddress, generateStealthKeys } from '../stealth';
+// Use ../storage/db (the real barrel) to avoid vitest circular-dep resolution issues
 import {
   type CoopDexie,
   getPrivacyIdentity,

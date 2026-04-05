@@ -45,7 +45,7 @@ describe('useSidepanelPermissions', () => {
         coopId: 'coop-1',
         expiresAt: '2026-04-01T00:00:00.000Z',
         maxUses: 3,
-        allowedActions: ['green-goods-create-garden'],
+        allowedActions: ['archive-artifact'],
       });
     });
 
@@ -55,7 +55,7 @@ describe('useSidepanelPermissions', () => {
         coopId: 'coop-1',
         expiresAt: '2026-04-01T00:00:00.000Z',
         maxUses: 3,
-        allowedActions: ['green-goods-create-garden'],
+        allowedActions: ['archive-artifact'],
       },
     });
     expect(loadDashboard).toHaveBeenCalledTimes(1);
@@ -139,7 +139,7 @@ describe('useSidepanelPermissions', () => {
     );
 
     await act(async () => {
-      await result.current.handleExecuteWithPermit('permit-9', 'green-goods-create-garden', {
+      await result.current.handleExecuteWithPermit('permit-9', 'archive-artifact', {
         title: 'New garden',
       });
     });
@@ -149,7 +149,7 @@ describe('useSidepanelPermissions', () => {
       payload: {
         permitId: 'permit-9',
         replayId: 'dreplay-uuid-1',
-        actionClass: 'green-goods-create-garden',
+        actionClass: 'archive-artifact',
         coopId: 'coop-9',
         actionPayload: {
           title: 'New garden',

@@ -101,8 +101,8 @@ function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
         chainKey: 'sepolia',
         onchainMode: 'mock',
         archiveMode: 'mock',
-        sessionMode: 'passkey',
-        providerMode: 'auto',
+        sessionMode: 'mock',
+        providerMode: 'standard',
         privacyMode: 'off',
         receiverAppUrl: 'https://app.test',
         signalingUrls: [],
@@ -337,6 +337,29 @@ describe('useDashboard', () => {
 
     await waitFor(() => {
       expect(result.current.message).toBe('Dashboard unavailable.');
+    });
+
+    expect(result.current.dashboard).toBeNull();
+  });
+
+  it('captures rejected runtime message failures in message state', async () => {
+    sendMessageMock.mockImplementation((msg: { type: string }) => {
+      switch (msg.type) {
+        case 'get-dashboard':
+          return Promise.reject(new Error('Service worker unavailable.'));
+        case 'get-agent-dashboard':
+          return Promise.resolve(makeAgentDashboardResponse());
+        case 'get-action-policies':
+          return Promise.resolve(makePoliciesResponse());
+        default:
+          return Promise.resolve({ ok: false, error: 'Unknown' });
+      }
+    });
+
+    const { result } = renderHook(() => useDashboard());
+
+    await waitFor(() => {
+      expect(result.current.message).toBe('Service worker unavailable.');
     });
 
     expect(result.current.dashboard).toBeNull();

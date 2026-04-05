@@ -103,18 +103,6 @@ pre {
 
   --landing-motion-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --landing-motion-emphasis: cubic-bezier(0.2, 0.9, 0.22, 1.14);
-  --coop-cream: #fcf5ef;
-  --coop-brown: #4f2e1f;
-  --coop-brown-soft: #6b4a36;
-  --coop-green: #5a7d10;
-  --coop-orange: #fd8a01;
-  --coop-mist: #d8d4d0;
-  --coop-ink: #27140e;
-  --coop-error: #a63b20;
-  --coop-line: rgba(79, 46, 31, 0.16);
-  --coop-shadow-sm: 0 8px 20px rgba(79, 46, 31, 0.08);
-  --coop-shadow-md: 0 16px 40px rgba(79, 46, 31, 0.12);
-  --coop-shadow-lg: 0 24px 60px rgba(79, 46, 31, 0.12);
 }
 
 .landing-topbar {

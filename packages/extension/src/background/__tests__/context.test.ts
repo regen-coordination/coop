@@ -3,6 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const settingsStore = new Map<string, unknown>();
 
+const chromeMocks = vi.hoisted(() => ({
+  storageSyncGet: vi.fn(async () => ({})),
+  storageSyncSet: vi.fn(async () => undefined),
+}));
+
 const dbMock = vi.hoisted(() => ({
   isOpen: vi.fn(() => false),
   open: vi.fn(async () => undefined),
@@ -57,7 +62,7 @@ const configMocks = vi.hoisted(() => ({
   resolveConfiguredFvmRegistryAddress: vi.fn(() => undefined),
   resolveConfiguredOnchainMode: vi.fn(() => 'mock'),
   resolveConfiguredPrivacyMode: vi.fn(() => 'off'),
-  resolveConfiguredProviderMode: vi.fn(() => 'rpc'),
+  resolveConfiguredProviderMode: vi.fn(() => 'standard'),
   resolveConfiguredSessionMode: vi.fn(() => 'mock'),
   resolveReceiverAppUrl: vi.fn(() => 'https://receiver.test'),
   resolveTrustedNodeArchiveBootstrapConfig: vi.fn(() => ({
@@ -113,6 +118,12 @@ describe('background context helpers', () => {
     sharedMocks.getUiPreferences.mockResolvedValue({
       notificationsEnabled: false,
       localInferenceOptIn: false,
+      preferredExportMethod: 'download',
+      heartbeatEnabled: true,
+      agentCadenceMinutes: 64,
+      excludedCategories: [],
+      customExcludedDomains: [],
+      captureOnClose: false,
     });
     sharedMocks.getCoopArchiveSecrets.mockResolvedValue({
       secret: 'coop-secret',
@@ -148,8 +159,8 @@ describe('background context helpers', () => {
         },
         storage: {
           sync: {
-            get: vi.fn(async () => ({})),
-            set: vi.fn(async () => undefined),
+            get: chromeMocks.storageSyncGet,
+            set: chromeMocks.storageSyncSet,
           },
         },
         tabs: {
@@ -183,7 +194,7 @@ describe('background context helpers', () => {
   });
 
   it('hydrates UI preferences from synced storage and persists the resolved value', async () => {
-    vi.mocked(chrome.storage.sync.get).mockResolvedValue({
+    chromeMocks.storageSyncGet.mockResolvedValue({
       [context.uiPreferenceStorageKey]: {
         notificationsEnabled: true,
         localInferenceOptIn: true,
@@ -195,7 +206,7 @@ describe('background context helpers', () => {
     expect(preferences.notificationsEnabled).toBe(true);
     expect(preferences.localInferenceOptIn).toBe(true);
     expect(sharedMocks.setUiPreferences).toHaveBeenCalledWith(expect.anything(), preferences);
-    expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+    expect(chromeMocks.storageSyncSet).toHaveBeenCalledWith({
       [context.uiPreferenceStorageKey]: preferences,
     });
   });

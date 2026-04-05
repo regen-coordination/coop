@@ -11,15 +11,15 @@ import {
   getOwnableValidatorSignature,
   getPermissionId,
   getRemoveSessionAction,
-  getSudoPolicy,
   getSmartSessionsCompatibilityFallback,
   getSmartSessionsValidator,
+  getSudoPolicy,
   getTimeFramePolicy,
   getUsageLimitPolicy,
   isSessionEnabled,
 } from '@rhinestone/module-sdk/module';
 import { type Address, type Hex, encodeFunctionData, toFunctionSelector, zeroHash } from 'viem';
-import { getUserOperationHash, type UserOperation } from 'viem/account-abstraction';
+import { type UserOperation, getUserOperationHash } from 'viem/account-abstraction';
 import { privateKeyToAccount } from 'viem/accounts';
 import {
   buildEnableSessionExecution,
@@ -267,7 +267,9 @@ function createProbeCapability(input: {
               toFunctionSelector('setOpenJoining(bool)'),
               toFunctionSelector('setMaxGardeners(uint256)'),
             ],
-            'green-goods-set-garden-domains': [toFunctionSelector('setGardenDomains(address,uint8)')],
+            'green-goods-set-garden-domains': [
+              toFunctionSelector('setGardenDomains(address,uint8)'),
+            ],
             'green-goods-create-garden-pools': [toFunctionSelector('createGardenPools(address)')],
           }[actionClass];
 

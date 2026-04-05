@@ -1,5 +1,4 @@
 import { type ReactNode, createContext, useContext, useEffect, useState } from 'react';
-// biome-ignore lint/suspicious/noExplicitAny: allow any for JSON import
 import translations from '../i18n/translations.json';
 
 export type LanguageCode = 'en' | 'pt' | 'es' | 'zh' | 'fr';
@@ -37,12 +36,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = (key: string, defaultValue = key): string => {
     const keys = key.split('.');
-    // biome-ignore lint/suspicious/noExplicitAny: allow any for nested translation access
-    let value: any = (translations as any)[language];
+    let value: unknown = (translations as Record<string, unknown>)[language];
 
     for (const k of keys) {
-      value = value?.[k];
-      if (!value) break;
+      if (value == null || typeof value !== 'object') break;
+      value = (value as Record<string, unknown>)[k];
     }
 
     return typeof value === 'string' ? value : defaultValue;

@@ -17,8 +17,8 @@ import {
   updateAgentObservation,
   updateAgentPlan,
 } from '@coop/shared';
-import { AGENT_SETTING_KEYS } from '../../runtime/agent-config';
-import { listRegisteredSkills } from '../../runtime/agent-registry';
+import { AGENT_SETTING_KEYS } from '../../runtime/agent/config';
+import { listRegisteredSkills } from '../../runtime/agent/registry';
 import type {
   AgentDashboardResponse,
   RuntimeActionResponse,

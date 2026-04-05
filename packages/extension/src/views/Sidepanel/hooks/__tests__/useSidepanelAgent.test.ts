@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { sendRuntimeMessageMock } = vi.hoisted(() => ({
@@ -40,12 +40,16 @@ describe('useSidepanelAgent', () => {
       await result.current.handleRetrySkillRun('skill-run-1');
     });
 
-    expect(deps.setAgentDashboard).toHaveBeenNthCalledWith(1, dashboard);
-    expect(deps.setAgentDashboard).toHaveBeenNthCalledWith(2, dashboard);
+    await waitFor(() => {
+      expect(deps.setAgentDashboard).toHaveBeenNthCalledWith(1, dashboard);
+      expect(deps.setAgentDashboard).toHaveBeenNthCalledWith(2, dashboard);
+    });
     // Success toast is now handled by AGENT_CYCLE_FINISHED background event,
     // so handleRunAgentCycle no longer calls setMessage on success.
     expect(deps.setMessage).not.toHaveBeenCalled();
-    expect(deps.loadDashboard).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(deps.loadDashboard).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('approves, rejects, and toggles auto-run settings', async () => {
@@ -89,7 +93,9 @@ describe('useSidepanelAgent', () => {
       await result.current.handleRunAgentCycle();
     });
 
-    expect(deps.setMessage).toHaveBeenCalledWith('agent failed');
+    await waitFor(() => {
+      expect(deps.setMessage).toHaveBeenCalledWith('agent failed');
+    });
   });
 
   it('maps trusted-node pre-flight errors to friendly messages', async () => {
@@ -119,7 +125,9 @@ describe('useSidepanelAgent', () => {
         await result.current.handleRunAgentCycle();
       });
 
-      expect(deps.setMessage).toHaveBeenCalledWith(friendly);
+      await waitFor(() => {
+        expect(deps.setMessage).toHaveBeenCalledWith(friendly);
+      });
     }
   });
 });

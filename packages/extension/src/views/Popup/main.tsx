@@ -9,6 +9,9 @@ import './popup.css';
 window.addEventListener('unhandledrejection', (event) => {
   console.warn('[coop:popup] unhandled rejection:', event.reason);
 });
+window.addEventListener('error', (event) => {
+  console.error('[coop:popup] uncaught error:', event.error ?? event.message);
+});
 
 registerWebAuthnCredentialBridge();
 

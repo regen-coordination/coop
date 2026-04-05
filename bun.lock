@@ -57,6 +57,7 @@
       "name": "@coop/api",
       "version": "0.0.0",
       "dependencies": {
+        "@coop/shared": "workspace:*",
         "hono": "^4.7.0",
         "lib0": "^0.2.117",
         "y-protocols": "^1.0.7",
@@ -64,6 +65,7 @@
       },
       "devDependencies": {
         "@types/bun": "^1.2.0",
+        "@types/ws": "^8.18.1",
         "typescript": "^5.8.2",
         "ws": "^8.18.3",
       },
@@ -87,6 +89,7 @@
         "@coop/shared": "workspace:*",
         "@huggingface/transformers": "^3.8.1",
         "@mlc-ai/web-llm": "^0.2.79",
+        "@rhinestone/module-sdk": "^0.4.0",
         "permissionless": "^0.3.4",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
@@ -102,7 +105,6 @@
       "version": "0.1.0",
       "dependencies": {
         "@bandada/api-sdk": "^2.8.0",
-        "@coop/api": "workspace:*",
         "@kohaku-eth/provider": "^0.0.1-alpha.2",
         "@openzeppelin/merkle-tree": "1.0.8",
         "@rhinestone/module-sdk": "^0.4.0",
@@ -119,7 +121,7 @@
         "y-indexeddb": "^9.0.12",
         "y-webrtc": "^10.3.0",
         "y-websocket": "^3.0.0",
-        "yjs": "^13.6.24",
+        "yjs": "^13.6.30",
         "zod": "^3.24.2",
       },
     },

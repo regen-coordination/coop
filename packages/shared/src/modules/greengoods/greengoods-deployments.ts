@@ -10,12 +10,12 @@ import { assertHexString } from '../../utils';
 import { restorePasskeyAccount } from '../auth/auth';
 import {
   type CoopOnchainMode,
+  createCoopPublicClient,
   createCoopSmartAccountClient,
   sendSmartAccountTransactionWithCoopGasFallback,
   toCoopSafeSmartAccount,
   usesCoopSafeErc7579,
-} from '../onchain/onchain';
-import { createCoopPublicClient } from '../onchain/provider';
+} from '../onchain';
 import { greenGoodsEasAbi } from './greengoods-abis';
 
 const greenGoodsDeployments = {

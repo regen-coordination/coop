@@ -125,5 +125,3 @@ export function TrustedNestControlsSection(props: TrustedNestControlsSectionProp
     </>
   );
 }
-
-export default TrustedNestControlsSection;

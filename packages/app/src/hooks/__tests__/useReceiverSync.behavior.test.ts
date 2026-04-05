@@ -45,8 +45,8 @@ const {
   upsertReceiverSyncEnvelopeMock: vi.fn(),
 }));
 
-vi.mock('@coop/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@coop/shared')>();
+vi.mock('@coop/shared/app', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@coop/shared/app')>();
   return {
     ...actual,
     assertReceiverSyncRelayAck: assertReceiverSyncRelayAckMock,
@@ -71,39 +71,6 @@ vi.mock('@coop/shared', async (importOriginal) => {
     upsertReceiverSyncEnvelope: upsertReceiverSyncEnvelopeMock,
   };
 });
-
-vi.mock(
-  '/Users/afo/Code/greenpill/coop/packages/shared/src/app-entry.ts',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('/Users/afo/Code/greenpill/coop/packages/shared/src/app-entry.ts')
-      >();
-    return {
-      ...actual,
-      assertReceiverSyncRelayAck: assertReceiverSyncRelayAckMock,
-      blobToReceiverSyncAsset: blobToReceiverSyncAssetMock,
-      buildIceServers: buildIceServersMock,
-      connectReceiverSyncProviders: connectReceiverSyncProvidersMock,
-      connectReceiverSyncRelay: connectReceiverSyncRelayMock,
-      createReceiverSyncDoc: createReceiverSyncDocMock,
-      createReceiverSyncEnvelope: createReceiverSyncEnvelopeMock,
-      createReceiverSyncRelayCaptureFrame: createReceiverSyncRelayCaptureFrameMock,
-      getActiveReceiverPairing: getActiveReceiverPairingMock,
-      getReceiverCapture: getReceiverCaptureMock,
-      getReceiverCaptureBlob: getReceiverCaptureBlobMock,
-      getReceiverPairingStatus: getReceiverPairingStatusMock,
-      listReceiverCaptures: listReceiverCapturesMock,
-      listReceiverSyncEnvelopes: listReceiverSyncEnvelopesMock,
-      markReceiverCaptureSyncFailed: markReceiverCaptureSyncFailedMock,
-      patchReceiverSyncEnvelope: patchReceiverSyncEnvelopeMock,
-      queueReceiverCaptureForRetry: queueReceiverCaptureForRetryMock,
-      shouldAutoRetryReceiverCapture: shouldAutoRetryReceiverCaptureMock,
-      updateReceiverCapture: updateReceiverCaptureMock,
-      upsertReceiverSyncEnvelope: upsertReceiverSyncEnvelopeMock,
-    };
-  },
-);
 
 const { useReceiverSync } = await import('../useReceiverSync');
 
@@ -415,12 +382,14 @@ describe('useReceiverSync behavior', () => {
     shouldAutoRetryReceiverCaptureMock.mockReturnValue(true);
     queueReceiverCaptureForRetryMock.mockReturnValue(queuedCapture);
     createReceiverSyncEnvelopeMock.mockResolvedValue(envelope);
-    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('bridge-request-2');
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(
+      '11111111-1111-4111-8111-111111111111',
+    );
     vi.spyOn(window, 'postMessage').mockImplementation((message: unknown) => {
       const event = new MessageEvent('message', {
         data: {
           source: 'coop-receiver-extension',
-          requestId: 'bridge-request-2',
+          requestId: '11111111-1111-4111-8111-111111111111',
           ok: false,
           error: 'bridge rejected',
         },
@@ -530,6 +499,108 @@ describe('useReceiverSync behavior', () => {
       'Receiver pairing has expired. Accept a fresh pairing link to sync again.',
     );
     expect(deps.refreshLocalStateRef.current).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves unavailable when the extension bridge times out', async () => {
+    const capture = makeCapture();
+    const envelope = { capture };
+    const doc = {
+      on: vi.fn(),
+      off: vi.fn(),
+    };
+    const relay = {
+      publishCapture: vi.fn(),
+      disconnect: vi.fn(),
+    };
+    const providers = {
+      disconnect: vi.fn(),
+    };
+    const pairing = makePairing();
+
+    createReceiverSyncDocMock.mockReturnValue(doc);
+    connectReceiverSyncProvidersMock.mockReturnValue(providers);
+    connectReceiverSyncRelayMock.mockReturnValue(relay);
+    listReceiverCapturesMock.mockResolvedValue([capture]);
+    listReceiverSyncEnvelopesMock.mockReturnValue([envelope]);
+
+    // postMessage does NOT dispatch a response — simulating no extension installed
+    vi.spyOn(window, 'postMessage').mockImplementation(() => {
+      // intentionally empty — no response dispatched, bridge times out
+    });
+
+    const deps = makeDeps({ pairing });
+
+    renderHook(() => useReceiverSync({} as never, deps as never));
+
+    // The bridge timeout is 700ms; after it fires the hook falls back to relay
+    await waitFor(() => expect(relay.publishCapture).toHaveBeenCalled(), { timeout: 3000 });
+  });
+
+  it('disconnects the old binding when pairing changes', async () => {
+    const doc = { on: vi.fn(), off: vi.fn() };
+    const relay = { publishCapture: vi.fn(), disconnect: vi.fn() };
+    const providers = { disconnect: vi.fn() };
+    const pairing1 = makePairing();
+
+    createReceiverSyncDocMock.mockReturnValue(doc);
+    connectReceiverSyncProvidersMock.mockReturnValue(providers);
+    connectReceiverSyncRelayMock.mockReturnValue(relay);
+    listReceiverCapturesMock.mockResolvedValue([]);
+
+    const deps = makeDeps({ pairing: pairing1 });
+
+    const { rerender } = renderHook(({ deps: d }) => useReceiverSync({} as never, d as never), {
+      initialProps: { deps },
+    });
+
+    // Wait for first binding to be created
+    await waitFor(() => expect(createReceiverSyncDocMock).toHaveBeenCalledTimes(1));
+
+    // Change to a new pairing
+    const doc2 = { on: vi.fn(), off: vi.fn() };
+    const relay2 = { publishCapture: vi.fn(), disconnect: vi.fn() };
+    const providers2 = { disconnect: vi.fn() };
+    createReceiverSyncDocMock.mockReturnValue(doc2);
+    connectReceiverSyncProvidersMock.mockReturnValue(providers2);
+    connectReceiverSyncRelayMock.mockReturnValue(relay2);
+
+    const pairing2 = {
+      ...makePairing(),
+      pairingId: 'pairing-2',
+      roomId: 'room-2',
+    };
+    const deps2 = makeDeps({ pairing: pairing2 });
+    rerender({ deps: deps2 });
+
+    await waitFor(() => expect(createReceiverSyncDocMock).toHaveBeenCalledTimes(2));
+
+    // Old binding should have been disconnected
+    expect(relay.disconnect).toHaveBeenCalled();
+    expect(providers.disconnect).toHaveBeenCalled();
+  });
+
+  it('cleans up binding on unmount', async () => {
+    const doc = { on: vi.fn(), off: vi.fn() };
+    const relay = { publishCapture: vi.fn(), disconnect: vi.fn() };
+    const providers = { disconnect: vi.fn() };
+    const pairing = makePairing();
+
+    createReceiverSyncDocMock.mockReturnValue(doc);
+    connectReceiverSyncProvidersMock.mockReturnValue(providers);
+    connectReceiverSyncRelayMock.mockReturnValue(relay);
+    listReceiverCapturesMock.mockResolvedValue([]);
+
+    const deps = makeDeps({ pairing });
+
+    const { unmount } = renderHook(() => useReceiverSync({} as never, deps as never));
+
+    await waitFor(() => expect(createReceiverSyncDocMock).toHaveBeenCalledTimes(1));
+
+    unmount();
+
+    expect(relay.disconnect).toHaveBeenCalled();
+    expect(providers.disconnect).toHaveBeenCalled();
+    expect(doc.off).toHaveBeenCalledWith('update', expect.any(Function));
   });
 
   it('resets retries to local-only when no active pairing remains', async () => {

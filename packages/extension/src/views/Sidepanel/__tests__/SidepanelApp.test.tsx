@@ -130,7 +130,7 @@ vi.mock('../hooks/useDashboard', () => ({
     actionPolicies: [],
     runtimeConfig: {
       privacyMode: 'off',
-      sessionMode: 'passkey',
+      sessionMode: 'mock',
     },
     activeCoop: {
       profile: {

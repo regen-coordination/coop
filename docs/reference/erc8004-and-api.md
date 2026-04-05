@@ -181,7 +181,11 @@ The API server is a WebSocket signaling relay that enables browser extension ins
 | Deployment | Fly.io (`iad` primary region) |
 | Container | `oven/bun:1-alpine` |
 
-The server is intentionally minimal. The `@coop/api` package has a single runtime dependency (`hono`). The `package.json` declares no other production dependencies.
+The server is intentionally minimal. The `@coop/api` package keeps its runtime dependency set small:
+`hono` for routing and upgrades, plus `lib0`, `y-protocols`, and `yjs` for the Yjs room sync path.
+Shared signaling defaults and ICE parsing helpers now live in `@coop/shared` so the browser
+packages and API package use the same config source without creating a reverse dependency from
+shared into API.
 
 ### 2.3 Deployment
 

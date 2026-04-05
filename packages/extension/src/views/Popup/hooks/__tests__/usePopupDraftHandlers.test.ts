@@ -1,15 +1,17 @@
+import type { ReviewDraft } from '@coop/shared';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { makeReviewDraft } from '@coop/shared/testing';
 
 const { usePopupDraftHandlers } = await import('../usePopupDraftHandlers');
 
-function makeDraft(overrides: Record<string, unknown> = {}) {
-  return {
+function makeDraft(overrides: Partial<ReviewDraft> = {}): ReviewDraft {
+  return makeReviewDraft({
     id: 'draft-1',
     title: 'Draft',
     workflowStage: 'candidate',
     ...overrides,
-  } as never;
+  });
 }
 
 describe('usePopupDraftHandlers', () => {

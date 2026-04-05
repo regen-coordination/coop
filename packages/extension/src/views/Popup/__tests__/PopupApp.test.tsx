@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeCoopState } from '../../../__tests__/fixtures';
 import {
   installDefaultRuntimeHandlers,
   makeArtifact,
@@ -23,6 +24,27 @@ vi.mock('../../../runtime/audio', () => ({
 }));
 
 const { PopupApp } = await import('../PopupApp');
+
+function makePopupCoop(overrides: Parameters<typeof makeCoopState>[0] = {}) {
+  return makeCoopState({
+    profile: {
+      id: 'coop-2',
+      name: 'Delta Field Coop',
+      purpose: 'Track field notes',
+    },
+    members: [
+      {
+        ...makeCoopState().members[0],
+        id: 'member-1',
+        displayName: 'Ava',
+        address: '0x1234567890abcdef1234567890abcdef12345678',
+      },
+    ],
+    artifacts: [],
+    invites: [],
+    ...overrides,
+  });
+}
 
 function mockClipboardReadText(value: string | ReturnType<typeof vi.fn>) {
   const readText = typeof value === 'string' ? vi.fn().mockResolvedValue(value) : value;
@@ -354,25 +376,7 @@ describe('PopupApp', () => {
     installDefaultRuntimeHandlers(
       mockSendRuntimeMessage,
       makeDashboard({
-        coops: [
-          makeDashboard().coops[0],
-          {
-            profile: {
-              id: 'coop-2',
-              name: 'Delta Field Coop',
-              purpose: 'Track field notes',
-              captureMode: 'manual',
-            },
-            members: [
-              {
-                id: 'member-1',
-                displayName: 'Ava',
-                address: '0x1234567890abcdef1234567890abcdef12345678',
-              },
-            ],
-            artifacts: [],
-          },
-        ],
+        coops: [makeDashboard().coops[0], makePopupCoop()],
       }),
     );
     const user = userEvent.setup();
@@ -444,25 +448,7 @@ describe('PopupApp', () => {
     installDefaultRuntimeHandlers(
       mockSendRuntimeMessage,
       makeDashboard({
-        coops: [
-          makeDashboard().coops[0],
-          {
-            profile: {
-              id: 'coop-2',
-              name: 'Delta Field Coop',
-              purpose: 'Track field notes',
-              captureMode: 'manual',
-            },
-            members: [
-              {
-                id: 'member-1',
-                displayName: 'Ava',
-                address: '0x1234567890abcdef1234567890abcdef12345678',
-              },
-            ],
-            artifacts: [],
-          },
-        ],
+        coops: [makeDashboard().coops[0], makePopupCoop()],
         drafts: [
           makeDraft(),
           makeDraft({
@@ -501,25 +487,7 @@ describe('PopupApp', () => {
     installDefaultRuntimeHandlers(
       mockSendRuntimeMessage,
       makeDashboard({
-        coops: [
-          makeDashboard().coops[0],
-          {
-            profile: {
-              id: 'coop-2',
-              name: 'Delta Field Coop',
-              purpose: 'Track field notes',
-              captureMode: 'manual',
-            },
-            members: [
-              {
-                id: 'member-1',
-                displayName: 'Ava',
-                address: '0x1234567890abcdef1234567890abcdef12345678',
-              },
-            ],
-            artifacts: [],
-          },
-        ],
+        coops: [makeDashboard().coops[0], makePopupCoop()],
         drafts: [
           makeDraft(),
           makeDraft({
@@ -563,20 +531,7 @@ describe('PopupApp', () => {
             ...makeDashboard().coops[0],
             artifacts: [makeArtifact()],
           },
-          {
-            profile: {
-              id: 'coop-2',
-              name: 'Delta Field Coop',
-              purpose: 'Track field notes',
-              captureMode: 'manual',
-            },
-            members: [
-              {
-                id: 'member-1',
-                displayName: 'Ava',
-                address: '0x1234567890abcdef1234567890abcdef12345678',
-              },
-            ],
+          makePopupCoop({
             artifacts: [
               makeArtifact({
                 id: 'artifact-2',
@@ -585,7 +540,7 @@ describe('PopupApp', () => {
                 summary: 'Shared from the second coop.',
               }),
             ],
-          },
+          }),
         ],
       }),
     );
@@ -957,26 +912,23 @@ describe('PopupApp', () => {
               },
             ],
           },
-          {
+          makePopupCoop({
             profile: {
               id: 'coop-2',
               name: 'Member Only Coop',
               purpose: 'Locked row',
-              captureMode: 'manual',
             },
             members: [
               {
+                ...makeCoopState().members[0],
                 id: 'member-2',
                 displayName: 'Ava',
                 role: 'member',
                 address: '0x1234567890abcdef1234567890abcdef12345678',
-                authMode: 'passkey',
                 joinedAt: '2026-03-17T10:00:00.000Z',
               },
             ],
-            artifacts: [],
-            invites: [],
-          },
+          }),
         ],
       }),
     );

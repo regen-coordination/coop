@@ -18,12 +18,12 @@ import {
   revokeInviteType,
   verifyInviteCodeProof,
 } from '../flows';
-import { synthesizeCoopFromPurpose } from '../synthesis';
 import {
   publishDraftAcrossCoops,
   publishDraftToCoops,
   resolvePublishActorsForTargets,
 } from '../publish';
+import { synthesizeCoopFromPurpose } from '../synthesis';
 
 function buildSetupInsights() {
   return {

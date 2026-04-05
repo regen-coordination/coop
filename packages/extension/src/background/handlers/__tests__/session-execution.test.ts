@@ -45,7 +45,8 @@ const sharedMocks = vi.hoisted(() => ({
   getEncryptedSessionMaterial: vi.fn(),
   getSessionCapability: vi.fn(),
   getSessionCapabilityUseStubSignature: vi.fn(
-    ({ capability }: { capability: SessionCapability }) => `wrapped:${capability.id}:validator-stub`,
+    ({ capability }: { capability: SessionCapability }) =>
+      `wrapped:${capability.id}:validator-stub`,
   ),
   incrementSessionCapabilityUsage: vi.fn((capability: SessionCapability) => ({
     ...capability,
@@ -356,7 +357,9 @@ describe('session execution paths', () => {
   });
 
   it('installs missing smart-session modules and enables the capability when live setup needs it', async () => {
-    const sendTransaction = vi.fn(async () => '0xtxhash');
+    const sendTransaction = vi.fn(
+      async (_tx: { to: string; data: string; value: bigint }) => '0xtxhash',
+    );
     sharedMocks.createCoopSmartAccountClient.mockReturnValue({
       smartClient: {
         sendTransaction,
@@ -369,7 +372,7 @@ describe('session execution paths', () => {
       capability: makeCapability({
         moduleInstalledAt: undefined,
         permissionId: `0x${'1'.repeat(64)}`,
-        status: 'pending',
+        status: 'active',
       }),
       authSession: {
         authMode: 'passkey',
@@ -397,15 +400,20 @@ describe('session execution paths', () => {
         }),
       }),
     );
-    expect(sendTransaction).toHaveBeenCalledTimes(2);
-    expect(sendTransaction).toHaveBeenNthCalledWith(
-      1,
+    expect(sharedMocks.sendSmartAccountTransactionWithCoopGasFallback).toHaveBeenCalledTimes(1);
+    expect(sharedMocks.sendSmartAccountTransactionWithCoopGasFallback).toHaveBeenCalledWith(
       expect.objectContaining({
+        smartClient: expect.objectContaining({
+          sendTransaction,
+        }),
+        accountTypeHint: 'safe',
         to: '0x0000000000000000000000000000000000000010',
         data: '0xinstall',
+        value: 0n,
       }),
     );
-    expect(sendTransaction.mock.calls[1]?.[0]).toEqual(
+    expect(sendTransaction).toHaveBeenCalledTimes(1);
+    expect(sendTransaction.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         to: expect.stringMatching(/^0x[a-fA-F0-9]{40}$/),
         data: expect.stringMatching(/^0x[a-fA-F0-9]+$/),

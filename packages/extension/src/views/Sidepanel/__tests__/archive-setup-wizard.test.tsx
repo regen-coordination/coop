@@ -27,10 +27,11 @@ describe('ArchiveSetupWizard', () => {
         coopId="coop-1"
         coopName="River Coop"
         archiveConfig={{
-          enabled: true,
           spaceDid: 'did:key:z6Mkarchiveproofspace',
+          delegationIssuer: 'did:web:coop.test',
           gatewayBaseUrl: 'https://storacha.link',
-          proofStrategy: 'storacha',
+          allowsFilecoinInfo: false,
+          expirationSeconds: 600,
         }}
         onComplete={onComplete}
         setMessage={setMessage}

@@ -245,7 +245,11 @@ describe('useCaptureActions', () => {
         byteSize: compressedBlob.size,
         fileName: 'photo.png',
       });
-      expect(pendingCapture?.previewUrl).toMatch(/^blob:/);
+      if (!pendingCapture) {
+        throw new Error('Expected compressed image pending capture.');
+      }
+      const preparedCapture: PopupPendingCapture = pendingCapture;
+      expect(preparedCapture.previewUrl).toMatch(/^blob:/);
     });
 
     it('falls back to the original file when compression fails', async () => {
@@ -267,7 +271,11 @@ describe('useCaptureActions', () => {
         byteSize: largeImage.size,
         fileName: 'photo.png',
       });
-      expect(pendingCapture?.previewUrl).toMatch(/^blob:/);
+      if (!pendingCapture) {
+        throw new Error('Expected fallback image pending capture.');
+      }
+      const fallbackCapture: PopupPendingCapture = pendingCapture;
+      expect(fallbackCapture.previewUrl).toMatch(/^blob:/);
     });
 
     it('skips compression for small image files under 2 MB', async () => {
@@ -320,8 +328,12 @@ describe('useCaptureActions', () => {
         mimeType: 'audio/webm',
         durationSeconds: 15,
       });
-      expect(pendingCapture?.previewUrl).toMatch(/^blob:/);
-      const preparedCapture = pendingCapture;
+      if (!pendingCapture) {
+        throw new Error('Expected audio pending capture.');
+      }
+      const audioCapture: PopupPendingCapture = pendingCapture;
+      expect(audioCapture.previewUrl).toMatch(/^blob:/);
+      const preparedCapture = audioCapture;
       if (!preparedCapture) {
         throw new Error('Expected a pending audio capture.');
       }
@@ -356,7 +368,11 @@ describe('useCaptureActions', () => {
         title: 'field-note.webm',
         mimeType: 'audio/webm',
       });
-      expect(pendingCapture?.previewUrl).toMatch(/^blob:/);
+      if (!pendingCapture) {
+        throw new Error('Expected uploaded audio pending capture.');
+      }
+      const uploadedAudioCapture: PopupPendingCapture = pendingCapture;
+      expect(uploadedAudioCapture.previewUrl).toMatch(/^blob:/);
     });
 
     it('prepares a screenshot for review instead of saving immediately', async () => {

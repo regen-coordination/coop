@@ -122,30 +122,51 @@ describe('useSidepanelGreenGoods', () => {
 
     await act(async () => {
       await result.current.handleQueueGreenGoodsHypercertMint('coop-1', {
-        gardenAddress: '0xgarden',
+        gardenAddress: '0x1234567890abcdef1234567890abcdef12345678',
         title: 'Wetland repair',
         description: 'Restore watershed',
         workScopes: ['repair'],
-        impactScopes: ['water'],
-        workTimeframeStart: '2026-03-01',
-        workTimeframeEnd: '2026-03-10',
-        impactTimeframeStart: '2026-03-01',
-        impactTimeframeEnd: '2026-03-20',
+        impactScopes: ['watershed'],
+        workTimeframeStart: 1_709_251_200,
+        workTimeframeEnd: 1_710_028_800,
+        impactTimeframeStart: 1_709_251_200,
+        impactTimeframeEnd: 1_710_892_800,
         externalUrl: 'https://example.com',
         imageUri: 'ipfs://image',
-        domain: 'water',
-        sdgs: ['6'],
-        capitals: ['natural'],
-        outcomes: ['clean-water'],
-        allowlist: ['0xabc'],
-        attestations: [],
+        domain: 'agro',
+        sdgs: [6],
+        capitals: ['living'],
+        outcomes: {
+          predefined: {},
+          custom: {},
+        },
+        allowlist: [
+          {
+            address: '0x1234567890abcdef1234567890abcdef12345678',
+            units: 100_000_000,
+          },
+        ],
+        attestations: [
+          {
+            uid: `0x${'ab'.repeat(32)}`,
+            workUid: `0x${'cd'.repeat(32)}`,
+            title: 'Wetland repair attestation',
+            domain: 'agro',
+            workScope: ['repair'],
+            gardenerAddress: '0x1234567890abcdef1234567890abcdef12345678',
+            mediaUrls: [],
+            createdAt: 1_709_251_200,
+            approvedAt: 1_709_337_600,
+          },
+        ],
+        rationale: 'Mint a hypercert for completed watershed repair work.',
       });
     });
 
     expect(buildMintPayloadMock).toHaveBeenCalledWith(
       expect.objectContaining({
         coopId: 'coop-1',
-        gardenAddress: '0xgarden',
+        gardenAddress: '0x1234567890abcdef1234567890abcdef12345678',
         title: 'Wetland repair',
       }),
     );

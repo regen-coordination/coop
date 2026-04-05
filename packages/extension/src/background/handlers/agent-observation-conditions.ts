@@ -9,7 +9,7 @@ import {
   nowIso,
   resolveGreenGoodsGapAdminChanges,
 } from '@coop/shared';
-import { AGENT_HIGH_CONFIDENCE_THRESHOLD } from '../../runtime/agent-config';
+import { AGENT_HIGH_CONFIDENCE_THRESHOLD } from '../../runtime/agent/config';
 
 export function getLatestReviewDigestDraft(input: {
   coop: CoopSharedState;

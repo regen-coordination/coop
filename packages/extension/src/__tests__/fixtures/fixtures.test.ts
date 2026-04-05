@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { makeReviewDraft } from '@coop/shared/testing';
 import { installChromeMock, makeDashboardResponse } from './index';
 
 describe('extension test fixture factories', () => {
@@ -33,7 +34,7 @@ describe('extension test fixture factories', () => {
     it('applies overrides', () => {
       const dashboard = makeDashboardResponse({
         activeCoopId: 'coop-2',
-        drafts: [{ id: 'draft-1' }],
+        drafts: [makeReviewDraft({ id: 'draft-1' })],
       });
       expect(dashboard.activeCoopId).toBe('coop-2');
       expect(dashboard.drafts).toHaveLength(1);

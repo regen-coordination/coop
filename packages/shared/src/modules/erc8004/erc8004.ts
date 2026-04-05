@@ -1,8 +1,7 @@
 import { type Address, type Hash, decodeEventLog, encodeFunctionData, parseAbi } from 'viem';
 import type { AgentLog, CoopChainKey, CoopSharedState, OnchainState } from '../../contracts/schema';
 import { hashJson } from '../../utils';
-import { type CoopOnchainMode, getCoopChainConfig } from '../onchain/onchain';
-import { createCoopPublicClient } from '../onchain/provider';
+import { type CoopOnchainMode, createCoopPublicClient, getCoopChainConfig } from '../onchain';
 
 /** Callback for sending a transaction via the Safe smart account (provided by background.ts). */
 export type Erc8004LiveExecutor = (input: {

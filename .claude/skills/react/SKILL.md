@@ -371,11 +371,16 @@ Coop uses `babel-plugin-react-compiler` in Vite configs. The compiler **automati
 - Using deep imports from `@coop/shared/*` instead of barrel imports
 - Memoizing trivial values without measured performance impact
 
+## Sub-Files
+
+- **[compiler.md](./compiler.md)** -- React Compiler integration, automatic memoization, when manual memo is still needed
+- **[performance.md](./performance.md)** -- Waterfall elimination, bundle budgets, re-render optimization, rendering performance
+- **[error-handling.md](./error-handling.md)** -- Error categories, categorizeError(), retry patterns, error boundaries
+
 ## Related Skills
 
 - `data-layer` -- Dexie + Yjs local-first patterns that integrate with React components
 - `architecture` -- Clean Architecture and composition patterns for React
 - `testing` -- Vitest and React Testing Library patterns for component tests
-- `performance` -- React Profiler, re-render optimization, and bundle analysis
+- `performance` -- Full performance skill (Lighthouse, Web Vitals, memory management beyond React)
 - `ui-compliance` -- WCAG accessibility, responsive design for React components
-- `frontend-design` -- Visual design direction and aesthetic choices for React UIs

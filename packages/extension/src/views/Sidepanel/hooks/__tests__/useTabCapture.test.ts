@@ -221,15 +221,15 @@ describe('useTabCapture', () => {
     const { result } = renderHook(() => useTabCapture(deps));
 
     await act(async () => {
-      await result.current.updateAgentCadence(60);
+      await result.current.updateAgentCadence(64);
     });
 
     expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(1, { type: 'get-ui-preferences' });
     expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(2, {
       type: 'set-ui-preferences',
-      payload: expect.objectContaining({ agentCadenceMinutes: 60 }),
+      payload: expect.objectContaining({ agentCadenceMinutes: 64 }),
     });
-    expect(deps.setMessage).toHaveBeenCalledWith('Agent cadence updated to 60 min.');
+    expect(deps.setMessage).toHaveBeenCalledWith('Agent cadence updated to 64 min.');
     expect(deps.loadDashboard).toHaveBeenCalledTimes(1);
   });
 
@@ -260,13 +260,13 @@ describe('useTabCapture', () => {
     const { result } = renderHook(() => useTabCapture(deps));
 
     await act(async () => {
-      await result.current.updateExcludedCategories(['social']);
+      await result.current.updateExcludedCategories(['social-dm']);
       await result.current.updateCustomExcludedDomains(['coop.town']);
     });
 
     expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(2, {
       type: 'set-ui-preferences',
-      payload: expect.objectContaining({ excludedCategories: ['social'] }),
+      payload: expect.objectContaining({ excludedCategories: ['social-dm'] }),
     });
     expect(sendRuntimeMessageMock).toHaveBeenNthCalledWith(4, {
       type: 'set-ui-preferences',

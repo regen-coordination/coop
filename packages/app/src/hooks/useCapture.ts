@@ -18,7 +18,7 @@ import {
   saveReceiverCapture,
   transcribeAudio,
   triggerHaptic,
-} from '@coop/shared';
+} from '@coop/shared/app';
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { receiverDb as ReceiverDbType } from '../app';
 import type { ReceiverShareHandoff } from '../share-handoff';

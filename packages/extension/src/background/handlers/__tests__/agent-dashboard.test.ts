@@ -76,11 +76,11 @@ vi.mock('../../operator', () => ({
   getTrustedNodeContext: operatorMocks.getTrustedNodeContext,
 }));
 
-vi.mock('../../../runtime/agent-harness', () => ({
+vi.mock('../../../runtime/agent/harness', () => ({
   filterAgentDashboardState: harnessMocks.filterAgentDashboardState,
 }));
 
-vi.mock('../../../runtime/agent-registry', () => ({
+vi.mock('../../../runtime/agent/registry', () => ({
   listRegisteredSkills: registryMocks.listRegisteredSkills,
 }));
 

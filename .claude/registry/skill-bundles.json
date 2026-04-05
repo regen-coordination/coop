@@ -9,13 +9,20 @@
     "shared-module-change": {
       "entrypoint": "/plan",
       "default_mode": "interactive",
-      "skills": ["react", "web3", "data-layer", "error-handling-patterns", "testing"],
+      "skills": ["react", "web3", "data-layer", "testing"],
+      "note": "error-handling is now a react sub-file (react/error-handling.md)",
       "user_facing": false
     },
     "onchain-change": {
       "entrypoint": "/plan",
       "default_mode": "interactive",
       "skills": ["web3", "security", "testing"],
+      "user_facing": false
+    },
+    "sync-change": {
+      "entrypoint": "/plan",
+      "default_mode": "interactive",
+      "skills": ["data-layer", "testing", "security"],
       "user_facing": false
     },
     "app-change": {

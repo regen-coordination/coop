@@ -2,6 +2,7 @@ import type { CoopSharedState, ReceiverCapture, ReviewDraft } from '@coop/shared
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { makeCoopState } from '../../../__tests__/fixtures';
 import {
   ArchiveReceiptCard,
   ArtifactCard,
@@ -69,20 +70,20 @@ function makeDraftEditor(overrides: Record<string, unknown> = {}) {
     archiveReceiverCapture: vi.fn(async () => undefined),
     toggleReceiverCaptureArchiveWorthiness: vi.fn(async () => undefined),
     ...overrides,
-  } as DraftCardProps['draftEditor'];
+  } as unknown as DraftCardProps['draftEditor'];
 }
 
 const draftValue = makeDraft();
 
 function makeCoops(): CoopSharedState[] {
   return [
-    {
+    makeCoopState({
       profile: { id: 'coop-1', name: 'River Coop' },
-    },
-    {
+    }),
+    makeCoopState({
       profile: { id: 'coop-2', name: 'Soil Coop' },
-    },
-  ] as CoopSharedState[];
+    }),
+  ];
 }
 
 function makeCapture(overrides: Partial<ReceiverCapture> = {}): ReceiverCapture {
@@ -249,9 +250,9 @@ describe('sidepanel cards coverage', () => {
       id: 'receipt-1',
       gatewayUrl: 'https://storacha.link/ipfs/bafy-receipt',
     } as never;
-    const activeCoop = {
-      artifacts: [artifact],
-    } as CoopSharedState;
+    const activeCoop = makeCoopState({
+      artifacts: [artifact as unknown as CoopSharedState['artifacts'][number]],
+    });
 
     render(
       <ArtifactCard

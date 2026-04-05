@@ -850,12 +850,12 @@ describe('archive handlers', () => {
         spaceDid: 'did:key:space-2',
         delegationIssuer: 'did:key:issuer-2',
         gatewayBaseUrl: 'https://storacha.example',
-        proofs: [],
         allowsFilecoinInfo: true,
         expirationSeconds: 1200,
       },
       secrets: {
         spaceDelegation: 'space-proof-2',
+        proofs: [],
       },
     });
     const removeResult = await handleRemoveCoopArchiveConfig({

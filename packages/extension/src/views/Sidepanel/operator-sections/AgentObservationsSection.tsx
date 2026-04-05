@@ -119,5 +119,3 @@ export function AgentObservationsSection(props: AgentObservationsSectionProps) {
     </>
   );
 }
-
-export default AgentObservationsSection;

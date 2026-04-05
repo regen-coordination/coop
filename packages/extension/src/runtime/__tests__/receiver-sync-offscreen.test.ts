@@ -41,7 +41,7 @@ vi.mock('@coop/shared', async (importOriginal) => {
   };
 });
 
-vi.mock('../agent-runner', () => ({
+vi.mock('../agent/runner', () => ({
   runAgentCycle: runtimeMocks.runAgentCycle,
 }));
 

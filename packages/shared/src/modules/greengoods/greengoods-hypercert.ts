@@ -12,7 +12,7 @@ import type {
 } from '../../contracts/schema';
 import { greenGoodsHypercertMintRequestSchema } from '../../contracts/schema';
 import { hashJson, toPseudoCid, unique } from '../../utils';
-import type { CoopOnchainMode } from '../onchain/onchain';
+import type { CoopOnchainMode } from '../onchain';
 import {
   type GreenGoodsLiveExecutor,
   type GreenGoodsTransactionResult,

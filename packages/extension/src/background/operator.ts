@@ -9,7 +9,7 @@ import {
   listPrivilegedActionLog,
   setPrivilegedActionLog,
 } from '@coop/shared';
-import { isTrustedNodeRole } from '../runtime/agent-harness';
+import { isTrustedNodeRole } from '../runtime/agent/harness';
 import { describePrivilegedFeatureAvailability } from '../runtime/operator';
 import { resolveActiveReviewContext, resolveReceiverPairingMember } from '../runtime/receiver';
 import {

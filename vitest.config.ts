@@ -4,32 +4,22 @@ import { defineConfig } from 'vitest/config';
 
 const sharedRootEntry = path.resolve(__dirname, 'packages/shared/src/index.ts');
 const sharedAppEntry = path.resolve(__dirname, 'packages/shared/src/app-entry.ts');
-const appImporterSegment = `${path.sep}packages${path.sep}app${path.sep}`;
-const testImporterSegment = `${path.sep}__tests__${path.sep}`;
+const sharedSyncConfig = path.resolve(__dirname, 'packages/shared/src/sync-config.ts');
 const coverageEnabled = process.argv.includes('--coverage');
 
 export default defineConfig({
-  plugins: [
-    react(),
-    {
-      name: 'app-shared-entry-alias',
-      enforce: 'pre',
-      resolveId(source, importer) {
-        if (source !== '@coop/shared') {
-          return null;
-        }
-
-        return importer?.includes(appImporterSegment) && !importer.includes(testImporterSegment)
-          ? sharedAppEntry
-          : sharedRootEntry;
-      },
-    },
-  ],
+  plugins: [react()],
   resolve: {
-    alias: {
-      '@coop/shared/contracts': path.resolve(__dirname, 'packages/shared/src/contracts/index.ts'),
-      '@coop/api': path.resolve(__dirname, 'packages/api/config.ts'),
-    },
+    alias: [
+      { find: /^@coop\/shared\/app$/, replacement: sharedAppEntry },
+      {
+        find: /^@coop\/shared\/contracts$/,
+        replacement: path.resolve(__dirname, 'packages/shared/src/contracts/index.ts'),
+      },
+      { find: /^@coop\/shared\/sync-config$/, replacement: sharedSyncConfig },
+      { find: /^@coop\/shared$/, replacement: sharedRootEntry },
+      { find: /^@coop\/api$/, replacement: path.resolve(__dirname, 'packages/api/config.ts') },
+    ],
   },
   test: {
     environment: 'happy-dom',

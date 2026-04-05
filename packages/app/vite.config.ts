@@ -19,10 +19,24 @@ export default defineConfig({
   ],
   envDir: path.resolve(__dirname, '../..'),
   resolve: {
-    alias: {
-      '@coop/shared': path.resolve(__dirname, '../shared/src/app-entry.ts'),
-      '@coop/api': path.resolve(__dirname, '../api/config.ts'),
-    },
+    alias: [
+      {
+        find: /^@coop\/shared\/app$/,
+        replacement: path.resolve(__dirname, '../shared/src/app-entry.ts'),
+      },
+      {
+        find: /^@coop\/shared\/sync-config$/,
+        replacement: path.resolve(__dirname, '../shared/src/sync-config.ts'),
+      },
+      {
+        find: /^@coop\/shared$/,
+        replacement: path.resolve(__dirname, '../shared/src/index.ts'),
+      },
+      {
+        find: /^@coop\/api$/,
+        replacement: path.resolve(__dirname, '../api/config.ts'),
+      },
+    ],
   },
   build: {
     sourcemap: 'hidden',

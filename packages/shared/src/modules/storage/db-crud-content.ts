@@ -12,6 +12,7 @@ import {
   tabCandidateSchema,
 } from '../../contracts/schema';
 import { nowIso } from '../../utils';
+// Direct import to avoid circular dependency: storage barrel → coop barrel → outbox → storage
 import { arePageExtractsNearDuplicates } from '../coop/pipeline';
 import {
   encodeCoopDoc,
@@ -19,7 +20,7 @@ import {
   readCoopState,
   readCoopStateRaw,
   writeCoopState,
-} from '../coop/sync';
+} from '../sync-core';
 import {
   buildEncryptedLocalPayloadId,
   buildEncryptedLocalPayloadRecord,

@@ -166,7 +166,7 @@ vi.mock('../../operator', () => ({
 
 // --- Mocks for agent-harness ---
 
-vi.mock('../../../runtime/agent-harness', () => ({
+vi.mock('../../../runtime/agent/harness', () => ({
   filterAgentDashboardState: vi.fn((input) => ({
     observations: input.observations ?? [],
     plans: input.plans ?? [],
@@ -177,7 +177,7 @@ vi.mock('../../../runtime/agent-harness', () => ({
 
 // --- Mocks for agent-registry ---
 
-vi.mock('../../../runtime/agent-registry', () => ({
+vi.mock('../../../runtime/agent/registry', () => ({
   listRegisteredSkills: vi.fn(() => []),
 }));
 

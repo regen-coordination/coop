@@ -6,7 +6,7 @@ import {
   sanitizeTextForInference,
   saveAgentObservation,
 } from '@coop/shared';
-import { AGENT_HIGH_CONFIDENCE_THRESHOLD } from '../../runtime/agent-config';
+import { AGENT_HIGH_CONFIDENCE_THRESHOLD } from '../../runtime/agent/config';
 import { db } from '../context';
 import { requestAgentCycle } from './agent-cycle-helpers';
 

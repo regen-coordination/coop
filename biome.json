@@ -18,7 +18,17 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "nursery": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "@coop/shared/src": "Use @coop/shared barrel import instead of deep path into shared/src"
+            }
+          }
+        }
+      }
     }
   },
   "javascript": {

@@ -14,8 +14,7 @@ import type {
   OnchainState,
 } from '../../contracts/schema';
 import { hashJson, toDeterministicAddress, unique } from '../../utils';
-import { type CoopOnchainMode, getCoopChainConfig } from '../onchain/onchain';
-import { createCoopPublicClient } from '../onchain/provider';
+import { type CoopOnchainMode, createCoopPublicClient, getCoopChainConfig } from '../onchain';
 import {
   greenGoodsActionRegistryAbi,
   greenGoodsEnsAbi,

@@ -8,7 +8,7 @@ import {
   saveKnowledgeSkill,
 } from '@coop/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { parseSkillMd, selectKnowledgeSkills } from '../agent-knowledge';
+import { parseSkillMd, selectKnowledgeSkills } from '../agent/knowledge';
 
 // --- parseSkillMd ---
 

@@ -6,7 +6,7 @@ import {
   nowIso,
 } from '@coop/shared';
 import { describe, expect, it } from 'vitest';
-import { computeGrantFitScores, inferTabRoutingsHeuristically } from '../agent-runner-inference';
+import { computeGrantFitScores, inferTabRoutingsHeuristically } from '../agent/runner-inference';
 
 function buildSetupInsights() {
   return {

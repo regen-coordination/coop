@@ -5,7 +5,7 @@ import {
   AGENT_SETTING_KEYS,
   type AgentCycleRequest,
   type AgentCycleState,
-} from '../../runtime/agent-config';
+} from '../../runtime/agent/config';
 import { ensureReceiverSyncOffscreenDocument, getLocalSetting, setLocalSetting } from '../context';
 import { db } from '../context';
 import { syncAgentObservations } from './agent-reconciliation';

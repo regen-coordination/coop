@@ -219,7 +219,6 @@ function buildFacilitatorExpectation(spaceType: CoopSpaceType, artifactFocus: st
       return `A household organizer keeps ${focusText} legible so care, scheduling, and follow-through stay shared.`;
     case 'personal':
       return `You review ${focusText} and decide what stays private, what becomes a next step, and what is ready to archive.`;
-    case 'community':
     default:
       return `A trusted member steers ${focusText} into shared context, visible opportunities, and clear next steps.`;
   }
@@ -257,7 +256,6 @@ function buildWeeklyReviewCadence(spaceType: CoopSpaceType) {
       return 'Weekly family check-in';
     case 'personal':
       return 'Weekly self-review';
-    case 'community':
     default:
       return 'Weekly review circle';
   }

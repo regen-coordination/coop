@@ -285,7 +285,7 @@ test('landing page renders the refreshed narrative', async ({ page }) => {
   await expect(
     page.locator('#why-build .scene-team-name').filter({ hasText: 'Afolabi Aiyeloja' }).first(),
   ).toHaveText('Afolabi Aiyeloja');
-  await expect(page.getByText('Greenpill Dev Guild')).toBeVisible();
+  await expect(page.locator('.footer-copy')).toContainText('Greenpill Dev Guild');
 
   await page.getByRole('button', { name: /collective intelligence/i }).click();
   await expect(page.getByRole('dialog', { name: /collective intelligence/i })).toBeVisible();

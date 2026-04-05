@@ -1,4 +1,3 @@
-import type { ReviewDraft } from '@coop/shared';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { PopupCreateCoopScreen } from './PopupCreateCoopScreen';
 import { PopupDraftDetailScreen } from './PopupDraftDetailScreen';
@@ -98,7 +97,7 @@ export function PopupScreenRouter({ state }: { state: PopupOrchestrationState })
         <PopupDraftListScreen
           drafts={state.filteredDraftItems.map((draft) => ({
             ...draft,
-            ...state.resolveDraftValue(draft as unknown as ReviewDraft),
+            ...state.resolveDraftValue(draft),
           }))}
           filterTags={state.draftFilterTags}
           isCapturing={state.isRoundupInFlight}

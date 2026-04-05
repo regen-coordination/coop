@@ -64,7 +64,9 @@ let mockAddOutboxEntry: MockInstance<(...args: any[]) => any>;
 
 // Import after mocks are registered
 const { getCoops } = await import('../../context');
+const { refreshBadge } = await import('../../dashboard');
 const { getActiveReviewContextForSession } = await import('../../operator');
+const { requestAgentCycle } = await import('../agent');
 const { handleUpdateReviewDraft, handleUpdateMeetingSettings, publishDraftWithContext } =
   await import('../review');
 
@@ -441,6 +443,39 @@ describe('review handlers', () => {
 
       expect(result.ok).toBe(false);
       expect(mockAddOutboxEntry).not.toHaveBeenCalled();
+    });
+
+    it('returns published artifacts without waiting for follow-up refresh work', async () => {
+      const draft = makeTabDraft(coopState.profile.id, {
+        workflowStage: 'ready',
+      });
+      const neverSettles: Promise<never> = new Promise(() => {});
+
+      vi.spyOn(await import('@coop/shared'), 'getAuthSession').mockResolvedValue(AUTH_SESSION);
+      vi.spyOn(await import('@coop/shared'), 'getReviewDraft').mockResolvedValue(draft);
+      vi.spyOn(await import('@coop/shared'), 'deleteReviewDraft').mockResolvedValue(undefined);
+      vi.spyOn(await import('@coop/shared'), 'getTabRoutingByExtractAndCoop').mockResolvedValue(
+        undefined,
+      );
+      vi.mocked(requestAgentCycle).mockReturnValueOnce(neverSettles);
+      vi.mocked(refreshBadge).mockReturnValueOnce(neverSettles);
+
+      const result = await Promise.race([
+        publishDraftWithContext({
+          draft,
+          targetCoopIds: [coopState.profile.id],
+          authSession: AUTH_SESSION,
+          activeCoopId: coopState.profile.id,
+          activeMemberId: coopState.members[0]?.id,
+        }),
+        new Promise<'timed-out'>((resolve) => setTimeout(() => resolve('timed-out'), 25)),
+      ]);
+
+      expect(result).not.toBe('timed-out');
+      expect(result).toMatchObject({
+        ok: true,
+        data: expect.any(Array),
+      });
     });
   });
 });

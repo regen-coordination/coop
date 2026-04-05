@@ -23,12 +23,14 @@ export function LanguageSelector() {
   };
 
   return (
-    <div className="language-selector-shell">
+    <div className={`language-selector-shell ${isOpen ? 'is-open' : ''}`}>
       <button
+        type="button"
         className="language-selector-trigger"
         onClick={() => setIsOpen(!isOpen)}
-        aria-haspopup="listbox"
+        aria-haspopup="true"
         aria-expanded={isOpen}
+        aria-label={`Current language: ${currentLanguage?.label ?? 'English'}. Select language`}
         title="Select language"
       >
         <span className="language-selector-label">{displayLabel}</span>
@@ -51,21 +53,22 @@ export function LanguageSelector() {
       </button>
 
       {isOpen && (
-        <div className="language-selector-dropdown">
+        <ul className="language-selector-dropdown" aria-label="Available languages">
           {LANGUAGES.map((lang) => (
-            <button
-              key={lang.code}
-              className={`language-selector-option ${language === lang.code ? 'is-active' : ''}`}
-              onClick={() => handleSelectLanguage(lang.code)}
-              role="option"
-              aria-selected={language === lang.code}
-              title={lang.label}
-            >
-              <span className="option-code">{lang.code.toUpperCase()}</span>
-              <span className="option-name">{lang.nativeName}</span>
-            </button>
+            <li key={lang.code}>
+              <button
+                type="button"
+                className={`language-selector-option ${language === lang.code ? 'is-active' : ''}`}
+                onClick={() => handleSelectLanguage(lang.code)}
+                aria-pressed={language === lang.code}
+                title={lang.label}
+              >
+                <span className="option-code">{lang.code.toUpperCase()}</span>
+                <span className="option-name">{lang.nativeName}</span>
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import * as encoding from 'lib0/encoding';
 import * as awarenessProtocol from 'y-protocols/awareness';
 import * as syncProtocol from 'y-protocols/sync';
 import * as Y from 'yjs';
+import { rawKey } from './ws-utils';
 
 const messageSync = 0;
 const messageAwareness = 1;
@@ -19,23 +20,15 @@ export interface YjsRoom {
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
   /** ws stable key -> WSContext (latest wrapper for that connection). */
-  conns: Map<unknown, WSContext>;
+  conns: Map<object, WSContext>;
   /** ws stable key -> set of awareness client IDs controlled by that connection. */
-  awarenessClientIDs: Map<unknown, Set<number>>;
+  awarenessClientIDs: Map<object, Set<number>>;
   /** ws stable key -> count of active blob relay requests originated by that connection. */
-  blobRelayRequestCounts: Map<unknown, number>;
+  blobRelayRequestCounts: Map<object, number>;
   /** Pending cleanup timer handle, if the room is scheduled for destruction. */
   cleanupTimer: ReturnType<typeof setTimeout> | null;
-}
-
-/**
- * Stable identity key for a WSContext.
- *
- * Hono's Bun adapter creates a fresh WSContext wrapper per event, so we
- * key on ws.raw (the underlying Bun ServerWebSocket) which is stable.
- */
-function rawKey(ws: WSContext): unknown {
-  return ws.raw ?? ws;
+  /** Set to true after destroyRoom — guards deferred callbacks. */
+  destroyed: boolean;
 }
 
 /**
@@ -44,8 +37,7 @@ function rawKey(ws: WSContext): unknown {
  */
 function send(ws: WSContext, message: Uint8Array): void {
   const readyState = ws.readyState;
-  // 0 = CONNECTING, 1 = OPEN
-  if (readyState !== 0 && readyState !== 1) {
+  if (readyState !== 1) {
     return;
   }
   try {
@@ -57,7 +49,7 @@ function send(ws: WSContext, message: Uint8Array): void {
 }
 
 /** Find a connection key by its string ID. */
-function findConnKeyById(room: YjsRoom, connId: string): unknown | undefined {
+function findConnKeyById(room: YjsRoom, connId: string): object | undefined {
   for (const connKey of room.conns.keys()) {
     if (String(connKey) === connId) return connKey;
   }
@@ -67,7 +59,7 @@ function findConnKeyById(room: YjsRoom, connId: string): unknown | undefined {
 /**
  * Broadcast a binary message to all connections in a room except the origin.
  */
-function broadcast(room: YjsRoom, message: Uint8Array, origin: unknown): void {
+function broadcast(room: YjsRoom, message: Uint8Array, origin: object | null): void {
   for (const [key, conn] of room.conns) {
     if (key !== origin) {
       send(conn, message);
@@ -81,7 +73,7 @@ function setupRoomListeners(room: YjsRoom): void {
     encoding.writeVarUint(encoder, messageSync);
     syncProtocol.writeUpdate(encoder, update);
     const message = encoding.toUint8Array(encoder);
-    broadcast(room, message, origin);
+    broadcast(room, message, origin as object | null);
   });
 
   room.awareness.on(
@@ -119,6 +111,7 @@ function createRoom(): YjsRoom {
     awarenessClientIDs: new Map(),
     blobRelayRequestCounts: new Map(),
     cleanupTimer: null,
+    destroyed: false,
   };
 
   setupRoomListeners(room);
@@ -126,6 +119,7 @@ function createRoom(): YjsRoom {
 }
 
 function destroyRoom(room: YjsRoom): void {
+  room.destroyed = true;
   room.awareness.destroy();
   room.doc.destroy();
   if (room.cleanupTimer) {
@@ -136,13 +130,15 @@ function destroyRoom(room: YjsRoom): void {
 
 // --- File-based Y.Doc persistence (Bun-compatible, no native deps) ---
 
-async function loadRoomState(persistDir: string, roomName: string, doc: Y.Doc): Promise<void> {
+async function loadRoomState(persistDir: string, roomName: string, room: YjsRoom): Promise<void> {
   try {
     const filePath = `${persistDir}/${encodeURIComponent(roomName)}.ystate`;
     const file = Bun.file(filePath);
     if (await file.exists()) {
+      if (room.destroyed) return;
       const buffer = await file.arrayBuffer();
-      Y.applyUpdate(doc, new Uint8Array(buffer));
+      if (room.destroyed) return;
+      Y.applyUpdate(room.doc, new Uint8Array(buffer));
     }
   } catch {
     // Persistence is best-effort; missing or corrupt files are non-fatal.
@@ -171,6 +167,8 @@ export interface YjsSyncHandlerOptions {
 export function createYjsSyncHandlers(options?: YjsSyncHandlerOptions) {
   const rooms = new Map<string, YjsRoom>();
   const persistDir = options?.persistDir;
+  /** Tracks in-flight persistence loads so sync step 1 can be deferred. */
+  const loadingPromises = new Map<string, Promise<void>>();
 
   function getOrCreateRoom(roomName: string): YjsRoom {
     let room = rooms.get(roomName);
@@ -178,9 +176,11 @@ export function createYjsSyncHandlers(options?: YjsSyncHandlerOptions) {
       room = createRoom();
       rooms.set(roomName, room);
 
-      // Load persisted state if available (async, non-blocking)
       if (persistDir) {
-        void loadRoomState(persistDir, roomName, room.doc);
+        const promise = loadRoomState(persistDir, roomName, room).finally(() => {
+          loadingPromises.delete(roomName);
+        });
+        loadingPromises.set(roomName, promise);
       }
     }
     // Cancel pending cleanup if a new client joins
@@ -204,6 +204,7 @@ export function createYjsSyncHandlers(options?: YjsSyncHandlerOptions) {
         }
         destroyRoom(room);
         rooms.delete(roomName);
+        loadingPromises.delete(roomName);
       }
       room.cleanupTimer = null;
     }, ROOM_CLEANUP_DELAY);
@@ -244,31 +245,50 @@ export function createYjsSyncHandlers(options?: YjsSyncHandlerOptions) {
       room.awarenessClientIDs.set(key, new Set());
       room.blobRelayRequestCounts.set(key, 0);
 
-      // Send sync step 1 so the client knows the server's state
-      const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, messageSync);
-      syncProtocol.writeSyncStep1(encoder, room.doc);
-      send(ws, encoding.toUint8Array(encoder));
+      const sendInitialSync = () => {
+        if (room.destroyed || ws.readyState !== 1) return;
 
-      // If there are existing awareness states, send them to the new client
-      const awarenessStates = room.awareness.getStates();
-      if (awarenessStates.size > 0) {
-        const encoder2 = encoding.createEncoder();
-        encoding.writeVarUint(encoder2, messageAwareness);
-        encoding.writeVarUint8Array(
-          encoder2,
-          awarenessProtocol.encodeAwarenessUpdate(
-            room.awareness,
-            Array.from(awarenessStates.keys()),
-          ),
-        );
-        send(ws, encoding.toUint8Array(encoder2));
+        // Send sync step 1 so the client knows the server's state
+        const encoder = encoding.createEncoder();
+        encoding.writeVarUint(encoder, messageSync);
+        syncProtocol.writeSyncStep1(encoder, room.doc);
+        send(ws, encoding.toUint8Array(encoder));
+
+        // If there are existing awareness states, send them to the new client
+        const awarenessStates = room.awareness.getStates();
+        if (awarenessStates.size > 0) {
+          const encoder2 = encoding.createEncoder();
+          encoding.writeVarUint(encoder2, messageAwareness);
+          encoding.writeVarUint8Array(
+            encoder2,
+            awarenessProtocol.encodeAwarenessUpdate(
+              room.awareness,
+              Array.from(awarenessStates.keys()),
+            ),
+          );
+          send(ws, encoding.toUint8Array(encoder2));
+        }
+      };
+
+      // Defer sync step 1 until persisted state has loaded
+      const pending = loadingPromises.get(roomName);
+      if (pending) {
+        void pending.then(sendInitialSync);
+      } else {
+        sendInitialSync();
       }
     },
 
     onMessage(roomName: string, ws: WSContext, data: Uint8Array): void {
       const room = rooms.get(roomName);
       if (!room) return;
+
+      // Defer message processing until persisted state has loaded
+      const pending = loadingPromises.get(roomName);
+      if (pending) {
+        void pending.then(() => this.onMessage(roomName, ws, data));
+        return;
+      }
 
       const key = rawKey(ws);
 

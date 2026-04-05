@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getRegisteredSkill, listRegisteredSkills } from '../agent-registry';
+import { getRegisteredSkill, listRegisteredSkills } from '../agent/registry';
 
 describe('agent skill registry', () => {
   it('loads bundled skills with manifests and instructions', () => {

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeAuthSession, makeCoopState } from '../../../__tests__/fixtures';
 
 const mocks = vi.hoisted(() => ({
   buildSmartSession: vi.fn(() => ({
@@ -118,8 +119,8 @@ const {
   resolveSessionTargetAllowlist,
 } = await import('../session');
 
-function buildCoop(overrides: Record<string, unknown> = {}) {
-  return {
+function buildCoop(overrides: Parameters<typeof makeCoopState>[0] = {}) {
+  return makeCoopState({
     profile: { id: 'coop-1' },
     onchainState: {
       chainKey: 'sepolia',
@@ -127,19 +128,20 @@ function buildCoop(overrides: Record<string, unknown> = {}) {
     },
     greenGoods: {
       enabled: true,
-      ...overrides.greenGoods,
+      ...(overrides.greenGoods ?? {}),
     },
     ...overrides,
-  };
+  });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   contextMocks.settingsGet.mockResolvedValue(undefined);
-  mocks.getAuthSession.mockResolvedValue({
-    authMode: 'passkey',
-    primaryAddress: '0x9999999999999999999999999999999999999999',
-  });
+  mocks.getAuthSession.mockResolvedValue(
+    makeAuthSession({
+      primaryAddress: '0x9999999999999999999999999999999999999999',
+    }),
+  );
   operatorMocks.requireCreatorGrantManager.mockResolvedValue({
     ok: true,
     coop: buildCoop(),

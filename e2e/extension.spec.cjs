@@ -239,6 +239,67 @@ async function sendRuntimeMessage(page, message) {
   return page.evaluate(async (payload) => chrome.runtime.sendMessage(payload), message);
 }
 
+async function setAgentSkillAutoRun(page, skillId, enabled) {
+  const response = await sendRuntimeMessage(page, {
+    type: 'set-agent-skill-auto-run',
+    payload: { skillId, enabled },
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error ?? `Could not update auto-run for ${skillId}.`);
+  }
+
+  return response.data;
+}
+
+async function runAgentCycle(page) {
+  return page.evaluate(() => {
+    void chrome.runtime.sendMessage({
+      type: 'run-agent-cycle',
+    });
+    return true;
+  });
+}
+
+async function approveAgentPlan(page, planId) {
+  const response = await sendRuntimeMessage(page, {
+    type: 'approve-agent-plan',
+    payload: { planId },
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error ?? `Could not approve agent plan ${planId}.`);
+  }
+
+  return response.data;
+}
+
+async function approveActionBundle(page, bundleId) {
+  const response = await sendRuntimeMessage(page, {
+    type: 'approve-action',
+    payload: { bundleId },
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error ?? `Could not approve action bundle ${bundleId}.`);
+  }
+
+  return response.data;
+}
+
+async function executeActionBundle(page, bundleId) {
+  const response = await sendRuntimeMessage(page, {
+    type: 'execute-action',
+    payload: { bundleId },
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error ?? `Could not execute action bundle ${bundleId}.`);
+  }
+
+  return response.data;
+}
+
 function buildSeedCoopPayload(input, creator) {
   return {
     coopName: input.coopName,
@@ -428,6 +489,69 @@ async function getAgentDashboard(page) {
     chrome.runtime.sendMessage({ type: 'get-agent-dashboard' }),
   );
   return response?.ok ? response.data : null;
+}
+
+async function waitForGardenLinkOrPlan(page, coopName, timeoutMs = 45000) {
+  const startedAt = Date.now();
+  let lastDashboard = null;
+  let lastAgentDashboard = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastDashboard = await getDashboard(page);
+    const coop = lastDashboard?.coops.find((candidate) => candidate.profile.name === coopName);
+    const gardenAddress = coop?.greenGoods?.gardenAddress ?? null;
+    if (gardenAddress) {
+      return { kind: 'garden-linked', gardenAddress };
+    }
+
+    lastAgentDashboard = await getAgentDashboard(page);
+    const pendingPlan = lastAgentDashboard?.plans.find(
+      (plan) =>
+        plan.status === 'pending' &&
+        plan.actionProposals.some(
+          (proposal) => proposal.actionClass === 'green-goods-create-garden',
+        ),
+    );
+    if (pendingPlan) {
+      return { kind: 'plan-pending', planId: pendingPlan.id };
+    }
+
+    await page.waitForTimeout(500);
+  }
+
+  const knownPlans = (lastAgentDashboard?.plans ?? [])
+    .slice(0, 5)
+    .map(
+      (plan) =>
+        `${plan.status}:${plan.actionProposals.map((proposal) => proposal.actionClass).join(',')}`,
+    );
+  throw new Error(
+    `Timed out waiting for a linked Green Goods garden or pending plan for ${coopName}. Recent plans: ${knownPlans.join(' | ') || 'none'}.`,
+  );
+}
+
+async function waitForActionBundle(page, select, timeoutMs = 30000, label = 'action bundle') {
+  const startedAt = Date.now();
+  let lastDashboard = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastDashboard = await getDashboard(page);
+    if (lastDashboard) {
+      const value = select(lastDashboard.operator?.policyActionQueue ?? []);
+      if (value) {
+        return value;
+      }
+    }
+
+    await page.waitForTimeout(250);
+  }
+
+  const knownBundles = (lastDashboard?.operator?.policyActionQueue ?? [])
+    .slice(0, 5)
+    .map((bundle) => `${bundle.status}:${bundle.actionClass}:${bundle.id}`);
+  throw new Error(
+    `Timed out waiting for ${label}. Recent queued bundles: ${knownBundles.join(' | ') || 'none'}.`,
+  );
 }
 
 async function launchExtensionProfile(userDataDir) {
@@ -883,10 +1007,12 @@ test.describe('extension workflow', () => {
       await expect(
         creatorProfile.page.getByText('opportunity-extractor', { exact: true }).first(),
       ).toBeVisible();
-
-      await creatorProfile.page
-        .getByRole('button', { name: /(run agent cycle|check the helpers)/i })
-        .click();
+      await expect(
+        creatorProfile.page.getByRole('heading', {
+          name: 'Trusted Helpers',
+        }),
+      ).toBeVisible();
+      await runAgentCycle(creatorProfile.page);
       let capitalFormationCompleted = false;
       let recentRunSummary = [];
       for (let attempt = 0; attempt < 18; attempt += 1) {
@@ -977,7 +1103,7 @@ test.describe('extension workflow', () => {
     const creatorProfile = await launchExtensionProfile(creatorUserDataDir);
 
     try {
-      await seedExtensionCoop(creatorProfile.page, {
+      const { coop } = await seedExtensionCoop(creatorProfile.page, {
         coopName: 'Garden Pass Coop',
         purpose: 'Exercise sidepanel member-account and garden-pass actions before release.',
         creatorName: 'Ari',
@@ -1010,7 +1136,31 @@ test.describe('extension workflow', () => {
         name: /(run agent cycle|check the helpers)/i,
       });
       await ensureNestSubTabReady(creatorProfile.page, 'Agent', runAgentCycleButton, 30_000);
-      await runAgentCycleButton.click();
+      await setAgentSkillAutoRun(creatorProfile.page, 'green-goods-garden-bootstrap', true);
+      await runAgentCycleButton.dispatchEvent('click');
+      const gardenLinkResult = await waitForGardenLinkOrPlan(
+        creatorProfile.page,
+        'Garden Pass Coop',
+        45_000,
+      );
+      if (gardenLinkResult.kind === 'plan-pending') {
+        await approveAgentPlan(creatorProfile.page, gardenLinkResult.planId);
+        const createGardenBundle = await waitForActionBundle(
+          creatorProfile.page,
+          (bundles) =>
+            bundles.find(
+              (bundle) =>
+                bundle.actionClass === 'green-goods-create-garden' &&
+                bundle.coopId === coop.profile.id,
+            ) ?? null,
+          30_000,
+          'Green Goods create-garden action bundle',
+        );
+        if (createGardenBundle.status === 'proposed') {
+          await approveActionBundle(creatorProfile.page, createGardenBundle.id);
+        }
+        await executeActionBundle(creatorProfile.page, createGardenBundle.id);
+      }
       await waitForDashboardValue(
         creatorProfile.page,
         (dashboard) => {
@@ -1023,30 +1173,29 @@ test.describe('extension workflow', () => {
         'linked Green Goods garden for Garden Pass Coop',
       );
 
-      const provisionGardenAccountButton = creatorProfile.page.getByRole('button', {
-        name: /provision my garden account/i,
-      });
-      await ensureRoostSubTabReady(creatorProfile.page, 'Garden', provisionGardenAccountButton);
-      await provisionGardenAccountButton.click();
       await waitForDashboardValue(
         creatorProfile.page,
         (dashboard) => {
-          const coop = dashboard?.coops.find(
-            (candidate) => candidate.profile.name === 'Garden Pass Coop',
+          const liveCoop = dashboard?.coops.find(
+            (candidate) => candidate.profile.id === coop.profile.id,
           );
-          return coop?.memberAccounts.find(
+          return liveCoop?.memberAccounts.find(
             (account) =>
               account.memberId === coop.members[0]?.id &&
               Boolean(account.accountAddress) &&
-              account.status === 'predicted',
+              (account.status === 'predicted' || account.status === 'active'),
           )
             ? true
             : null;
         },
         30_000,
-        'predicted member account for Garden Pass Coop',
+        'member account ready for Garden Pass Coop',
       );
-      await openFooterTab(creatorProfile.page, 'Roost');
+
+      const gardenAccountButton = creatorProfile.page.getByRole('button', {
+        name: /(provision my garden account|refresh local garden account)/i,
+      });
+      await ensureRoostSubTabReady(creatorProfile.page, 'Garden', gardenAccountButton);
       await expect(
         creatorProfile.page.getByRole('button', { name: /refresh local garden account/i }),
       ).toBeVisible({

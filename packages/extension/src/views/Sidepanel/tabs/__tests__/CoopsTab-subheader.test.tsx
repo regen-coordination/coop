@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * CoopsTab subheader regression fix:
@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  */
 
 import type { CoopSharedState } from '@coop/shared';
+import { installChromeMock } from '../../../../__tests__/fixtures';
 import type { DashboardResponse } from '../../../../runtime/messages';
 import { CoopsTab, type CoopsTabProps } from '../CoopsTab';
 
@@ -96,6 +97,10 @@ function buildProps(overrides: Partial<CoopsTabProps> = {}): CoopsTabProps {
   };
 }
 
+beforeEach(() => {
+  installChromeMock();
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -168,6 +173,19 @@ describe('CoopsTab subheader — Level 2 (detail view)', () => {
 
     const exportBtn = screen.getByLabelText('Export Proof');
     expect(exportBtn.classList.contains('popup-icon-button')).toBe(true);
+  });
+
+  it('opens the board via chrome.tabs.create when the action is clicked', async () => {
+    const user = userEvent.setup();
+    const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    await enterDetailView();
+    await user.click(screen.getByLabelText('Open Board'));
+
+    expect(globalThis.chrome.tabs.create).toHaveBeenCalledWith({
+      url: 'https://board.example.com',
+    });
+    expect(windowOpenSpy).not.toHaveBeenCalled();
   });
 
   it('wraps action row in a sticky sidepanel-subheader in detail view', async () => {

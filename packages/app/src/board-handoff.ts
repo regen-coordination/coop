@@ -1,4 +1,4 @@
-import { type CoopBoardSnapshot, decodeCoopBoardSnapshot } from '@coop/shared';
+import { type CoopBoardSnapshot, decodeCoopBoardSnapshot } from '@coop/shared/app';
 
 function resolveBoardCoopId(pathname: string) {
   const match = pathname.match(/^\/board\/([^/]+)$/);

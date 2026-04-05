@@ -12,6 +12,7 @@
     "dev": "bun --watch src/index.ts"
   },
   "dependencies": {
+    "@coop/shared": "workspace:*",
     "hono": "^4.7.0",
     "lib0": "^0.2.117",
     "y-protocols": "^1.0.7",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",
+    "@types/ws": "^8.18.1",
     "typescript": "^5.8.2",
     "ws": "^8.18.3"
   }

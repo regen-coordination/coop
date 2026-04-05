@@ -58,6 +58,7 @@ import {
   requestAgentCycle,
   syncHighConfidenceDraftObservations,
 } from './agent';
+import { queueFollowUp } from './follow-up';
 
 /**
  * Persist an invite mutation into the Yjs doc record stored in Dexie.
@@ -537,15 +538,19 @@ export async function handleConvertReceiverIntake(
         });
 
   await saveReviewDraft(db, draft);
-  await syncHighConfidenceDraftObservations([draft]);
-  await requestAgentCycle(`receiver-draft:${draft.id}`);
   await updateReceiverCapture(db, capture.id, {
     intakeStatus: receiverDraftStageToIntakeStatus(draft.workflowStage),
     linkedDraftId: draft.id,
     archivedAt: undefined,
     updatedAt: nowIso(),
   });
-  await refreshBadge();
+  queueFollowUp(
+    'receiver',
+    'sync-high-confidence-draft-observations',
+    syncHighConfidenceDraftObservations([draft]),
+  );
+  queueFollowUp('receiver', 'request-agent-cycle', requestAgentCycle(`receiver-draft:${draft.id}`));
+  queueFollowUp('receiver', 'refresh-badge', refreshBadge());
 
   return {
     ok: true,
@@ -571,8 +576,12 @@ export async function handleArchiveReceiverIntake(
     linkedDraftId: undefined,
     updatedAt: nowIso(),
   });
-  await requestAgentCycle(`receiver-archive:${capture.id}`);
-  await refreshBadge();
+  queueFollowUp(
+    'receiver',
+    'request-agent-cycle',
+    requestAgentCycle(`receiver-archive:${capture.id}`),
+  );
+  queueFollowUp('receiver', 'refresh-badge', refreshBadge());
 
   return { ok: true } satisfies RuntimeActionResponse;
 }
@@ -624,7 +633,7 @@ export async function handleSetReceiverIntakeArchiveWorthiness(
     }
   }
 
-  await refreshBadge();
+  queueFollowUp('receiver', 'refresh-badge', refreshBadge());
   return {
     ok: true,
     data: nextCapture,

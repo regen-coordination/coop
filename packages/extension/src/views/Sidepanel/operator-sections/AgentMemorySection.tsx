@@ -78,5 +78,3 @@ export function AgentMemorySection({ memories }: { memories: AgentMemory[] }) {
     </details>
   );
 }
-
-export default AgentMemorySection;

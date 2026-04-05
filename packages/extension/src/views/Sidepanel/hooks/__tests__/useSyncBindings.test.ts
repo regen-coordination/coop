@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeCoopState } from '../../../../__tests__/fixtures';
 
 const {
   buildIceServersMock,
@@ -21,7 +22,7 @@ const {
   mergeCoopDocUpdatesMock: vi.fn(() => new Uint8Array([9, 9])),
   readCoopStateMock: vi.fn(),
   sendRuntimeMessageMock: vi.fn(),
-  summarizeSyncTransportHealthMock: vi.fn(() => ({
+  summarizeSyncTransportHealthMock: vi.fn((_webrtc?: unknown, _websocket?: unknown) => ({
     syncError: false,
     note: 'Healthy sync',
   })),
@@ -51,6 +52,14 @@ vi.mock('../../../../runtime/messages', () => ({
 const { useSyncBindings } = await import('../useSyncBindings');
 
 type DocUpdateHandler = (update: Uint8Array) => void;
+
+function makeSyncCoop(overrides: Parameters<typeof makeCoopState>[0] = {}) {
+  return makeCoopState({
+    profile: { id: 'coop-1' },
+    syncRoom: { roomId: 'room-1' },
+    ...overrides,
+  });
+}
 
 describe('useSyncBindings', () => {
   beforeEach(() => {
@@ -97,10 +106,7 @@ describe('useSyncBindings', () => {
     sendRuntimeMessageMock.mockResolvedValue({ ok: true });
 
     const loadDashboard = vi.fn(async () => undefined);
-    const coop = {
-      profile: { id: 'coop-1' },
-      syncRoom: { roomId: 'room-1' },
-    } as never;
+    const coop = makeSyncCoop();
 
     const { rerender, unmount } = renderHook(
       ({ coops }) =>
@@ -109,7 +115,7 @@ describe('useSyncBindings', () => {
           loadDashboard,
         }),
       {
-        initialProps: { coops: [coop] as unknown[] },
+        initialProps: { coops: [coop] },
       },
     );
 
@@ -154,8 +160,8 @@ describe('useSyncBindings', () => {
       coops: [
         {
           ...coop,
-          profile: { id: 'coop-1', name: 'Updated River Coop' },
-        } as never,
+          profile: { ...coop.profile, name: 'Updated River Coop' },
+        },
       ],
     });
 
@@ -198,12 +204,7 @@ describe('useSyncBindings', () => {
     const loadDashboard = vi.fn(async () => undefined);
     renderHook(() =>
       useSyncBindings({
-        coops: [
-          {
-            profile: { id: 'coop-1' },
-            syncRoom: { roomId: 'room-1' },
-          } as never,
-        ],
+        coops: [makeSyncCoop()],
         loadDashboard,
       }),
     );
@@ -242,12 +243,7 @@ describe('useSyncBindings', () => {
 
     renderHook(() =>
       useSyncBindings({
-        coops: [
-          {
-            profile: { id: 'coop-1' },
-            syncRoom: { roomId: 'room-1' },
-          } as never,
-        ],
+        coops: [makeSyncCoop()],
         loadDashboard: vi.fn(async () => undefined),
         websocketSyncUrl: 'wss://sync.coop.test/yjs',
       }),
@@ -259,7 +255,7 @@ describe('useSyncBindings', () => {
 
     expect(connectSyncProvidersMock).toHaveBeenCalledWith(
       doc,
-      { roomId: 'room-1' },
+      expect.objectContaining({ roomId: 'room-1' }),
       ['ice-server'],
       'wss://sync.coop.test/yjs',
     );
@@ -291,8 +287,8 @@ describe('useSyncBindings', () => {
       .mockReturnValueOnce(degradedProviders);
     hashJsonMock.mockReturnValue('hash-local');
     sendRuntimeMessageMock.mockResolvedValue({ ok: true });
-    summarizeSyncTransportHealthMock.mockImplementation((webrtc: { id?: string } | null) =>
-      webrtc?.id === 'degraded-webrtc'
+    summarizeSyncTransportHealthMock.mockImplementation((webrtc: unknown) =>
+      (webrtc as { id?: string } | null)?.id === 'degraded-webrtc'
         ? {
             syncError: true,
             note: 'Second coop degraded',
@@ -306,14 +302,11 @@ describe('useSyncBindings', () => {
     renderHook(() =>
       useSyncBindings({
         coops: [
-          {
-            profile: { id: 'coop-1' },
-            syncRoom: { roomId: 'room-1' },
-          } as never,
-          {
-            profile: { id: 'coop-2' },
+          makeSyncCoop(),
+          makeSyncCoop({
+            profile: { id: 'coop-2', name: 'Coop 2' },
             syncRoom: { roomId: 'room-2' },
-          } as never,
+          }),
         ],
         loadDashboard: vi.fn(async () => undefined),
       }),

@@ -249,17 +249,26 @@ export function useDashboard() {
   }, []);
 
   const loadDashboard = useCallback(async () => {
-    const response = await sendRuntimeMessage<DashboardResponse>({ type: 'get-dashboard' });
-    if (response.ok && response.data) {
-      setDashboard(response.data);
-    } else if (response.error) {
-      setMessage(response.error);
+    try {
+      const response = await sendRuntimeMessage<DashboardResponse>({ type: 'get-dashboard' });
+      if (response.ok && response.data) {
+        setDashboard(response.data);
+      } else if (response.error) {
+        setMessage(response.error);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load the sidepanel.');
     }
-    const policiesResponse = await sendRuntimeMessage<ActionPolicy[]>({
-      type: 'get-action-policies',
-    });
-    if (policiesResponse.ok && policiesResponse.data) {
-      setActionPolicies(policiesResponse.data);
+
+    try {
+      const policiesResponse = await sendRuntimeMessage<ActionPolicy[]>({
+        type: 'get-action-policies',
+      });
+      if (policiesResponse.ok && policiesResponse.data) {
+        setActionPolicies(policiesResponse.data);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load action policies.');
     }
   }, []);
 
@@ -290,13 +299,17 @@ export function useDashboard() {
   );
 
   const loadAgentDashboard = useCallback(async () => {
-    const response = await sendRuntimeMessage<AgentDashboardResponse>({
-      type: 'get-agent-dashboard',
-    });
-    if (response.ok && response.data) {
-      setAgentDashboard(response.data);
-    } else if (response.error) {
-      setMessage(response.error);
+    try {
+      const response = await sendRuntimeMessage<AgentDashboardResponse>({
+        type: 'get-agent-dashboard',
+      });
+      if (response.ok && response.data) {
+        setAgentDashboard(response.data);
+      } else if (response.error) {
+        setMessage(response.error);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load helper state.');
     }
   }, []);
 

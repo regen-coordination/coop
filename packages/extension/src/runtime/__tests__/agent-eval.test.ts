@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { loadSkillEvalCases, runAllSkillEvals, runSkillEvalCase } from '../agent-eval';
-import type { SkillEvalCase } from '../agent-eval';
+import { loadSkillEvalCases, runAllSkillEvals, runSkillEvalCase } from '../agent/eval';
+import type { SkillEvalCase } from '../agent/eval';
 
 const ALL_SKILL_IDS = [
   'capital-formation-brief',

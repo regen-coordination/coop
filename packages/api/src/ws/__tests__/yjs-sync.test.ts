@@ -82,7 +82,7 @@ describe('createYjsSyncHandlers', () => {
     handlers.onOpen('test-room', ws);
 
     expect(ws.sent).toHaveLength(1);
-    const msgType = readMessageType(ws.sent[0]);
+    const msgType = readMessageType(ws.sent[0]!);
     expect(msgType).toBe(messageSync);
   });
 
@@ -115,7 +115,7 @@ describe('createYjsSyncHandlers', () => {
 
     // Server should respond with sync step 2
     expect(ws.sent.length).toBeGreaterThanOrEqual(1);
-    const msgType = readMessageType(ws.sent[0]);
+    const msgType = readMessageType(ws.sent[0]!);
     expect(msgType).toBe(messageSync);
   });
 
@@ -366,7 +366,7 @@ describe('createYjsSyncHandlers', () => {
       expect(ws3.sent).toHaveLength(1);
 
       // Verify the payload has originConnectionId stamped
-      const payload = extractBlobRelayPayload(ws2.sent[0]);
+      const payload = extractBlobRelayPayload(ws2.sent[0]!);
       expect(payload?.type).toBe('blob-relay-request');
       expect(payload?.originConnectionId).toBeDefined();
       expect(typeof payload?.originConnectionId).toBe('string');
@@ -401,7 +401,7 @@ describe('createYjsSyncHandlers', () => {
       expect(ws1.sent).toHaveLength(1);
       expect(ws2.sent).toHaveLength(0);
 
-      const payload = extractBlobRelayPayload(ws1.sent[0]);
+      const payload = extractBlobRelayPayload(ws1.sent[0]!);
       expect(payload?.type).toBe('blob-relay-chunk');
     });
 
@@ -428,7 +428,7 @@ describe('createYjsSyncHandlers', () => {
       expect(ws1.sent).toHaveLength(1);
       expect(ws2.sent).toHaveLength(0);
 
-      const payload = extractBlobRelayPayload(ws1.sent[0]);
+      const payload = extractBlobRelayPayload(ws1.sent[0]!);
       expect(payload?.type).toBe('blob-relay-not-found');
     });
 
@@ -451,7 +451,7 @@ describe('createYjsSyncHandlers', () => {
       expect(ws1.sent).toHaveLength(0);
       expect(ws2.sent).toHaveLength(1);
 
-      const payload = extractBlobRelayPayload(ws2.sent[0]);
+      const payload = extractBlobRelayPayload(ws2.sent[0]!);
       expect(payload?.type).toBe('blob-relay-manifest');
       expect(payload?.originConnectionId).toBeDefined();
     });
@@ -565,6 +565,133 @@ describe('createYjsSyncHandlers', () => {
       // Should not throw
       handlers.onMessage('room', ws1, badMsg);
       expect(ws2.sent).toHaveLength(0);
+    });
+  });
+
+  // --- Persistence deferral tests ---
+
+  describe('persistence loading deferral', () => {
+    let loadResolve: () => void;
+    const originalBun = globalThis.Bun;
+
+    beforeEach(() => {
+      // Mock Bun.file to create a controllable loading promise.
+      // Vitest runs in Node/happy-dom so Bun may not exist.
+      (globalThis as Record<string, unknown>).Bun = {
+        ...((originalBun as Record<string, unknown>) ?? {}),
+        file: () => ({
+          exists: () =>
+            new Promise<boolean>((resolve) => {
+              loadResolve = () => resolve(false);
+            }),
+          arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+        }),
+        write: () => Promise.resolve(0),
+      };
+    });
+
+    afterEach(() => {
+      if (originalBun) {
+        (globalThis as Record<string, unknown>).Bun = originalBun;
+      } else {
+        delete (globalThis as Record<string, unknown>).Bun;
+      }
+    });
+
+    it('defers sync step 1 until persisted state finishes loading', async () => {
+      const handlers = createYjsSyncHandlers({ persistDir: '/tmp/test-yjs' });
+      const ws = createMockWS();
+
+      handlers.onOpen('test-room', ws);
+
+      // Sync step 1 should NOT have been sent yet (load pending)
+      expect(ws.sent).toHaveLength(0);
+
+      // Complete the load
+      loadResolve();
+      await vi.waitFor(() => expect(ws.sent).toHaveLength(1));
+
+      const msgType = readMessageType(ws.sent[0]!);
+      expect(msgType).toBe(messageSync);
+    });
+
+    it('defers onMessage processing until load completes', async () => {
+      const handlers = createYjsSyncHandlers({ persistDir: '/tmp/test-yjs' });
+      const ws = createMockWS();
+
+      handlers.onOpen('test-room', ws);
+      ws.sent.length = 0;
+
+      // Send a sync step 1 from the client while load is pending
+      const clientDoc = new Y.Doc();
+      const step1 = buildSyncStep1(clientDoc);
+      handlers.onMessage('test-room', ws, step1);
+
+      // Should not have responded yet (load pending)
+      expect(ws.sent).toHaveLength(0);
+
+      // Complete the load
+      loadResolve();
+      await vi.waitFor(() => expect(ws.sent.length).toBeGreaterThan(0));
+
+      // Should now have both the deferred sync step 1 and the response
+      const syncMessages = ws.sent.filter((msg) => readMessageType(msg) === messageSync);
+      expect(syncMessages.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('does not crash if connection closes before load completes', async () => {
+      const handlers = createYjsSyncHandlers({ persistDir: '/tmp/test-yjs' });
+      const ws = createMockWS();
+
+      handlers.onOpen('test-room', ws);
+      ws.readyState = 3; // CLOSED
+      handlers.onClose('test-room', ws);
+
+      // Complete the load — sendInitialSync should bail on readyState check
+      loadResolve();
+      await vi.waitFor(() => Promise.resolve());
+
+      // No messages sent to closed connection
+      expect(ws.sent).toHaveLength(0);
+    });
+
+    it('second client joining during load also waits', async () => {
+      const handlers = createYjsSyncHandlers({ persistDir: '/tmp/test-yjs' });
+      const ws1 = createMockWS();
+      const ws2 = createMockWS();
+
+      handlers.onOpen('test-room', ws1);
+      handlers.onOpen('test-room', ws2);
+
+      // Neither should have sync step 1 yet
+      expect(ws1.sent).toHaveLength(0);
+      expect(ws2.sent).toHaveLength(0);
+
+      // Complete the load
+      loadResolve();
+      await vi.waitFor(() => expect(ws1.sent).toHaveLength(1));
+
+      expect(ws2.sent).toHaveLength(1);
+      expect(readMessageType(ws1.sent[0]!)).toBe(messageSync);
+      expect(readMessageType(ws2.sent[0]!)).toBe(messageSync);
+    });
+
+    it('client joining already-loaded room gets immediate sync', async () => {
+      const handlers = createYjsSyncHandlers({ persistDir: '/tmp/test-yjs' });
+      const ws1 = createMockWS();
+
+      // First room — triggers load
+      handlers.onOpen('test-room', ws1);
+      loadResolve();
+      await vi.waitFor(() => expect(ws1.sent).toHaveLength(1));
+
+      // Second client joins the same room — no pending load
+      const ws2 = createMockWS();
+      handlers.onOpen('test-room', ws2);
+
+      // Should get sync step 1 immediately (no loading promise pending)
+      expect(ws2.sent).toHaveLength(1);
+      expect(readMessageType(ws2.sent[0]!)).toBe(messageSync);
     });
   });
 });

@@ -6,9 +6,8 @@ import { describe, expect, it } from 'vitest';
  * Verifies that useCapture compresses photos before stashing,
  * but leaves audio and file captures uncompressed.
  *
- * Uses source-level verification because the vite alias plugin resolves
- * @coop/shared to different entry points for app code vs test code,
- * making vi.mock interception unreliable for behavioral tests here.
+ * Uses source-level verification because this hook imports the app-safe shared
+ * surface directly and the behavioral coverage lives in useCapture.behavior.test.ts.
  * The compressImage function itself is tested in
  * packages/shared/src/modules/blob/__tests__/compress.test.ts.
  */
@@ -24,9 +23,9 @@ function extractOnPickFileBlock() {
 }
 
 describe('useCapture photo compression', () => {
-  it('imports compressImage from @coop/shared', () => {
+  it('imports compressImage from @coop/shared/app', () => {
     expect(hookSource).toMatch(
-      /import\s*\{[^}]*compressImage[^}]*\}\s*from\s*['"]@coop\/shared['"]/,
+      /import\s*\{[^}]*compressImage[^}]*\}\s*from\s*['"]@coop\/shared\/app['"]/,
     );
   });
 

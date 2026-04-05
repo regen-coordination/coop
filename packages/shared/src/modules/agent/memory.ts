@@ -1,5 +1,6 @@
 import { type AgentMemory, agentMemorySchema } from '../../contracts/schema';
 import { createId, hashJson, nowIso } from '../../utils';
+// Use ../storage/db (the real barrel) to avoid vitest circular-dep resolution issues
 import {
   type CoopDexie,
   deleteAgentMemories,

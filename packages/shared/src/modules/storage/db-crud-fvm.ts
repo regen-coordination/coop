@@ -1,6 +1,6 @@
 import z from 'zod';
 import { type FvmChainKey, localFvmSignerBindingSchema } from '../../contracts/schema';
-import { type LocalFvmSignerMaterial, buildLocalFvmSignerBindingId } from '../fvm/fvm';
+import { type LocalFvmSignerMaterial, buildLocalFvmSignerBindingId } from '../fvm';
 import {
   buildEncryptedLocalPayloadRecord,
   getEncryptedLocalPayloadRecord,

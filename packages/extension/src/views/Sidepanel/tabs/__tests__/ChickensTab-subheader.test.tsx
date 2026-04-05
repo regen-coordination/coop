@@ -31,7 +31,7 @@ function buildDashboard(overrides: Partial<DashboardResponse> = {}): DashboardRe
       archiveMode: 'mock',
       sessionMode: 'off',
       privacyMode: 'off',
-      providerMode: 'rpc',
+      providerMode: 'standard',
       receiverAppUrl: 'http://localhost:3000',
       signalingUrls: [],
     },

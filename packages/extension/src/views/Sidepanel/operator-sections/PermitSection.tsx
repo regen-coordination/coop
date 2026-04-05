@@ -99,5 +99,3 @@ export function PermitSection(props: PermitSectionProps) {
     </>
   );
 }
-
-export default PermitSection;

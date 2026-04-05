@@ -25,7 +25,7 @@ import {
   shouldAutoRetryReceiverCapture,
   updateReceiverCapture,
   upsertReceiverSyncEnvelope,
-} from '@coop/shared';
+} from '@coop/shared/app';
 import { useCallback, useEffect, useRef } from 'react';
 import type { receiverDb as ReceiverDbType } from '../app';
 import type { CaptureCard } from '../views/Receiver';

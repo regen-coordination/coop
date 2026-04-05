@@ -157,5 +157,3 @@ export function KnowledgeSkillsSection(props: KnowledgeSkillsSectionProps) {
     </details>
   );
 }
-
-export default KnowledgeSkillsSection;

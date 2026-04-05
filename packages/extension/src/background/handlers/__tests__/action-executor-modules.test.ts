@@ -1,6 +1,7 @@
 import type { ActionBundle, CoopSharedState, ReviewDraft } from '@coop/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeCoopState } from '../../../__tests__/fixtures';
+import { makeReviewDraft } from '@coop/shared/testing';
+import { makeAuthSession, makeCoopState } from '../../../__tests__/fixtures';
 
 const configState = vi.hoisted(() => ({
   configuredOnchainMode: 'mock' as 'mock' | 'live',
@@ -166,9 +167,9 @@ function makeExecutorContext(
         id: 'member-1',
         displayName: 'Ava',
       },
-      authSession: {
+      authSession: makeAuthSession({
         primaryAddress: '0xcccccccccccccccccccccccccccccccccccccccc',
-      },
+      }),
     },
   };
 }
@@ -202,21 +203,27 @@ describe('action executor modules', () => {
       data: { refreshed: true },
     });
     sharedMocks.getReviewDraft.mockResolvedValue({
-      id: 'draft-1',
+      ...makeReviewDraft({
+        id: 'draft-1',
+        suggestedTargetCoopIds: ['coop-1'],
+      }),
       provenance: {
         type: 'receiver',
         captureId: 'capture-1',
+        receiverKind: 'audio',
+        seedMethod: 'metadata-only',
       },
       sources: [],
-      suggestedTargetCoopIds: ['coop-1'],
       workflowStage: 'ready',
-    } as ReviewDraft);
+    } satisfies ReviewDraft);
     runtimeReviewMocks.validateReviewDraftPublish.mockReturnValue({
       ok: true,
     });
-    sharedMocks.getAuthSession.mockResolvedValue({
-      primaryAddress: '0xcccccccccccccccccccccccccccccccccccccccc',
-    });
+    sharedMocks.getAuthSession.mockResolvedValue(
+      makeAuthSession({
+        primaryAddress: '0xcccccccccccccccccccccccccccccccccccccccc',
+      }),
+    );
     contextMocks.getCoops.mockResolvedValue([makeExecutorContext().trustedNodeContext.coop]);
     reviewMocks.publishDraftWithContext.mockResolvedValue({
       ok: true,

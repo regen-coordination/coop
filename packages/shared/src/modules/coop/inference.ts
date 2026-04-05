@@ -103,14 +103,26 @@ export function selectInferenceProvider(
   return providers.heuristic;
 }
 
-/**
- * Build a prompt for the local model based on the refine task.
- */
-export function buildRefinePrompt(request: RefineRequest): string {
-  const context = `Context: This draft is for a coop called "${request.coopName}" whose purpose is: ${request.coopPurpose}.`;
+/* ------------------------------------------------------------------ */
+/*  Per-task handler map                                              */
+/* ------------------------------------------------------------------ */
 
-  switch (request.task) {
-    case 'title-refinement':
+type RefineTaskHandler = {
+  buildPrompt: (request: RefineRequest) => string;
+  parseOutput: (
+    request: RefineRequest,
+    cleaned: string,
+    provider: 'heuristic' | 'local-model',
+    model: string | undefined,
+    durationMs: number,
+  ) => RefineResult;
+  heuristic: (request: RefineRequest) => RefineResult;
+};
+
+const REFINE_TASK_HANDLERS: Record<RefineTask, RefineTaskHandler> = {
+  'title-refinement': {
+    buildPrompt(request) {
+      const context = `Context: This draft is for a coop called "${request.coopName}" whose purpose is: ${request.coopPurpose}.`;
       return [
         'You are a concise editor. Rewrite the following title to be clearer and more descriptive in under 12 words. Return only the new title, nothing else.',
         '',
@@ -120,8 +132,37 @@ export function buildRefinePrompt(request: RefineRequest): string {
         '',
         'Refined title:',
       ].join('\n');
+    },
+    parseOutput(request, cleaned, provider, model, durationMs) {
+      return {
+        draftId: request.draftId,
+        task: request.task,
+        refinedTitle: cleaned || undefined,
+        provider,
+        model,
+        durationMs,
+      };
+    },
+    heuristic(request) {
+      const start = Date.now();
+      const refined = request.title
+        .replace(/\s*[-|]\s*$/, '')
+        .replace(/\s*[-|:]\s*(Home|Homepage|Welcome|Main)$/i, '')
+        .replace(/^\s*(Home|Homepage|Welcome)\s*[-|:]\s*/i, '')
+        .trim();
+      return {
+        draftId: request.draftId,
+        task: request.task,
+        refinedTitle: refined !== request.title ? refined : undefined,
+        provider: 'heuristic',
+        durationMs: Date.now() - start,
+      };
+    },
+  },
 
-    case 'summary-compression':
+  'summary-compression': {
+    buildPrompt(request) {
+      const context = `Context: This draft is for a coop called "${request.coopName}" whose purpose is: ${request.coopPurpose}.`;
       return [
         'You are a concise editor. Compress the following summary into 1-2 clear sentences that capture the key point. Return only the compressed summary, nothing else.',
         '',
@@ -131,8 +172,33 @@ export function buildRefinePrompt(request: RefineRequest): string {
         '',
         'Compressed summary:',
       ].join('\n');
+    },
+    parseOutput(request, cleaned, provider, model, durationMs) {
+      return {
+        draftId: request.draftId,
+        task: request.task,
+        refinedSummary: cleaned || undefined,
+        provider,
+        model,
+        durationMs,
+      };
+    },
+    heuristic(request) {
+      const start = Date.now();
+      const compressed = truncateWords(request.summary, 24);
+      return {
+        draftId: request.draftId,
+        task: request.task,
+        refinedSummary: compressed !== request.summary ? compressed : undefined,
+        provider: 'heuristic',
+        durationMs: Date.now() - start,
+      };
+    },
+  },
 
-    case 'tag-suggestion':
+  'tag-suggestion': {
+    buildPrompt(request) {
+      const context = `Context: This draft is for a coop called "${request.coopName}" whose purpose is: ${request.coopPurpose}.`;
       return [
         'You are a tag generator. Suggest 3-6 short, lowercase tags (single words or hyphenated phrases) for the following content. Return only the tags separated by commas, nothing else.',
         '',
@@ -143,46 +209,8 @@ export function buildRefinePrompt(request: RefineRequest): string {
         '',
         'Suggested tags:',
       ].join('\n');
-
-    default:
-      return '';
-  }
-}
-
-/**
- * Parse raw model output into a structured refine result.
- */
-export function parseRefineOutput(
-  request: RefineRequest,
-  rawOutput: string,
-  provider: 'heuristic' | 'local-model',
-  model: string | undefined,
-  durationMs: number,
-): RefineResult {
-  const cleaned = rawOutput.trim();
-
-  switch (request.task) {
-    case 'title-refinement':
-      return {
-        draftId: request.draftId,
-        task: request.task,
-        refinedTitle: cleaned || undefined,
-        provider,
-        model,
-        durationMs,
-      };
-
-    case 'summary-compression':
-      return {
-        draftId: request.draftId,
-        task: request.task,
-        refinedSummary: cleaned || undefined,
-        provider,
-        model,
-        durationMs,
-      };
-
-    case 'tag-suggestion': {
+    },
+    parseOutput(request, cleaned, provider, model, durationMs) {
       const tags = cleaned
         .split(/[,\n]+/)
         .map((tag) =>
@@ -201,17 +229,62 @@ export function parseRefineOutput(
         model,
         durationMs,
       };
-    }
-
-    default:
+    },
+    heuristic(request) {
+      const start = Date.now();
+      const words = [request.title, request.summary]
+        .join(' ')
+        .toLowerCase()
+        .split(/[^a-z0-9-]+/)
+        .filter((w) => w.length > 4);
+      const unique = [...new Set(words)].slice(0, 6);
+      const newTags = unique.filter((t) => !request.tags.includes(t));
       return {
         draftId: request.draftId,
         task: request.task,
-        provider,
-        model,
-        durationMs,
+        suggestedTags: newTags.length > 0 ? newTags : undefined,
+        provider: 'heuristic',
+        durationMs: Date.now() - start,
       };
+    },
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/*  Public functions (signatures unchanged)                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Build a prompt for the local model based on the refine task.
+ */
+export function buildRefinePrompt(request: RefineRequest): string {
+  const handler = REFINE_TASK_HANDLERS[request.task as RefineTask];
+  if (!handler) return '';
+  return handler.buildPrompt(request);
+}
+
+/**
+ * Parse raw model output into a structured refine result.
+ */
+export function parseRefineOutput(
+  request: RefineRequest,
+  rawOutput: string,
+  provider: 'heuristic' | 'local-model',
+  model: string | undefined,
+  durationMs: number,
+): RefineResult {
+  const cleaned = rawOutput.trim();
+  const handler = REFINE_TASK_HANDLERS[request.task as RefineTask];
+  if (!handler) {
+    return {
+      draftId: request.draftId,
+      task: request.task,
+      provider,
+      model,
+      durationMs,
+    };
   }
+  return handler.parseOutput(request, cleaned, provider, model, durationMs);
 }
 
 /**
@@ -223,60 +296,16 @@ export function createHeuristicProvider(): LocalInferenceProvider {
     kind: 'heuristic',
     label: 'Keyword heuristics',
     async refine(request: RefineRequest): Promise<RefineResult> {
-      const start = Date.now();
-
-      switch (request.task) {
-        case 'title-refinement': {
-          const refined = request.title
-            .replace(/\s*[-|]\s*$/, '')
-            .replace(/\s*[-|:]\s*(Home|Homepage|Welcome|Main)$/i, '')
-            .replace(/^\s*(Home|Homepage|Welcome)\s*[-|:]\s*/i, '')
-            .trim();
-          return {
-            draftId: request.draftId,
-            task: request.task,
-            refinedTitle: refined !== request.title ? refined : undefined,
-            provider: 'heuristic',
-            durationMs: Date.now() - start,
-          };
-        }
-
-        case 'summary-compression': {
-          const compressed = truncateWords(request.summary, 24);
-          return {
-            draftId: request.draftId,
-            task: request.task,
-            refinedSummary: compressed !== request.summary ? compressed : undefined,
-            provider: 'heuristic',
-            durationMs: Date.now() - start,
-          };
-        }
-
-        case 'tag-suggestion': {
-          const words = [request.title, request.summary]
-            .join(' ')
-            .toLowerCase()
-            .split(/[^a-z0-9-]+/)
-            .filter((w) => w.length > 4);
-          const unique = [...new Set(words)].slice(0, 6);
-          const newTags = unique.filter((t) => !request.tags.includes(t));
-          return {
-            draftId: request.draftId,
-            task: request.task,
-            suggestedTags: newTags.length > 0 ? newTags : undefined,
-            provider: 'heuristic',
-            durationMs: Date.now() - start,
-          };
-        }
-
-        default:
-          return {
-            draftId: request.draftId,
-            task: request.task,
-            provider: 'heuristic',
-            durationMs: Date.now() - start,
-          };
+      const handler = REFINE_TASK_HANDLERS[request.task as RefineTask];
+      if (!handler) {
+        return {
+          draftId: request.draftId,
+          task: request.task,
+          provider: 'heuristic',
+          durationMs: 0,
+        };
       }
+      return handler.heuristic(request);
     },
   };
 }

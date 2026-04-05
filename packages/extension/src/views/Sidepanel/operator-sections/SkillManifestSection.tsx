@@ -59,5 +59,3 @@ export function SkillManifestSection(props: SkillManifestSectionProps) {
     </details>
   );
 }
-
-export default SkillManifestSection;

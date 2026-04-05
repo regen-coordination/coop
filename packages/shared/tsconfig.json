@@ -9,5 +9,5 @@
     "noEmit": false,
     "skipLibCheck": true
   },
-  "include": ["src", "../api/config.ts"]
+  "include": ["src"]
 }

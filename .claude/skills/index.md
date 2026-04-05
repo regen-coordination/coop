@@ -10,11 +10,43 @@ When you open Claude Code in the coop repo, you'll see:
 
 ```
 Coop Claude Code
-  /plan /debug /review /audit /meeting-notes
+  /plan /debug /review /audit /monitor
   Agents: oracle | cracked-coder | code-reviewer | migration | triage
 ```
 
 These are your entry points. Type a slash command or describe your task — Claude will route to the right skill automatically.
+
+---
+
+## Decision Tree
+
+```text
+What do you need?
+│
+├─ Build or change something ──────────── /plan
+│   ├─ UI / component work ────────────── react, ui-compliance, frontend-design
+│   ├─ Shared module changes ──────────── react, web3, data-layer
+│   ├─ Onchain / Safe / passkey ───────── web3, security
+│   ├─ Sync / storage / offline ───────── data-layer
+│   └─ Cross-package changes ──────────── /review --mode verify_only
+│
+├─ Fix a bug ──────────────────────────── /debug
+│   ├─ Reproduce → fix → verify ───────── /debug --mode tdd_bugfix
+│   └─ P0/P1 emergency ───────────────── /debug --mode incident_hotfix
+│
+├─ Review code ────────────────────────── /review
+│   ├─ Report only (default) ──────────── /review
+│   └─ Review + auto-fix ─────────────── /review --mode apply_fixes
+│
+├─ Check codebase health ──────────────── /audit
+│   ├─ Dead code + anti-patterns ──────── /audit
+│   ├─ Architecture analysis ─────────── /architecture
+│   └─ Engineering principles ─────────── /principles
+│
+├─ Monitor quality ────────────────────── /monitor
+│
+└─ Multi-step complex task ────────────── Spawn an agent (see below)
+```
 
 ---
 
@@ -28,6 +60,8 @@ Slash commands are the primary way to start structured workflows.
 | `/debug` | Systematic root cause investigation | `/debug` sync fails when sidepanel is closed |
 | `/review` | 6-pass code review (read-only by default) | `/review` |
 | `/audit` | Dead code detection + architectural health | `/audit` |
+| `/architecture` | Analyze structure, identify gaps, provide suggestions | `/architecture` or `/architecture shared` |
+| `/principles` | SOLID, DRY, KISS, YAGNI, SOC, EDA, ADR, C4, ACID, BASE, CAP | `/principles` or `/principles shared` |
 | `/meeting-notes` | Extract GitHub issues from a meeting transcript | Paste a transcript, then `/meeting-notes` |
 
 ### Command Modes
@@ -103,42 +137,53 @@ bun run plans queue --agent codex --lane qa --handoff-ready
 
 Skills are domain knowledge that Claude loads when relevant. Most activate automatically based on keywords — you don't need to invoke them explicitly.
 
-### Core Domain Skills
+### Command Skills (explicitly invoked)
 
-| Skill | Activates when you say | What it knows |
-|-------|----------------------|---------------|
-| **react** | "component", "hooks", "state" | React 19 patterns, composition, re-render optimization |
-| **web3** | "Safe", "passkey", "ERC-4337", "onchain" | viem, Safe SDK, permissionless, passkey auth, account abstraction |
-| **data-layer** | "Dexie", "Yjs", "sync", "offline", "local-first" | Dexie persistence, Yjs CRDTs, y-webrtc, draft lifecycle, storage |
-| **testing** | "test", "TDD", "vitest", "playwright" | Vitest unit tests, Playwright E2E, mock strategies, TDD workflow |
-| **security** | "vulnerability", "XSS", "key exposure" | Extension security, passkey/WebAuthn, CRDT integrity, CSP |
-| **error-handling-patterns** | "error handling", "try/catch" | Error boundaries, retry patterns, user-facing messages |
+| Skill | Invocation | What it does |
+|-------|-----------|--------------|
+| **plan** | `/plan` | Step-by-step implementation planning |
+| **debug** | `/debug` | Root cause investigation with hypothesis testing |
+| **review** | `/review` | 6-pass systematic code review |
+| **audit** | `/audit` | Dead code detection, dependency health |
+| **principles** | `/principles` | Software engineering principles audit |
+| **monitor** | `/monitor` | Quality gate watching |
 
-### Build & Tooling Skills
+### Domain Skills (auto-loaded by context)
 
-| Skill | Activates when you say | What it knows |
-|-------|----------------------|---------------|
-| **vite** | "build config", "bundle", "env vars" | Vite config, MV3 extension builds, environment variables |
-| **biome** | "format", "lint", "import sorting" | Biome formatting, CI integration, migration from Prettier |
-| **git-workflow** | "branch", "commit", "merge" | Conventional commits, branching strategy, conflict resolution |
-| **ci-cd** | "CI", "GitHub Actions", "pipeline" | Workflow config, build matrix, caching, PR checks |
-| **dependency-management** | "lockfile", "upgrade", "bun install" | Workspace protocol, phantom dependencies, audit/update |
-| **migration** | "breaking change", "upgrade" | Cross-package migration, Dexie schema changes, dependency order |
+| Skill | Activates when you say | Sub-files |
+|-------|----------------------|-----------|
+| **react** | "component", "hooks", "state", "error handling" | [compiler.md](react/compiler.md), [performance.md](react/performance.md), [error-handling.md](react/error-handling.md) |
+| **web3** | "Safe", "passkey", "ERC-4337", "onchain" | — |
+| **data-layer** | "Dexie", "Yjs", "sync", "offline", "local-first" | [storage-lifecycle.md](data-layer/storage-lifecycle.md), [service-worker.md](data-layer/service-worker.md) |
+| **testing** | "test", "TDD", "vitest", "playwright" | — |
+| **security** | "vulnerability", "XSS", "key exposure" | — |
+| **performance** | "bundle size", "memory leak", "Lighthouse" | — |
+| **architecture** | `/architecture`, "refactor", "module boundaries" | — |
+| **ui-compliance** | "accessibility", "a11y", "WCAG" | — |
 
-### Design Skills
+### Archived Skills
 
-| Skill | Activates when you say | What it knows |
-|-------|----------------------|---------------|
-| **frontend-design** | "build page", "design UI" | Production-grade interfaces, distinctive visual design |
-| **tailwindcss** | "TailwindCSS", "dark mode", "tokens" | TailwindCSS v4, @theme directive, design tokens |
-| **ui-compliance** | "accessibility", "a11y", "WCAG" | WCAG 2.1 AA, form validation, responsive layouts |
+Skills consolidated into parent skills:
 
-### Structural Skills
+| Former Skill | Now Lives In | Reason |
+|-------------|-------------|--------|
+| `error-handling-patterns` | `react/error-handling.md` | Was a sub-concern of React development |
 
-| Skill | Activates when you say | What it knows |
-|-------|----------------------|---------------|
-| **architecture** | "refactor", "module boundaries" | Clean Architecture, entropy reduction, module design |
-| **performance** | "bundle size", "memory leak" | Bundle analysis, Lighthouse, React Profiler |
+---
+
+## Skill Bundles
+
+Bundles group skills for common workflows. The system uses these to load the right context:
+
+| Bundle | Skills loaded | When |
+|--------|-------------|------|
+| **extension-change** | react, testing, ui-compliance | Extension UI work |
+| **shared-module-change** | react, web3, data-layer, testing | Shared module changes |
+| **onchain-change** | web3, security, testing | Safe/passkey/chain work |
+| **sync-change** | data-layer, testing, security | Yjs/sync/storage work |
+| **app-change** | react, testing, ui-compliance | App/landing page work |
+| **cross-package-change** | review, testing | Multi-package verification |
+| **incident-hotfix** | debug, testing | Emergency response |
 
 ---
 
@@ -159,18 +204,6 @@ Hooks run automatically — you don't invoke them. They enforce project rules:
 
 ---
 
-## Plugins
-
-Three official Claude plugins are enabled:
-
-| Plugin | What it does |
-|--------|-------------|
-| **frontend-design** | UI/UX guidance when building interfaces |
-| **code-simplifier** | Suggests refactoring opportunities after edits |
-| **typescript-lsp** | TypeScript language server for type-aware editing |
-
----
-
 ## Context Files
 
 When working deeply in a package, Claude loads additional context:
@@ -180,22 +213,7 @@ When working deeply in a package, Claude loads additional context:
 | `packages/shared/` | `.claude/context/shared.md` | Module map, Dexie schema, Yjs patterns, Safe integration |
 | `packages/extension/` | `.claude/context/extension.md` | MV3 architecture, runtime messaging, service worker |
 | `packages/app/` | `.claude/context/app.md` | Landing page, React Flow board, receiver flows |
-| Product questions | `.claude/context/product.md` | Vision, personas, brand direction, demo criteria |
-
----
-
-## Skill Bundles
-
-Bundles group skills for common workflows. The system uses these to load the right context:
-
-| Bundle | Skills loaded | When |
-|--------|-------------|------|
-| **extension-change** | react, tailwindcss, frontend-design, testing, ui-compliance | Extension UI work |
-| **shared-module-change** | react, web3, data-layer, error-handling-patterns, testing | Shared module changes |
-| **onchain-change** | web3, security, testing | Safe/passkey/chain work |
-| **app-change** | react, tailwindcss, frontend-design, testing, ui-compliance | App/landing page work |
-| **cross-package-change** | review, cross-package-verify, testing | Multi-package verification |
-| **incident-hotfix** | debug, tdd-bugfix, testing | Emergency response |
+| Product questions | `.claude/context/product.md` | Vision, personas, brand direction, tone rules per surface |
 
 ---
 
@@ -210,15 +228,9 @@ Which skills apply to which packages:
 | data-layer | x | x | x |
 | testing | x | x | x |
 | security | x | x | x |
-| error-handling-patterns | x | x | x |
 | architecture | x | x | x |
 | performance | x | x | x |
-| frontend-design | | x | x |
-| tailwindcss | | x | x |
 | ui-compliance | | x | x |
-| vite | | x | x |
-| migration | x | x | x |
-| biome | x | x | x |
 
 ---
 
@@ -233,5 +245,5 @@ Which skills apply to which packages:
 | Barrel imports only (`@coop/shared`) | CLAUDE.md |
 | Local-first data patterns | data-layer skill |
 | Passkey-first auth | web3 skill |
-| Conventional commits with scope | git-workflow skill |
+| Conventional commits with scope | CLAUDE.md |
 | Biome format on save | Hook (auto) |

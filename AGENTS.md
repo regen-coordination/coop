@@ -66,6 +66,11 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 3. **extension** (`@coop/extension`) -- MV3 browser extension (popup, sidepanel, background worker)
 4. **api** (`@coop/api`) -- Hono + Bun API server (Fly.io deployed)
 
+Repo sidecars outside the four runtime packages:
+
+- `docs/` -- Docusaurus workspace for the docs site
+- `packages/contracts/` -- Foundry workspace for Solidity contracts and deployment artifacts
+
 ### Shared Modules
 
 `agent` (harness/skills/inference), `app` (shared shell logic), `archive` (Storacha/Filecoin), `auth` (passkey identity), `blob` (binary relay), `coop` (flow board/review/publish), `erc8004` (agent registry), `fvm` (Filecoin VM integration), `greengoods` (garden, member, and operator coordination), `member-account` (Kernel member accounts), `onchain` (Safe/ERC-4337), `operator` (trusted-node), `permit` (execution permits), `policy` (action approval), `privacy` (Semaphore ZK), `receiver` (PWA sync), `session` (scoped permissions), `stealth` (ERC-5564), `storage` (Dexie + Yjs), `transcribe` (audio transcription).
@@ -74,7 +79,7 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 
 ### Always Do
 
-- Import from `@coop/shared` barrel only: `import { x } from '@coop/shared'`
+- Import from shared public surfaces only: `@coop/shared` for general consumers, `@coop/shared/app` for the app shell
 - Internal deps use `workspace:*` (never `workspace:^`)
 - All env vars require `VITE_` prefix for frontend access
 - Env vars are baked at build time -- rebuild after `.env.local` changes

@@ -203,780 +203,441 @@ function validateExpectedCoopId(actualCoopId: string, expectedCoopId?: string) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Field spec types
+// ---------------------------------------------------------------------------
+
+type FieldType =
+  | 'requiredString'
+  | 'optionalString'
+  | 'requiredStringArray'
+  | 'optionalStringArray'
+  | 'optionalBoolean'
+  | 'requiredBoolean'
+  | 'optionalNonNegativeInteger'
+  | 'requiredNonNegativeInteger'
+  | 'requiredByte'
+  | 'greenGoodsDomains'
+  | 'optionalAddressArray'
+  | 'requiredAddress'
+  | 'requiredBytes32';
+
+type FieldSpec = {
+  key: string;
+  type: FieldType;
+  default?: unknown;
+  isTarget?: boolean;
+};
+
+type ActionSpec = {
+  fields: FieldSpec[];
+  hasCoopScope?: boolean;
+  targetIds?: (normalized: Record<string, unknown>) => string[];
+  validate?: (
+    normalized: Record<string, unknown>,
+    input: { expectedCoopId?: string },
+  ) => { ok: true } | { ok: false; reason: string };
+};
+
+// ---------------------------------------------------------------------------
+// Field reader dispatch
+// ---------------------------------------------------------------------------
+
+const FIELD_READERS: Record<
+  FieldType,
+  (
+    payload: Record<string, unknown>,
+    key: string,
+  ) => { ok: true; value?: unknown } | { ok: false; reason: string }
+> = {
+  requiredString: readRequiredString,
+  optionalString: readOptionalString,
+  requiredStringArray: readRequiredStringArray,
+  optionalStringArray: readOptionalStringArray,
+  optionalBoolean: readOptionalBoolean,
+  requiredBoolean: readRequiredBoolean,
+  optionalNonNegativeInteger: readOptionalNonNegativeInteger,
+  requiredNonNegativeInteger: readRequiredNonNegativeInteger,
+  requiredByte: readRequiredByte,
+  greenGoodsDomains: readGreenGoodsDomains,
+  optionalAddressArray: readOptionalAddressArray,
+  requiredAddress: readRequiredAddress,
+  requiredBytes32: readRequiredBytes32,
+};
+
+// ---------------------------------------------------------------------------
+// Generic spec resolver
+// ---------------------------------------------------------------------------
+
+function resolveFromSpec(
+  spec: ActionSpec,
+  input: { payload: Record<string, unknown>; expectedCoopId?: string },
+): ScopedActionPayloadResolution {
+  const normalized: Record<string, unknown> = {};
+  let coopId: string | undefined;
+
+  if (spec.hasCoopScope) {
+    const coopResult = readRequiredString(input.payload, 'coopId');
+    if (!coopResult.ok) return coopResult;
+    const scopeValidation = validateExpectedCoopId(coopResult.value, input.expectedCoopId);
+    if (!scopeValidation.ok) return scopeValidation;
+    coopId = coopResult.value;
+    normalized.coopId = coopId;
+  }
+
+  for (const field of spec.fields) {
+    const reader = FIELD_READERS[field.type];
+    const result = reader(input.payload, field.key);
+    if (!result.ok) return result;
+    normalized[field.key] = result.value ?? field.default;
+  }
+
+  if (spec.validate) {
+    const validation = spec.validate(normalized, input);
+    if (!validation.ok) return validation;
+  }
+
+  const targetIds = spec.targetIds
+    ? spec.targetIds(normalized)
+    : spec.fields.filter((f) => f.isTarget).map((f) => String(normalized[f.key]));
+
+  return {
+    ok: true,
+    ...(coopId !== undefined && { coopId }),
+    normalizedPayload: normalized,
+    targetIds,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Action specs registry
+// ---------------------------------------------------------------------------
+
+const ACTION_SPECS: Record<ScopedActionClass, ActionSpec | 'custom'> = {
+  'archive-artifact': {
+    hasCoopScope: true,
+    fields: [{ key: 'artifactId', type: 'requiredString', isTarget: true }],
+  },
+  'archive-snapshot': {
+    hasCoopScope: true,
+    fields: [],
+  },
+  'refresh-archive-status': {
+    hasCoopScope: true,
+    fields: [{ key: 'receiptId', type: 'optionalString' }],
+    targetIds: (n) => (n.receiptId ? [n.receiptId as string] : []),
+  },
+  'publish-ready-draft': 'custom',
+  'safe-deployment': {
+    hasCoopScope: false,
+    fields: [{ key: 'coopSeed', type: 'requiredString', isTarget: true }],
+  },
+  'green-goods-create-garden': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'name', type: 'requiredString' },
+      { key: 'description', type: 'requiredString' },
+      { key: 'weightScheme', type: 'requiredString' },
+      { key: 'domains', type: 'greenGoodsDomains' },
+      { key: 'slug', type: 'optionalString' },
+      { key: 'location', type: 'optionalString', default: '' },
+      { key: 'bannerImage', type: 'optionalString', default: '' },
+      { key: 'metadata', type: 'optionalString', default: '' },
+      { key: 'openJoining', type: 'optionalBoolean', default: false },
+      { key: 'maxGardeners', type: 'optionalNonNegativeInteger', default: 0 },
+      { key: 'operatorAddresses', type: 'optionalAddressArray' },
+      { key: 'gardenerAddresses', type: 'optionalAddressArray' },
+    ],
+    validate: (n) => {
+      if (!['linear', 'exponential', 'power'].includes(n.weightScheme as string)) {
+        return { ok: false, reason: 'Action payload has an invalid "weightScheme".' };
+      }
+      return { ok: true };
+    },
+    targetIds: (n) => [n.name as string, ...(n.domains as string[])],
+  },
+  'green-goods-sync-garden-profile': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress', isTarget: true },
+      { key: 'name', type: 'requiredString' },
+      { key: 'description', type: 'requiredString' },
+      { key: 'location', type: 'optionalString', default: '' },
+      { key: 'bannerImage', type: 'optionalString', default: '' },
+      { key: 'metadata', type: 'optionalString', default: '' },
+      { key: 'openJoining', type: 'optionalBoolean', default: false },
+      { key: 'maxGardeners', type: 'optionalNonNegativeInteger', default: 0 },
+    ],
+  },
+  'green-goods-set-garden-domains': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress' },
+      { key: 'domains', type: 'greenGoodsDomains' },
+    ],
+    targetIds: (n) => [n.gardenAddress as string, ...(n.domains as string[])],
+  },
+  'green-goods-create-garden-pools': {
+    hasCoopScope: true,
+    fields: [{ key: 'gardenAddress', type: 'requiredAddress', isTarget: true }],
+  },
+  'green-goods-submit-work-approval': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress' },
+      { key: 'actionUid', type: 'requiredNonNegativeInteger' },
+      { key: 'workUid', type: 'requiredBytes32' },
+      { key: 'approved', type: 'requiredBoolean' },
+      { key: 'feedback', type: 'optionalString', default: '' },
+      { key: 'confidence', type: 'requiredByte' },
+      { key: 'verificationMethod', type: 'requiredByte' },
+      { key: 'reviewNotesCid', type: 'optionalString', default: '' },
+    ],
+    targetIds: (n) => [n.gardenAddress as string, n.workUid as string],
+  },
+  'green-goods-create-assessment': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress' },
+      { key: 'title', type: 'requiredString' },
+      { key: 'description', type: 'requiredString' },
+      { key: 'assessmentConfigCid', type: 'requiredString' },
+      { key: 'domain', type: 'requiredString' },
+      { key: 'startDate', type: 'requiredNonNegativeInteger' },
+      { key: 'endDate', type: 'requiredNonNegativeInteger' },
+      { key: 'location', type: 'optionalString', default: '' },
+    ],
+    validate: (n) => {
+      if (!['solar', 'agro', 'edu', 'waste'].includes(n.domain as string)) {
+        return { ok: false, reason: 'Action payload has an invalid "domain".' };
+      }
+      if ((n.endDate as number) < (n.startDate as number)) {
+        return { ok: false, reason: 'Action payload has an invalid "endDate".' };
+      }
+      return { ok: true };
+    },
+    targetIds: (n) => [
+      n.gardenAddress as string,
+      n.title as string,
+      n.assessmentConfigCid as string,
+    ],
+  },
+  'green-goods-sync-gap-admins': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress' },
+      { key: 'addAdmins', type: 'optionalAddressArray' },
+      { key: 'removeAdmins', type: 'optionalAddressArray' },
+    ],
+    targetIds: (n) => [
+      n.gardenAddress as string,
+      ...(n.addAdmins as string[]),
+      ...(n.removeAdmins as string[]),
+    ],
+  },
+  'green-goods-mint-hypercert': 'custom',
+  'safe-add-owner': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'ownerAddress', type: 'requiredAddress', isTarget: true },
+      { key: 'newThreshold', type: 'requiredNonNegativeInteger' },
+    ],
+  },
+  'safe-remove-owner': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'ownerAddress', type: 'requiredAddress', isTarget: true },
+      { key: 'newThreshold', type: 'requiredNonNegativeInteger' },
+    ],
+  },
+  'safe-swap-owner': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'oldOwnerAddress', type: 'requiredAddress' },
+      { key: 'newOwnerAddress', type: 'requiredAddress' },
+    ],
+    targetIds: (n) => [n.oldOwnerAddress as string, n.newOwnerAddress as string],
+  },
+  'safe-change-threshold': {
+    hasCoopScope: true,
+    fields: [{ key: 'newThreshold', type: 'requiredNonNegativeInteger' }],
+    targetIds: () => [],
+  },
+  'green-goods-add-gardener': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress' },
+      { key: 'memberId', type: 'requiredString' },
+      { key: 'gardenerAddress', type: 'requiredAddress' },
+    ],
+    targetIds: (n) => [
+      n.memberId as string,
+      n.gardenAddress as string,
+      n.gardenerAddress as string,
+    ],
+  },
+  'green-goods-remove-gardener': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress' },
+      { key: 'memberId', type: 'requiredString' },
+      { key: 'gardenerAddress', type: 'requiredAddress' },
+    ],
+    targetIds: (n) => [
+      n.memberId as string,
+      n.gardenAddress as string,
+      n.gardenerAddress as string,
+    ],
+  },
+  'green-goods-submit-work-submission': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress' },
+      { key: 'actionUid', type: 'requiredNonNegativeInteger' },
+      { key: 'title', type: 'requiredString' },
+      { key: 'feedback', type: 'optionalString', default: '' },
+      { key: 'metadataCid', type: 'requiredString' },
+      { key: 'mediaCids', type: 'optionalStringArray', default: [] },
+    ],
+    targetIds: (n) => [n.gardenAddress as string, `${n.actionUid}`],
+  },
+  'green-goods-submit-impact-report': {
+    hasCoopScope: true,
+    fields: [
+      { key: 'gardenAddress', type: 'requiredAddress' },
+      { key: 'title', type: 'requiredString' },
+      { key: 'description', type: 'requiredString' },
+      { key: 'domain', type: 'requiredString' },
+      { key: 'reportCid', type: 'requiredString' },
+      { key: 'metricsSummary', type: 'requiredString' },
+      { key: 'reportingPeriodStart', type: 'requiredNonNegativeInteger' },
+      { key: 'reportingPeriodEnd', type: 'requiredNonNegativeInteger' },
+      { key: 'submittedBy', type: 'requiredAddress' },
+    ],
+    validate: (n) => {
+      if (!['solar', 'agro', 'edu', 'waste'].includes(n.domain as string)) {
+        return { ok: false, reason: 'Action payload has an invalid "domain".' };
+      }
+      if ((n.reportingPeriodEnd as number) < (n.reportingPeriodStart as number)) {
+        return { ok: false, reason: 'Action payload has an invalid "reportingPeriodEnd".' };
+      }
+      return { ok: true };
+    },
+    targetIds: (n) => [n.gardenAddress as string, n.title as string, n.reportCid as string],
+  },
+  'erc8004-register-agent': 'custom',
+  'erc8004-give-feedback': 'custom',
+};
+
+// ---------------------------------------------------------------------------
+// Custom handlers for cases that don't fit the spec pattern
+// ---------------------------------------------------------------------------
+
+function resolvePublishReadyDraft(input: {
+  payload: Record<string, unknown>;
+  expectedCoopId?: string;
+}): ScopedActionPayloadResolution {
+  const draftId = readRequiredString(input.payload, 'draftId');
+  if (!draftId.ok) return draftId;
+  const targetCoopIds = readRequiredStringArray(input.payload, 'targetCoopIds');
+  if (!targetCoopIds.ok) return targetCoopIds;
+  if (input.expectedCoopId && !targetCoopIds.value.includes(input.expectedCoopId)) {
+    return {
+      ok: false,
+      reason: `Publish targets must include the scoped coop "${input.expectedCoopId}".`,
+    };
+  }
+  return {
+    ok: true,
+    coopId: input.expectedCoopId,
+    normalizedPayload: {
+      draftId: draftId.value,
+      targetCoopIds: targetCoopIds.value,
+    },
+    targetIds: [draftId.value, ...targetCoopIds.value],
+  };
+}
+
+function resolveGreenGoodsMintHypercert(input: {
+  payload: Record<string, unknown>;
+  expectedCoopId?: string;
+}): ScopedActionPayloadResolution {
+  const parsed = greenGoodsHypercertMintActionPayloadSchema.safeParse(input.payload);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const key = issue?.path?.[0];
+    return {
+      ok: false,
+      reason:
+        typeof key === 'string'
+          ? `Action payload has an invalid "${key}".`
+          : 'Action payload has an invalid Green Goods Hypercert package.',
+    };
+  }
+  const scopeValidation = validateExpectedCoopId(parsed.data.coopId, input.expectedCoopId);
+  if (!scopeValidation.ok) return scopeValidation;
+  return {
+    ok: true,
+    coopId: parsed.data.coopId,
+    normalizedPayload: parsed.data,
+    targetIds: [
+      parsed.data.gardenAddress,
+      parsed.data.title,
+      ...parsed.data.attestations.map((attestation) => attestation.uid),
+      ...parsed.data.allowlist.map((entry) => entry.address),
+    ],
+  };
+}
+
+function resolveErc8004Passthrough(input: {
+  payload: Record<string, unknown>;
+  expectedCoopId?: string;
+}): ScopedActionPayloadResolution {
+  const coopId = readRequiredString(input.payload, 'coopId');
+  if (!coopId.ok) return coopId;
+  const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
+  if (!scopeValidation.ok) return scopeValidation;
+  return {
+    ok: true,
+    coopId: coopId.value,
+    normalizedPayload: { ...input.payload, coopId: coopId.value },
+    targetIds: [],
+  };
+}
+
+const CUSTOM_HANDLERS: Partial<
+  Record<
+    ScopedActionClass,
+    (input: {
+      payload: Record<string, unknown>;
+      expectedCoopId?: string;
+    }) => ScopedActionPayloadResolution
+  >
+> = {
+  'publish-ready-draft': resolvePublishReadyDraft,
+  'green-goods-mint-hypercert': resolveGreenGoodsMintHypercert,
+  'erc8004-register-agent': resolveErc8004Passthrough,
+  'erc8004-give-feedback': resolveErc8004Passthrough,
+};
+
+// ---------------------------------------------------------------------------
+// Public API (unchanged signature)
+// ---------------------------------------------------------------------------
+
 export function resolveScopedActionPayload(input: {
   actionClass: ScopedActionClass;
   payload: Record<string, unknown>;
   expectedCoopId?: string;
 }): ScopedActionPayloadResolution {
-  switch (input.actionClass) {
-    case 'archive-artifact': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const artifactId = readRequiredString(input.payload, 'artifactId');
-      if (!artifactId.ok) {
-        return artifactId;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          artifactId: artifactId.value,
-        },
-        targetIds: [artifactId.value],
-      };
+  const spec = ACTION_SPECS[input.actionClass];
+
+  if (spec === 'custom') {
+    const handler = CUSTOM_HANDLERS[input.actionClass];
+    if (!handler) {
+      throw new Error(`Missing custom handler for action class "${input.actionClass}".`);
     }
-    case 'archive-snapshot': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-        },
-        targetIds: [],
-      };
-    }
-    case 'refresh-archive-status': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const receiptId = readOptionalString(input.payload, 'receiptId');
-      if (!receiptId.ok) {
-        return receiptId;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          receiptId: receiptId.value,
-        },
-        targetIds: receiptId.value ? [receiptId.value] : [],
-      };
-    }
-    case 'publish-ready-draft': {
-      const draftId = readRequiredString(input.payload, 'draftId');
-      if (!draftId.ok) {
-        return draftId;
-      }
-      const targetCoopIds = readRequiredStringArray(input.payload, 'targetCoopIds');
-      if (!targetCoopIds.ok) {
-        return targetCoopIds;
-      }
-      if (input.expectedCoopId && !targetCoopIds.value.includes(input.expectedCoopId)) {
-        return {
-          ok: false,
-          reason: `Publish targets must include the scoped coop "${input.expectedCoopId}".`,
-        };
-      }
-      return {
-        ok: true,
-        coopId: input.expectedCoopId,
-        normalizedPayload: {
-          draftId: draftId.value,
-          targetCoopIds: targetCoopIds.value,
-        },
-        targetIds: [draftId.value, ...targetCoopIds.value],
-      };
-    }
-    case 'safe-deployment': {
-      const coopSeed = readRequiredString(input.payload, 'coopSeed');
-      if (!coopSeed.ok) {
-        return coopSeed;
-      }
-      return {
-        ok: true,
-        normalizedPayload: {
-          coopSeed: coopSeed.value,
-        },
-        targetIds: [coopSeed.value],
-      };
-    }
-    case 'green-goods-create-garden': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const name = readRequiredString(input.payload, 'name');
-      if (!name.ok) {
-        return name;
-      }
-      const description = readRequiredString(input.payload, 'description');
-      if (!description.ok) {
-        return description;
-      }
-      const weightScheme = readRequiredString(input.payload, 'weightScheme');
-      if (!weightScheme.ok) {
-        return weightScheme;
-      }
-      if (!['linear', 'exponential', 'power'].includes(weightScheme.value)) {
-        return {
-          ok: false,
-          reason: 'Action payload has an invalid "weightScheme".',
-        };
-      }
-      const domains = readGreenGoodsDomains(input.payload, 'domains');
-      if (!domains.ok) {
-        return domains;
-      }
-      const slug = readOptionalString(input.payload, 'slug');
-      if (!slug.ok) {
-        return slug;
-      }
-      const location = readOptionalString(input.payload, 'location');
-      if (!location.ok) {
-        return location;
-      }
-      const bannerImage = readOptionalString(input.payload, 'bannerImage');
-      if (!bannerImage.ok) {
-        return bannerImage;
-      }
-      const metadata = readOptionalString(input.payload, 'metadata');
-      if (!metadata.ok) {
-        return metadata;
-      }
-      const openJoining = readOptionalBoolean(input.payload, 'openJoining');
-      if (!openJoining.ok) {
-        return openJoining;
-      }
-      const maxGardeners = readOptionalNonNegativeInteger(input.payload, 'maxGardeners');
-      if (!maxGardeners.ok) {
-        return maxGardeners;
-      }
-      const operatorAddresses = readOptionalAddressArray(input.payload, 'operatorAddresses');
-      if (!operatorAddresses.ok) {
-        return operatorAddresses;
-      }
-      const gardenerAddresses = readOptionalAddressArray(input.payload, 'gardenerAddresses');
-      if (!gardenerAddresses.ok) {
-        return gardenerAddresses;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          name: name.value,
-          slug: slug.value,
-          description: description.value,
-          location: location.value ?? '',
-          bannerImage: bannerImage.value ?? '',
-          metadata: metadata.value ?? '',
-          openJoining: openJoining.value ?? false,
-          maxGardeners: maxGardeners.value ?? 0,
-          weightScheme: weightScheme.value,
-          domains: domains.value,
-          operatorAddresses: operatorAddresses.value,
-          gardenerAddresses: gardenerAddresses.value,
-        },
-        targetIds: [name.value, ...domains.value],
-      };
-    }
-    case 'green-goods-sync-garden-profile': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const name = readRequiredString(input.payload, 'name');
-      if (!name.ok) {
-        return name;
-      }
-      const description = readRequiredString(input.payload, 'description');
-      if (!description.ok) {
-        return description;
-      }
-      const location = readOptionalString(input.payload, 'location');
-      if (!location.ok) {
-        return location;
-      }
-      const bannerImage = readOptionalString(input.payload, 'bannerImage');
-      if (!bannerImage.ok) {
-        return bannerImage;
-      }
-      const metadata = readOptionalString(input.payload, 'metadata');
-      if (!metadata.ok) {
-        return metadata;
-      }
-      const openJoining = readOptionalBoolean(input.payload, 'openJoining');
-      if (!openJoining.ok) {
-        return openJoining;
-      }
-      const maxGardeners = readOptionalNonNegativeInteger(input.payload, 'maxGardeners');
-      if (!maxGardeners.ok) {
-        return maxGardeners;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          name: name.value,
-          description: description.value,
-          location: location.value ?? '',
-          bannerImage: bannerImage.value ?? '',
-          metadata: metadata.value ?? '',
-          openJoining: openJoining.value ?? false,
-          maxGardeners: maxGardeners.value ?? 0,
-        },
-        targetIds: [gardenAddress.value],
-      };
-    }
-    case 'green-goods-set-garden-domains': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const domains = readGreenGoodsDomains(input.payload, 'domains');
-      if (!domains.ok) {
-        return domains;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          domains: domains.value,
-        },
-        targetIds: [gardenAddress.value, ...domains.value],
-      };
-    }
-    case 'green-goods-create-garden-pools': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-        },
-        targetIds: [gardenAddress.value],
-      };
-    }
-    case 'green-goods-submit-work-approval': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const actionUid = readRequiredNonNegativeInteger(input.payload, 'actionUid');
-      if (!actionUid.ok) {
-        return actionUid;
-      }
-      const workUid = readRequiredBytes32(input.payload, 'workUid');
-      if (!workUid.ok) {
-        return workUid;
-      }
-      const approved = readRequiredBoolean(input.payload, 'approved');
-      if (!approved.ok) {
-        return approved;
-      }
-      const feedback = readOptionalString(input.payload, 'feedback');
-      if (!feedback.ok) {
-        return feedback;
-      }
-      const confidence = readRequiredByte(input.payload, 'confidence');
-      if (!confidence.ok) {
-        return confidence;
-      }
-      const verificationMethod = readRequiredByte(input.payload, 'verificationMethod');
-      if (!verificationMethod.ok) {
-        return verificationMethod;
-      }
-      const reviewNotesCid = readOptionalString(input.payload, 'reviewNotesCid');
-      if (!reviewNotesCid.ok) {
-        return reviewNotesCid;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          actionUid: actionUid.value,
-          workUid: workUid.value,
-          approved: approved.value,
-          feedback: feedback.value ?? '',
-          confidence: confidence.value,
-          verificationMethod: verificationMethod.value,
-          reviewNotesCid: reviewNotesCid.value ?? '',
-        },
-        targetIds: [gardenAddress.value, workUid.value],
-      };
-    }
-    case 'green-goods-create-assessment': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const title = readRequiredString(input.payload, 'title');
-      if (!title.ok) {
-        return title;
-      }
-      const description = readRequiredString(input.payload, 'description');
-      if (!description.ok) {
-        return description;
-      }
-      const assessmentConfigCid = readRequiredString(input.payload, 'assessmentConfigCid');
-      if (!assessmentConfigCid.ok) {
-        return assessmentConfigCid;
-      }
-      const domain = readRequiredString(input.payload, 'domain');
-      if (!domain.ok) {
-        return domain;
-      }
-      if (!['solar', 'agro', 'edu', 'waste'].includes(domain.value)) {
-        return { ok: false, reason: 'Action payload has an invalid "domain".' };
-      }
-      const startDate = readRequiredNonNegativeInteger(input.payload, 'startDate');
-      if (!startDate.ok) {
-        return startDate;
-      }
-      const endDate = readRequiredNonNegativeInteger(input.payload, 'endDate');
-      if (!endDate.ok) {
-        return endDate;
-      }
-      if (endDate.value < startDate.value) {
-        return { ok: false, reason: 'Action payload has an invalid "endDate".' };
-      }
-      const location = readOptionalString(input.payload, 'location');
-      if (!location.ok) {
-        return location;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          title: title.value,
-          description: description.value,
-          assessmentConfigCid: assessmentConfigCid.value,
-          domain: domain.value,
-          startDate: startDate.value,
-          endDate: endDate.value,
-          location: location.value ?? '',
-        },
-        targetIds: [gardenAddress.value, title.value, assessmentConfigCid.value],
-      };
-    }
-    case 'green-goods-sync-gap-admins': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const addAdmins = readOptionalAddressArray(input.payload, 'addAdmins');
-      if (!addAdmins.ok) {
-        return addAdmins;
-      }
-      const removeAdmins = readOptionalAddressArray(input.payload, 'removeAdmins');
-      if (!removeAdmins.ok) {
-        return removeAdmins;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          addAdmins: addAdmins.value,
-          removeAdmins: removeAdmins.value,
-        },
-        targetIds: [gardenAddress.value, ...addAdmins.value, ...removeAdmins.value],
-      };
-    }
-    case 'green-goods-mint-hypercert': {
-      const parsed = greenGoodsHypercertMintActionPayloadSchema.safeParse(input.payload);
-      if (!parsed.success) {
-        const issue = parsed.error.issues[0];
-        const key = issue?.path?.[0];
-        return {
-          ok: false,
-          reason:
-            typeof key === 'string'
-              ? `Action payload has an invalid "${key}".`
-              : 'Action payload has an invalid Green Goods Hypercert package.',
-        };
-      }
-      const scopeValidation = validateExpectedCoopId(parsed.data.coopId, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      return {
-        ok: true,
-        coopId: parsed.data.coopId,
-        normalizedPayload: parsed.data,
-        targetIds: [
-          parsed.data.gardenAddress,
-          parsed.data.title,
-          ...parsed.data.attestations.map((attestation) => attestation.uid),
-          ...parsed.data.allowlist.map((entry) => entry.address),
-        ],
-      };
-    }
-    case 'safe-add-owner': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) return coopId;
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) return scopeValidation;
-      const ownerAddress = readRequiredAddress(input.payload, 'ownerAddress');
-      if (!ownerAddress.ok) return ownerAddress;
-      const newThreshold = readRequiredNonNegativeInteger(input.payload, 'newThreshold');
-      if (!newThreshold.ok) return newThreshold;
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          ownerAddress: ownerAddress.value,
-          newThreshold: newThreshold.value,
-        },
-        targetIds: [ownerAddress.value],
-      };
-    }
-    case 'safe-remove-owner': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) return coopId;
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) return scopeValidation;
-      const ownerAddress = readRequiredAddress(input.payload, 'ownerAddress');
-      if (!ownerAddress.ok) return ownerAddress;
-      const newThreshold = readRequiredNonNegativeInteger(input.payload, 'newThreshold');
-      if (!newThreshold.ok) return newThreshold;
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          ownerAddress: ownerAddress.value,
-          newThreshold: newThreshold.value,
-        },
-        targetIds: [ownerAddress.value],
-      };
-    }
-    case 'safe-swap-owner': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) return coopId;
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) return scopeValidation;
-      const oldOwnerAddress = readRequiredAddress(input.payload, 'oldOwnerAddress');
-      if (!oldOwnerAddress.ok) return oldOwnerAddress;
-      const newOwnerAddress = readRequiredAddress(input.payload, 'newOwnerAddress');
-      if (!newOwnerAddress.ok) return newOwnerAddress;
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          oldOwnerAddress: oldOwnerAddress.value,
-          newOwnerAddress: newOwnerAddress.value,
-        },
-        targetIds: [oldOwnerAddress.value, newOwnerAddress.value],
-      };
-    }
-    case 'safe-change-threshold': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) return coopId;
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) return scopeValidation;
-      const newThreshold = readRequiredNonNegativeInteger(input.payload, 'newThreshold');
-      if (!newThreshold.ok) return newThreshold;
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          newThreshold: newThreshold.value,
-        },
-        targetIds: [],
-      };
-    }
-    case 'green-goods-add-gardener': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const memberId = readRequiredString(input.payload, 'memberId');
-      if (!memberId.ok) {
-        return memberId;
-      }
-      const gardenerAddress = readRequiredAddress(input.payload, 'gardenerAddress');
-      if (!gardenerAddress.ok) {
-        return gardenerAddress;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          memberId: memberId.value,
-          gardenerAddress: gardenerAddress.value,
-        },
-        targetIds: [memberId.value, gardenAddress.value, gardenerAddress.value],
-      };
-    }
-    case 'green-goods-remove-gardener': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const memberId = readRequiredString(input.payload, 'memberId');
-      if (!memberId.ok) {
-        return memberId;
-      }
-      const gardenerAddress = readRequiredAddress(input.payload, 'gardenerAddress');
-      if (!gardenerAddress.ok) {
-        return gardenerAddress;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          memberId: memberId.value,
-          gardenerAddress: gardenerAddress.value,
-        },
-        targetIds: [memberId.value, gardenAddress.value, gardenerAddress.value],
-      };
-    }
-    case 'green-goods-submit-work-submission': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const actionUid = readRequiredNonNegativeInteger(input.payload, 'actionUid');
-      if (!actionUid.ok) {
-        return actionUid;
-      }
-      const title = readRequiredString(input.payload, 'title');
-      if (!title.ok) {
-        return title;
-      }
-      const feedback = readOptionalString(input.payload, 'feedback');
-      if (!feedback.ok) {
-        return feedback;
-      }
-      const metadataCid = readRequiredString(input.payload, 'metadataCid');
-      if (!metadataCid.ok) {
-        return metadataCid;
-      }
-      const mediaCids = readOptionalStringArray(input.payload, 'mediaCids');
-      if (!mediaCids.ok) {
-        return mediaCids;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          actionUid: actionUid.value,
-          title: title.value,
-          feedback: feedback.value ?? '',
-          metadataCid: metadataCid.value,
-          mediaCids: mediaCids.value ?? [],
-        },
-        targetIds: [gardenAddress.value, `${actionUid.value}`],
-      };
-    }
-    case 'green-goods-submit-impact-report': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) {
-        return coopId;
-      }
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) {
-        return scopeValidation;
-      }
-      const gardenAddress = readRequiredAddress(input.payload, 'gardenAddress');
-      if (!gardenAddress.ok) {
-        return gardenAddress;
-      }
-      const title = readRequiredString(input.payload, 'title');
-      if (!title.ok) {
-        return title;
-      }
-      const description = readRequiredString(input.payload, 'description');
-      if (!description.ok) {
-        return description;
-      }
-      const domain = readRequiredString(input.payload, 'domain');
-      if (!domain.ok) {
-        return domain;
-      }
-      if (!['solar', 'agro', 'edu', 'waste'].includes(domain.value)) {
-        return { ok: false, reason: 'Action payload has an invalid "domain".' };
-      }
-      const reportCid = readRequiredString(input.payload, 'reportCid');
-      if (!reportCid.ok) {
-        return reportCid;
-      }
-      const metricsSummary = readRequiredString(input.payload, 'metricsSummary');
-      if (!metricsSummary.ok) {
-        return metricsSummary;
-      }
-      const reportingPeriodStart = readRequiredNonNegativeInteger(
-        input.payload,
-        'reportingPeriodStart',
-      );
-      if (!reportingPeriodStart.ok) {
-        return reportingPeriodStart;
-      }
-      const reportingPeriodEnd = readRequiredNonNegativeInteger(
-        input.payload,
-        'reportingPeriodEnd',
-      );
-      if (!reportingPeriodEnd.ok) {
-        return reportingPeriodEnd;
-      }
-      if (reportingPeriodEnd.value < reportingPeriodStart.value) {
-        return { ok: false, reason: 'Action payload has an invalid "reportingPeriodEnd".' };
-      }
-      const submittedBy = readRequiredAddress(input.payload, 'submittedBy');
-      if (!submittedBy.ok) {
-        return submittedBy;
-      }
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: {
-          coopId: coopId.value,
-          gardenAddress: gardenAddress.value,
-          title: title.value,
-          description: description.value,
-          domain: domain.value,
-          reportCid: reportCid.value,
-          metricsSummary: metricsSummary.value,
-          reportingPeriodStart: reportingPeriodStart.value,
-          reportingPeriodEnd: reportingPeriodEnd.value,
-          submittedBy: submittedBy.value,
-        },
-        targetIds: [gardenAddress.value, title.value, reportCid.value],
-      };
-    }
-    case 'erc8004-register-agent': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) return coopId;
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) return scopeValidation;
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: { ...input.payload, coopId: coopId.value },
-        targetIds: [],
-      };
-    }
-    case 'erc8004-give-feedback': {
-      const coopId = readRequiredString(input.payload, 'coopId');
-      if (!coopId.ok) return coopId;
-      const scopeValidation = validateExpectedCoopId(coopId.value, input.expectedCoopId);
-      if (!scopeValidation.ok) return scopeValidation;
-      return {
-        ok: true,
-        coopId: coopId.value,
-        normalizedPayload: { ...input.payload, coopId: coopId.value },
-        targetIds: [],
-      };
-    }
+    return handler(input);
   }
+
+  return resolveFromSpec(spec, input);
 }

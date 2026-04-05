@@ -4,7 +4,7 @@ import {
   buildCoopArchiveStory,
   buildCoopBoardGraph,
   describeArchiveReceipt,
-} from '@coop/shared';
+} from '@coop/shared/app';
 import {
   Background,
   Controls,

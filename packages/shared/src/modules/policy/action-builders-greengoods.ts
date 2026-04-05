@@ -1,3 +1,11 @@
+function normalizeOptionalText(value?: string): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  return value.trim().length > 0 ? value : undefined;
+}
+
 export function buildGreenGoodsCreateGardenPayload(input: {
   coopId: string;
   name: string;
@@ -16,11 +24,11 @@ export function buildGreenGoodsCreateGardenPayload(input: {
   return {
     coopId: input.coopId,
     name: input.name,
-    slug: input.slug,
+    slug: normalizeOptionalText(input.slug),
     description: input.description,
-    location: input.location,
-    bannerImage: input.bannerImage,
-    metadata: input.metadata,
+    location: normalizeOptionalText(input.location),
+    bannerImage: normalizeOptionalText(input.bannerImage),
+    metadata: normalizeOptionalText(input.metadata),
     openJoining: input.openJoining ?? false,
     maxGardeners: input.maxGardeners ?? 0,
     weightScheme: input.weightScheme,
@@ -46,9 +54,9 @@ export function buildGreenGoodsSyncGardenProfilePayload(input: {
     gardenAddress: input.gardenAddress,
     name: input.name,
     description: input.description,
-    location: input.location,
-    bannerImage: input.bannerImage,
-    metadata: input.metadata,
+    location: normalizeOptionalText(input.location),
+    bannerImage: normalizeOptionalText(input.bannerImage),
+    metadata: normalizeOptionalText(input.metadata),
     openJoining: input.openJoining ?? false,
     maxGardeners: input.maxGardeners ?? 0,
   };
@@ -120,7 +128,7 @@ export function buildGreenGoodsCreateAssessmentPayload(input: {
     domain: input.domain,
     startDate: input.startDate,
     endDate: input.endDate,
-    location: input.location ?? '',
+    location: normalizeOptionalText(input.location),
   };
 }
 

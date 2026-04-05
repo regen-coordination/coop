@@ -2,6 +2,7 @@ app = 'coop'
 primary_region = 'iad'
 
 [build]
+  dockerfile = "packages/api/Dockerfile"
 
 [env]
   PORT = '8080'

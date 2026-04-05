@@ -276,7 +276,8 @@ describe('Popup action integration', () => {
       dashboard: makeDashboard({ drafts: [] }),
     });
     const user = userEvent.setup();
-    vi.mocked(chrome.permissions.contains).mockResolvedValue(false);
+    const containsMock = chrome.permissions.contains as unknown as ReturnType<typeof vi.fn>;
+    containsMock.mockResolvedValue(false);
 
     render(<PopupApp />);
 

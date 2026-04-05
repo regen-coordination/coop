@@ -1,5 +1,5 @@
-import type { CoopSpaceType, SetupInsightsInput } from '@coop/shared';
-import { emptySetupInsightsInput, toSetupInsights } from '@coop/shared';
+import type { CoopSpaceType, SetupInsightsInput } from '@coop/shared/app';
+import { emptySetupInsightsInput, toSetupInsights } from '@coop/shared/app';
 import type {
   AudienceId,
   AudienceOption,
@@ -136,8 +136,6 @@ export const howItWorksCards: StoryCard[] = [
 ];
 
 export const teamMembers = ['Afolabi Aiyeloja', 'Luiz Fernando', 'Sofia Villareal'];
-export const partnerMarks = ['Coop', 'Greenpill', 'Greenpill Dev Guild', 'ReFi DAO', 'Green Goods'];
-
 /** Map community labels to specific arrival chickens */
 export const arrivalChickenCommunities: Record<string, string> = {
   tabs: 'Coop',
@@ -146,49 +144,6 @@ export const arrivalChickenCommunities: Record<string, string> = {
   signals: 'ReFi DAO',
   links: 'Green Goods',
 };
-
-export const heroSignalFragments = [
-  {
-    id: 'call-clip',
-    kicker: 'Call clip',
-    text: 'Save the key moment before it drifts.',
-    tone: 'ember',
-    x: '62%',
-    y: '17%',
-    rotate: '-5deg',
-    width: '10rem',
-  },
-  {
-    id: 'browser-tab',
-    kicker: 'Browser tab',
-    text: 'This grant lead is worth the follow-up.',
-    tone: 'meadow',
-    x: '82%',
-    y: '35%',
-    rotate: '3deg',
-    width: '11.5rem',
-  },
-  {
-    id: 'field-note',
-    kicker: 'Field note',
-    text: 'Member energy is shifting this week.',
-    tone: 'ink',
-    x: '54%',
-    y: '57%',
-    rotate: '-2deg',
-    width: '10.4rem',
-  },
-  {
-    id: 'loose-thread',
-    kicker: 'Loose thread',
-    text: 'Remember to reconnect this after the meeting.',
-    tone: 'ember',
-    x: '78%',
-    y: '77%',
-    rotate: '4deg',
-    width: '11rem',
-  },
-] as const;
 
 // Chickens start scattered, then tighten into side-group activity without crossing the
 // center reading lane. The motion should read as shared attention, not drift or collision
@@ -428,7 +383,7 @@ export function cloneTranscripts() {
   return { ...emptyLandingTranscripts };
 }
 
-export function createEmptyLandingDraft(): LandingDraft {
+function createEmptyLandingDraft(): LandingDraft {
   return {
     version: 2,
     audience: 'community',
@@ -439,17 +394,17 @@ export function createEmptyLandingDraft(): LandingDraft {
   };
 }
 
-export function isTranscriptKey(value: unknown): value is TranscriptKey {
+function isTranscriptKey(value: unknown): value is TranscriptKey {
   return (
     value === 'capital' || value === 'impact' || value === 'governance' || value === 'knowledge'
   );
 }
 
-export function isAudienceId(value: unknown): value is AudienceId {
+function isAudienceId(value: unknown): value is AudienceId {
   return value === 'persona' || value === 'family' || value === 'friends' || value === 'community';
 }
 
-export function mergeSetupInput(value: unknown): SetupInsightsInput {
+function mergeSetupInput(value: unknown): SetupInsightsInput {
   const next = cloneSetupInput();
 
   if (!value || typeof value !== 'object') {
@@ -467,7 +422,7 @@ export function mergeSetupInput(value: unknown): SetupInsightsInput {
   return next;
 }
 
-export function mergeTranscripts(value: unknown): TranscriptMap {
+function mergeTranscripts(value: unknown): TranscriptMap {
   const next = cloneTranscripts();
 
   if (!value || typeof value !== 'object') {

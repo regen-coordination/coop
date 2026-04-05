@@ -9,13 +9,64 @@
  */
 
 import {
+  type AuthSession,
   type CoopSharedState,
+  type GreenGoodsGardenState,
+  type GreenGoodsMemberBinding,
+  type MemberOnchainAccount,
   type ReceiverCapture,
   type ReceiverPairingRecord,
   createCoop,
 } from '@coop/shared';
 import { vi } from 'vitest';
-import { makeArtifact, makeSetupInsights } from '../../../../shared/src/__tests__/fixtures';
+import { makeArtifact, makeSetupInsights } from '@coop/shared/testing';
+import type { DashboardResponse } from '../../runtime/messages';
+export { mockCoopSeeds, mockCoopSeedsByName } from './mock-coop-seeds';
+
+type CoopStateOverrides = Omit<
+  Partial<CoopSharedState>,
+  | 'profile'
+  | 'members'
+  | 'rituals'
+  | 'artifacts'
+  | 'reviewBoard'
+  | 'archiveReceipts'
+  | 'invites'
+  | 'memberAccounts'
+  | 'memberCommitments'
+  | 'setupInsights'
+  | 'soul'
+  | 'onchainState'
+  | 'syncRoom'
+  | 'memoryProfile'
+  | 'greenGoods'
+> & {
+  profile?: Partial<CoopSharedState['profile']>;
+  members?: CoopSharedState['members'];
+  rituals?: CoopSharedState['rituals'];
+  artifacts?: CoopSharedState['artifacts'];
+  reviewBoard?: CoopSharedState['reviewBoard'];
+  archiveReceipts?: CoopSharedState['archiveReceipts'];
+  invites?: CoopSharedState['invites'];
+  memberAccounts?: CoopSharedState['memberAccounts'];
+  memberCommitments?: CoopSharedState['memberCommitments'];
+  setupInsights?: CoopSharedState['setupInsights'];
+  soul?: CoopSharedState['soul'];
+  onchainState?: Partial<CoopSharedState['onchainState']>;
+  syncRoom?: Partial<CoopSharedState['syncRoom']>;
+  memoryProfile?: Partial<CoopSharedState['memoryProfile']>;
+  greenGoods?: Partial<NonNullable<CoopSharedState['greenGoods']>>;
+};
+
+type DashboardResponseOverrides = Omit<
+  Partial<DashboardResponse>,
+  'summary' | 'uiPreferences' | 'runtimeConfig' | 'operator'
+> & {
+  summary?: Partial<DashboardResponse['summary']>;
+  uiPreferences?: Partial<DashboardResponse['uiPreferences']>;
+  runtimeConfig?: Partial<DashboardResponse['runtimeConfig']>;
+  operator?: Partial<DashboardResponse['operator']>;
+};
 
 // ---------------------------------------------------------------------------
 // installChromeMock — sets up globalThis.chrome with common stubs
@@ -50,7 +101,163 @@ export function installChromeMock() {
   });
 }
 
-export function makeCoopState(overrides: Partial<CoopSharedState> = {}): CoopSharedState {
+export function makeAuthSession(overrides: Partial<AuthSession> = {}): AuthSession {
+  return {
+    authMode: 'passkey',
+    displayName: 'Ava',
+    primaryAddress: '0x1234567890abcdef1234567890abcdef12345678',
+    createdAt: '2026-03-20T00:00:00.000Z',
+    identityWarning: 'Device bound.',
+    passkey: {
+      id: 'credential-1',
+      publicKey: '0xabcdef1234567890',
+      rpId: 'coop.test',
+    },
+    ...overrides,
+  };
+}
+
+export function makeUiPreferences(
+  overrides: Partial<DashboardResponse['uiPreferences']> = {},
+): DashboardResponse['uiPreferences'] {
+  return {
+    notificationsEnabled: true,
+    localInferenceOptIn: true,
+    preferredExportMethod: 'download',
+    heartbeatEnabled: true,
+    agentCadenceMinutes: 64,
+    excludedCategories: [],
+    customExcludedDomains: [],
+    captureOnClose: false,
+    ...overrides,
+  };
+}
+
+export function makeRuntimeConfig(
+  overrides: Partial<DashboardResponse['runtimeConfig']> = {},
+): DashboardResponse['runtimeConfig'] {
+  return {
+    chainKey: 'sepolia',
+    onchainMode: 'mock',
+    archiveMode: 'mock',
+    sessionMode: 'mock',
+    providerMode: 'standard',
+    privacyMode: 'off',
+    receiverAppUrl: 'http://localhost:3000',
+    signalingUrls: [],
+    ...overrides,
+  };
+}
+
+function toGreenGoodsDomainMask(domains: GreenGoodsGardenState['domains']) {
+  let mask = 0;
+  for (const domain of domains) {
+    switch (domain) {
+      case 'solar':
+        mask |= 1;
+        break;
+      case 'agro':
+        mask |= 2;
+        break;
+      case 'edu':
+        mask |= 4;
+        break;
+      case 'waste':
+        mask |= 8;
+        break;
+    }
+  }
+  return mask;
+}
+
+export function makeGreenGoodsMemberBinding(
+  overrides: Partial<GreenGoodsMemberBinding> = {},
+): GreenGoodsMemberBinding {
+  return {
+    memberId: 'member-1',
+    desiredRoles: [],
+    currentRoles: [],
+    status: 'pending-account',
+    ...overrides,
+  };
+}
+
+export function makeGreenGoodsState(
+  overrides: Partial<GreenGoodsGardenState> = {},
+): GreenGoodsGardenState {
+  const enabled = overrides.enabled ?? true;
+  const status = overrides.status ?? (enabled ? 'requested' : 'disabled');
+  const domains = overrides.domains ?? ['agro'];
+  const memberBindings = overrides.memberBindings ?? [];
+  const gapAdminAddresses = overrides.gapAdminAddresses ?? [];
+  const domainMask = overrides.domainMask ?? toGreenGoodsDomainMask(domains);
+
+  return {
+    enabled,
+    status,
+    requestedAt: enabled ? '2026-03-20T00:00:00.000Z' : undefined,
+    provisioningAt: undefined,
+    linkedAt: undefined,
+    lastMemberSyncAt: undefined,
+    lastProfileSyncAt: undefined,
+    lastDomainSyncAt: undefined,
+    lastPoolSyncAt: undefined,
+    lastGapAdminSyncAt: undefined,
+    lastWorkSubmissionAt: undefined,
+    lastWorkApprovalAt: undefined,
+    lastAssessmentAt: undefined,
+    lastHypercertMintAt: undefined,
+    lastImpactReportAt: undefined,
+    gardenAddress: status === 'linked' ? '0x1234567890abcdef1234567890abcdef12345678' : undefined,
+    tokenId: undefined,
+    gapProjectUid: undefined,
+    name: enabled ? 'Starter Garden' : 'Green Goods Disabled',
+    slug: enabled ? 'starter-garden' : undefined,
+    description: enabled
+      ? 'Coordinate regenerative work through the coop.'
+      : 'Green Goods is disabled for this coop.',
+    location: '',
+    bannerImage: '',
+    metadata: '',
+    openJoining: false,
+    maxGardeners: 0,
+    weightScheme: 'linear',
+    domains,
+    memberBindings,
+    gapAdminAddresses,
+    domainMask,
+    statusNote: enabled ? 'Green Goods garden requested.' : 'Green Goods disabled.',
+    lastError: undefined,
+    lastTxHash: undefined,
+    lastHypercertId: undefined,
+    lastHypercertMetadataUri: undefined,
+    lastHypercertAllowlistUri: undefined,
+    lastUserOperationHash: undefined,
+    ...overrides,
+  };
+}
+
+export function makeMemberOnchainAccount(
+  overrides: Partial<MemberOnchainAccount> = {},
+): MemberOnchainAccount {
+  return {
+    id: 'account-1',
+    memberId: 'member-1',
+    coopId: 'coop-1',
+    accountAddress: '0x1234567890abcdef1234567890abcdef12345678',
+    accountType: 'safe',
+    ownerPasskeyCredentialId: 'credential-1',
+    chainKey: 'sepolia',
+    status: 'active',
+    statusNote: '',
+    createdAt: '2026-03-20T00:00:00.000Z',
+    updatedAt: '2026-03-20T00:00:00.000Z',
+    deployedAt: '2026-03-20T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+export function makeCoopState(overrides: CoopStateOverrides = {}): CoopSharedState {
   const {
     profile: profileOverrides,
     members,
@@ -66,6 +273,7 @@ export function makeCoopState(overrides: Partial<CoopSharedState> = {}): CoopSha
     onchainState: onchainStateOverrides,
     syncRoom: syncRoomOverrides,
     memoryProfile: memoryProfileOverrides,
+    greenGoods: greenGoodsOverrides,
     ...rest
   } = overrides;
   const coopId = overrides.profile?.id ?? 'coop-1';
@@ -152,6 +360,8 @@ export function makeCoopState(overrides: Partial<CoopSharedState> = {}): CoopSha
       updatedAt: '2026-03-20T00:00:00.000Z',
       ...memoryProfileOverrides,
     },
+    greenGoods:
+      greenGoodsOverrides === undefined ? undefined : makeGreenGoodsState(greenGoodsOverrides),
   } as CoopSharedState;
 }
 
@@ -187,7 +397,7 @@ export function makeReceiverCapture(overrides: Partial<ReceiverCapture> = {}): R
     memberId: overrides.memberId ?? 'member-1',
     memberDisplayName: overrides.memberDisplayName ?? 'Ava',
     deviceId: overrides.deviceId ?? 'device-1',
-    kind: overrides.kind ?? 'note',
+    kind: overrides.kind ?? 'link',
     title: overrides.title ?? 'Receiver note',
     note: overrides.note ?? 'A quick note from the phone',
     mimeType: overrides.mimeType ?? 'text/plain',
@@ -204,26 +414,22 @@ export function makeReceiverCapture(overrides: Partial<ReceiverCapture> = {}): R
 // makeDashboardResponse — full dashboard payload for popup/sidepanel tests
 // ---------------------------------------------------------------------------
 
-export function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
+export function makeDashboardResponse(
+  overrides: DashboardResponseOverrides = {},
+): DashboardResponse {
+  const {
+    summary: summaryOverrides,
+    uiPreferences: uiPreferencesOverrides,
+    runtimeConfig: runtimeConfigOverrides,
+    operator: operatorOverrides,
+    ...rest
+  } = overrides;
+  const defaultCoop = makeCoopState({
+    artifacts: [makeArtifact()],
+  });
+
   return {
-    coops: [
-      {
-        profile: {
-          id: 'coop-1',
-          name: 'Starter Coop',
-          purpose: 'Coordinate local research',
-          captureMode: 'manual',
-        },
-        members: [
-          {
-            id: 'member-1',
-            displayName: 'Ava',
-            address: '0x1234567890abcdef1234567890abcdef12345678',
-          },
-        ],
-        artifacts: [makeArtifact()],
-      },
-    ],
+    coops: [defaultCoop],
     activeCoopId: 'coop-1',
     coopBadges: [
       {
@@ -262,38 +468,20 @@ export function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
       localInferenceOptIn: true,
       activeCoopId: 'coop-1',
       pendingOutboxCount: 0,
+      ...summaryOverrides,
     },
     soundPreferences: {
       enabled: true,
       reducedMotion: false,
       reducedSound: false,
     },
-    uiPreferences: {
-      notificationsEnabled: true,
-      localInferenceOptIn: true,
-      preferredExportMethod: 'download',
-      heartbeatEnabled: true,
-      agentCadenceMinutes: 64,
-      excludedCategories: [],
-      customExcludedDomains: [],
-      captureOnClose: false,
-    },
-    authSession: {
-      primaryAddress: '0x1234567890abcdef1234567890abcdef12345678',
-    },
+    uiPreferences: makeUiPreferences(uiPreferencesOverrides),
+    authSession: makeAuthSession(),
     identities: [],
     receiverPairings: [],
     receiverIntake: [],
-    runtimeConfig: {
-      chainKey: 'sepolia',
-      onchainMode: 'mock',
-      archiveMode: 'mock',
-      sessionMode: 'mock',
-      providerMode: 'rpc',
-      privacyMode: 'off',
-      receiverAppUrl: 'http://localhost:3000',
-      signalingUrls: [],
-    },
+    recentCaptureRuns: [],
+    runtimeConfig: makeRuntimeConfig(runtimeConfigOverrides),
     operator: {
       anchorCapability: null,
       anchorActive: false,
@@ -311,7 +499,8 @@ export function makeDashboardResponse(overrides: Record<string, unknown> = {}) {
       permitLog: [],
       sessionCapabilities: [],
       sessionCapabilityLog: [],
+      ...operatorOverrides,
     },
-    ...overrides,
+    ...rest,
   };
 }

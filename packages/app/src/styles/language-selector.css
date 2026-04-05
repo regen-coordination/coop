@@ -62,6 +62,9 @@
   top: calc(100% + 0.5rem);
   right: 0;
   min-width: 10rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
   background: linear-gradient(135deg, rgba(255, 252, 246, 0.98), rgba(248, 240, 220, 0.96));
   border: 1px solid rgba(79, 46, 31, 0.12);
   border-radius: 0.6rem;

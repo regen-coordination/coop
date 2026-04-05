@@ -4,8 +4,8 @@ import type {
   TrustedNodeArchiveConfig,
 } from '../../contracts/schema';
 import { nowIso } from '../../utils';
-import { decryptArchiveBlobBytes } from '../archive/crypto';
-import { computeStorachaFileRootCid } from '../archive/verification';
+import { computeStorachaFileRootCid, decryptArchiveBlobBytes } from '../archive';
+// Use ../storage/db (the real barrel) to avoid vitest circular-dep resolution issues
 import type { CoopDexie } from '../storage/db';
 import { getCoopBlob, saveCoopBlob, touchCoopBlobAccess } from './store';
 import type { BlobSyncChannel } from './sync';

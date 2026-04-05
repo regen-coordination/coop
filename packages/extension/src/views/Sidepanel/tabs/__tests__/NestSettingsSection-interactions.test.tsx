@@ -111,7 +111,7 @@ function buildProps(overrides: Partial<NestSettingsSectionProps> = {}): NestSett
       onchainMode: 'mock',
       archiveMode: 'mock',
       sessionMode: 'off',
-      providerMode: 'rpc',
+      providerMode: 'standard',
       privacyMode: 'off',
       receiverAppUrl: 'https://receiver.test',
       signalingUrls: ['wss://api.coop.town'],

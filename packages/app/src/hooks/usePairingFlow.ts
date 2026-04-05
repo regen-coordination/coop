@@ -13,7 +13,7 @@ import {
   toReceiverPairingRecord,
   triggerHaptic,
   upsertReceiverPairing,
-} from '@coop/shared';
+} from '@coop/shared/app';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { receiverDb as ReceiverDbType } from '../app';
 

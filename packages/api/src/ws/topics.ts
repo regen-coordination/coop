@@ -1,20 +1,9 @@
 import type { WSContext } from 'hono/ws';
-
-/**
- * Stable identity key for a WSContext.
- *
- * Hono's Bun adapter creates a fresh WSContext wrapper for every event
- * (open, message, close), so object identity differs across calls for the
- * same connection. `ws.raw` points to the underlying Bun ServerWebSocket
- * which *is* stable, so we use it as the Map key.
- */
-function wsKey(ws: WSContext): unknown {
-  return ws.raw ?? ws;
-}
+import { rawKey } from './ws-utils';
 
 export class TopicRegistry {
   /** topic name -> Map<stable key, WSContext> */
-  private topics = new Map<string, Map<unknown, WSContext>>();
+  private topics = new Map<string, Map<object, WSContext>>();
 
   subscribe(ws: WSContext, topicName: string): void {
     let subscribers = this.topics.get(topicName);
@@ -22,13 +11,13 @@ export class TopicRegistry {
       subscribers = new Map();
       this.topics.set(topicName, subscribers);
     }
-    subscribers.set(wsKey(ws), ws);
+    subscribers.set(rawKey(ws), ws);
   }
 
   unsubscribe(ws: WSContext, topicName: string): void {
     const subscribers = this.topics.get(topicName);
     if (!subscribers) return;
-    subscribers.delete(wsKey(ws));
+    subscribers.delete(rawKey(ws));
     if (subscribers.size === 0) {
       this.topics.delete(topicName);
     }
@@ -44,7 +33,7 @@ export class TopicRegistry {
   }
 
   removeAll(ws: WSContext, subscribedTopics: Set<string>): void {
-    const key = wsKey(ws);
+    const key = rawKey(ws);
     for (const topicName of subscribedTopics) {
       const subscribers = this.topics.get(topicName);
       if (!subscribers) continue;

@@ -1,5 +1,6 @@
 import type { CoopBlobRecord } from '../../contracts/schema';
 import { nowIso } from '../../utils';
+// Use ../storage/db (the real barrel) to avoid vitest circular-dep resolution issues
 import {
   type CoopDexie,
   buildEncryptedLocalPayloadId,

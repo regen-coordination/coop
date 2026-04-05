@@ -1,4 +1,4 @@
-import type { SetupInsightsInput } from '@coop/shared';
+import type { SetupInsightsInput } from '@coop/shared/app';
 
 export type TranscriptKey = 'capital' | 'impact' | 'governance' | 'knowledge';
 export type TranscriptMap = Record<TranscriptKey, string>;

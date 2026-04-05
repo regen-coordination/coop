@@ -1,9 +1,4 @@
-import type {
-  Artifact,
-  ArtifactCategory,
-  InviteType,
-  ReviewDraftWorkflowStage,
-} from '@coop/shared';
+import type { Artifact, InviteType, ReviewDraft } from '@coop/shared';
 
 export type PopupScreen =
   | 'home'
@@ -50,19 +45,9 @@ export interface PopupActivityItem {
   kind: 'draft' | 'artifact';
 }
 
-export interface PopupDraftListItem {
-  id: string;
-  title: string;
-  summary: string;
-  previewImageUrl?: string;
-  category: ArtifactCategory;
-  tags?: string[];
+export interface PopupDraftListItem extends ReviewDraft {
   coopLabel: string;
   coopIds: string[];
-  workflowStage: ReviewDraftWorkflowStage;
-  whyItMatters?: string;
-  suggestedNextStep?: string;
-  createdAt?: string;
   sourceUrl?: string;
   sourceDomain?: string;
 }

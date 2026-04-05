@@ -17,8 +17,8 @@ import {
   selectSkillIdsForObservation,
   shouldSkipSkill,
   topologicalSortSkills,
-} from '../agent-harness';
-import { listRegisteredSkills } from '../agent-registry';
+} from '../agent/harness';
+import { listRegisteredSkills } from '../agent/registry';
 
 function makeReceiverCapture(overrides: Partial<ReceiverCapture> = {}): ReceiverCapture {
   return {

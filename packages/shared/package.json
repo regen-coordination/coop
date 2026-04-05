@@ -11,9 +11,29 @@
       "types": "./dist/packages/shared/src/index.d.ts",
       "default": "./dist/packages/shared/src/index.js"
     },
+    "./app": {
+      "types": "./dist/packages/shared/src/app-entry.d.ts",
+      "default": "./dist/packages/shared/src/app-entry.js"
+    },
     "./contracts": {
       "types": "./dist/packages/shared/src/contracts/index.d.ts",
       "default": "./dist/packages/shared/src/contracts/index.js"
+    },
+    "./sync-config": {
+      "types": "./dist/packages/shared/src/sync-config.d.ts",
+      "default": "./dist/packages/shared/src/sync-config.js"
+    },
+    "./agent": {
+      "types": "./dist/packages/shared/src/modules/agent/index.d.ts",
+      "default": "./dist/packages/shared/src/modules/agent/index.js"
+    },
+    "./archive": {
+      "types": "./dist/packages/shared/src/modules/archive/index.d.ts",
+      "default": "./dist/packages/shared/src/modules/archive/index.js"
+    },
+    "./testing": {
+      "types": "./dist/packages/shared/src/__tests__/fixtures/index.d.ts",
+      "default": "./dist/packages/shared/src/__tests__/fixtures/index.js"
     }
   },
   "scripts": {
@@ -21,7 +41,6 @@
   },
   "dependencies": {
     "@bandada/api-sdk": "^2.8.0",
-    "@coop/api": "workspace:*",
     "@kohaku-eth/provider": "^0.0.1-alpha.2",
     "@openzeppelin/merkle-tree": "1.0.8",
     "@rhinestone/module-sdk": "^0.4.0",
@@ -38,7 +57,7 @@
     "y-indexeddb": "^9.0.12",
     "y-webrtc": "^10.3.0",
     "y-websocket": "^3.0.0",
-    "yjs": "^13.6.24",
+    "yjs": "^13.6.30",
     "zod": "^3.24.2"
   }
 }

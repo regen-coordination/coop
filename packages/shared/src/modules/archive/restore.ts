@@ -6,10 +6,11 @@ import {
   coopSharedStateSchema,
 } from '../../contracts/schema';
 import { createId, nowIso } from '../../utils';
-import { buildMemoryProfileSeed } from '../coop/pipeline';
-import { createCoopDoc, createSyncRoomConfig, encodeCoopDoc } from '../coop/sync';
+import { buildMemoryProfileSeed } from '../coop/memory-profile';
 import { createUnavailableOnchainState } from '../onchain/onchain';
+// Use ../storage/db (the real barrel) to avoid vitest circular-dep resolution issues
 import type { CoopDexie } from '../storage/db';
+import { createCoopDoc, createSyncRoomConfig, encodeCoopDoc } from '../sync-core';
 import { retrieveArchiveBundle } from './archive';
 
 function assertArchiveRestoreVerification(input: {

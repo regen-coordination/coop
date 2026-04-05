@@ -1,4 +1,6 @@
+import type { AnchorCapability } from '@coop/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeAuthSession, makeCoopState } from '../../../__tests__/fixtures';
 
 const runtimeOperatorMocks = vi.hoisted(() => ({
   requireAnchorModeForFeature: vi.fn(),
@@ -119,6 +121,15 @@ const { getOperatorState, logPrivilegedAction } = await import('../../operator')
 const { emitAgentObservationIfMissing, ensureOnboardingBurst } = await import('../agent');
 const shared = await import('@coop/shared');
 
+function makeAnchorCapability(overrides: Partial<AnchorCapability> = {}): AnchorCapability {
+  return {
+    enabled: false,
+    nodeId: 'coop-extension',
+    updatedAt: '2026-03-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
 describe('coop handlers', () => {
   it('creates a coop with valid input and persists state', async () => {
     const result = await handleCreateCoop({
@@ -177,10 +188,10 @@ describe('coop handlers', () => {
   it('returns a deferred live onchain state when anchor mode is off', async () => {
     vi.stubEnv('VITE_PIMLICO_API_KEY', 'pim_test_key');
     vi.mocked(getOperatorState).mockResolvedValueOnce({
-      authSession: {
+      authSession: makeAuthSession({
         displayName: 'Mina',
         primaryAddress: '0x1111111111111111111111111111111111111111',
-      },
+      }),
       anchorCapability: null,
       anchorStatus: {
         enabled: false,
@@ -244,11 +255,17 @@ describe('coop handlers', () => {
   it('deploys a live Safe when anchor mode and operator context are available', async () => {
     vi.stubEnv('VITE_PIMLICO_API_KEY', 'pim_test_key');
     vi.mocked(getOperatorState).mockResolvedValueOnce({
-      authSession: {
+      authSession: makeAuthSession({
         displayName: 'Mina',
         primaryAddress: '0x1111111111111111111111111111111111111111',
-      },
-      anchorCapability: { enabled: true },
+      }),
+      anchorCapability: makeAnchorCapability({
+        enabled: true,
+        actorAddress: '0x1111111111111111111111111111111111111111',
+        actorDisplayName: 'Mina',
+        memberId: 'member-1',
+        memberDisplayName: 'Mina',
+      }),
       anchorStatus: {
         enabled: true,
         active: true,
@@ -260,8 +277,10 @@ describe('coop handlers', () => {
       },
       activeCoop: undefined,
       activeMember: {
+        ...makeCoopState().members[0],
         id: 'member-1',
         displayName: 'Mina',
+        address: '0x1111111111111111111111111111111111111111',
       },
       actionLog: [],
       activeContext: {
@@ -332,10 +351,10 @@ describe('coop handlers', () => {
 
   it('stores anchor mode and logs the operator action when auth is available', async () => {
     vi.mocked(getOperatorState).mockResolvedValueOnce({
-      authSession: {
+      authSession: makeAuthSession({
         displayName: 'Mina',
         primaryAddress: '0x1111111111111111111111111111111111111111',
-      },
+      }),
       anchorCapability: null,
       anchorStatus: {
         enabled: false,
@@ -346,7 +365,7 @@ describe('coop handlers', () => {
         available: false,
         detail: 'Live Safe deployments are unavailable.',
       },
-      activeCoop: {
+      activeCoop: makeCoopState({
         profile: {
           id: 'coop-1',
           name: 'Alpha Coop',
@@ -354,10 +373,12 @@ describe('coop handlers', () => {
         onchainState: {
           chainKey: 'sepolia',
         },
-      },
+      }),
       activeMember: {
+        ...makeCoopState().members[0],
         id: 'member-1',
         displayName: 'Mina',
+        address: '0x1111111111111111111111111111111111111111',
       },
       actionLog: [],
       activeContext: {
@@ -687,6 +708,10 @@ describe('coop handlers', () => {
     expect(joinResult.ok).toBe(true);
 
     const joinedState = joinResult.data;
+    expect(joinedState).toBeDefined();
+    if (!joinedState) {
+      throw new Error('Expected joined state to be returned.');
+    }
     const joinedMember = joinedState.members.find(
       (m: { displayName: string }) => m.displayName === 'Kai',
     );

@@ -62,6 +62,11 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 3. **extension** (`@coop/extension`) → MV3 browser extension (popup, sidepanel, background worker)
 4. **api** (`@coop/api`) → Hono + Bun API server (Fly.io deployed)
 
+Repo sidecars outside the runtime packages:
+
+- `docs/` → Docusaurus workspace for the docs site
+- `packages/contracts/` → Foundry workspace for Solidity contracts and deployment artifacts
+
 ### Shared Modules
 - `agent`: Agent harness, skills, observation triggers, inference cascade, cross-session memory persistence
 - `app`: Shared app-shell helpers
@@ -86,12 +91,13 @@ Coop captures scattered knowledge (browser tabs, audio, photos, files, links), r
 
 ## Key Patterns
 
-**Module Boundary**: Shared modules in `@coop/shared`. Extension/app have views and runtime only.
+**Module Boundary**: Shared modules live behind public shared surfaces. Extension and most consumers use
+`@coop/shared`; the app shell uses the narrower `@coop/shared/app` surface.
 ```typescript
 import { createCoop, joinCoop } from '@coop/shared'; // correct
 ```
 
-**Barrel Imports**: Always `import { x } from "@coop/shared"`, never deep paths.
+**Barrel Imports**: Use `@coop/shared` or `@coop/shared/app`, never deep source paths.
 
 **Onchain Integration**: Safe + ERC-4337 + passkey auth. Chain set by `VITE_COOP_CHAIN` env var.
 - Default: `sepolia` (test/dev)
@@ -230,6 +236,7 @@ Never commit agent outputs without completing this review. If regressions are fo
 `.plans/` is the single live planning space for active feature execution.
 
 - New feature work goes in `.plans/features/<feature-slug>/`
+- Architecture decisions go in `.plans/adr/` (ADR-NNN-slug.md format)
 - `docs/reference/` remains the place for ratified, long-lived reference docs
 - Do not create new active planning files in repo root
 
@@ -239,6 +246,7 @@ Canonical feature-pack layout:
 .plans/features/<feature-slug>/
   spec.md
   context.md
+  status.json
   lanes/
     ui.claude.todo.md
     state.codex.todo.md
@@ -251,6 +259,9 @@ Canonical feature-pack layout:
     implementation-notes.md
     qa-report.md
 ```
+
+`status.json` is the machine-readable lane state for each feature hub. It tracks per-lane ownership,
+status, dependencies, and branch triggers. Template at `.plans/templates/status.json`.
 
 Lane ownership:
 

@@ -1,4 +1,4 @@
-import type { ReceiverCapture } from '@coop/shared';
+import type { ReceiverCapture } from '@coop/shared/app';
 import { useId } from 'react';
 
 type SyncPillProps = {

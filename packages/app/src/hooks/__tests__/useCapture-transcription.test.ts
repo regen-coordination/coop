@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
  * Verifies that useCapture wires background transcription after audio capture.
  *
  * Uses source-level verification consistent with the existing app hook test
- * pattern (useCapture-compression.test.ts) because the vite alias plugin
- * resolves @coop/shared differently for app vs test code.
+ * pattern (useCapture-compression.test.ts) because this hook now imports the
+ * app-safe shared surface directly.
  */
 
 const hookSource = fs.readFileSync(path.resolve(__dirname, '../useCapture.ts'), 'utf-8');
@@ -21,26 +21,28 @@ function extractOnStopBlock() {
 }
 
 describe('useCapture audio transcription wiring', () => {
-  it('imports isWhisperSupported from @coop/shared', () => {
+  it('imports isWhisperSupported from @coop/shared/app', () => {
     expect(hookSource).toMatch(
-      /import\s*\{[^}]*isWhisperSupported[^}]*\}\s*from\s*['"]@coop\/shared['"]/,
+      /import\s*\{[^}]*isWhisperSupported[^}]*\}\s*from\s*['"]@coop\/shared\/app['"]/,
     );
   });
 
-  it('imports transcribeAudio from @coop/shared', () => {
+  it('imports transcribeAudio from @coop/shared/app', () => {
     expect(hookSource).toMatch(
-      /import\s*\{[^}]*transcribeAudio[^}]*\}\s*from\s*['"]@coop\/shared['"]/,
+      /import\s*\{[^}]*transcribeAudio[^}]*\}\s*from\s*['"]@coop\/shared\/app['"]/,
     );
   });
 
-  it('imports saveCoopBlob from @coop/shared', () => {
+  it('imports saveCoopBlob from @coop/shared/app', () => {
     expect(hookSource).toMatch(
-      /import\s*\{[^}]*saveCoopBlob[^}]*\}\s*from\s*['"]@coop\/shared['"]/,
+      /import\s*\{[^}]*saveCoopBlob[^}]*\}\s*from\s*['"]@coop\/shared\/app['"]/,
     );
   });
 
-  it('imports createId from @coop/shared', () => {
-    expect(hookSource).toMatch(/import\s*\{[^}]*createId[^}]*\}\s*from\s*['"]@coop\/shared['"]/);
+  it('imports createId from @coop/shared/app', () => {
+    expect(hookSource).toMatch(
+      /import\s*\{[^}]*createId[^}]*\}\s*from\s*['"]@coop\/shared\/app['"]/,
+    );
   });
 
   it('calls isWhisperSupported inside the onstop handler', () => {

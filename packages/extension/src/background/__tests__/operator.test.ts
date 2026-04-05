@@ -36,7 +36,7 @@ vi.mock('@coop/shared', async (importOriginal) => {
   };
 });
 
-vi.mock('../../runtime/agent-harness', () => ({
+vi.mock('../../runtime/agent/harness', () => ({
   isTrustedNodeRole: mocks.isTrustedNodeRole,
 }));
 

@@ -5,9 +5,9 @@ slug: /builder/architecture
 
 # Coop Architecture
 
-Coop is a Bun monorepo with thin runtime packages and a strong shared domain layer. The architecture
-is optimized around one idea: keep capture, review, sync, and bounded execution legible across the
-browser surfaces.
+Coop is a Bun monorepo with thin runtime packages, a strong shared domain layer, and a small set of
+support sidecars. The architecture is optimized around one idea: keep capture, review, sync, and
+bounded execution legible across the browser surfaces.
 
 ## Runtime Split
 
@@ -17,6 +17,11 @@ browser surfaces.
 | App | Public landing plus receiver PWA shell |
 | API server | Signaling relay, health routes, and Yjs WebSocket sync |
 | Shared package | Schemas, flows, storage, identity, archive, policy, onchain, privacy, agent, and media modules |
+
+Support directories outside the runtime split:
+
+- `docs/` -- Docusaurus workspace for the docs site
+- `packages/contracts/` -- Foundry sidecar for Solidity contracts and deployment artifacts
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#5a7d10', 'primaryTextColor': '#4f2e1f', 'primaryBorderColor': '#6b4a36', 'lineColor': '#6b4a36', 'secondaryColor': '#fcf5ef', 'tertiaryColor': '#fff8f2'}}}%%
@@ -128,8 +133,91 @@ Some of the most important shared modules are:
 ### Cross-Cutting: Design Tokens
 
 A shared design token system (`packages/shared/src/styles/tokens.css`) defines colors, spacing, and
-typography scales consumed by both the extension popup and sidepanel views. This keeps visual
-consistency across surfaces without duplicating CSS.
+typography scales consumed directly by the app and extension. The docs site currently mirrors a
+subset of those tokens in its own stylesheet until that pipeline can import the shared CSS
+directly.
+
+## Module Dependency Graph
+
+The directed graph below shows how shared modules depend on each other at the import level.
+Arrows point from the importing module to the dependency. Modules with no cross-module imports
+(app, fvm, operator, policy, receiver, stealth, transcribe) appear as standalone leaf nodes.
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#5a7d10', 'primaryTextColor': '#4f2e1f', 'primaryBorderColor': '#6b4a36', 'lineColor': '#6b4a36', 'secondaryColor': '#fcf5ef', 'tertiaryColor': '#fff8f2'}}}%%
+graph TD
+    subgraph Core["Core Workflow"]
+        coop
+        storage
+        archive
+    end
+
+    subgraph Identity["Identity & Auth"]
+        auth
+        member-account
+        privacy
+        stealth
+    end
+
+    subgraph Execution["Bounded Execution"]
+        policy
+        permit
+        session
+        operator
+    end
+
+    subgraph Onchain["Onchain & Registry"]
+        onchain
+        erc8004
+        fvm
+    end
+
+    subgraph Domain["Domain Modules"]
+        agent
+        blob
+        greengoods
+        receiver
+        transcribe
+        app
+    end
+
+    %% Core Workflow
+    coop --> archive
+    coop --> blob
+    coop --> greengoods
+    coop --> member-account
+    coop --> onchain
+    coop --> storage
+    coop --> transcribe
+    storage --> coop
+    storage --> fvm
+    archive --> coop
+    archive --> onchain
+    archive --> storage
+
+    %% Identity & Auth
+    auth --> coop
+    member-account --> auth
+    member-account --> onchain
+    privacy --> stealth
+    privacy --> storage
+
+    %% Bounded Execution
+    permit --> policy
+    session --> greengoods
+    session --> onchain
+
+    %% Onchain & Registry
+    onchain --> auth
+    erc8004 --> onchain
+
+    %% Domain Modules
+    agent --> storage
+    blob --> archive
+    blob --> storage
+    greengoods --> auth
+    greengoods --> onchain
+```
 
 ## Architectural Rules That Matter In Practice
 

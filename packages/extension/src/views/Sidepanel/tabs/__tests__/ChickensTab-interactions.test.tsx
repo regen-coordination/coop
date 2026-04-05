@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Artifact, ReviewDraft, TabCandidate } from '@coop/shared';
+import { makeCoopState } from '../../../../__tests__/fixtures';
 import type {
   AgentDashboardResponse,
   DashboardResponse,
@@ -111,13 +112,15 @@ function buildDashboard(overrides: Partial<DashboardResponse> = {}): DashboardRe
     activeCoopId: 'coop-1',
     candidates: [makeCandidate()],
     coops: [
-      {
+      makeCoopState({
         profile: {
           id: 'coop-1',
           name: 'Alpha Coop',
         },
-        artifacts: [makeArtifact()],
-      },
+        artifacts: [
+          makeArtifact() as unknown as ReturnType<typeof makeCoopState>['artifacts'][number],
+        ],
+      }),
     ],
     drafts: [],
     tabRoutings: [],
@@ -128,7 +131,7 @@ function buildDashboard(overrides: Partial<DashboardResponse> = {}): DashboardRe
       archiveMode: 'mock',
       sessionMode: 'off',
       privacyMode: 'off',
-      providerMode: 'rpc',
+      providerMode: 'standard',
       receiverAppUrl: 'https://receiver.test',
       signalingUrls: ['wss://api.coop.town'],
       websocketSyncUrl: 'wss://api.coop.town/yws',
@@ -433,7 +436,7 @@ describe('ChickensTab interactions', () => {
           synthesisSegment: 'shared',
           dashboard: buildDashboard({
             coops: [
-              {
+              makeCoopState({
                 profile: { id: 'coop-1', name: 'Alpha Coop' },
                 artifacts: [
                   makeArtifact({
@@ -441,25 +444,25 @@ describe('ChickensTab interactions', () => {
                     title: 'Coop Soul',
                     category: 'coop-soul',
                     summary: 'Restoring watersheds together',
-                  }),
+                  }) as never,
                   makeArtifact({
                     id: 'setup-1',
                     title: 'Setup Insights',
                     category: 'setup-insight',
-                  }),
-                  makeArtifact({ id: 'ritual-1', title: 'Rituals', category: 'ritual' }),
+                  }) as never,
+                  makeArtifact({ id: 'ritual-1', title: 'Rituals', category: 'ritual' }) as never,
                   makeArtifact({
                     id: 'seed-1',
                     title: "Ana's Seed Contribution",
                     category: 'seed-contribution',
-                  }),
+                  }) as never,
                   makeArtifact({
                     id: 'real-1',
                     title: 'River restoration plan',
                     category: 'insight',
-                  }),
+                  }) as never,
                 ],
-              },
+              }),
             ],
           }),
         })}

@@ -4,7 +4,7 @@ import {
   AGENT_QUALITY_WINDOW_SIZE,
   computeQualityTrend,
   pushQualityScore,
-} from '../agent-config';
+} from '../agent/config';
 
 describe('computeQualityTrend', () => {
   it('returns stable for fewer than 3 scores', () => {

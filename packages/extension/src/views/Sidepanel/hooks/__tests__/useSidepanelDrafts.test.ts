@@ -124,7 +124,7 @@ describe('useSidepanelDrafts', () => {
         canSaveFile: true,
       } as never,
     });
-    const write = vi.fn(async () => undefined);
+    const write = vi.fn(async (_data: Blob) => undefined);
     const close = vi.fn(async () => undefined);
     (
       globalThis as typeof globalThis & {
@@ -149,6 +149,9 @@ describe('useSidepanelDrafts', () => {
 
     expect(write).toHaveBeenCalledTimes(1);
     const blob = write.mock.calls[0]?.[0];
+    if (!blob) {
+      throw new Error('Expected file picker to receive a blob payload.');
+    }
     expect(blob).toBeInstanceOf(Blob);
     await expect(blob.text()).resolves.toBe('{"ok":true}');
     expect(close).toHaveBeenCalledTimes(1);

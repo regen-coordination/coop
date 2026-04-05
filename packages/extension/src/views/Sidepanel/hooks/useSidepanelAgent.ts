@@ -19,18 +19,28 @@ export interface SidepanelAgentDeps {
 export function useSidepanelAgent(deps: SidepanelAgentDeps) {
   const { setMessage, setAgentDashboard, loadDashboard, loadAgentDashboard } = deps;
 
-  async function handleRunAgentCycle() {
-    const response = await sendRuntimeMessage<AgentDashboardResponse>({
+  function handleRunAgentCycle(): Promise<void> {
+    // Fire-and-forget: callers don't block on the cycle completing.
+    // State updates (setAgentDashboard, loadDashboard) happen asynchronously.
+    void sendRuntimeMessage<AgentDashboardResponse>({
       type: 'run-agent-cycle',
-    });
-    if (!response.ok || !response.data) {
-      setMessage(friendlyAgentError(response.error));
-      return;
-    }
-    setAgentDashboard(response.data);
-    // Success toast is handled by the AGENT_CYCLE_FINISHED background event
-    // in useDashboard, so we don't set a message here.
-    await loadDashboard();
+    })
+      .then(async (response) => {
+        if (!response.ok || !response.data) {
+          setMessage(friendlyAgentError(response.error));
+          return;
+        }
+        setAgentDashboard(response.data);
+        await loadDashboard();
+      })
+      .catch((error: unknown) => {
+        setMessage(
+          friendlyAgentError(
+            error instanceof Error ? error.message : 'Could not run the agent cycle.',
+          ),
+        );
+      });
+    return Promise.resolve();
   }
 
   async function handleApproveAgentPlan(planId: string) {

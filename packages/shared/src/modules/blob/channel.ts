@@ -1,4 +1,5 @@
 import { createId } from '../../utils';
+// Use ../storage/db (the real barrel) to avoid vitest circular-dep resolution issues
 import type { CoopDexie } from '../storage/db';
 import {
   type BlobRelayChunk,

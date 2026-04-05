@@ -4,18 +4,21 @@
  * Extracted from PopupApp.test.tsx to enable reuse across view tests.
  * Pattern: message-passing mocks + dashboard factory + snapshot hydration.
  */
+import type { Artifact, ReviewDraft } from '@coop/shared';
 import type { vi } from 'vitest';
+import {
+  makeArtifact as makeSharedArtifact,
+  makeReviewDraft as makeSharedReviewDraft,
+} from '@coop/shared/testing';
+import { makeCoopState, makeDashboardResponse } from '../../__tests__/fixtures';
+import type { DashboardResponse } from '../../runtime/messages';
 
 // ---------------------------------------------------------------------------
 // Data factories
 // ---------------------------------------------------------------------------
 
-export function makeDraft(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'draft-1',
-    interpretationId: 'interp-1',
-    extractId: 'extract-1',
-    sourceCandidateId: 'candidate-1',
+export function makeDraft(overrides: Partial<ReviewDraft> = {}): ReviewDraft {
+  return makeSharedReviewDraft({
     title: 'River restoration lead',
     summary: 'A rounded-up draft that still needs quick review.',
     whyItMatters: 'Important context.',
@@ -24,55 +27,25 @@ export function makeDraft(overrides: Record<string, unknown> = {}) {
     confidence: 0.62,
     rationale: 'Captured from a relevant tab.',
     tags: [],
-    previewImageUrl: 'https://example.com/preview.png',
-    sources: [
-      {
-        label: 'Example',
-        url: 'https://example.com/article',
-        domain: 'example.com',
-      },
-    ],
-    createdAt: new Date('2026-03-17T12:00:00.000Z').toISOString(),
-    createdBy: 'member-1',
-    reviewStatus: 'draft',
     workflowStage: 'candidate',
     suggestedTargetCoopIds: ['coop-1'],
     provenance: {
-      type: 'tab-candidate',
-      candidateId: 'candidate-1',
+      type: 'tab',
+      interpretationId: 'interp-1',
+      extractId: 'extract-1',
+      sourceCandidateId: 'candidate-1',
     },
-    archiveStatus: 'not-archived',
-    archiveReceiptIds: [],
     ...overrides,
-  };
+  });
 }
 
-export function makeArtifact(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'artifact-1',
-    originId: 'origin-1',
-    targetCoopId: 'coop-1',
+export function makeArtifact(overrides: Partial<Artifact> = {}): Artifact {
+  return makeSharedArtifact({
     title: 'Shared watershed note',
     summary: 'A published artifact in the feed.',
-    sources: [
-      {
-        label: 'Example',
-        url: 'https://example.com/article',
-        domain: 'example.com',
-      },
-    ],
-    tags: ['shared'],
-    category: 'note',
-    whyItMatters: 'It helps the coop stay aligned on the latest research.',
-    suggestedNextStep: 'Open the note, skim the summary, and decide what to share next.',
-    previewImageUrl: 'https://example.com/artifact.png',
-    createdBy: 'member-1',
-    createdAt: new Date('2026-03-17T11:45:00.000Z').toISOString(),
-    reviewStatus: 'approved',
-    archiveStatus: 'not-archived',
-    archiveReceiptIds: [],
+    category: 'resource',
     ...overrides,
-  };
+  });
 }
 
 function makeInviteCode(
@@ -81,7 +54,7 @@ function makeInviteCode(
   inviteType: 'member' | 'trusted',
   createdBy: string,
   code: string,
-) {
+): DashboardResponse['coops'][number]['invites'][number] {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   return {
@@ -106,130 +79,16 @@ function makeInviteCode(
   };
 }
 
-export function makeDashboard(overrides: Record<string, unknown> = {}) {
-  return {
+export function makeDashboard(overrides: Partial<DashboardResponse> = {}): DashboardResponse {
+  return makeDashboardResponse({
     coops: [
-      {
-        profile: {
-          id: 'coop-1',
-          name: 'Starter Coop',
-          purpose: 'Coordinate local research',
-          captureMode: 'manual',
-        },
-        members: [
-          {
-            id: 'member-1',
-            displayName: 'Ava',
-            role: 'creator',
-            address: '0x1234567890abcdef1234567890abcdef12345678',
-            authMode: 'passkey',
-            joinedAt: '2026-03-17T10:00:00.000Z',
-          },
-        ],
+      makeCoopState({
         artifacts: [makeArtifact()],
         invites: [],
-      },
+      }),
     ],
-    activeCoopId: 'coop-1',
-    coopBadges: [
-      {
-        coopId: 'coop-1',
-        coopName: 'Starter Coop',
-        pendingDrafts: 0,
-        routedTabs: 0,
-        insightDrafts: 0,
-        artifactCount: 1,
-        pendingActions: 0,
-        pendingAttentionCount: 0,
-      },
-    ],
-    drafts: [],
-    candidates: [],
-    tabRoutings: [],
-    proactiveSignals: [],
-    summary: {
-      iconState: 'ready',
-      iconLabel: 'Synced',
-      pendingDrafts: 0,
-      routedTabs: 0,
-      insightDrafts: 0,
-      pendingActions: 0,
-      staleObservationCount: 0,
-      pendingAttentionCount: 0,
-      coopCount: 1,
-      syncState: 'Peer-ready local-first sync',
-      syncLabel: 'Healthy',
-      syncDetail: 'Peer-ready local-first sync.',
-      syncTone: 'ok',
-      lastCaptureAt: new Date('2026-03-17T11:50:00.000Z').toISOString(),
-      captureMode: 'manual',
-      agentCadenceMinutes: 64,
-      localEnhancement: 'Heuristics-first fallback',
-      localInferenceOptIn: true,
-      activeCoopId: 'coop-1',
-      pendingOutboxCount: 0,
-    },
-    soundPreferences: {
-      enabled: true,
-      reducedMotion: false,
-      reducedSound: false,
-    },
-    uiPreferences: {
-      notificationsEnabled: true,
-      localInferenceOptIn: true,
-      preferredExportMethod: 'download',
-      heartbeatEnabled: true,
-      agentCadenceMinutes: 64,
-      excludedCategories: [],
-      customExcludedDomains: [],
-      captureOnClose: false,
-    },
-    authSession: {
-      authMode: 'passkey',
-      displayName: 'Ava',
-      primaryAddress: '0x1234567890abcdef1234567890abcdef12345678',
-      createdAt: '2026-03-17T10:00:00.000Z',
-      identityWarning: 'Device bound.',
-      passkey: {
-        id: 'passkey-1',
-        publicKey: '0x1234',
-        rpId: 'coop.test',
-      },
-    },
-    identities: [],
-    receiverPairings: [],
-    receiverIntake: [],
-    runtimeConfig: {
-      chainKey: 'sepolia',
-      onchainMode: 'mock',
-      archiveMode: 'mock',
-      sessionMode: 'mock',
-      providerMode: 'rpc',
-      privacyMode: 'off',
-      receiverAppUrl: 'http://localhost:3000',
-      signalingUrls: [],
-    },
-    operator: {
-      anchorCapability: null,
-      anchorActive: false,
-      anchorDetail: '',
-      actionLog: [],
-      archiveMode: 'mock',
-      onchainMode: 'mock',
-      liveArchiveAvailable: false,
-      liveArchiveDetail: '',
-      liveOnchainAvailable: false,
-      liveOnchainDetail: '',
-      policyActionQueue: [],
-      policyActionLogEntries: [],
-      permits: [],
-      permitLog: [],
-      sessionCapabilities: [],
-      sessionCapabilityLog: [],
-    },
-    recentCaptureRuns: [],
     ...overrides,
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -246,7 +105,7 @@ export function installDefaultRuntimeHandlers(
   mockSendRuntimeMessage: ReturnType<typeof vi.fn>,
   dashboard = makeDashboard(),
 ) {
-  let currentDashboard = dashboard;
+  let currentDashboard: DashboardResponse = dashboard;
   let coopIndex = currentDashboard.coops.length + 1;
   let inviteIndex = 1;
 
@@ -326,13 +185,13 @@ export function installDefaultRuntimeHandlers(
         const payload = message.payload as {
           coopName: string;
           purpose: string;
-          captureMode: 'manual' | 'automatic';
+          captureMode: DashboardResponse['coops'][number]['profile']['captureMode'];
           creator: {
             id: string;
             displayName: string;
             role: 'creator';
             address: string;
-            authMode?: 'passkey' | 'mock' | 'wallet';
+            authMode?: DashboardResponse['coops'][number]['members'][number]['authMode'];
             joinedAt?: string;
           };
           onchainState: {
@@ -344,14 +203,21 @@ export function installDefaultRuntimeHandlers(
         };
         const coopId = `coop-${coopIndex}`;
         coopIndex += 1;
-        const nextCoop = {
+        const nextCoop: DashboardResponse['coops'][number] = makeCoopState({
           profile: {
             id: coopId,
             name: payload.coopName,
             purpose: payload.purpose,
             captureMode: payload.captureMode,
           },
-          members: [payload.creator],
+          members: [
+            {
+              ...makeCoopState().members[0],
+              ...payload.creator,
+              authMode: payload.creator.authMode ?? 'passkey',
+              joinedAt: payload.creator.joinedAt ?? new Date().toISOString(),
+            },
+          ],
           artifacts: [],
           invites: [
             makeInviteCode(
@@ -369,8 +235,12 @@ export function installDefaultRuntimeHandlers(
               `COOP-TRUSTED-${inviteIndex++}`,
             ),
           ],
-          onchainState: payload.onchainState,
-        };
+          onchainState: {
+            safeAddress: payload.onchainState.safeAddress,
+            chainKey: payload.onchainState.chainKey,
+            statusNote: payload.onchainState.statusNote,
+          },
+        });
         currentDashboard = {
           ...currentDashboard,
           coops: [...currentDashboard.coops, nextCoop],
@@ -425,7 +295,7 @@ export function installDefaultRuntimeHandlers(
           inviteType: 'member' | 'trusted';
           createdBy: string;
         };
-        let regenerated = null;
+        let regenerated: DashboardResponse['coops'][number]['invites'][number] | null = null;
         currentDashboard = {
           ...currentDashboard,
           coops: currentDashboard.coops.map((coop) => {
@@ -446,7 +316,7 @@ export function installDefaultRuntimeHandlers(
                   invite.type === payload.inviteType && invite.status !== 'revoked'
                     ? {
                         ...invite,
-                        status: 'revoked',
+                        status: 'revoked' as const,
                         revokedBy: payload.createdBy,
                         revokedAt: new Date().toISOString(),
                       }
@@ -475,7 +345,7 @@ export function installDefaultRuntimeHandlers(
                     invite.type === payload.inviteType && invite.status !== 'revoked'
                       ? {
                           ...invite,
-                          status: 'revoked',
+                          status: 'revoked' as const,
                           revokedBy: payload.revokedBy,
                           revokedAt: new Date().toISOString(),
                         }

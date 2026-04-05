@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 import type { AgentMemory, ReceiverCapture } from '../../contracts/schema';
 import { normalizeLegacyOnchainState } from '../../contracts/schema';
 import { nowIso } from '../../utils';
-import { hydrateCoopDoc } from '../coop/sync';
+import { hydrateCoopDoc } from '../sync-core';
 import { saveAgentMemory } from './db-crud-agent';
 import { savePageExtract, saveReviewDraft, saveTabCandidate } from './db-crud-content';
 import { savePrivacyIdentity, saveStealthKeyPair } from './db-crud-privacy';

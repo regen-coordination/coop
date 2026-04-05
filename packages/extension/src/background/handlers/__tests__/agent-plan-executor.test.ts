@@ -1,5 +1,6 @@
-import type { AgentPlan } from '@coop/shared';
+import { type AgentPlan, createActionProposal, createAgentPlan } from '@coop/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeAuthSession, makeCoopState } from '../../../__tests__/fixtures';
 
 const sharedMocks = vi.hoisted(() => ({
   getAuthSession: vi.fn(),
@@ -43,40 +44,44 @@ vi.mock('../actions', () => ({
 const { executeAgentPlanProposals } = await import('../agent-plan-executor');
 
 function makePlan(overrides: Partial<AgentPlan> = {}): AgentPlan {
-  return {
-    id: 'plan-1',
+  const plan = createAgentPlan({
     observationId: 'observation-1',
-    status: 'ready',
     provider: 'heuristic',
     confidence: 0.88,
     goal: 'Run queued action proposals.',
     rationale: 'Auto-run anything already approved.',
-    steps: [],
     requiresApproval: false,
     createdAt: '2026-03-29T00:00:00.000Z',
-    updatedAt: '2026-03-29T00:00:00.000Z',
     actionProposals: [
-      {
+      createActionProposal({
         coopId: 'coop-1',
         actionClass: 'green-goods-create-garden',
         payload: { title: 'Garden' },
         approvalMode: 'auto-run-eligible',
-      },
+        reason: 'Bootstrap the garden.',
+        createdAt: '2026-03-29T00:00:00.000Z',
+      }),
     ],
+  });
+  return {
+    ...plan,
     ...overrides,
-  } as AgentPlan;
+    actionProposals: overrides.actionProposals ?? plan.actionProposals,
+  };
 }
 
 describe('executeAgentPlanProposals', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    sharedMocks.getAuthSession.mockResolvedValue({
-      primaryAddress: '0x1111111111111111111111111111111111111111',
-    });
+    sharedMocks.getAuthSession.mockResolvedValue(
+      makeAuthSession({
+        primaryAddress: '0x1111111111111111111111111111111111111111',
+      }),
+    );
     contextMocks.getCoops.mockResolvedValue([
-      {
+      makeCoopState({
         profile: { id: 'coop-1' },
-      },
+      }),
     ]);
     operatorMocks.findAuthenticatedCoopMember.mockReturnValue({
       id: 'member-1',
@@ -139,20 +144,24 @@ describe('executeAgentPlanProposals', () => {
     const result = await executeAgentPlanProposals(
       makePlan({
         actionProposals: [
-          {
+          createActionProposal({
             coopId: 'coop-1',
             actionClass: 'green-goods-create-garden',
             memberId: 'member-explicit',
             payload: { title: 'Garden' },
-            approvalMode: 'manual',
-          },
-          {
+            approvalMode: 'proposal',
+            reason: 'Manual review required.',
+            createdAt: '2026-03-29T00:00:00.000Z',
+          }),
+          createActionProposal({
             coopId: 'coop-1',
             actionClass: 'green-goods-sync-gap-admins',
             payload: { addAdmins: [] },
             approvalMode: 'auto-run-eligible',
-          },
-        ] as AgentPlan['actionProposals'],
+            reason: 'Keep admins in sync.',
+            createdAt: '2026-03-29T00:00:00.000Z',
+          }),
+        ],
       }),
     );
 

@@ -79,7 +79,7 @@ function makeCoop(id: string, name: string): CoopSharedState {
 
 const defaultRuntimeConfig = {
   privacyMode: 'off' as const,
-  sessionMode: 'passkey' as const,
+  sessionMode: 'mock' as const,
   onchainMode: 'mock' as const,
   archiveMode: 'mock' as const,
   chainKey: 'sepolia' as const,

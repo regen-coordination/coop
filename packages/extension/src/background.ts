@@ -23,7 +23,7 @@ import {
   setWebAuthnCredentialGetFnOverride,
   upsertLocalIdentity,
 } from '@coop/shared';
-import { listRegisteredSkills } from './runtime/agent-registry';
+import { listRegisteredSkills } from './runtime/agent/registry';
 import type {
   DashboardResponse,
   ReceiverSyncRuntimeStatus,

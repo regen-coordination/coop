@@ -20,6 +20,37 @@ function withTimeout(promise, timeoutMs, label = 'operation') {
   ]);
 }
 
+function isTransientNavigationError(error) {
+  return (
+    error instanceof Error &&
+    /ERR_EMPTY_RESPONSE|ERR_CONNECTION_RESET|ERR_CONNECTION_CLOSED|ERR_CONNECTION_REFUSED|ERR_FAILED|Navigation timeout/i.test(
+      error.message,
+    )
+  );
+}
+
+async function gotoWithRetry(page, url, attempts = 5) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: 15000,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isTransientNavigationError(error) || attempt === attempts) {
+        throw error;
+      }
+      await page.waitForTimeout(Math.min(250 * attempt, 1000));
+    }
+  }
+
+  throw lastError ?? new Error(`Could not navigate to ${url}.`);
+}
+
 function isBenignCloseError(error) {
   if (!error || typeof error !== 'object') {
     return false;
@@ -104,7 +135,7 @@ async function launchExtensionProfile(userDataDir) {
       automaticPresenceSimulation: true,
     },
   });
-  await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+  await gotoWithRetry(page, `chrome-extension://${extensionId}/sidepanel.html`);
 
   return {
     context,
@@ -189,10 +220,13 @@ async function setActiveCoop(page, coopName) {
   });
 
   await expect
-    .poll(async () => {
-      const dashboard = await getDashboard(page);
-      return dashboard?.activeCoopId === coop.profile.id;
-    })
+    .poll(
+      async () => {
+        const dashboard = await getDashboard(page);
+        return dashboard?.activeCoopId === coop.profile.id;
+      },
+      { timeout: 15000 },
+    )
     .toBe(true);
 }
 
@@ -304,7 +338,7 @@ test.describe('receiver pairing and sync', () => {
 
     try {
       const appPage = await creatorProfile.context.newPage();
-      await appPage.goto(appBaseUrl);
+      await gotoWithRetry(appPage, appBaseUrl);
       await creatorProfile.page.bringToFront();
 
       const receiverCoop = await seedCoop(creatorProfile.page, {
@@ -358,6 +392,7 @@ test.describe('receiver pairing and sync', () => {
       await creatorProfile.page.waitForLoadState('domcontentloaded');
 
       await setActiveCoop(creatorProfile.page, 'Receiver Coop');
+      await openFooterTab(creatorProfile.page, 'Nest');
       await openNestSection(creatorProfile.page, 'Receiver Pairings');
       await creatorProfile.page
         .getByRole('button', { name: /(generate receiver pairing|generate nest code)/i })
@@ -379,7 +414,7 @@ test.describe('receiver pairing and sync', () => {
 
       await creatorProfile.page.close();
 
-      await appPage.goto(deepLinkUrl.toString());
+      await gotoWithRetry(appPage, deepLinkUrl.toString());
       await expect(
         appPage.getByRole('button', { name: /(accept pairing|join this coop)/i }),
       ).toBeVisible({
@@ -440,7 +475,10 @@ test.describe('receiver pairing and sync', () => {
         .toBe(true);
       logProgress('receiver capture visible in app');
       const reviewPage = await creatorProfile.context.newPage();
-      await reviewPage.goto(`chrome-extension://${creatorProfile.extensionId}/sidepanel.html`);
+      await gotoWithRetry(
+        reviewPage,
+        `chrome-extension://${creatorProfile.extensionId}/sidepanel.html`,
+      );
       await expect
         .poll(
           async () => {

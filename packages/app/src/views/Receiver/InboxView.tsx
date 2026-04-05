@@ -1,4 +1,4 @@
-import type { ReceiverCapture } from '@coop/shared';
+import type { ReceiverCapture } from '@coop/shared/app';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { SyncPill } from '../../components/SyncPill';

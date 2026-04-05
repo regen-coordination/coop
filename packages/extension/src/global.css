@@ -1849,7 +1849,7 @@ button.sidepanel-header__brand {
   font-size: 0.85rem;
   color: var(--coop-brown);
   animation: coop-rise 320ms ease both;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .notification-banner__message {
@@ -1861,6 +1861,7 @@ button.sidepanel-header__brand {
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
+  pointer-events: auto;
 }
 
 .notification-banner__action {
@@ -1871,6 +1872,7 @@ button.sidepanel-header__brand {
   color: var(--coop-green);
   font-size: 0.78rem;
   font-weight: 600;
+  pointer-events: auto;
 }
 
 .notification-banner__dismiss {
@@ -1880,6 +1882,7 @@ button.sidepanel-header__brand {
   color: var(--coop-brown-soft);
   font-size: 1rem;
   line-height: 1;
+  pointer-events: auto;
 }
 
 /* ---- Share menu ---- */

@@ -3,6 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ActionBundle, CoopSharedState } from '@coop/shared';
+import {
+  makeCoopState,
+  makeGreenGoodsMemberBinding,
+  makeGreenGoodsState,
+  makeMemberOnchainAccount,
+} from '../../../../__tests__/fixtures';
 import { RoostTab, type RoostTabProps } from '../RoostTab';
 
 const accessSummarySpy = vi.fn();
@@ -56,79 +62,36 @@ vi.mock('../../cards/GreenGoodsActionCards', () => ({
 }));
 
 function createCoop(overrides: Partial<CoopSharedState> = {}): CoopSharedState {
-  return {
+  return makeCoopState({
     profile: {
       id: 'coop-1',
       name: 'Alpha Coop',
       purpose: 'Restore watersheds',
-      spaceType: 'community',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      createdBy: 'member-1',
-      captureMode: 'manual',
-      safeAddress: '0x1111111111111111111111111111111111111111',
-      active: true,
     },
     members: [
       {
+        ...makeCoopState().members[0],
         id: 'member-1',
         displayName: 'Ari',
         role: 'creator',
-        authMode: 'passkey',
         address: '0x1111111111111111111111111111111111111111',
-        joinedAt: '2026-01-01T00:00:00.000Z',
-        identityWarning: '',
       },
       {
+        ...makeCoopState().members[0],
         id: 'member-2',
         displayName: 'Bo',
         role: 'member',
-        authMode: 'passkey',
         address: '0x2222222222222222222222222222222222222222',
         joinedAt: '2026-01-02T00:00:00.000Z',
-        identityWarning: '',
       },
     ],
-    artifacts: [],
-    archiveReceipts: [],
-    onchainState: {
-      chainId: 11155111,
-      chainKey: 'sepolia',
-      safeAddress: '0x1111111111111111111111111111111111111111',
-      safeCapability: 'ready',
-      statusNote: '',
-    },
-    setupInsights: {
-      version: 1,
-      lenses: [],
-      summaryNarrative: '',
-      seedContribution: '',
-    },
-    soul: { identity: '', norms: '', ritualGuidance: '' },
-    rituals: [],
-    reviewBoard: [],
-    memoryProfile: {
-      version: 1,
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      topDomains: [],
-      topTags: [],
-      categoryStats: [],
-      ritualLensWeights: [],
-      exemplarArtifactIds: [],
-      archiveSignals: { archivedTagCounts: {}, archivedDomainCounts: {} },
-    },
-    syncRoom: { signalingServers: [], roomId: 'room-1', password: 'pw' },
-    invites: [],
-    memberCommitments: [],
-    memberAccounts: [],
-    greenGoods: {
-      enabled: true,
+    greenGoods: makeGreenGoodsState({
       status: 'linked',
-      gardenAddress: undefined,
+      gardenAddress: '0x1234567890abcdef1234567890abcdef12345678',
       memberBindings: [],
-      lastWorkSubmissionAt: undefined,
-    },
-    ...overrides,
-  } as unknown as CoopSharedState;
+    }),
+    ...(overrides as Parameters<typeof makeCoopState>[0]),
+  });
 }
 
 function makeGardenerBundle(overrides: Partial<ActionBundle> = {}): ActionBundle {
@@ -289,12 +252,11 @@ describe('RoostTab interactions', () => {
       <RoostTab
         {...buildProps({
           activeCoop: createCoop({
-            greenGoods: {
-              enabled: true,
+            greenGoods: makeGreenGoodsState({
               status: 'requested',
               gardenAddress: undefined,
               memberBindings: [],
-            },
+            }),
           }),
         })}
       />,
@@ -312,12 +274,11 @@ describe('RoostTab interactions', () => {
       <RoostTab
         {...buildProps({
           activeCoop: createCoop({
-            greenGoods: {
-              enabled: true,
+            greenGoods: makeGreenGoodsState({
               status: 'linked',
-              gardenAddress: '0xgarden',
+              gardenAddress: '0x1234567890abcdef1234567890abcdef12345678',
               memberBindings: [],
-            },
+            }),
             memberAccounts: [],
           }),
         })}
@@ -338,12 +299,12 @@ describe('RoostTab interactions', () => {
       <RoostTab
         {...buildProps({
           activeCoop: createCoop({
-            greenGoods: {
+            greenGoods: makeGreenGoodsState({
               enabled: false,
               status: 'disabled',
               gardenAddress: undefined,
               memberBindings: [],
-            },
+            }),
           }),
         })}
       />,
@@ -358,26 +319,25 @@ describe('RoostTab interactions', () => {
     const user = userEvent.setup();
     const activeCoop = createCoop({
       memberAccounts: [
-        {
+        makeMemberOnchainAccount({
           memberId: 'member-1',
-          accountAddress: '0xgarden-account',
-          accountType: 'safe',
-          status: 'active',
-        },
+          accountAddress: '0x1234567890abcdef1234567890abcdef12345678',
+        }),
       ],
-      greenGoods: {
-        enabled: true,
+      greenGoods: makeGreenGoodsState({
         status: 'linked',
-        gardenAddress: '0xgarden',
+        gardenAddress: '0x1234567890abcdef1234567890abcdef12345678',
         lastWorkSubmissionAt: '2026-03-01T12:00:00.000Z',
         memberBindings: [
-          {
+          makeGreenGoodsMemberBinding({
             memberId: 'member-1',
             status: 'synced',
-            actorAddress: '0xgarden-account',
-          },
+            actorAddress: '0x1234567890abcdef1234567890abcdef12345678',
+            desiredRoles: ['gardener'],
+            currentRoles: ['gardener'],
+          }),
         ],
-      },
+      }),
     });
     const onProvisionMemberOnchainAccount = vi.fn();
     const onSubmitGreenGoodsWorkSubmission = vi.fn();
@@ -398,7 +358,7 @@ describe('RoostTab interactions', () => {
             }),
             makeGardenerBundle({
               id: 'bundle-3',
-              actionClass: 'green-goods-create-work',
+              actionClass: 'green-goods-submit-work-submission',
             }),
           ],
           onProvisionMemberOnchainAccount,

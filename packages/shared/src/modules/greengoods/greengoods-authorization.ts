@@ -1,7 +1,7 @@
 import { http, type Address, createPublicClient } from 'viem';
 import type { OnchainState } from '../../contracts/schema';
 import { assertHexString } from '../../utils';
-import { getCoopChainConfig } from '../onchain/onchain';
+import { getCoopChainConfig } from '../onchain';
 import { greenGoodsDeploymentRegistryAbi, greenGoodsGardenTokenAbi } from './greengoods-abis';
 import { describeGreenGoodsChain, getGreenGoodsDeployment } from './greengoods-deployments';
 

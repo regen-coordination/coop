@@ -8,8 +8,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "..",
     "types": ["bun"]
   },
-  "include": ["src/**/*.ts", "config.ts"]
+  "include": ["src/**/*.ts", "config.ts", "../shared/src/sync-config.ts"]
 }

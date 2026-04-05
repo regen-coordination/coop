@@ -108,6 +108,19 @@ const ExportIcon = () => (
   </svg>
 );
 
+async function openBoardInBrowserTab(boardUrl: string) {
+  if (globalThis.chrome?.tabs?.create) {
+    try {
+      await globalThis.chrome.tabs.create({ url: boardUrl });
+      return;
+    } catch {
+      // Fall back to the browser window API when the extension tab API is unavailable.
+    }
+  }
+
+  window.open(boardUrl, '_blank', 'noreferrer');
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -244,7 +257,9 @@ export function CoopsTab({
       key: 'board',
       icon: <BoardIcon />,
       label: 'Open Board',
-      onClick: () => window.open(boardUrl, '_blank', 'noreferrer'),
+      onClick: () => {
+        void openBoardInBrowserTab(boardUrl);
+      },
     });
   }
 

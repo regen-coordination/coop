@@ -714,5 +714,3 @@ export function GardenRequestsSection(props: GardenRequestsSectionProps) {
     </details>
   );
 }
-
-export default GardenRequestsSection;

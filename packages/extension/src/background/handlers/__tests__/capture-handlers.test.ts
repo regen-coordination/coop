@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeCoopState } from '../../../__tests__/fixtures';
 
 // --- Chrome API mock ---
 
@@ -110,6 +111,8 @@ const {
   prepareVisibleScreenshot,
   runCaptureCycle,
 } = await import('../capture');
+const { refreshBadge } = await import('../../dashboard');
+const { drainAgentCycles, emitRoundupBatchObservation } = await import('../agent');
 
 describe('capture handlers', () => {
   it('returns 0 when no active tab is found', async () => {
@@ -129,7 +132,11 @@ describe('capture handlers', () => {
 
   it('captures a valid http tab and returns count 1', async () => {
     const { getCoops } = await import('../../context');
-    vi.mocked(getCoops).mockResolvedValue([{ profile: { id: 'coop-1', name: 'Coop' } }]);
+    vi.mocked(getCoops).mockResolvedValue([
+      makeCoopState({
+        profile: { id: 'coop-1', name: 'Coop' },
+      }),
+    ]);
     chromeTabsMock.query.mockResolvedValueOnce([
       { id: 10, url: 'https://example.com/page', windowId: 1, title: 'Example' },
     ]);
@@ -156,6 +163,42 @@ describe('capture handlers', () => {
         eligibleCoopIds: ['coop-1'],
       }),
     );
+  });
+
+  it('returns captured tabs without waiting for roundup follow-up work', async () => {
+    const { getCoops } = await import('../../context');
+    const neverSettles: Promise<never> = new Promise(() => {});
+
+    vi.mocked(getCoops).mockResolvedValue([
+      makeCoopState({
+        profile: { id: 'coop-1', name: 'Coop' },
+      }),
+    ]);
+    vi.mocked(emitRoundupBatchObservation).mockReturnValueOnce(neverSettles);
+    vi.mocked(drainAgentCycles).mockReturnValueOnce(neverSettles);
+    vi.mocked(refreshBadge).mockReturnValueOnce(neverSettles);
+    chromeTabsMock.query.mockResolvedValueOnce([
+      { id: 10, url: 'https://example.com/page', windowId: 1, title: 'Example' },
+    ]);
+    chromeScrMock.executeScript.mockResolvedValue([
+      {
+        result: {
+          title: 'Example Page',
+          metaDescription: 'An example page',
+          headings: ['Welcome'],
+          paragraphs: ['Hello world'],
+          previewImageUrl: undefined,
+        },
+      },
+    ]);
+
+    const result = await Promise.race([
+      runCaptureCycle(),
+      new Promise<'timed-out'>((resolve) => setTimeout(() => resolve('timed-out'), 25)),
+    ]);
+
+    expect(result).not.toBe('timed-out');
+    expect(result).toBe(1);
   });
 
   it('falls back to the most recently focused standard tab when the popup steals current-window focus', async () => {

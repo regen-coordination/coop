@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeOutputConfidence } from '../agent-quality';
+import { computeOutputConfidence } from '../agent/quality';
 
 describe('computeOutputConfidence', () => {
   it('returns low confidence for empty heuristic outputs', () => {

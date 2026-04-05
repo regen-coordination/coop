@@ -64,6 +64,36 @@ Someone using the paired mobile web app:
 - Captures sync to the extension via WebSocket relay
 - Captured content enters the private intake queue before review
 
+## Persona & Tone Quick-Reference
+
+Each extension surface and app page has a primary audience. Match tone and vocabulary accordingly.
+
+| Archetype | Persona | Perceives Coop As | Tone | Avoid |
+|-----------|---------|-------------------|------|-------|
+| Regular Member | Sam | "A tab organizer that helps my group" | Warm, plain-language, action-oriented | Jargon, options overload, blockchain vocabulary |
+| Trusted Member | Nia | "Our community's shared memory" | Encouraging, collaborative, direct | Condescension, assumed technical literacy |
+| Operator | Kai | "My community's command center" | Professional, efficient, task-focused | Oversimplification, hiding complexity |
+| Mobile Contributor | Luz | "Quick capture from my phone" | Minimal, fast, zero-friction | Long explanations, multi-step flows |
+
+### Surface → Persona Mapping
+
+| Surface | Primary Persona | Tone Notes |
+|---------|----------------|------------|
+| **Popup** | Sam (Regular) | Quick, casual, action-first. 1-2 words per button. No explanation needed. |
+| **Chickens tab** | Sam / Nia | Minimal, calm, Notion-like. 3-4 info pieces per card. Inline actions. |
+| **Coops tab** | Nia (Trusted) | Collaborative, evidence-based. Show sync state, archive receipts. |
+| **Roost tab** | Nia / Kai | Workspace-focused. Show progress, garden state, submissions. |
+| **Nest tab** | Kai (Operator) | Admin-precise. Member list, invite codes, receiver pairing, settings. |
+| **Landing page** | Sam (first visit) | Warm, atmospheric. Explain value in one scroll. Zero blockchain jargon. |
+| **Receiver PWA** | Luz (Mobile) | Ultra-minimal. Capture button dominant. Status indicators only. |
+
+### Vocabulary Constraints
+
+- **Regular Member / Mobile**: Zero blockchain vocabulary. 6th-grade reading level. Say "save" not "publish to chain", "group" not "multisig".
+- **Trusted Member**: May reference "shared feed", "archive", "sync". Never Solidity internals.
+- **Operator**: May reference "Safe address", "invite codes", "trusted member". Never raw transaction details.
+- All surfaces: Prefer chicken metaphors where they clarify (Loose Chickens, Coop Feed), drop them where they obscure.
+
 ## Brand Direction
 
 ### Chicken Metaphors

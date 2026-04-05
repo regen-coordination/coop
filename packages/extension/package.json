@@ -6,13 +6,13 @@
   "scripts": {
     "prepare": "bunx --bun wxt prepare",
     "dev": "sh -lc 'mkdir -p .wxt/chrome-data && bunx --bun wxt -b chrome --mv3'",
-    "dev:catalog": "vite dev --config vite.catalog.config.ts",
     "build": "bunx --bun wxt build -b chrome --mv3"
   },
   "dependencies": {
     "@coop/shared": "workspace:*",
     "@huggingface/transformers": "^3.8.1",
     "@mlc-ai/web-llm": "^0.2.79",
+    "@rhinestone/module-sdk": "^0.4.0",
     "permissionless": "^0.3.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

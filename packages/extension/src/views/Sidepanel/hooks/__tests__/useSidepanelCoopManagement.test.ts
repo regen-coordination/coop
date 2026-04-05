@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeUiPreferences } from '../../../../__tests__/fixtures';
 
 const { playCoopSoundMock, sendRuntimeMessageMock } = vi.hoisted(() => ({
   playCoopSoundMock: vi.fn(async () => undefined),
@@ -43,13 +44,14 @@ function makeDeps(overrides: Partial<Parameters<typeof useSidepanelCoopManagemen
     loadDashboard: vi.fn(async () => undefined),
     loadAgentDashboard: vi.fn(async () => undefined),
     updateUiPreferences: vi.fn(async (patch) => ({
-      localInferenceOptIn: patch.localInferenceOptIn,
+      ...makeUiPreferences(),
+      ...patch,
     })),
     inferenceBridgeRef: {
       current: {
         setOptIn: vi.fn(),
       },
-    },
+    } as never,
     ...overrides,
   };
 }

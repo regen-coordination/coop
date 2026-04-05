@@ -5,6 +5,7 @@ import {
   makeDashboard,
   type makeDraft,
 } from '../../../__test-utils__/popup-harness';
+import type { PopupNavigationState } from '../../popup-types';
 import type { PopupPendingCapture } from '../../popup-types';
 
 const {
@@ -66,7 +67,7 @@ const {
         displayName: '',
         starterNote: '',
       },
-    },
+    } as PopupNavigationState,
   },
 }));
 
@@ -223,7 +224,7 @@ function resetPopupState() {
       displayName: '',
       starterNote: '',
     },
-  };
+  } as PopupNavigationState;
 }
 
 describe('usePopupOrchestration', () => {

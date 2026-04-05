@@ -11,7 +11,7 @@ import {
   markReceiverCaptureSyncFailed,
   patchReceiverSyncEnvelope,
 } from '@coop/shared';
-import { runAgentCycle } from './agent-runner';
+import { runAgentCycle } from './agent/runner';
 import type {
   ReceiverSyncConfigResponse,
   ReceiverSyncRuntimeStatus,

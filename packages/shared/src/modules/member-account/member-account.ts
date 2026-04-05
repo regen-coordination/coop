@@ -14,11 +14,11 @@ import { localMemberSignerBindingSchema } from '../../contracts/schema';
 import { createId, nowIso } from '../../utils';
 import { restorePasskeyAccount } from '../auth/auth';
 import {
+  createCoopPublicClient,
   createCoopSaltNonce,
   createCoopSmartAccountClient,
   sendSmartAccountTransactionWithCoopGasFallback,
-} from '../onchain/onchain';
-import { createCoopPublicClient } from '../onchain/provider';
+} from '../onchain';
 
 // ── Account Creation ─────────────────────────────────────────────────
 

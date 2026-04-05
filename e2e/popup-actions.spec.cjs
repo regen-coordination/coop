@@ -124,6 +124,23 @@ async function closeContextSafely(context) {
   }
 }
 
+async function enableVirtualWebAuthn(context, page, createAuthenticator = false) {
+  const cdpSession = await context.newCDPSession(page);
+  await cdpSession.send('WebAuthn.enable');
+  if (createAuthenticator) {
+    await cdpSession.send('WebAuthn.addVirtualAuthenticator', {
+      options: {
+        protocol: 'ctap2',
+        transport: 'internal',
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+  }
+}
+
 function popupCoopPayload(coopName) {
   return {
     coopName,
@@ -295,6 +312,73 @@ async function launchPopupProfile(userDataDir, options = {}) {
     popupPage,
     worker,
   };
+}
+
+async function openPopupPage(context, extensionId) {
+  const popupPage = await context.newPage();
+  await popupPage.setViewportSize({ width: 360, height: 520 });
+  await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+  await popupPage.waitForLoadState('domcontentloaded');
+  await popupPage.waitForSelector('.popup-app', { timeout: 30_000 });
+  return popupPage;
+}
+
+async function openSidepanelPage(context, extensionId) {
+  const sidepanelPage = await context.newPage();
+  await sidepanelPage.setViewportSize({ width: 420, height: 820 });
+  await gotoWithRetry(sidepanelPage, `chrome-extension://${extensionId}/sidepanel.html`);
+  await sidepanelPage.waitForSelector('.coop-shell, .sidepanel-shell', { timeout: 30_000 });
+  return sidepanelPage;
+}
+
+async function openPopupCreateFlow(popupPage) {
+  const coopNameField = popupPage.getByPlaceholder('Community research coop');
+  if (await coopNameField.isVisible().catch(() => false)) {
+    return;
+  }
+
+  const onboardingCreateButton = popupPage.getByRole('button', {
+    name: 'Create a Coop',
+    exact: true,
+  });
+  if (await onboardingCreateButton.isVisible().catch(() => false)) {
+    await onboardingCreateButton.click();
+    await expect(coopNameField).toBeVisible();
+    return;
+  }
+
+  const quickActions = popupPage.getByRole('button', { name: 'Quick actions' });
+  if (await quickActions.isVisible().catch(() => false)) {
+    await quickActions.click();
+    await popupPage.getByRole('menuitem', { name: 'Create Coop', exact: true }).click();
+    await expect(coopNameField).toBeVisible();
+    return;
+  }
+
+  throw new Error('Unable to open the popup create flow from the current popup state.');
+}
+
+async function createCoopViaPopup(popupPage, input) {
+  await popupPage.reload({ waitUntil: 'domcontentloaded' });
+  await popupPage.waitForSelector('.popup-app', { timeout: 30_000 });
+  await popupPage.bringToFront();
+  await openPopupCreateFlow(popupPage);
+  await popupPage.getByPlaceholder('Community research coop').fill(input.coopName);
+  await popupPage.getByPlaceholder('Ava').fill(input.creatorName);
+  await popupPage.getByPlaceholder('What will your coop gather and act on?').fill(input.purpose);
+  await popupPage.getByRole('button', { name: 'Create Coop' }).click({ noWaitAfter: true });
+
+  await expect
+    .poll(
+      async () => {
+        const dashboard = await getDashboard(popupPage);
+        return dashboard?.coops?.some((coop) => coop.profile.name === input.coopName) ?? false;
+      },
+      {
+        timeout: 90_000,
+      },
+    )
+    .toBe(true);
 }
 
 async function openStandardPage(context, suffix = '') {
@@ -721,16 +805,17 @@ test.describe('popup action smoke', () => {
       await profile.popupPage
         .getByRole('textbox', { name: 'Context' })
         .fill('Reviewed and saved from the popup browser smoke suite.');
-      await profile.popupPage.getByRole('button', { name: 'Save to Pocket Coop' }).click();
+      await profile.popupPage.getByRole('button', { name: 'Save as draft' }).click();
 
       await waitForReceiverIntakeCount(profile.popupPage, 1);
+      await expect(profile.popupPage.getByRole('status')).toContainText('File saved as draft.');
       await expect(profile.popupPage.getByRole('dialog')).toHaveCount(0);
     } finally {
       await closeContextSafely(profile.context);
     }
   });
 
-  test('shows microphone denial recovery and retries the popup recording request', async () => {
+  test('shows microphone retry recovery when popup access is not granted', async () => {
     const profile = await launchPopupProfile(
       path.join(os.tmpdir(), `coop-popup-actions-audio-${Date.now()}`),
       {
@@ -763,14 +848,13 @@ test.describe('popup action smoke', () => {
       await seedPopupCoop(profile.popupPage, `Popup Audio ${Date.now()}`);
       await profile.popupPage.getByRole('button', { name: 'Audio' }).click();
 
-      await expect(profile.popupPage.getByText('Microphone access needed')).toBeVisible({
-        timeout: 30_000,
-      });
       await expect(
-        profile.popupPage.getByText('Microphone access was denied. Allow it and try again.'),
+        profile.popupPage.getByText(
+          'Microphone access was not granted. Keep the popup open and allow access to record a voice note.',
+        ),
       ).toBeVisible();
 
-      await profile.popupPage.getByRole('button', { name: 'Try Again' }).click();
+      await profile.popupPage.getByRole('button', { name: 'Retry Audio' }).click();
       await expect
         .poll(
           async () =>
@@ -808,6 +892,78 @@ test.describe('popup action smoke', () => {
       await expect(profile.popupPage.getByText('Note hatched into your roost.')).toBeVisible({
         timeout: 30_000,
       });
+    } finally {
+      await closeContextSafely(profile.context);
+    }
+  });
+
+  test('keeps popup and sidepanel usable after creating a second coop from the popup UI', async () => {
+    const profile = await launchPopupProfile(
+      path.join(os.tmpdir(), `coop-popup-actions-multi-coop-${Date.now()}`),
+    );
+
+    try {
+      const popupErrors = [];
+      const sidepanelErrors = [];
+      profile.popupPage.on('pageerror', (error) => popupErrors.push(error.message));
+      await enableVirtualWebAuthn(profile.context, profile.popupPage, true);
+
+      const firstCoopName = `Popup Multi One ${Date.now()}`;
+      const secondCoopName = `Popup Multi Two ${Date.now()}`;
+
+      await createCoopViaPopup(profile.popupPage, {
+        coopName: firstCoopName,
+        creatorName: 'Ari',
+        purpose: 'Create the first coop through the popup UI.',
+      });
+
+      await createCoopViaPopup(profile.popupPage, {
+        coopName: secondCoopName,
+        creatorName: 'Ari',
+        purpose: 'Create the second coop through the popup UI and keep both surfaces healthy.',
+      });
+
+      const popupDashboard = await waitForDashboardValue(
+        profile.popupPage,
+        (dashboard) =>
+          dashboard?.coops?.length === 2 &&
+          dashboard.coops.some((coop) => coop.profile.name === firstCoopName) &&
+          dashboard.coops.some((coop) => coop.profile.name === secondCoopName)
+            ? dashboard
+            : null,
+        30_000,
+        'multi-coop popup dashboard',
+      );
+
+      expect(popupDashboard.coops).toHaveLength(2);
+
+      await profile.popupPage.close();
+      const reopenedPopup = await openPopupPage(profile.context, profile.extensionId);
+      reopenedPopup.on('pageerror', (error) => popupErrors.push(error.message));
+
+      await expect(reopenedPopup.getByText("Couldn't load Coop.")).toHaveCount(0);
+      await expect(reopenedPopup.getByText('Something went wrong')).toHaveCount(0);
+      await expect
+        .poll(async () => (await getDashboard(reopenedPopup))?.coops?.length ?? 0, {
+          timeout: 30_000,
+        })
+        .toBe(2);
+
+      const sidepanelPage = await openSidepanelPage(profile.context, profile.extensionId);
+      sidepanelPage.on('pageerror', (error) => sidepanelErrors.push(error.message));
+
+      await expect(sidepanelPage.getByText('Something went wrong')).toHaveCount(0);
+      await expect(sidepanelPage.getByRole('button', { name: 'Open popup' })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect
+        .poll(async () => (await getDashboard(sidepanelPage))?.coops?.length ?? 0, {
+          timeout: 30_000,
+        })
+        .toBe(2);
+
+      expect(popupErrors).toEqual([]);
+      expect(sidepanelErrors).toEqual([]);
     } finally {
       await closeContextSafely(profile.context);
     }

@@ -1,0 +1,163 @@
+# Error Handling Patterns
+
+> Back to [SKILL.md](./SKILL.md)
+
+## Table of Contents
+
+- [Error Categories](#error-categories)
+- [TypeScript Error Handling](#typescript-error-handling)
+- [React Error Handling](#react-error-handling)
+- [Retry Patterns](#retry-patterns)
+
+---
+
+## Error Categories
+
+### Recoverable vs Unrecoverable
+
+| Recoverable | Unrecoverable |
+|-------------|---------------|
+| Network timeout | Out of memory |
+| Missing file | Stack overflow |
+| Invalid user input | Programming bugs |
+| API rate limit | Type errors |
+
+### Coop Error Categories
+
+| Category | Examples | Response |
+|----------|----------|----------|
+| `network` | Fetch failed, timeout | Retry with backoff, show offline |
+| `validation` | Invalid input, schema mismatch | Show form errors |
+| `auth` | Passkey failed, session expired | Redirect to login |
+| `permission` | Forbidden action, wrong role | Show access denied |
+| `blockchain` | Safe tx failed, bundler rejected | Show failure, offer retry |
+| `storage` | IndexedDB full, quota exceeded | Prompt cleanup |
+| `sync` | Yjs merge conflict, WebRTC failure | Retry sync, show indicator |
+
+## TypeScript Error Handling
+
+### Error Utility Structure
+
+```
+packages/shared/src/utils/errors/
+├── extract-message.ts          # extractErrorMessage(), extractErrorMessageOr()
+├── categorize-error.ts         # categorizeError() -> ErrorCategory
+├── validation-error.ts         # ValidationError class
+└── user-messages.ts            # USER_FRIENDLY_ERRORS mapping
+```
+
+### ValidationError Class
+
+```typescript
+import { ValidationError } from "@coop/shared";
+
+if (!coopId) {
+  throw new ValidationError("coopId is required for listing members");
+}
+```
+
+### Error Categorization
+
+```typescript
+import { categorizeError } from "@coop/shared";
+import type { ErrorCategory, CategorizedError } from "@coop/shared";
+
+const { message, category, metadata } = categorizeError(error);
+
+if (category === "network") {
+  toast.error("Network error. Please check your connection.");
+} else if (category === "blockchain") {
+  toast.error("Transaction failed. Please try again.");
+}
+```
+
+### Error Message Extraction
+
+```typescript
+import { extractErrorMessage, extractErrorMessageOr } from "@coop/shared";
+
+const msg = extractErrorMessage(error);           // May return ""
+const safe = extractErrorMessageOr(error, "Unknown error"); // Fallback guaranteed
+```
+
+## React Error Handling
+
+### Error Boundaries
+
+```typescript
+import { ErrorBoundary } from "@coop/shared";
+
+<ErrorBoundary fallback={<ErrorFallback />}>
+  <CoopContent />
+</ErrorBoundary>
+```
+
+## Retry Patterns
+
+### Exponential Backoff
+
+```typescript
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: {
+    maxRetries?: number;
+    baseDelay?: number;
+    maxDelay?: number;
+    shouldRetry?: (error: unknown) => boolean;
+  } = {}
+): Promise<T> {
+  const {
+    maxRetries = 3,
+    baseDelay = 1000,
+    maxDelay = 30000,
+    shouldRetry = () => true,
+  } = options;
+
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === maxRetries || !shouldRetry(error)) {
+        throw error;
+      }
+
+      const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
+
+// Usage with categorizeError for retry decisions
+import { categorizeError } from "@coop/shared";
+
+const result = await withRetry(
+  () => fetch("/api/coops"),
+  {
+    maxRetries: 3,
+    shouldRetry: (error) => categorizeError(error).category === "network",
+  }
+);
+```
+
+## Best Practices
+
+1. **Fail fast** -- Validate early, fail quickly
+2. **Preserve context** -- Include stack traces and metadata
+3. **Meaningful messages** -- Explain what happened
+4. **Log appropriately** -- Errors warrant logging
+5. **Clean up resources** -- Use try-finally
+6. **Type-safe handling** -- Use discriminated unions
+
+## Anti-Patterns
+
+- Swallowing exceptions with empty `catch {}` blocks
+- Returning generic errors without category/context metadata
+- Retrying non-recoverable errors (validation/permission) indefinitely
+- Showing raw blockchain revert messages directly to users
+- Logging sensitive values (keys, tokens, passkey data) in error payloads

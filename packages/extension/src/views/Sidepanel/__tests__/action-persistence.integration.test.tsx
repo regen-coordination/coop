@@ -280,7 +280,7 @@ function makeDashboard(): DashboardResponse {
       onchainMode: 'mock',
       archiveMode: 'mock',
       sessionMode: 'mock',
-      providerMode: 'rpc',
+      providerMode: 'standard',
       privacyMode: 'off',
       receiverAppUrl: 'https://receiver.test',
       signalingUrls: ['wss://api.coop.town'],

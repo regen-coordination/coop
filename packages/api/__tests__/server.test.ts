@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { type ChildProcess, spawn } from 'node:child_process';
 import http from 'node:http';
+import net from 'node:net';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
@@ -8,17 +9,39 @@ import WebSocket from 'ws';
 const SERVER_DIR = path.resolve(__dirname, '..');
 const SERVER_FILE = path.join(SERVER_DIR, 'src', 'index.ts');
 const HOST = '127.0.0.1';
-// Use a high ephemeral port to avoid conflicts
-const PORT = 54_321;
-const HTTP_URL = `http://${HOST}:${PORT}`;
-const WS_URL = `ws://${HOST}:${PORT}`;
 
 let serverProcess: ChildProcess;
+let port = 0;
+let httpUrl = '';
+let wsUrl = '';
+
+async function getAvailablePort() {
+  return new Promise<number>((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', reject);
+    server.listen(0, HOST, () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        server.close();
+        reject(new Error('Could not determine an available port.'));
+        return;
+      }
+      const nextPort = address.port;
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(nextPort);
+      });
+    });
+  });
+}
 
 /** Create a WebSocket client connected to the test server. */
 function createClient(): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(wsUrl);
     ws.on('open', () => resolve(ws));
     ws.on('error', reject);
   });
@@ -81,8 +104,12 @@ function closeClient(ws: WebSocket): Promise<void> {
 
 describe('signaling server', () => {
   beforeAll(async () => {
+    port = await getAvailablePort();
+    httpUrl = `http://${HOST}:${port}`;
+    wsUrl = `ws://${HOST}:${port}`;
+
     serverProcess = spawn('bun', ['run', SERVER_FILE], {
-      env: { ...process.env, PORT: String(PORT), HOST },
+      env: { ...process.env, PORT: String(port), HOST },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -91,7 +118,7 @@ describe('signaling server', () => {
       console.error(`[server stderr] ${data.toString().trim()}`);
     });
 
-    await waitForServer(HTTP_URL);
+    await waitForServer(httpUrl);
   }, 15_000);
 
   afterAll(async () => {
@@ -115,7 +142,7 @@ describe('signaling server', () => {
       const response = await new Promise<{ statusCode: number; body: string }>(
         (resolve, reject) => {
           http
-            .get(HTTP_URL, (res) => {
+            .get(httpUrl, (res) => {
               let body = '';
               res.on('data', (chunk: Buffer) => {
                 body += chunk.toString();
@@ -135,7 +162,7 @@ describe('signaling server', () => {
       const response = await new Promise<{ statusCode: number; body: string }>(
         (resolve, reject) => {
           http
-            .get(`${HTTP_URL}/health`, (res) => {
+            .get(`${httpUrl}/health`, (res) => {
               let body = '';
               res.on('data', (chunk: Buffer) => {
                 body += chunk.toString();
@@ -173,9 +200,10 @@ describe('signaling server', () => {
       const publisher = await createClient();
 
       try {
-        // Subscribe
+        // Subscribe both — topic authorization requires publisher to be subscribed
         sendMessage(subscriber, { type: 'subscribe', topics: [topic] });
-        // Small delay for subscription to register
+        sendMessage(publisher, { type: 'subscribe', topics: [topic] });
+        // Small delay for subscriptions to register
         await new Promise((r) => setTimeout(r, 50));
 
         // Publish
@@ -190,8 +218,7 @@ describe('signaling server', () => {
         expect(received.type).toBe('publish');
         expect(received.topic).toBe(topic);
         expect(received.data).toEqual({ hello: 'world' });
-        // Publisher is not subscribed, so only subscriber is in the topic
-        expect(received.clients).toBe(1);
+        expect(received.clients).toBe(2);
       } finally {
         await closeClient(subscriber);
         await closeClient(publisher);
@@ -207,6 +234,7 @@ describe('signaling server', () => {
       try {
         sendMessage(sub1, { type: 'subscribe', topics: [topic] });
         sendMessage(sub2, { type: 'subscribe', topics: [topic] });
+        sendMessage(publisher, { type: 'subscribe', topics: [topic] });
         await new Promise((r) => setTimeout(r, 50));
 
         const msg1Promise = waitForMessage(sub1);
@@ -222,11 +250,11 @@ describe('signaling server', () => {
 
         expect(msg1.type).toBe('publish');
         expect(msg1.data).toEqual({ msg: 'broadcast' });
-        expect(msg1.clients).toBe(2);
+        expect(msg1.clients).toBe(3);
 
         expect(msg2.type).toBe('publish');
         expect(msg2.data).toEqual({ msg: 'broadcast' });
-        expect(msg2.clients).toBe(2);
+        expect(msg2.clients).toBe(3);
       } finally {
         await closeClient(sub1);
         await closeClient(sub2);
@@ -268,6 +296,7 @@ describe('signaling server', () => {
       try {
         // Subscribe then unsubscribe
         sendMessage(sub, { type: 'subscribe', topics: [topic] });
+        sendMessage(publisher, { type: 'subscribe', topics: [topic] });
         await new Promise((r) => setTimeout(r, 50));
         sendMessage(sub, { type: 'unsubscribe', topics: [topic] });
         await new Promise((r) => setTimeout(r, 50));
@@ -278,7 +307,7 @@ describe('signaling server', () => {
           receivedUnexpected = true;
         });
 
-        // Publish to the topic
+        // Publish to the topic — publisher is still subscribed
         sendMessage(publisher, {
           type: 'publish',
           topic,
@@ -305,13 +334,14 @@ describe('signaling server', () => {
       try {
         sendMessage(sub1, { type: 'subscribe', topics: [topic] });
         sendMessage(sub2, { type: 'subscribe', topics: [topic] });
+        sendMessage(publisher, { type: 'subscribe', topics: [topic] });
         await new Promise((r) => setTimeout(r, 50));
 
         // Close sub1 -- should be removed from topic
         await closeClient(sub1);
         await new Promise((r) => setTimeout(r, 50));
 
-        // Publish -- only sub2 should receive
+        // Publish -- sub2 and publisher should receive
         const msgPromise = waitForMessage(sub2);
         sendMessage(publisher, {
           type: 'publish',
@@ -320,7 +350,7 @@ describe('signaling server', () => {
         });
 
         const received = await msgPromise;
-        expect(received.clients).toBe(1);
+        expect(received.clients).toBe(2);
         expect(received.data).toEqual({ after: 'close' });
       } finally {
         await closeClient(sub2);
@@ -330,15 +360,21 @@ describe('signaling server', () => {
   });
 
   describe('edge cases', () => {
-    it('publishing to a topic with no subscribers does not error', async () => {
+    it('publishing to a topic with no other subscribers does not error', async () => {
       const publisher = await createClient();
       try {
-        // Publish to a nonexistent topic -- server should not crash
+        // Subscribe then publish -- topic authorization requires subscription
+        sendMessage(publisher, { type: 'subscribe', topics: ['nonexistent-topic'] });
+        await new Promise((r) => setTimeout(r, 50));
         sendMessage(publisher, {
           type: 'publish',
           topic: 'nonexistent-topic',
           data: { lonely: true },
         });
+
+        // Drain the echo (publisher receives their own message)
+        const echo = await waitForMessage(publisher);
+        expect(echo.type).toBe('publish');
 
         // Verify server is still responsive
         sendMessage(publisher, { type: 'ping' });
@@ -391,6 +427,7 @@ describe('signaling server', () => {
       try {
         // Subscribe with mixed valid/invalid topic names
         sendMessage(ws, { type: 'subscribe', topics: [123, validTopic, null, true] });
+        sendMessage(publisher, { type: 'subscribe', topics: [validTopic] });
         await new Promise((r) => setTimeout(r, 50));
 
         // Publish to the valid topic
@@ -433,6 +470,7 @@ describe('signaling server', () => {
 
       try {
         sendMessage(sub, { type: 'subscribe', topics: [topicA, topicB] });
+        sendMessage(publisher, { type: 'subscribe', topics: [topicA, topicB] });
         await new Promise((r) => setTimeout(r, 50));
 
         // Publish to topic A

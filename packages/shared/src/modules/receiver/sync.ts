@@ -1,9 +1,13 @@
-import { defaultIceServers, defaultWebsocketSyncUrl, filterUsableSignalingUrls } from '@coop/api';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import { WebrtcProvider } from 'y-webrtc';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 import { type ReceiverSyncEnvelope, receiverSyncEnvelopeSchema } from '../../contracts/schema';
+import {
+  defaultIceServers,
+  defaultWebsocketSyncUrl,
+  filterUsableSignalingUrls,
+} from '../../sync-config';
 
 const ROOT_KEY = 'receiver-sync';
 const CAPTURES_KEY = 'captures';

@@ -1,5 +1,8 @@
+import type { ReceiverCapture, RefineResult } from '@coop/shared';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeReceiverCapture } from '../../../../__tests__/fixtures';
+import type { InferenceBridge } from '../../../../runtime/inference-bridge';
 
 const { playCoopSoundMock, sendRuntimeMessageMock } = vi.hoisted(() => ({
   playCoopSoundMock: vi.fn(async () => undefined),
@@ -35,12 +38,12 @@ function makeDraft(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeCapture(overrides: Record<string, unknown> = {}) {
-  return {
+function makeCapture(overrides: Partial<ReceiverCapture> = {}): ReceiverCapture {
+  return makeReceiverCapture({
     id: 'capture-1',
     archiveWorthiness: { flagged: false },
     ...overrides,
-  } as never;
+  });
 }
 
 function makeDeps(overrides: Partial<Parameters<typeof useDraftEditor>[0]> = {}) {
@@ -91,7 +94,7 @@ describe('useDraftEditor action paths', () => {
       inferenceBridgeRef: {
         current: {
           refine: vi.fn(),
-        },
+        } as unknown as InferenceBridge,
       },
     });
 
@@ -113,14 +116,19 @@ describe('useDraftEditor action paths', () => {
     const deps = makeDeps({
       inferenceBridgeRef: {
         current: {
-          refine: vi.fn(async () => ({
-            provider: 'local-model',
-            refinedTitle: 'Sharper watershed lead',
-            refinedSummary: 'Sharper summary',
-            suggestedTags: ['fresh', 'watershed'],
-            durationMs: 12,
-          })),
-        },
+          refine: vi.fn(
+            async () =>
+              ({
+                provider: 'local-model',
+                draftId: 'draft-1',
+                task: 'summary-compression',
+                refinedTitle: 'Sharper watershed lead',
+                refinedSummary: 'Sharper summary',
+                suggestedTags: ['fresh', 'watershed'],
+                durationMs: 12,
+              }) satisfies RefineResult,
+          ),
+        } as unknown as InferenceBridge,
       },
     });
     const draft = makeDraft();

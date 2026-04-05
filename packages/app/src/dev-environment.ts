@@ -1,6 +1,6 @@
-export const DEV_STATE_PATH = '/__coop_dev__/state.json';
+const DEV_STATE_PATH = '/__coop_dev__/state.json';
 export const DEV_ACCESS_TOKEN_PARAM = 'coop-dev-token';
-export const DEV_ACCESS_STORAGE_KEY = 'coop-dev-access-token';
+const DEV_ACCESS_STORAGE_KEY = 'coop-dev-access-token';
 
 export type DevServiceState = {
   localUrl?: string;

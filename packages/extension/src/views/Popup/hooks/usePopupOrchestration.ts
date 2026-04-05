@@ -2,18 +2,14 @@ import {
   type InviteType,
   type ReviewDraft,
   type UiPreferences,
-  canManageInvites,
   defaultSoundPreferences,
-  getComputedInviteStatus,
-  getCurrentInviteForType,
 } from '@coop/shared';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type PopupSidepanelState,
   type SidepanelIntent,
   sendRuntimeMessage,
 } from '../../../runtime/messages';
-import { resolveReceiverPairingMember } from '../../../runtime/receiver';
 import type { InviteShareInput } from '../../shared/invite-share';
 import { useCaptureActions } from '../../shared/useCaptureActions';
 import { useCoopActions } from '../../shared/useCoopActions';
@@ -21,14 +17,10 @@ import { useQuickDraftActions } from '../../shared/useQuickDraftActions';
 import type { YardItem } from '../PopupHomeScreen';
 import type { PopupSubheaderTag } from '../PopupSubheader';
 import {
-  buildFilterTags,
   isCompatibilitySidepanelError,
-  matchesCoopFilter,
   normalizeCoopIds,
   popupReviewStatus,
   popupSyncStatus,
-  toDraftItems,
-  toFeedItems,
 } from '../helpers';
 import type {
   PopupDraftListItem,
@@ -40,15 +32,18 @@ import type {
   PopupScreen,
 } from '../popup-types';
 import { usePersistedPopupState } from './usePersistedPopupState';
+import { usePopupCaptureFlow } from './usePopupCaptureFlow';
 import { usePopupDashboard } from './usePopupDashboard';
 import { usePopupDraftHandlers } from './usePopupDraftHandlers';
 import { usePopupFormHandlers } from './usePopupFormHandlers';
+import { usePopupInviteHandlers } from './usePopupInviteHandlers';
 import { usePopupNavigation } from './usePopupNavigation';
 import { usePopupNoteHandlers } from './usePopupNoteHandlers';
 import { usePopupProfile } from './usePopupProfile';
 import type { PopupRecordingState } from './usePopupRecording';
 import { usePopupRecording } from './usePopupRecording';
 import { usePopupTheme } from './usePopupTheme';
+import { usePopupYardComposition } from './usePopupYardComposition';
 
 type PopupSidepanelApi = typeof chrome.sidePanel & {
   close?: (options: { windowId?: number; tabId?: number }) => Promise<void>;
@@ -209,14 +204,8 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     open: false,
     canClose: false,
   });
-  const [draftFilterId, setDraftFilterId] = useState('all');
-  const [feedFilterId, setFeedFilterId] = useState('all');
   const [noteDraftText, setNoteDraftText] = useState('');
-  const [pendingCapture, setPendingCapture] = useState<PopupPendingCapture | null>(null);
   const [subscreenReturnTab, setSubscreenReturnTab] = useState<PopupFooterTab>('home');
-  const [inviteSuccessCoopId, setInviteSuccessCoopId] = useState<string | null>(null);
-  const [joinSuccessCoopId, setJoinSuccessCoopId] = useState<string | null>(null);
-  const [shareDialogInvite, setShareDialogInvite] = useState<InviteShareInput | null>(null);
   const defaultWorkspaceCoopId = dashboard?.activeCoopId ?? coops[0]?.profile.id;
 
   // Sync draft text with persisted note when it first hydrates from storage
@@ -271,56 +260,18 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     soundPreferences: dashboard?.soundPreferences,
   });
 
-  const replacePendingCapture = useCallback((nextCapture: PopupPendingCapture | null) => {
-    setPendingCapture((current) => {
-      if (current?.previewUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(current.previewUrl);
-      }
-      return nextCapture;
-    });
-  }, []);
+  // ── Capture flow sub-hook ──
 
-  const handleUpdatePendingCapture = useCallback((patch: Partial<PopupPendingCapture>) => {
-    setPendingCapture((current) => (current ? { ...current, ...patch } : current));
-  }, []);
-
-  const handleDismissPendingCapture = useCallback(() => {
-    replacePendingCapture(null);
-  }, [replacePendingCapture]);
-
-  const handlePrepareScreenshot = useCallback(async () => {
-    const preparedCapture = await captureActions.prepareVisibleScreenshot();
-    if (preparedCapture) {
-      replacePendingCapture(preparedCapture);
-    }
-  }, [captureActions, replacePendingCapture]);
-
-  const handlePrepareFileCapture = useCallback(
-    async (file: File) => {
-      const preparedCapture = await captureActions.prepareFileCapture(file);
-      if (preparedCapture) {
-        replacePendingCapture(preparedCapture);
-      }
-    },
-    [captureActions, replacePendingCapture],
-  );
-
-  const handleSavePendingCapture = useCallback(async () => {
-    if (!pendingCapture) {
-      return;
-    }
-
-    const saved = await captureActions.savePendingCapture(pendingCapture);
-    if (saved) {
-      replacePendingCapture(null);
-    }
-  }, [captureActions, pendingCapture, replacePendingCapture]);
+  const captureFlow = usePopupCaptureFlow({
+    captureActions,
+    setMessage,
+  });
 
   const recording = usePopupRecording({
     onRecordingReady: async (blob, durationSeconds) => {
       const preparedCapture = await captureActions.prepareAudioCapture(blob, durationSeconds);
       if (preparedCapture) {
-        replacePendingCapture(preparedCapture);
+        captureFlow.replacePendingCapture(preparedCapture);
       }
     },
     onEmergencySave: async (blob, durationSeconds) => {
@@ -328,14 +279,6 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     },
     setMessage,
   });
-
-  useEffect(() => {
-    return () => {
-      if (pendingCapture?.previewUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(pendingCapture.previewUrl);
-      }
-    };
-  }, [pendingCapture]);
 
   // Show partial save message from a previous recording session
   // biome-ignore lint/correctness/useExhaustiveDependencies: only run when partialSaveMessage changes
@@ -360,61 +303,38 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     soundPreferences: dashboard?.soundPreferences ?? defaultSoundPreferences,
   });
 
-  const inviteHubCoops = useMemo<PopupInviteCoopItem[]>(() => {
-    const authSession = dashboard?.authSession ?? null;
+  // ── Invite sub-hook ──
 
-    return coops.map((coop) => {
-      const inviteHistory = coop.invites ?? [];
-      const member = resolveReceiverPairingMember(coop, authSession);
-      const canManage = member ? canManageInvites(coop, member.id) : false;
-      const currentMemberInvite = getCurrentInviteForType({ invites: inviteHistory }, 'member');
-      const currentTrustedInvite = getCurrentInviteForType({ invites: inviteHistory }, 'trusted');
-      const hasMemberHistory = inviteHistory.some((invite) => invite.type === 'member');
-      const hasTrustedHistory = inviteHistory.some((invite) => invite.type === 'trusted');
-
-      return {
-        coopId: coop.profile.id,
-        coopName: coop.profile.name,
-        memberId: member?.id,
-        memberRoleLabel: member?.role,
-        canManageInvites: canManage,
-        memberInvite: {
-          inviteType: 'member',
-          status: currentMemberInvite
-            ? getComputedInviteStatus(currentMemberInvite)
-            : hasMemberHistory
-              ? 'revoked'
-              : 'missing',
-          code: currentMemberInvite?.code,
-          expiresAt: currentMemberInvite?.expiresAt,
-          usedCount: currentMemberInvite?.usedByMemberIds.length ?? 0,
-        },
-        trustedInvite: {
-          inviteType: 'trusted',
-          status: currentTrustedInvite
-            ? getComputedInviteStatus(currentTrustedInvite)
-            : hasTrustedHistory
-              ? 'revoked'
-              : 'missing',
-          code: currentTrustedInvite?.code,
-          expiresAt: currentTrustedInvite?.expiresAt,
-          usedCount: currentTrustedInvite?.usedByMemberIds.length ?? 0,
-        },
-      };
-    });
-  }, [coops, dashboard?.authSession]);
-
-  const manageableInviteCoops = useMemo(
-    () => inviteHubCoops.filter((coop) => coop.canManageInvites),
-    [inviteHubCoops],
-  );
+  const inviteHandlers = usePopupInviteHandlers({
+    coops,
+    authSession: dashboard?.authSession ?? null,
+    dashboard: dashboard ? { activeCoopId: dashboard.activeCoopId } : null,
+    loadDashboard,
+    setMessage,
+    navigation,
+    activeFooterTab:
+      navigation.state.screen === 'feed'
+        ? 'feed'
+        : navigation.state.screen === 'drafts' || navigation.state.screen === 'draft-detail'
+          ? 'drafts'
+          : navigation.state.screen === 'create' ||
+              navigation.state.screen === 'join' ||
+              navigation.state.screen === 'profile' ||
+              navigation.state.screen === 'invites' ||
+              navigation.state.screen === 'invite-success' ||
+              navigation.state.screen === 'join-success'
+            ? subscreenReturnTab
+            : 'home',
+    setSubscreenReturnTab,
+    openWorkspace,
+  });
 
   const currentScreen =
     !hasCoops && !['create', 'join'].includes(navigation.state.screen)
       ? 'no-coop'
-      : navigation.state.screen === 'invite-success' && !inviteSuccessCoopId
+      : navigation.state.screen === 'invite-success' && !inviteHandlers.inviteSuccessCoopId
         ? 'home'
-        : navigation.state.screen === 'join-success' && !joinSuccessCoopId
+        : navigation.state.screen === 'join-success' && !inviteHandlers.joinSuccessCoopId
           ? 'home'
           : navigation.state.screen;
 
@@ -426,11 +346,11 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     subscreenReturnTab,
     setMessage,
     onCreateSuccess: (coopId) => {
-      setInviteSuccessCoopId(coopId);
+      inviteHandlers.setInviteSuccessCoopId(coopId);
       navigation.navigate('invite-success');
     },
     onJoinSuccess: (coopId) => {
-      setJoinSuccessCoopId(coopId);
+      inviteHandlers.setJoinSuccessCoopId(coopId);
       navigation.navigate('join-success');
     },
   });
@@ -456,187 +376,7 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     setMessage,
   });
 
-  const createdInviteCoop = useMemo(
-    () => inviteHubCoops.find((coop) => coop.coopId === inviteSuccessCoopId) ?? null,
-    [inviteHubCoops, inviteSuccessCoopId],
-  );
-
-  const joinedCoop = useMemo(
-    () => coops.find((coop) => coop.profile.id === joinSuccessCoopId) ?? null,
-    [coops, joinSuccessCoopId],
-  );
-
-  async function ensureInviteHubCodes() {
-    const invitableCoops = manageableInviteCoops.filter(
-      (coop): coop is (typeof manageableInviteCoops)[number] & { memberId: string } =>
-        typeof coop.memberId === 'string' && coop.memberId.length > 0,
-    );
-    if (!invitableCoops.length) {
-      return;
-    }
-
-    const responses = await Promise.all(
-      invitableCoops.map((coop) =>
-        sendRuntimeMessage({
-          type: 'ensure-invite-codes',
-          payload: {
-            coopId: coop.coopId,
-            createdBy: coop.memberId,
-          },
-        }),
-      ),
-    );
-
-    const firstError = responses.find((response) => !response.ok);
-    if (firstError?.error) {
-      setMessage(firstError.error);
-    }
-    await loadDashboard();
-  }
-
-  async function openInviteHub() {
-    setSubscreenReturnTab(activeFooterTab);
-    navigation.navigate('invites');
-    await ensureInviteHubCodes();
-  }
-
-  async function copyInviteCode(coopId: string, inviteType: InviteType) {
-    const coop = inviteHubCoops.find((item) => item.coopId === coopId);
-    const invite = inviteType === 'trusted' ? coop?.trustedInvite : coop?.memberInvite;
-    if (!invite?.code) {
-      setMessage('No invite code is available for that group yet.');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(invite.code);
-      setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} invite copied.`);
-    } catch {
-      setMessage('Could not copy the invite code.');
-    }
-  }
-
-  async function regenerateInviteCode(coopId: string, inviteType: InviteType) {
-    const coop = inviteHubCoops.find((item) => item.coopId === coopId);
-    if (!coop?.memberId) {
-      setMessage('Only creators and trusted members can manage invites for that coop.');
-      return;
-    }
-    const response = await sendRuntimeMessage({
-      type: 'regenerate-invite-code',
-      payload: {
-        coopId,
-        inviteType,
-        createdBy: coop.memberId,
-      },
-    });
-    if (!response.ok) {
-      setMessage(response.error ?? 'Could not regenerate the invite code.');
-      return;
-    }
-    await loadDashboard();
-    setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} invite regenerated.`);
-  }
-
-  async function revokeInviteType(coopId: string, inviteType: InviteType) {
-    const coop = inviteHubCoops.find((item) => item.coopId === coopId);
-    if (!coop?.memberId) {
-      setMessage('Only creators and trusted members can manage invites for that coop.');
-      return;
-    }
-    const response = await sendRuntimeMessage({
-      type: 'revoke-invite-type',
-      payload: {
-        coopId,
-        inviteType,
-        revokedBy: coop.memberId,
-      },
-    });
-    if (!response.ok) {
-      setMessage(response.error ?? 'Could not revoke that invite type.');
-      return;
-    }
-    await loadDashboard();
-    setMessage(`${inviteType === 'trusted' ? 'Trusted' : 'Member'} invite revoked.`);
-  }
-
-  function openShareDialog(coopId: string, inviteType: InviteType) {
-    const coop = inviteHubCoops.find((item) => item.coopId === coopId);
-    const invite = inviteType === 'trusted' ? coop?.trustedInvite : coop?.memberInvite;
-    if (!coop || !invite?.code || !invite.expiresAt) {
-      setMessage('No shareable invite code is available.');
-      return;
-    }
-    setShareDialogInvite({
-      coopName: coop.coopName,
-      inviteType,
-      code: invite.code,
-      expiresAt: invite.expiresAt,
-    });
-  }
-
-  function closeShareDialog() {
-    setShareDialogInvite(null);
-  }
-
-  async function enterCreatedCoop() {
-    if (!inviteSuccessCoopId) {
-      navigation.goHome();
-      return;
-    }
-
-    const response = await sendRuntimeMessage({
-      type: 'set-active-coop',
-      payload: { coopId: inviteSuccessCoopId },
-    });
-    if (!response.ok) {
-      setMessage(response.error ?? 'Could not enter the new coop.');
-      return;
-    }
-
-    await loadDashboard();
-    const targetCoopId = inviteSuccessCoopId;
-    setInviteSuccessCoopId(null);
-    await openWorkspace({
-      targetCoopId,
-      intent: {
-        tab: 'chickens',
-        segment: 'roundup-access',
-        roundupAccessMode: 'prompt',
-        coopId: targetCoopId,
-      },
-    });
-  }
-
-  async function enterJoinedCoop() {
-    if (!joinSuccessCoopId) {
-      navigation.goHome();
-      return;
-    }
-
-    const response = await sendRuntimeMessage({
-      type: 'set-active-coop',
-      payload: { coopId: joinSuccessCoopId },
-    });
-    if (!response.ok) {
-      setMessage(response.error ?? 'Could not enter the coop.');
-      return;
-    }
-
-    await loadDashboard();
-    const targetCoopId = joinSuccessCoopId;
-    setJoinSuccessCoopId(null);
-    await openWorkspace({
-      targetCoopId,
-      intent: {
-        tab: 'chickens',
-        segment: 'roundup-access',
-        roundupAccessMode: 'prompt',
-        coopId: targetCoopId,
-      },
-    });
-  }
-
-  // ── Derived data ──
+  // ── Yard composition sub-hook ──
 
   const coopOptions = useMemo(
     () =>
@@ -645,46 +385,32 @@ export function usePopupOrchestration(): PopupOrchestrationState {
         : (snapshot?.coopOptions ?? []),
     [coops, snapshot?.coopOptions],
   );
-  const coopLabels = useMemo(
-    () => new Map(coopOptions.map((coop) => [coop.id, coop.name])),
-    [coopOptions],
-  );
-  const draftItems = useMemo(
-    () =>
-      toDraftItems({
-        drafts: visibleDrafts,
-        coops: coopOptions,
-      }),
-    [coopOptions, visibleDrafts],
-  );
-  const filteredDraftItems = useMemo(
-    () => draftItems.filter((draft) => matchesCoopFilter(draft.coopIds, draftFilterId)),
-    [draftFilterId, draftItems],
-  );
-  const feedArtifacts = useMemo(
-    () =>
-      toFeedItems({
-        artifacts: recentArtifacts,
-        coops: coopOptions,
-      }),
-    [coopOptions, recentArtifacts],
-  );
-  const filteredFeedArtifacts = useMemo(
-    () => feedArtifacts.filter((artifact) => matchesCoopFilter(artifact.coopIds, feedFilterId)),
-    [feedArtifacts, feedFilterId],
-  );
-  const visibleFeedArtifacts = useMemo(() => {
-    const dismissed = new Set(dismissedFeed.state);
-    return filteredFeedArtifacts.filter((a) => !dismissed.has(a.id));
-  }, [filteredFeedArtifacts, dismissedFeed.state]);
+
+  const yardComposition = usePopupYardComposition({
+    coopOptions,
+    visibleDrafts,
+    recentArtifacts,
+    dismissedFeedIds: dismissedFeed.state,
+    yardClearedAt: yardCleared.state,
+    myAddress: dashboard?.authSession?.primaryAddress,
+    snapshot,
+  });
+
+  // NOTE: We cannot reference yardComposition.feedArtifacts before it's created above.
+  // The selectedArtifact is derived separately to avoid circular dependency.
   const selectedArtifact = useMemo(
-    () => feedArtifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null,
-    [feedArtifacts, selectedArtifactId],
+    () =>
+      yardComposition.feedArtifacts.find((artifact) => artifact.id === selectedArtifactId) ?? null,
+    [yardComposition.feedArtifacts, selectedArtifactId],
   );
+
   const workspaceTargetCoopId = useMemo(() => {
     if (selectedArtifact) {
-      if (feedFilterId !== 'all' && selectedArtifact.coopIds.includes(feedFilterId)) {
-        return feedFilterId;
+      if (
+        yardComposition.feedFilterId !== 'all' &&
+        selectedArtifact.coopIds.includes(yardComposition.feedFilterId)
+      ) {
+        return yardComposition.feedFilterId;
       }
       return selectedArtifact.coopIds[0];
     }
@@ -692,33 +418,36 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     if (currentScreen === 'draft-detail' && draftHandlers.selectedDraft) {
       const draftCoopIds = normalizeCoopIds(
         draftHandlers.selectedDraft.suggestedTargetCoopIds,
-        coopLabels,
+        yardComposition.coopLabels,
       );
-      if (draftFilterId !== 'all' && draftCoopIds.includes(draftFilterId)) {
-        return draftFilterId;
+      if (
+        yardComposition.draftFilterId !== 'all' &&
+        draftCoopIds.includes(yardComposition.draftFilterId)
+      ) {
+        return yardComposition.draftFilterId;
       }
       return draftCoopIds[0];
     }
 
-    if (currentScreen === 'feed' && feedFilterId !== 'all') {
-      return feedFilterId;
+    if (currentScreen === 'feed' && yardComposition.feedFilterId !== 'all') {
+      return yardComposition.feedFilterId;
     }
 
     if (
       (currentScreen === 'drafts' || currentScreen === 'draft-detail') &&
-      draftFilterId !== 'all'
+      yardComposition.draftFilterId !== 'all'
     ) {
-      return draftFilterId;
+      return yardComposition.draftFilterId;
     }
 
     return dashboard?.activeCoopId ?? coopOptions[0]?.id;
   }, [
-    coopLabels,
     coopOptions,
     currentScreen,
     dashboard?.activeCoopId,
-    draftFilterId,
-    feedFilterId,
+    yardComposition.draftFilterId,
+    yardComposition.feedFilterId,
+    yardComposition.coopLabels,
     selectedArtifact,
     draftHandlers.selectedDraft,
   ]);
@@ -905,8 +634,6 @@ export function usePopupOrchestration(): PopupOrchestrationState {
       return;
     }
 
-    // From the popup, the sidepanel button is always an open action.
-    // After opening we close the popup so the user lands in the sidepanel.
     if (targetCoopId && targetCoopId !== dashboard?.activeCoopId) {
       const ctxResponse = await sendRuntimeMessage({
         type: 'set-active-coop',
@@ -977,12 +704,12 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     }
 
     if (currentScreen === 'invite-success') {
-      void enterCreatedCoop();
+      void inviteHandlers.enterCreatedCoop();
       return;
     }
 
     if (currentScreen === 'join-success') {
-      void enterJoinedCoop();
+      void inviteHandlers.enterJoinedCoop();
       return;
     }
 
@@ -1050,39 +777,13 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     },
   ];
 
-  const draftFilterTags = useMemo(
-    () => buildFilterTags(coopOptions, draftFilterId, setDraftFilterId),
-    [coopOptions, draftFilterId],
-  );
-  const feedFilterTags = useMemo(
-    () => buildFilterTags(coopOptions, feedFilterId, setFeedFilterId),
-    [coopOptions, feedFilterId],
-  );
-
-  const yardItems = useMemo(() => {
-    const clearedAt = yardCleared.state || '';
-    const myAddress = dashboard?.authSession?.primaryAddress;
-    const drafts = visibleDrafts
-      .filter((d) => !clearedAt || d.createdAt > clearedAt)
-      .map((d) => ({ id: d.id, type: 'draft' as const, category: d.category }));
-    const artifacts = recentArtifacts
-      .filter((a) => !clearedAt || a.createdAt > clearedAt)
-      .map((a) => ({
-        id: a.id,
-        type: 'artifact' as const,
-        category: a.category,
-        isExternal: myAddress ? a.createdBy !== myAddress : false,
-      }));
-    return [...drafts, ...artifacts];
-  }, [visibleDrafts, recentArtifacts, yardCleared.state, dashboard?.authSession?.primaryAddress]);
-
   const mainScreens = ['home', 'drafts', 'feed'];
   const onMainScreen = mainScreens.includes(currentScreen);
   const showProfileAction = onMainScreen && currentScreen !== 'no-coop';
   const showWorkspaceAction =
     currentScreen !== 'no-coop' && [...mainScreens, 'draft-detail'].includes(currentScreen);
   const showCreateJoinInHeader = onMainScreen && currentScreen !== 'no-coop';
-  const showInviteHubInHeader = onMainScreen && manageableInviteCoops.length > 0;
+  const showInviteHubInHeader = onMainScreen && inviteHandlers.manageableInviteCoops.length > 0;
 
   return {
     currentScreen,
@@ -1095,21 +796,21 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     coops,
     loadDashboard,
     coopOptions,
-    coopLabels,
-    draftItems,
-    filteredDraftItems,
-    feedArtifacts,
-    visibleFeedArtifacts,
+    coopLabels: yardComposition.coopLabels,
+    draftItems: yardComposition.draftItems,
+    filteredDraftItems: yardComposition.filteredDraftItems,
+    feedArtifacts: yardComposition.feedArtifacts,
+    visibleFeedArtifacts: yardComposition.visibleFeedArtifacts,
     selectedArtifact,
     selectedDraft: draftHandlers.selectedDraft,
     visibleDrafts,
     homeStatusItems,
-    yardItems,
+    yardItems: yardComposition.yardItems,
     noteDraftText,
-    pendingCapture,
+    pendingCapture: captureFlow.pendingCapture,
     setNoteDraftText,
-    draftFilterTags,
-    feedFilterTags,
+    draftFilterTags: yardComposition.draftFilterTags,
+    feedFilterTags: yardComposition.feedFilterTags,
     activeFooterTab,
     workspaceState,
     workspaceTargetCoopId,
@@ -1134,18 +835,18 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     handleShareDraft: draftHandlers.handleShareDraft,
     handleSaveNote: noteHandlers.handleSaveNote,
     handlePasteNote: noteHandlers.handlePasteNote,
-    handlePrepareScreenshot,
-    handlePrepareFileCapture,
-    handleSavePendingCapture,
-    handleDismissPendingCapture,
-    handleUpdatePendingCapture,
+    handlePrepareScreenshot: captureFlow.handlePrepareScreenshot,
+    handlePrepareFileCapture: captureFlow.handlePrepareFileCapture,
+    handleSavePendingCapture: captureFlow.handleSavePendingCapture,
+    handleDismissPendingCapture: captureFlow.handleDismissPendingCapture,
+    handleUpdatePendingCapture: captureFlow.handleUpdatePendingCapture,
     dismissFeedArtifact,
     openCreateFlow,
     openJoinFlow,
-    openInviteHub,
+    openInviteHub: inviteHandlers.openInviteHub,
     openProfilePanel,
-    enterCreatedCoop,
-    enterJoinedCoop,
+    enterCreatedCoop: inviteHandlers.enterCreatedCoop,
+    enterJoinedCoop: inviteHandlers.enterJoinedCoop,
     navigateBack,
     setSelectedArtifactId,
     toggleWorkspace,
@@ -1159,15 +860,16 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     recording,
     accountLabel: profile.accountLabel,
     profileCoops: profile.profileCoops,
-    inviteHubCoops,
-    createdInviteCoop,
-    joinedCoop,
-    copyInviteCode,
-    regenerateInviteCode,
-    revokeInviteType,
-    shareDialogInvite,
-    openShareDialog,
-    closeShareDialog,
+    inviteHubCoops: inviteHandlers.inviteHubCoops,
+    createdInviteCoop: inviteHandlers.createdInviteCoop,
+    joinedCoop: inviteHandlers.joinedCoop,
+    copyInviteCode: inviteHandlers.copyInviteCode,
+    regenerateInviteCode: inviteHandlers.regenerateInviteCode,
+    revokeInviteType: inviteHandlers.revokeInviteType,
+    shareDialogInvite: inviteHandlers.shareDialogInvite,
+    openShareDialog: inviteHandlers.openShareDialog,
+    closeShareDialog: inviteHandlers.closeShareDialog,
     showToast: setMessage,
   };
 }
+

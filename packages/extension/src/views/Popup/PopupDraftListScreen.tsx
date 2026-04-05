@@ -1,4 +1,3 @@
-import type { ReviewDraft } from '@coop/shared';
 import { PopupOnboardingHero } from './PopupOnboardingHero';
 import { PopupSubheader, type PopupSubheaderTag } from './PopupSubheader';
 import { formatRelativeTime } from './helpers';
@@ -15,8 +14,8 @@ export function PopupDraftListScreen(props: {
   drafts: PopupDraftListItem[];
   filterTags: PopupSubheaderTag[];
   onOpenDraft: (draftId: string) => void;
-  onMarkReady: (draft: ReviewDraft) => void | Promise<void>;
-  onShare: (draft: ReviewDraft) => void | Promise<void>;
+  onMarkReady: (draft: PopupDraftListItem) => void | Promise<void>;
+  onShare: (draft: PopupDraftListItem) => void | Promise<void>;
   onRoundUp: () => void;
   isCapturing?: boolean;
 }) {
@@ -71,7 +70,7 @@ export function PopupDraftListScreen(props: {
                   {draft.workflowStage === 'ready' ? (
                     <button
                       className="popup-primary-action popup-primary-action--small"
-                      onClick={() => void onShare(draft as unknown as ReviewDraft)}
+                      onClick={() => void onShare(draft)}
                       type="button"
                     >
                       Share
@@ -79,7 +78,7 @@ export function PopupDraftListScreen(props: {
                   ) : (
                     <button
                       className="popup-secondary-action"
-                      onClick={() => void onMarkReady(draft as unknown as ReviewDraft)}
+                      onClick={() => void onMarkReady(draft)}
                       type="button"
                     >
                       Mark Ready

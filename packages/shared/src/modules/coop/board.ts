@@ -12,7 +12,7 @@ import {
   reviewDraftSchema,
 } from '../../contracts/schema';
 import { decodeBase64Url, encodeBase64Url, nowIso, truncateWords } from '../../utils';
-import { describeArchiveReceipt, isArchiveWorthy } from '../archive/story';
+import { describeArchiveReceipt, isArchiveWorthy } from '../archive';
 
 const laneX = {
   member: 40,

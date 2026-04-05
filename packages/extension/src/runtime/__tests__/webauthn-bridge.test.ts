@@ -76,6 +76,7 @@ describe('webauthn bridge', () => {
         timeout: 60_000,
       },
     })) as PublicKeyCredential;
+    const response = credential.response as AuthenticatorAssertionResponse;
 
     expect(sendMessage).toHaveBeenCalledWith({
       type: WEBAUTHN_BRIDGE_MESSAGE,
@@ -94,12 +95,10 @@ describe('webauthn bridge', () => {
       },
     });
     expect(credential.id).toBe('credential-1');
-    expect(Array.from(new Uint8Array(credential.response.authenticatorData))).toEqual([1, 2, 3]);
-    expect(Array.from(new Uint8Array(credential.response.clientDataJSON))).toEqual([4, 5]);
-    expect(Array.from(new Uint8Array(credential.response.signature))).toEqual([6, 7, 8]);
-    expect(Array.from(new Uint8Array(credential.response.userHandle as ArrayBuffer))).toEqual([
-      9, 10,
-    ]);
+    expect(Array.from(new Uint8Array(response.authenticatorData))).toEqual([1, 2, 3]);
+    expect(Array.from(new Uint8Array(response.clientDataJSON))).toEqual([4, 5]);
+    expect(Array.from(new Uint8Array(response.signature))).toEqual([6, 7, 8]);
+    expect(Array.from(new Uint8Array(response.userHandle as ArrayBuffer))).toEqual([9, 10]);
   });
 
   it('returns null when the extension reports no credential', async () => {
@@ -149,13 +148,17 @@ describe('webauthn bridge', () => {
   it('deserializes incoming request payloads for navigator.credentials.get and serializes the response', async () => {
     const getCredential = vi.fn().mockResolvedValue({
       id: 'credential-2',
+      type: 'public-key',
+      rawId: Uint8Array.from([30]).buffer,
       response: {
         authenticatorData: Uint8Array.from([31, 32]).buffer,
         clientDataJSON: Uint8Array.from([33, 34]).buffer,
         signature: Uint8Array.from([35]).buffer,
         userHandle: Uint8Array.from([36]).buffer,
-      },
-    } satisfies Partial<AuthenticatorAssertionResponse> & { id: string });
+      } as AuthenticatorAssertionResponse,
+      getClientExtensionResults: () => ({}),
+      authenticatorAttachment: null,
+    } as unknown as PublicKeyCredential);
 
     Object.defineProperty(navigator, 'credentials', {
       configurable: true,

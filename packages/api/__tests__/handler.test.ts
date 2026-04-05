@@ -106,7 +106,7 @@ describe('createWSHandlers', () => {
   });
 
   describe('publish', () => {
-    it('broadcasts to all subscribers including sender', () => {
+    it('broadcasts to all subscribers when publisher is also subscribed', () => {
       const sub1 = createMockWS();
       const sub2 = createMockWS();
       const publisher = createMockWS();
@@ -115,11 +115,14 @@ describe('createWSHandlers', () => {
       handlers.onOpen(new Event('open'), sub2);
       handlers.onOpen(new Event('open'), publisher);
 
-      // Both subscribe
+      // All three subscribe — topic authorization requires publisher to be subscribed
       handlers.onMessage(createJsonMessageEvent({ type: 'subscribe', topics: ['room'] }), sub1);
       handlers.onMessage(createJsonMessageEvent({ type: 'subscribe', topics: ['room'] }), sub2);
+      handlers.onMessage(
+        createJsonMessageEvent({ type: 'subscribe', topics: ['room'] }),
+        publisher,
+      );
 
-      // Publisher is not subscribed — publish should go to sub1 and sub2 only
       handlers.onMessage(
         createJsonMessageEvent({ type: 'publish', topic: 'room', data: { hello: 'world' } }),
         publisher,
@@ -129,12 +132,12 @@ describe('createWSHandlers', () => {
         type: 'publish',
         topic: 'room',
         data: { hello: 'world' },
-        clients: 2,
+        clients: 3,
       });
 
       expect(sub1.send).toHaveBeenCalledWith(expectedMsg);
       expect(sub2.send).toHaveBeenCalledWith(expectedMsg);
-      expect(publisher.send).not.toHaveBeenCalled();
+      expect(publisher.send).toHaveBeenCalledWith(expectedMsg);
     });
 
     it('includes sender when sender is subscribed', () => {

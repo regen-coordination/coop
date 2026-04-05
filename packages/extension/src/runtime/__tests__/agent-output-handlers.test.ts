@@ -13,7 +13,7 @@ import {
   makeAgentPlan,
   makeReviewDraft,
   makeSkillRun,
-} from '../../../../shared/src/__tests__/fixtures';
+} from '@coop/shared/testing';
 import {
   type SkillOutputHandlerInput,
   type SkillOutputHandlerResult,
@@ -21,7 +21,7 @@ import {
   resolveGreenGoodsGapAdminAddresses,
   resolveGreenGoodsGardenerAddresses,
   resolveGreenGoodsOperatorAddresses,
-} from '../agent-output-handlers';
+} from '../agent/output-handlers';
 
 function makeCoop(overrides: Partial<CoopSharedState> = {}): CoopSharedState {
   return {

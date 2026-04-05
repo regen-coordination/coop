@@ -10,9 +10,9 @@ import type {
   AuthSession,
   CaptureMode,
   CaptureRunRecord,
-  CoopSoul,
   CoopKnowledgeSkillOverride,
   CoopSharedState,
+  CoopSoul,
   CoopSpaceType,
   DelegatedActionClass,
   ExecutionPermit,
@@ -41,11 +41,11 @@ import type {
   SessionCapabilityLogEntry,
   SessionCapableActionClass,
   SessionMode,
+  SetupInsights,
   SkillManifest,
   SkillRun,
   SoundEvent,
   SoundPreferences,
-  SetupInsights,
   TabCandidate,
   TabRouting,
   UiPreferences,
@@ -110,7 +110,15 @@ export interface CoopBadgeSummary {
 }
 
 export type SidepanelIntentTab = 'roost' | 'chickens' | 'coops' | 'nest';
-export type SidepanelIntentSegment = 'review' | 'shared' | 'summary' | 'agent' | 'roundup-access';
+export type SidepanelIntentSegment =
+  | 'review'
+  | 'shared'
+  | 'summary'
+  | 'agent'
+  | 'roundup-access'
+  | 'drafts'
+  | 'signals'
+  | 'stale';
 
 export interface SidepanelIntent {
   tab: SidepanelIntentTab;
@@ -146,6 +154,7 @@ export interface ProactiveSignal {
   title: string;
   url: string;
   domain: string;
+  favicon?: string;
   category: TabRouting['category'];
   tags: string[];
   archiveWorthinessHint: boolean;
@@ -451,7 +460,7 @@ export type RuntimeRequest =
         url: string;
         domain: string;
         favicon?: string;
-        category: string;
+        category: ReviewDraft['category'];
         tags: string[];
         extractId: string;
         sourceCandidateId: string;

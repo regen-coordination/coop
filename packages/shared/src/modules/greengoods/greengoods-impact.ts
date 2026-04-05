@@ -6,7 +6,7 @@ import type {
   OnchainState,
 } from '../../contracts/schema';
 import { hashJson } from '../../utils';
-import type { CoopOnchainMode } from '../onchain/onchain';
+import type { CoopOnchainMode } from '../onchain';
 import {
   type GreenGoodsLiveExecutor,
   type GreenGoodsTransactionResult,

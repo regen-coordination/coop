@@ -321,7 +321,7 @@ const mockShouldSkipSkill = vi.fn().mockReturnValue(false);
 const mockGetMissingRequiredCapabilities = vi.fn().mockReturnValue([]);
 const mockIsTrustedNodeRole = vi.fn().mockReturnValue(true);
 
-vi.mock('../agent-harness', () => ({
+vi.mock('../agent/harness', () => ({
   selectSkillIdsForObservation: mockSelectSkillIdsForObservation,
   shouldSkipSkill: mockShouldSkipSkill,
   getMissingRequiredCapabilities: mockGetMissingRequiredCapabilities,
@@ -338,7 +338,7 @@ const mockLogSkillStart = vi.fn();
 const mockLogSkillComplete = vi.fn();
 const mockLogSkillFailed = vi.fn();
 
-vi.mock('../agent-logger', () => ({
+vi.mock('../agent/logger', () => ({
   logCycleStart: mockLogCycleStart,
   logCycleEnd: mockLogCycleEnd,
   logObservationStart: mockLogObservationStart,
@@ -357,7 +357,7 @@ const mockCompleteSkillOutput = vi.fn().mockResolvedValue({
   durationMs: 100,
 });
 
-vi.mock('../agent-models', () => ({
+vi.mock('../agent/models', () => ({
   completeSkillOutput: mockCompleteSkillOutput,
 }));
 
@@ -371,7 +371,7 @@ const mockApplySkillOutput = vi.fn().mockResolvedValue({
   errors: [],
 });
 
-vi.mock('../agent-output-handlers', () => ({
+vi.mock('../agent/output-handlers', () => ({
   applySkillOutput: mockApplySkillOutput,
   resolveGreenGoodsGapAdminAddresses: vi.fn(() => []),
   resolveGreenGoodsOperatorAddresses: vi.fn(() => []),
@@ -381,7 +381,7 @@ vi.mock('../agent-output-handlers', () => ({
 
 const mockComputeOutputConfidence = vi.fn().mockReturnValue(0.7);
 
-vi.mock('../agent-quality', () => ({
+vi.mock('../agent/quality', () => ({
   computeOutputConfidence: mockComputeOutputConfidence,
 }));
 
@@ -390,7 +390,7 @@ vi.mock('../agent-quality', () => ({
 const mockListRegisteredSkills = vi.fn().mockReturnValue([]);
 const mockGetRegisteredSkill = vi.fn().mockReturnValue(undefined);
 
-vi.mock('../agent-registry', () => ({
+vi.mock('../agent/registry', () => ({
   listRegisteredSkills: mockListRegisteredSkills,
   getRegisteredSkill: mockGetRegisteredSkill,
 }));
@@ -404,7 +404,7 @@ vi.mock('../messages', () => ({
 
 // --- Import module under test after all mocks ---
 
-const { runAgentCycle, triggerRetryForSkillRun } = await import('../agent-runner');
+const { runAgentCycle, triggerRetryForSkillRun } = await import('../agent/runner');
 
 // --- Helpers ---
 

@@ -1,5 +1,6 @@
 import type { ReceiverCapture, ReviewDraft } from '@coop/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeReviewDraft } from '@coop/shared/testing';
 import {
   makeCoopState,
   makeReceiverCapture,
@@ -121,28 +122,26 @@ const {
 
 function makeReceiverDraft(overrides: Partial<ReviewDraft> = {}): ReviewDraft {
   return {
-    id: 'draft-1',
-    title: 'Receiver draft',
-    summary: 'Drafted from receiver capture',
-    whyItMatters: 'Useful context',
-    suggestedNextStep: 'Review it',
-    category: 'opportunity',
-    tags: [],
-    sources: [],
-    createdAt: '2026-03-28T00:00:00.000Z',
-    createdBy: 'member-1',
-    reviewStatus: 'pending',
-    workflowStage: 'candidate',
-    suggestedTargetCoopIds: ['coop-1'],
+    ...makeReviewDraft({
+      id: 'draft-1',
+      title: 'Receiver draft',
+      summary: 'Drafted from receiver capture',
+      whyItMatters: 'Useful context',
+      suggestedNextStep: 'Review it',
+      category: 'opportunity',
+      createdAt: '2026-03-28T00:00:00.000Z',
+      workflowStage: 'candidate',
+      suggestedTargetCoopIds: ['coop-1'],
+      archiveWorthiness: { flagged: false },
+    }),
     provenance: {
       type: 'receiver',
       captureId: 'capture-1',
+      receiverKind: 'link',
+      seedMethod: 'metadata-only',
     },
-    archiveWorthiness: 'not-flagged',
-    archiveStatus: 'not-archived',
-    archiveReceiptIds: [],
     ...overrides,
-  } as ReviewDraft;
+  };
 }
 
 describe('receiver handlers', () => {
@@ -217,6 +216,7 @@ describe('receiver handlers', () => {
       type: 'create-receiver-pairing',
       payload: {
         coopId: 'coop-1',
+        memberId: 'member-1',
       },
     });
 
@@ -246,6 +246,7 @@ describe('receiver handlers', () => {
       type: 'create-receiver-pairing',
       payload: {
         coopId: 'missing-coop',
+        memberId: 'member-1',
       },
     });
 
@@ -498,7 +499,7 @@ describe('receiver handlers', () => {
   it('reuses an existing receiver draft when converting intake again', async () => {
     const existingDraft = makeReceiverDraft({
       id: 'draft-existing',
-      workflowStage: 'draft',
+      workflowStage: 'ready',
       suggestedTargetCoopIds: ['coop-1'],
     });
     sharedMocks.getReviewDraft.mockResolvedValue(existingDraft);
@@ -512,7 +513,7 @@ describe('receiver handlers', () => {
       type: 'convert-receiver-intake',
       payload: {
         captureId: 'capture-1',
-        workflowStage: 'draft',
+        workflowStage: 'ready',
         targetCoopId: 'coop-1',
       },
     } as never);
@@ -523,9 +524,35 @@ describe('receiver handlers', () => {
       expect.anything(),
       expect.objectContaining({
         id: 'draft-existing',
-        workflowStage: 'draft',
+        workflowStage: 'ready',
       }),
     );
+  });
+
+  it('returns the converted draft without waiting for follow-up refresh work', async () => {
+    const neverSettles: Promise<never> = new Promise(() => {});
+    sharedMocks.getReceiverCapture.mockResolvedValue(makeReceiverCapture());
+    agentMocks.requestAgentCycle.mockReturnValueOnce(neverSettles);
+    dashboardMocks.refreshBadge.mockReturnValueOnce(neverSettles);
+
+    const result = await Promise.race([
+      handleConvertReceiverIntake({
+        type: 'convert-receiver-intake',
+        payload: {
+          captureId: 'capture-1',
+          workflowStage: 'candidate',
+        },
+      } as never),
+      new Promise<'timed-out'>((resolve) => setTimeout(() => resolve('timed-out'), 25)),
+    ]);
+
+    expect(result).not.toBe('timed-out');
+    expect(result).toMatchObject({
+      ok: true,
+      data: expect.objectContaining({
+        id: 'draft-1',
+      }),
+    });
   });
 
   it('rejects receiver intake conversion when the capture is private to another member', async () => {
@@ -613,9 +640,9 @@ describe('receiver handlers', () => {
     const receiverResult = await syncReceiverCaptureFromDraft(
       makeReceiverDraft({
         id: 'draft-receiver',
-        workflowStage: 'draft',
+        workflowStage: 'ready',
       }),
-      { archiveWorthiness: 'flagged' as ReceiverCapture['archiveWorthiness'] },
+      { archiveWorthiness: { flagged: true } as ReceiverCapture['archiveWorthiness'] },
     );
     const nonReceiverResult = await syncReceiverCaptureFromDraft(
       makeReceiverDraft({
@@ -629,7 +656,7 @@ describe('receiver handlers', () => {
       expect.objectContaining({
         intakeStatus: 'draft',
         linkedDraftId: 'draft-receiver',
-        archiveWorthiness: 'flagged',
+        archiveWorthiness: { flagged: true },
       }),
     );
     expect(nonReceiverResult).toBeNull();

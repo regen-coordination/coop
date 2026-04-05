@@ -33,7 +33,7 @@ import {
   saveExecutionPermit,
   savePermitLogEntry,
 } from '@coop/shared';
-import { isTrustedNodeRole } from '../runtime/agent-harness';
+import { isTrustedNodeRole } from '../runtime/agent/harness';
 import {
   type CoopBadgeSummary,
   type DashboardResponse,

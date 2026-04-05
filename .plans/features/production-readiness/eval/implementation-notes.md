@@ -37,3 +37,51 @@
 - Outcome:
   - staged launch remains blocked on insufficient release-critical coverage
   - Claude UI handoff is not justified yet because the Codex stabilization gate is still red
+
+## 2026-04-01
+
+- Repaired the app-side baseline regressions that were breaking the current branch:
+  - wrapped the landing page with its own `I18nProvider` and restored compatibility with both
+    `devEnvironment` and `devEnvironmentState` props
+  - aligned the landing route in `packages/app/src/app.tsx` with the updated landing component
+  - fixed app test drift in receiver/capture hooks where mocks no longer matched the stricter
+    runtime contracts
+- Cleared the initial red-path tests:
+  - `packages/app/src/__tests__/Landing.test.tsx` now passes after updating the footer assertions to
+    the current product surface
+  - `packages/extension/src/background/handlers/__tests__/session-execution.test.ts` now matches
+    the current live install path that uses `sendSmartAccountTransactionWithCoopGasFallback`
+  - `bun run test:e2e:app` passes again after replacing the brittle duplicate-text selector with a
+    footer-scoped assertion
+- Stabilized extension fixture contracts to reduce type drift at the source:
+  - added extension test factories for `AuthSession`, `UiPreferences`, and runtime config
+  - made `makeCoopState` accept nested partial overrides for `profile`, `onchainState`,
+    `syncRoom`, and `memoryProfile`
+  - updated default dashboard fixtures to current `providerMode`, auth-session, and recent-capture
+    shapes
+- Fixed several source-level contract drifts uncovered by typecheck:
+  - expanded `SidepanelIntentSegment` to include the segments the UI already routes to
+  - narrowed `promote-signal-to-draft` to `ReviewDraft['category']`
+  - updated ritual-review eligibility to use `workflowStage === 'ready'` instead of impossible
+    draft statuses
+  - tightened archive receipt witness typing in shared archive code
+- Validation outcomes on this pass:
+  - targeted landing + session tests: `27 passed`
+  - `bun run test:e2e:app`: `3 passed, 1 skipped`
+  - `bun run build`: previously green and still not touched by the app fixes
+  - `bun run validate:store-readiness`: previously green and still the right staged-launch budget
+    signal
+  - `bun run validate:typecheck`: still red, but now concentrated mainly in extension test-fixture
+    drift plus a smaller set of popup/runtime harness mismatches
+- Current blocker buckets:
+  - extension tests still hardcode legacy shapes for auth sessions, coop state, invite/bootstrap,
+    Green Goods garden data, and inference-bridge mocks
+  - some popup/runtime test harnesses still rely on over-narrow local types that collapse to
+    `never`
+  - a few remaining source-adjacent issues are still mixed into the test backlog, notably archive
+    receipt follow-up typing and popup form handler assumptions
+- Recommended next execution order:
+  - finish the shared test-factory sweep for Green Goods, receiver, and popup harnesses
+  - clear the remaining source-adjacent type errors before widening into lower-priority test files
+  - rerun `bun run validate:typecheck`, then `bun run test`, then `bun run validate quick`
+  - return to the staged-launch coverage gate only after the baseline is green again

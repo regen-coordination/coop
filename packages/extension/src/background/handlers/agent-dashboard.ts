@@ -10,8 +10,8 @@ import {
   pendingBundles,
   queryRecentMemories,
 } from '@coop/shared';
-import { filterAgentDashboardState } from '../../runtime/agent-harness';
-import { listRegisteredSkills } from '../../runtime/agent-registry';
+import { filterAgentDashboardState } from '../../runtime/agent/harness';
+import { listRegisteredSkills } from '../../runtime/agent/registry';
 import { type AgentDashboardResponse, notifyAgentEvent } from '../../runtime/messages';
 import {
   agentOnboardingKey,

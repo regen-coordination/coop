@@ -19,8 +19,8 @@ const {
   triggerHapticMock: vi.fn(),
 }));
 
-vi.mock('@coop/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@coop/shared')>();
+vi.mock('@coop/shared/app', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@coop/shared/app')>();
   return {
     ...actual,
     compressImage: compressImageMock,
@@ -32,26 +32,6 @@ vi.mock('@coop/shared', async (importOriginal) => {
     triggerHaptic: triggerHapticMock,
   };
 });
-
-vi.mock(
-  '/Users/afo/Code/greenpill/coop/packages/shared/src/app-entry.ts',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('/Users/afo/Code/greenpill/coop/packages/shared/src/app-entry.ts')
-      >();
-    return {
-      ...actual,
-      compressImage: compressImageMock,
-      getActiveReceiverPairing: getActiveReceiverPairingMock,
-      getReceiverPairingStatus: getReceiverPairingStatusMock,
-      isWhisperSupported: isWhisperSupportedMock,
-      playCoopSound: playCoopSoundMock,
-      transcribeAudio: transcribeAudioMock,
-      triggerHaptic: triggerHapticMock,
-    };
-  },
-);
 
 const { createCoopDb } = await import('@coop/shared');
 const { useCapture } = await import('../useCapture');
@@ -130,19 +110,9 @@ describe('useCapture behavior', () => {
     for (const db of dbs.splice(0, dbs.length)) {
       await db.delete();
     }
-    (globalThis as typeof globalThis & { MediaRecorder?: unknown }).MediaRecorder = undefined;
-    (
-      globalThis.navigator as Navigator & {
-        mediaDevices?: unknown;
-        wakeLock?: unknown;
-      }
-    ).mediaDevices = undefined;
-    (
-      globalThis.navigator as Navigator & {
-        mediaDevices?: unknown;
-        wakeLock?: unknown;
-      }
-    ).wakeLock = undefined;
+    Reflect.deleteProperty(globalThis, 'MediaRecorder');
+    Reflect.deleteProperty(globalThis.navigator, 'mediaDevices');
+    Reflect.deleteProperty(globalThis.navigator, 'wakeLock');
   });
 
   it('stashes local captures, refreshes previews, and reports local-only status', async () => {
@@ -260,7 +230,10 @@ describe('useCapture behavior', () => {
     transcribeAudioMock.mockResolvedValue({ text: 'Transcript text' });
 
     const trackStop = vi.fn();
-    const stream = {
+    type FakeMediaStream = {
+      getTracks: () => Array<{ stop: () => void }>;
+    };
+    const stream: FakeMediaStream = {
       getTracks: () => [{ stop: trackStop }],
     };
     const release = vi.fn(async () => undefined);
@@ -271,7 +244,7 @@ describe('useCapture behavior', () => {
       ondataavailable: ((event: { data: Blob }) => void) | null = null;
       onstop: (() => void | Promise<void>) | null = null;
       stopPromise: Promise<void> | null = null;
-      constructor(public stream: typeof stream) {
+      constructor(public stream: FakeMediaStream) {
         FakeMediaRecorder.instance = this;
       }
       start() {
