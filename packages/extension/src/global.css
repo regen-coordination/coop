@@ -2089,3 +2089,179 @@ button.sidepanel-header__brand {
   font-size: 0.82rem;
   opacity: 0.7;
 }
+
+/* ---- Knowledge Sandbox: Source badges ---- */
+
+.badge--source-youtube,
+.badge--source-github,
+.badge--source-rss,
+.badge--source-reddit,
+.badge--source-npm,
+.badge--source-wikipedia {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.source-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.source-icon--youtube {
+  background: rgba(255, 0, 0, 0.12);
+  color: #c00;
+}
+
+.source-icon--github {
+  background: rgba(79, 46, 31, 0.1);
+  color: var(--coop-brown);
+}
+
+.source-icon--rss {
+  background: rgba(253, 138, 1, 0.15);
+  color: var(--coop-orange);
+}
+
+.source-icon--reddit {
+  background: rgba(255, 69, 0, 0.1);
+  color: #d44;
+}
+
+.source-icon--npm {
+  background: rgba(203, 56, 55, 0.1);
+  color: #cb3837;
+}
+
+.source-icon--wikipedia {
+  background: rgba(79, 46, 31, 0.08);
+  color: var(--coop-brown-soft);
+}
+
+/* ---- Knowledge Sandbox: Topic bars ---- */
+
+.topic-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+}
+
+.topic-bar__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--coop-brown);
+  flex-shrink: 0;
+  min-width: 6rem;
+}
+
+.topic-bar__track {
+  flex: 1;
+  height: 6px;
+  background: var(--coop-mist);
+  border-radius: var(--coop-radius-pill);
+  overflow: hidden;
+}
+
+.topic-bar__fill {
+  height: 100%;
+  background: var(--coop-green);
+  border-radius: var(--coop-radius-pill);
+  transition: width 300ms ease-out;
+}
+
+.topic-bar__count {
+  font-size: 0.72rem;
+  color: var(--coop-brown-soft);
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+/* ---- Knowledge Sandbox: Draft card provenance ---- */
+
+.draft-card__provenance {
+  border-top: 1px solid var(--coop-line);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.draft-card__source-ref {
+  font-size: 0.8125rem;
+  color: var(--coop-brown-soft);
+  padding-left: 1rem;
+  position: relative;
+}
+
+.draft-card__source-ref::before {
+  content: "·";
+  position: absolute;
+  left: 0.25rem;
+}
+
+.draft-card__track-record {
+  font-size: 0.75rem;
+  padding-left: 1rem;
+  color: var(--coop-brown-soft);
+  opacity: 0.75;
+}
+
+.draft-card__track-record--positive {
+  color: var(--coop-green);
+  opacity: 1;
+}
+
+.draft-card__track-record--negative {
+  color: var(--coop-error);
+  opacity: 0.85;
+}
+
+.draft-card__track-record--none {
+  opacity: 0.55;
+}
+
+/* ---- Knowledge Sandbox: Source cards (Nest > Sources) ---- */
+
+.source-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--coop-radius-sm);
+  background: var(--coop-surface-elevated);
+  border: 1px solid var(--coop-line);
+}
+
+.source-card__health {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--coop-green);
+  flex-shrink: 0;
+}
+
+.source-card__health--stale {
+  background: var(--coop-orange);
+}
+
+.source-card__health--error {
+  background: var(--coop-error);
+}
+
+/* ---- Knowledge Sandbox: Confidence badge ---- */
+
+.badge--confidence {
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+}
