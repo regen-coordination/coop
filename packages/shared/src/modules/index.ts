@@ -18,3 +18,4 @@ export * from './session';
 export * from './stealth';
 export * from './storage';
 export * from './transcribe';
+export * from './knowledge-source';

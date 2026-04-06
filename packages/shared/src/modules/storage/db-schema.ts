@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
+import type { KnowledgeSource } from '../../contracts/schema-knowledge';
 import type {
   ActionBundle,
   ActionLogEntry,
@@ -108,6 +109,7 @@ export class CoopDexie extends Dexie {
   encryptedLocalPayloads!: EntityTable<EncryptedLocalPayload, 'id'>;
   coopBlobs!: EntityTable<CoopBlobRecord, 'blobId'>;
   syncOutbox!: EntityTable<SyncOutboxEntry, 'id'>;
+  knowledgeSources!: EntityTable<KnowledgeSource, 'id'>;
 
   constructor(name = 'coop-v1') {
     super(name);
@@ -493,6 +495,9 @@ export class CoopDexie extends Dexie {
     });
     this.version(18).stores({
       tabCandidates: 'id, canonicalUrl, canonicalUrlHash, domain, captureRunId, capturedAt',
+    });
+    this.version(19).stores({
+      knowledgeSources: 'id, coopId, type, active, identifier, [coopId+identifier]',
     });
   }
 }
