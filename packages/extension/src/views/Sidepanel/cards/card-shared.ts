@@ -1,7 +1,26 @@
 import type { ReviewDraft } from '@coop/shared';
+import type { SourceType } from '../../shared/SourceBadge';
 import type { useDraftEditor } from '../hooks/useDraftEditor';
 
 export type DraftEditorReturn = ReturnType<typeof useDraftEditor>;
+
+const KNOWN_SOURCE_TYPES = new Set<string>(['youtube', 'github', 'rss', 'web']);
+
+/**
+ * Parse a source reference string like "youtube:UC_xxx" into a typed object.
+ * Returns null for unknown formats or empty values.
+ */
+export function formatSourceRef(sourceRef: string): { type: SourceType; name: string } | null {
+  const colonIndex = sourceRef.indexOf(':');
+  if (colonIndex < 1) return null;
+
+  const prefix = sourceRef.slice(0, colonIndex);
+  const name = sourceRef.slice(colonIndex + 1);
+
+  if (!name || !KNOWN_SOURCE_TYPES.has(prefix)) return null;
+
+  return { type: prefix as SourceType, name };
+}
 
 export function formatRelativeTime(timestamp?: string) {
   if (!timestamp) {

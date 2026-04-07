@@ -103,3 +103,34 @@ export async function syncHighConfidenceDraftObservations(drafts: ReviewDraft[])
     });
   }
 }
+
+export async function emitSourceContentObservation(input: {
+  sourceId: string;
+  sourceLabel: string;
+  contentTitle: string;
+  coopId?: string;
+}) {
+  return emitAgentObservationIfMissing({
+    trigger: 'source-content-ready',
+    title: `Source content ready: ${input.sourceLabel}`,
+    summary: `New content "${input.contentTitle}" ingested from ${input.sourceLabel}.`,
+    coopId: input.coopId,
+    payload: {
+      sourceId: input.sourceId,
+      contentTitle: input.contentTitle,
+    },
+  });
+}
+
+export async function emitKnowledgeLintObservation(input: { coopId?: string }) {
+  return emitAgentObservationIfMissing(
+    {
+      trigger: 'knowledge-lint-due',
+      title: 'Knowledge graph health check due',
+      summary: 'Weekly audit of knowledge graph health, orphan entities, and stale sources.',
+      coopId: input.coopId,
+      payload: {},
+    },
+    { requestCycle: true },
+  );
+}

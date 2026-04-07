@@ -1,0 +1,21 @@
+{
+  "parse": {
+    "title": "Ethereum",
+    "pageid": 46474386,
+    "text": {
+      "*": "<p><b>Ethereum</b> is a decentralized blockchain platform that establishes a peer-to-peer network for executing and verifying application code, called smart contracts.</p>"
+    },
+    "categories": [
+      { "*": "Blockchains" },
+      { "*": "Cryptocurrency" },
+      { "*": "Ethereum" },
+      { "*": "Smart_contracts" }
+    ],
+    "sections": [
+      { "toclevel": 1, "line": "History", "number": "1" },
+      { "toclevel": 1, "line": "Design", "number": "2" },
+      { "toclevel": 1, "line": "Applications", "number": "3" }
+    ]
+  },
+  "extract": "Ethereum is a decentralized blockchain platform that establishes a peer-to-peer network for executing and verifying application code, called smart contracts. Smart contracts allow participants to transact with each other without a trusted central authority."
+}

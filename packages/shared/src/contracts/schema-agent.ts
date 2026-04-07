@@ -19,6 +19,8 @@ export const agentObservationTriggerSchema = z.enum([
   'stale-draft',
   'audio-transcript-ready',
   'safe-add-owner-requested',
+  'source-content-ready',
+  'knowledge-lint-due',
 ]);
 
 export const agentObservationStatusSchema = z.enum([
@@ -80,6 +82,8 @@ export const skillOutputSchemaRefSchema = z.enum([
   'green-goods-gap-admin-sync-output',
   'erc8004-registration-output',
   'erc8004-feedback-output',
+  'entity-extraction-output',
+  'knowledge-lint-output',
 ]);
 
 export const actionProposalSchema = z.object({
@@ -489,3 +493,52 @@ export type AgentMemoryScope = z.infer<typeof agentMemoryScopeSchema>;
 export type AgentMemory = z.infer<typeof agentMemorySchema>;
 export type PrivilegedActionStatus = z.infer<typeof privilegedActionStatusSchema>;
 export type ArchiveWorthiness = z.infer<typeof archiveWorthinessSchema>;
+
+export const experimentRecordSchema = z.object({
+  id: z.string().min(1),
+  skillId: z.string().min(1),
+  variantId: z.string().min(1),
+  baselineVariantId: z.string().min(1),
+  promptDiff: z.string().min(1),
+  compositeScore: z.number().min(0).max(1),
+  baselineScore: z.number().min(0).max(1),
+  delta: z.number(),
+  fixtureResults: z.array(
+    z.object({
+      fixtureId: z.string().min(1),
+      score: z.number(),
+      passed: z.boolean(),
+    }),
+  ),
+  outcome: z.enum(['kept', 'reverted', 'pending']),
+  duration: z.number(),
+  createdAt: z.number(),
+});
+
+export type ExperimentRecord = z.infer<typeof experimentRecordSchema>;
+
+export const skillVariantSchema = z.object({
+  id: z.string().min(1),
+  skillId: z.string().min(1),
+  promptText: z.string().min(1),
+  promptHash: z.string().min(1),
+  isActive: z.boolean(),
+  isBaseline: z.boolean(),
+  parentVariantId: z.string().nullable(),
+  compositeScore: z.number().min(0).max(1).nullable(),
+  createdAt: z.number(),
+  activatedAt: z.number().nullable(),
+});
+
+export type SkillVariant = z.infer<typeof skillVariantSchema>;
+
+export const autoresearchConfigSchema = z.object({
+  skillId: z.string().min(1),
+  enabled: z.boolean().default(false),
+  maxExperimentsPerCycle: z.number().int().min(1).max(50).default(5),
+  timeBudgetMs: z.number().min(5000).max(300000).default(60000),
+  qualityFloor: z.number().min(0).max(1).default(0.3),
+  updatedAt: z.number(),
+});
+
+export type AutoresearchConfig = z.infer<typeof autoresearchConfigSchema>;

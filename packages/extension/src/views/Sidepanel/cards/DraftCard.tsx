@@ -4,6 +4,7 @@ import {
   artifactCategorySchema,
   isArchiveWorthy,
 } from '@coop/shared';
+import type { Precedent } from '../../shared/PrecedentIndicator';
 import type { InferenceBridgeState } from '../../../runtime/inference-bridge';
 import type { DashboardResponse } from '../../../runtime/messages';
 import { ShareMenu } from '../../Popup/ShareMenu';
@@ -16,6 +17,7 @@ import {
   formatRelativeTime,
   summarizeSourceLine,
 } from './card-shared';
+import { DraftCardProvenance } from './DraftCardProvenance';
 
 export interface DraftCardProps {
   draft: ReviewDraft;
@@ -36,6 +38,10 @@ export function DraftCard({
   onShareToFeed,
 }: DraftCardProps) {
   const value = draftEditor.draftValue(draft);
+  const extended = value as ReviewDraft & {
+    sourceRefs?: string[];
+    precedent?: Precedent | null;
+  };
   const selectedCoops = coops.filter((coop) =>
     value.suggestedTargetCoopIds.includes(coop.profile.id),
   );
@@ -64,6 +70,12 @@ export function DraftCard({
         <span>{selectedCoops.length || value.suggestedTargetCoopIds.length} coop target(s)</span>
         <span>{value.attachments.length} attachment(s)</span>
       </div>
+      <DraftCardProvenance
+        provenanceType={value.provenance.type}
+        sourceRefs={extended.sourceRefs}
+        precedent={extended.precedent}
+        confidence={value.confidence}
+      />
       {selectedCoops.length > 0 ? (
         <div className="stack" style={{ gap: '0.35rem' }}>
           <span className="draft-card__section-label">Targets</span>

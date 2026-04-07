@@ -13,3 +13,4 @@ export * from './schema-erc8004';
 export * from './schema-sync';
 export * from './schema-privacy';
 export * from './schema-coop';
+export * from './schema-knowledge';

@@ -1,0 +1,16 @@
+{
+  "id": "entity-extractor-github-readme",
+  "description": "Extract entities from a GitHub README about Claude Code",
+  "input": {
+    "observationContext": "Claude Code is a CLI tool by Anthropic for working with Claude. Features include interactive coding sessions, file editing, and code review. Install via npm install -g @anthropic-ai/claude-code."
+  },
+  "assertions": [
+    { "type": "array-min-length", "path": "entities", "value": 1 },
+    {
+      "type": "field-match",
+      "path": "entities[*].type",
+      "oneOf": ["person", "organization", "object"]
+    }
+  ],
+  "threshold": 0.6
+}

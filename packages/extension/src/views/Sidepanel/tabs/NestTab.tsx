@@ -1,6 +1,7 @@
-import type { CoopSharedState } from '@coop/shared';
+import type { CoopSharedState, KnowledgeSource } from '@coop/shared';
 import { formatCoopSpaceTypeLabel, getCoopChainLabel } from '@coop/shared';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { sendRuntimeMessage } from '../../../runtime/messages';
 import { PopupSubheader, type PopupSubheaderTag } from '../../Popup/PopupSubheader';
 import { Tooltip } from '../../shared/Tooltip';
 import { SidepanelSubheader } from '../SidepanelSubheader';
@@ -19,6 +20,7 @@ import {
 import { NestInviteSection } from './NestInviteSection';
 import { NestReceiverSection } from './NestReceiverSection';
 import { NestSettingsSection } from './NestSettingsSection';
+import { NestSourcesSection } from './NestSourcesSection';
 
 // ---------------------------------------------------------------------------
 // Shared hook return types
@@ -30,7 +32,7 @@ type CoopFormReturn = ReturnType<typeof useCoopForm>;
 // Sub-tab type
 // ---------------------------------------------------------------------------
 
-export type NestSubTab = 'members' | 'agent' | 'settings';
+export type NestSubTab = 'members' | 'agent' | 'settings' | 'sources';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -66,6 +68,52 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
   const [nestSubTab, setNestSubTab] = useState<NestSubTab>('members');
   const [inviteControlsOpen, setInviteControlsOpen] = useState(false);
   const [inviteFocusRequest, setInviteFocusRequest] = useState(0);
+  const [sources, setSources] = useState<KnowledgeSource[]>([]);
+
+  // --- Knowledge sources ---
+  const fetchSources = useCallback(async () => {
+    if (!activeCoop) return;
+    const result = await sendRuntimeMessage<KnowledgeSource[]>({
+      type: 'list-knowledge-sources',
+      payload: { coopId: activeCoop.profile.id },
+    });
+    if (result.ok && result.data) setSources(result.data);
+  }, [activeCoop?.profile.id]);
+
+  useEffect(() => {
+    if (nestSubTab === 'sources') void fetchSources();
+  }, [nestSubTab, fetchSources]);
+
+  const handleAddSource = useCallback(
+    async (sourceType: string, identifier: string, label: string) => {
+      if (!activeCoop) return;
+      await sendRuntimeMessage({
+        type: 'add-knowledge-source',
+        payload: { coopId: activeCoop.profile.id, sourceType, identifier, label },
+      });
+      void fetchSources();
+    },
+    [activeCoop?.profile.id, fetchSources],
+  );
+
+  const handleRemoveSource = useCallback(
+    async (sourceId: string) => {
+      await sendRuntimeMessage({ type: 'remove-knowledge-source', payload: { sourceId } });
+      void fetchSources();
+    },
+    [fetchSources],
+  );
+
+  const handleToggleSource = useCallback(
+    async (sourceId: string, active: boolean) => {
+      await sendRuntimeMessage({
+        type: 'toggle-knowledge-source',
+        payload: { sourceId, active },
+      });
+      void fetchSources();
+    },
+    [fetchSources],
+  );
 
   // Badge counts
   const receiverIntakeCount = receiverIntake.length;
@@ -189,6 +237,13 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
                 type="button"
               >
                 Settings
+              </button>
+              <button
+                className={nestSubTab === 'sources' ? 'is-active' : ''}
+                onClick={() => setNestSubTab('sources')}
+                type="button"
+              >
+                Sources
               </button>
             </nav>
           ) : null}
@@ -465,6 +520,18 @@ export function NestTab({ orchestration }: NestTabOrchestrationProps) {
             setMessage={orchestration.setMessage}
           />
         </>
+      ) : null}
+
+      {/* ================================================================= */}
+      {/* Sources sub-tab                                                    */}
+      {/* ================================================================= */}
+      {nestSubTab === 'sources' && activeCoop ? (
+        <NestSourcesSection
+          sources={sources}
+          onAddSource={handleAddSource}
+          onRemoveSource={handleRemoveSource}
+          onToggleSource={handleToggleSource}
+        />
       ) : null}
     </section>
   );

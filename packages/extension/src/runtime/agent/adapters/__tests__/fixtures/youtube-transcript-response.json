@@ -1,0 +1,16 @@
+{
+  "subtitles": [
+    { "start": "0.0", "dur": "4.5", "text": "Welcome to the talk on knowledge graphs" },
+    { "start": "4.5", "dur": "5.2", "text": "Today we explore how agents use structured memory" },
+    {
+      "start": "9.7",
+      "dur": "6.1",
+      "text": "The POLE model categorizes entities into Person Organization Location and Event"
+    },
+    { "start": "15.8", "dur": "4.0", "text": "Temporal edges track when facts are valid" },
+    { "start": "19.8", "dur": "3.5", "text": "This enables reasoning over time" }
+  ],
+  "videoId": "qMV64p-4Deo",
+  "title": "Context Graphs for Agent Memory",
+  "channelId": "UC_x5XG1OV2P6uZZ5FSM9Ttw"
+}

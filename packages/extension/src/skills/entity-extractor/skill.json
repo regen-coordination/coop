@@ -1,0 +1,18 @@
+{
+  "id": "entity-extractor",
+  "version": "0.1.0",
+  "description": "Extract POLE+O entities (Person, Organization, Location, Event, Object) and relationships from ingested source content.",
+  "runtime": "extension-offscreen",
+  "model": "transformers",
+  "triggers": ["source-content-ready", "roundup-batch-ready"],
+  "inputSchemaRef": "agent-observation",
+  "outputSchemaRef": "entity-extraction-output",
+  "allowedTools": ["read-observation-context", "read-coop-context"],
+  "allowedActionClasses": [],
+  "requiredCapabilities": [],
+  "approvalMode": "auto-run-eligible",
+  "timeoutMs": 15000,
+  "maxTokens": 600,
+  "depends": [],
+  "provides": ["entities", "relationships"]
+}

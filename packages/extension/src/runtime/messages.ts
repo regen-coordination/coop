@@ -681,6 +681,30 @@ export type RuntimeRequest =
         coopId: string;
         receiptId: string;
       };
+    }
+  | {
+      type: 'add-knowledge-source';
+      payload: { coopId: string; sourceType: string; identifier: string; label: string };
+    }
+  | {
+      type: 'remove-knowledge-source';
+      payload: { sourceId: string };
+    }
+  | {
+      type: 'toggle-knowledge-source';
+      payload: { sourceId: string; active: boolean };
+    }
+  | {
+      type: 'list-knowledge-sources';
+      payload: { coopId: string };
+    }
+  | {
+      type: 'refresh-knowledge-source';
+      payload: { coopId: string };
+    }
+  | {
+      type: 'get-knowledge-stats';
+      payload: { coopId: string };
     };
 
 export interface RuntimeActionResponse<T = unknown> {

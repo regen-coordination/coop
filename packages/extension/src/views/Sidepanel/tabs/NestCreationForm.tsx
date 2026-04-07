@@ -1,5 +1,9 @@
 import type { CaptureMode, CoopSpaceType } from '@coop/shared';
-import { passkeyTrustDetail, passkeyTrustLabel, purposeCreateHelperText } from '../../shared/coop-copy';
+import {
+  passkeyTrustDetail,
+  passkeyTrustLabel,
+  purposeCreateHelperText,
+} from '../../shared/coop-copy';
 import type { useCoopForm } from '../hooks/useCoopForm';
 import type { CreateFormState } from '../setup-insights';
 

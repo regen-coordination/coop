@@ -20,3 +20,10 @@ export * from './runner-skills';
 export * from './runner-state';
 export * from './webllm-bridge';
 export * from './webllm-worker';
+export * from './variant-engine';
+export {
+  collectFeedback,
+  computeMemberFeedbackScore,
+  runExperiment,
+  runCycle,
+} from './experiment-loop';

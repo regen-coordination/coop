@@ -175,6 +175,22 @@ export async function handleRejectAgentPlan(
     sourceObservationId: plan.observationId,
   }).catch(() => {});
 
+  // Knowledge sandbox compound loop: weaken edges on rejection
+  try {
+    const { getGraphStore } = await import('../../runtime/agent/graph-store-singleton');
+    const { weakenSourceEdges } = await import('@coop/shared');
+    const graphStore = getGraphStore();
+    const lastTrace = graphStore.traces
+      .filter((t) => t.observationId === plan.observationId)
+      .at(-1);
+    if (lastTrace) {
+      weakenSourceEdges(graphStore, lastTrace.traceId, 'rejected');
+      lastTrace.outcome = 'rejected';
+    }
+  } catch {
+    // Knowledge sandbox not available — skip compound loop
+  }
+
   return { ok: true, data: rejected };
 }
 

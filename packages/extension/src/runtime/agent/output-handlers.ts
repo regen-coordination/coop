@@ -2,7 +2,11 @@ import type { SkillOutputSchemaRef } from '@coop/shared';
 import { coreHandlers } from './output-handlers-core';
 import { erc8004Handlers } from './output-handlers-erc8004';
 import { greenGoodsHandlers } from './output-handlers-greengoods';
-import type { SkillOutputHandler, SkillOutputHandlerInput, SkillOutputHandlerResult } from './output-handlers-helpers';
+import type {
+  SkillOutputHandler,
+  SkillOutputHandlerInput,
+  SkillOutputHandlerResult,
+} from './output-handlers-helpers';
 import { synthesisHandlers } from './output-handlers-synthesis';
 
 export * from './output-handlers-helpers';

@@ -1,0 +1,18 @@
+{
+  "id": "knowledge-lint",
+  "version": "0.1.0",
+  "description": "Audit knowledge graph health: detect orphan entities, stale sources, contradictions, and coverage gaps.",
+  "runtime": "extension-offscreen",
+  "model": "heuristic",
+  "triggers": ["knowledge-lint-due"],
+  "inputSchemaRef": "agent-observation",
+  "outputSchemaRef": "knowledge-lint-output",
+  "allowedTools": ["read-observation-context", "read-coop-context"],
+  "allowedActionClasses": [],
+  "requiredCapabilities": [],
+  "approvalMode": "advisory",
+  "timeoutMs": 10000,
+  "maxTokens": 0,
+  "depends": [],
+  "provides": ["knowledge-health"]
+}

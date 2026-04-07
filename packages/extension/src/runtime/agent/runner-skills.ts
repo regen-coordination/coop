@@ -1,9 +1,5 @@
-import type {
-  AgentObservation,
-  AgentPlan,
-  AgentPlanStep,
-  CoopSharedState,
-} from '@coop/shared';
+import type { AgentObservation, AgentPlan, AgentPlanStep, CoopSharedState } from '@coop/shared';
+import { createId, nowIso as nowIsoUtil, recordReasoningTrace } from '@coop/shared';
 import {
   completeAgentPlan,
   completeSkillRun,
@@ -380,6 +376,29 @@ export async function runObservationPlan(
         run.id,
         recalculatedConfidence,
       );
+
+      // Record reasoning trace for knowledge sandbox precedent system
+      try {
+        const { getGraphStore, scheduleSave } = await import('./graph-store-singleton');
+        const graphStore = getGraphStore();
+        recordReasoningTrace(graphStore, {
+          traceId: createId('trace'),
+          skillRunId: run.id,
+          observationId: observation.id,
+          observationText: `${observation.title}: ${observation.summary}`,
+          contextEntityIds: [],
+          precedentTraceIds: [],
+          confidence: recalculatedConfidence,
+          outputSummary: `${skillId} completed with confidence ${recalculatedConfidence.toFixed(2)}`,
+          outcome: 'pending',
+          createdAt: nowIsoUtil(),
+        });
+        if (observation.coopId) {
+          scheduleSave(db, observation.coopId);
+        }
+      } catch {
+        // Graph store not available — skip trace recording
+      }
 
       result.skillRunMetrics.push({
         skillId,

@@ -44,16 +44,8 @@ import {
   inferTabRoutingsHeuristically,
   inferThemes,
 } from './runner-inference';
-import {
-  buildSkillPrompt,
-  createHeuristicCapitalFormationBrief,
-} from './runner-skills-prompt';
-import {
-  db,
-  findAuthenticatedCoopMember,
-  getCoops,
-  inferPreferredProvider,
-} from './runner-state';
+import { buildSkillPrompt, createHeuristicCapitalFormationBrief } from './runner-skills-prompt';
+import { db, findAuthenticatedCoopMember, getCoops, inferPreferredProvider } from './runner-state';
 import type { RuntimeActionResponse } from './messages';
 
 export async function completeSkill<T>(input: {
@@ -71,6 +63,8 @@ export async function completeSkill<T>(input: {
   relatedArtifacts: CoopSharedState['artifacts'];
   relatedRoutings: TabRouting[];
   memories: AgentMemory[];
+  graphContext?: string;
+  signal?: AbortSignal;
 }): Promise<{ provider: AgentProvider; model?: string; output: T; durationMs: number }> {
   const { manifest } = input.skill;
   const prepared = await buildSkillPrompt(input);
@@ -82,6 +76,7 @@ export async function completeSkill<T>(input: {
     prompt: prepared.prompt,
     heuristicContext: prepared.heuristicContext,
     maxTokens: manifest.maxTokens,
+    signal: input.signal,
   });
 
   if (

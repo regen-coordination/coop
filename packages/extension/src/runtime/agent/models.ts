@@ -63,6 +63,49 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
   }
 }
 
+function getAbortError(signal?: AbortSignal) {
+  if (signal?.reason instanceof Error) {
+    return signal.reason;
+  }
+  return new Error('Operation aborted.');
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw getAbortError(signal);
+  }
+}
+
+async function withTimeoutAndSignal<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string,
+  signal?: AbortSignal,
+) {
+  let abortListener: (() => void) | null = null;
+  try {
+    throwIfAborted(signal);
+    return await Promise.race([
+      withTimeout(promise, timeoutMs, label),
+      new Promise<T>((_, reject) => {
+        if (!signal) {
+          return;
+        }
+        if (signal.aborted) {
+          reject(getAbortError(signal));
+          return;
+        }
+        abortListener = () => reject(getAbortError(signal));
+        signal.addEventListener('abort', abortListener, { once: true });
+      }),
+    ]);
+  } finally {
+    if (signal && abortListener) {
+      signal.removeEventListener('abort', abortListener);
+    }
+  }
+}
+
 function warmTransformersPipeline() {
   void ensureTransformersPipeline().catch(() => {
     transformersPipelinePromise = null;
@@ -390,17 +433,19 @@ async function runTransformers<T>(input: {
   schemaRef: SkillOutputSchemaRef;
   maxTokens?: number;
   retryContext?: string;
+  signal?: AbortSignal;
 }) {
   const start = Date.now();
-  const pipeline = await withTimeout(
+  const pipeline = await withTimeoutAndSignal(
     ensureTransformersPipeline(),
     AGENT_SKILL_TIMEOUT_MS,
     'Transformers pipeline initialization',
+    input.signal,
   );
   const promptWithRetry = input.retryContext
     ? `${input.prompt}\n\n${input.retryContext}`
     : input.prompt;
-  const result = await withTimeout(
+  const result = await withTimeoutAndSignal(
     pipeline([{ role: 'user', content: promptWithRetry }], {
       max_new_tokens: input.maxTokens ?? 512,
       temperature: 0.2,
@@ -409,6 +454,7 @@ async function runTransformers<T>(input: {
     }),
     AGENT_SKILL_TIMEOUT_MS,
     'Transformers completion',
+    input.signal,
   );
   const output =
     Array.isArray(result) && result[0]?.generated_text
@@ -432,17 +478,19 @@ async function runTransformersStructured<T>(input: {
   validate: (value: unknown) => T;
   maxTokens?: number;
   retryContext?: string;
+  signal?: AbortSignal;
 }) {
   const start = Date.now();
-  const pipeline = await withTimeout(
+  const pipeline = await withTimeoutAndSignal(
     ensureTransformersPipeline(),
     AGENT_SKILL_TIMEOUT_MS,
     'Transformers pipeline initialization',
+    input.signal,
   );
   const promptWithRetry = input.retryContext
     ? `${input.prompt}\n\n${input.retryContext}`
     : input.prompt;
-  const result = await withTimeout(
+  const result = await withTimeoutAndSignal(
     pipeline([{ role: 'user', content: promptWithRetry }], {
       max_new_tokens: input.maxTokens ?? 512,
       temperature: 0.2,
@@ -451,6 +499,7 @@ async function runTransformersStructured<T>(input: {
     }),
     AGENT_SKILL_TIMEOUT_MS,
     'Transformers completion',
+    input.signal,
   );
   const output =
     Array.isArray(result) && result[0]?.generated_text
@@ -475,11 +524,12 @@ async function runWebLlm<T>(input: {
   schemaRef: SkillOutputSchemaRef;
   maxTokens?: number;
   retryContext?: string;
+  signal?: AbortSignal;
 }) {
   const promptWithRetry = input.retryContext
     ? `${input.prompt}\n\n${input.retryContext}`
     : input.prompt;
-  const result = await withTimeout(
+  const result = await withTimeoutAndSignal(
     webLlmBridge.complete({
       system: input.system,
       prompt: promptWithRetry,
@@ -488,6 +538,7 @@ async function runWebLlm<T>(input: {
     }),
     AGENT_SKILL_TIMEOUT_MS,
     'WebLLM completion',
+    input.signal,
   );
   return {
     provider: result.provider,
@@ -503,11 +554,12 @@ async function runWebLlmStructured<T>(input: {
   validate: (value: unknown) => T;
   maxTokens?: number;
   retryContext?: string;
+  signal?: AbortSignal;
 }) {
   const promptWithRetry = input.retryContext
     ? `${input.prompt}\n\n${input.retryContext}`
     : input.prompt;
-  const result = await withTimeout(
+  const result = await withTimeoutAndSignal(
     webLlmBridge.complete({
       system: input.system,
       prompt: promptWithRetry,
@@ -516,6 +568,7 @@ async function runWebLlmStructured<T>(input: {
     }),
     AGENT_SKILL_TIMEOUT_MS,
     'WebLLM completion',
+    input.signal,
   );
   return {
     provider: result.provider,
@@ -546,6 +599,7 @@ export async function completeSkillOutput<T>(input: {
   prompt: string;
   heuristicContext: string;
   maxTokens?: number;
+  signal?: AbortSignal;
 }): Promise<{ provider: AgentProvider; model?: string; output: T; durationMs: number }> {
   const fallback = () => ({
     provider: 'heuristic' as const,
@@ -561,6 +615,7 @@ export async function completeSkillOutput<T>(input: {
     input.preferredProvider === 'transformers' &&
     TRANSFORMERS_COLD_START_FALLBACK_SCHEMAS.has(input.schemaRef)
   ) {
+    throwIfAborted(input.signal);
     if (!transformersPipelineReady) {
       warmTransformersPipeline();
       return fallback();
@@ -571,6 +626,7 @@ export async function completeSkillOutput<T>(input: {
     input.preferredProvider === 'webllm' &&
     WEBLLM_COLD_START_FALLBACK_SCHEMAS.has(input.schemaRef)
   ) {
+    throwIfAborted(input.signal);
     if (!webLlmBridge.status.ready) {
       webLlmBridge.prewarm();
       return fallback();
@@ -585,8 +641,10 @@ export async function completeSkillOutput<T>(input: {
           prompt: input.prompt,
           schemaRef: input.schemaRef,
           maxTokens: input.maxTokens,
+          signal: input.signal,
         });
       } catch (firstError) {
+        throwIfAborted(input.signal);
         if (firstError instanceof Error && /timed out/i.test(firstError.message)) {
           throw firstError;
         }
@@ -598,8 +656,10 @@ export async function completeSkillOutput<T>(input: {
             schemaRef: input.schemaRef,
             maxTokens: input.maxTokens,
             retryContext: formatRetryContext(firstError),
+            signal: input.signal,
           });
         } catch {
+          throwIfAborted(input.signal);
           // Both attempts failed — fall through to next provider
         }
       }
@@ -611,22 +671,28 @@ export async function completeSkillOutput<T>(input: {
           prompt: `${input.system}\n\n${input.prompt}`,
           schemaRef: input.schemaRef,
           maxTokens: input.maxTokens,
+          signal: input.signal,
         });
       } catch (firstError) {
+        throwIfAborted(input.signal);
         try {
           return await runTransformers<T>({
             prompt: `${input.system}\n\n${input.prompt}`,
             schemaRef: input.schemaRef,
             maxTokens: input.maxTokens,
             retryContext: formatRetryContext(firstError),
+            signal: input.signal,
           });
         } catch {
+          throwIfAborted(input.signal);
           // Both attempts failed — fall through to heuristic
         }
       }
+      throwIfAborted(input.signal);
       return fallback();
     }
   } catch {
+    throwIfAborted(input.signal);
     // Fall through to the next provider or heuristic fallback.
   }
 
@@ -636,12 +702,15 @@ export async function completeSkillOutput<T>(input: {
         prompt: `${input.system}\n\n${input.prompt}`,
         schemaRef: input.schemaRef,
         maxTokens: input.maxTokens,
+        signal: input.signal,
       });
     } catch {
+      throwIfAborted(input.signal);
       return fallback();
     }
   }
 
+  throwIfAborted(input.signal);
   return fallback();
 }
 

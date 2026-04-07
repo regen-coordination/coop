@@ -115,6 +115,14 @@ import {
   handleSetReceiverIntakeArchiveWorthiness,
 } from './handlers/receiver';
 import {
+  handleAddKnowledgeSource,
+  handleGetKnowledgeStats,
+  handleListKnowledgeSources,
+  handleRemoveKnowledgeSource,
+  handleToggleKnowledgeSource,
+} from './handlers/knowledge-source';
+import { handleRefreshKnowledgeSource } from './handlers/knowledge-source-fetch';
+import {
   handlePromoteSignalToDraft,
   handlePublishDraft,
   handleUpdateMeetingSettings,
@@ -324,6 +332,14 @@ export const handlerRegistry: HandlerRecord = {
   'remove-coop-archive-config': async (message) => handleRemoveCoopArchiveConfig(message.payload),
   'anchor-archive-cid': async (message) => handleAnchorArchiveCid(message.payload),
   'fvm-register-archive': async (message) => handleFvmRegistration(message.payload),
+
+  // ---- Knowledge Sources ----
+  'add-knowledge-source': async (message) => handleAddKnowledgeSource(message),
+  'remove-knowledge-source': async (message) => handleRemoveKnowledgeSource(message),
+  'toggle-knowledge-source': async (message) => handleToggleKnowledgeSource(message),
+  'list-knowledge-sources': async (message) => handleListKnowledgeSources(message),
+  'refresh-knowledge-source': async (message) => handleRefreshKnowledgeSource(message),
+  'get-knowledge-stats': async (message) => handleGetKnowledgeStats(message),
 
   // ---- Export ----
   'export-snapshot': async (message) => handleExportSnapshot(message),

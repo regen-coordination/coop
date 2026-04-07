@@ -30,6 +30,7 @@ export const alarmNames = {
   agentHeartbeat: 'agent-heartbeat',
   archiveStatusPoll: 'archive-status-poll',
   onboardingFollowUpPrefix: 'agent-onboarding-followup:',
+  knowledgeLint: 'knowledge-lint',
 } as const;
 
 // ---- Database Instance ----

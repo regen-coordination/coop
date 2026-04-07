@@ -1,0 +1,27 @@
+{
+  "name": "viem",
+  "description": "TypeScript Interface for Ethereum",
+  "dist-tags": {
+    "latest": "2.30.0"
+  },
+  "versions": {
+    "2.30.0": {
+      "name": "viem",
+      "version": "2.30.0",
+      "description": "TypeScript Interface for Ethereum",
+      "main": "dist/index.js",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/wevm/viem"
+      },
+      "keywords": ["ethereum", "typescript", "web3", "blockchain"]
+    }
+  },
+  "readme": "# viem\n\nTypeScript Interface for Ethereum.\n\n## Features\n- Type-safe contract interactions\n- Built-in ABIs\n- Chain definitions\n- ENS support\n\n## Install\n```bash\nnpm install viem\n```",
+  "homepage": "https://viem.sh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wevm/viem"
+  },
+  "license": "MIT"
+}

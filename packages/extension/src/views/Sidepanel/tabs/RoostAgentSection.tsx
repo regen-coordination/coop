@@ -1,5 +1,9 @@
 import type { AgentMemory, AgentObservation, AgentPlan } from '@coop/shared';
 import type { RuntimeSummary } from '../../../runtime/messages';
+import type { DecisionEntry } from './RoostDecisionHistory';
+import { RoostDecisionHistory } from './RoostDecisionHistory';
+import type { KnowledgeTopic } from './RoostKnowledgeSection';
+import { RoostKnowledgeSection } from './RoostKnowledgeSection';
 import { timeAgo } from './roost-helpers';
 
 // ---------------------------------------------------------------------------
@@ -13,6 +17,9 @@ export interface AgentSectionProps {
   recentObservations: AgentObservation[];
   recentMemories: AgentMemory[];
   agentRunning?: boolean;
+  knowledgeTopics?: KnowledgeTopic[];
+  knowledgeStats?: { entities: number; relationships: number; sources: number };
+  decisions?: DecisionEntry[];
   onRunAgentCycle: () => Promise<void>;
   onApproveAgentPlan: (planId: string) => Promise<void>;
   onRejectAgentPlan: (planId: string, reason?: string) => Promise<void>;
@@ -25,6 +32,9 @@ export function AgentSection({
   recentObservations,
   recentMemories,
   agentRunning,
+  knowledgeTopics = [],
+  knowledgeStats = { entities: 0, relationships: 0, sources: 0 },
+  decisions = [],
   onRunAgentCycle,
   onApproveAgentPlan,
   onRejectAgentPlan,
@@ -55,6 +65,9 @@ export function AgentSection({
           {agentRunning ? 'Running...' : 'Run Now'}
         </button>
       </article>
+
+      {/* --- Knowledge --- */}
+      <RoostKnowledgeSection topics={knowledgeTopics} stats={knowledgeStats} />
 
       {/* --- Pending approvals --- */}
       {pendingPlans.length > 0 ? (
@@ -105,6 +118,9 @@ export function AgentSection({
           </div>
         </article>
       ) : null}
+
+      {/* --- Decision History --- */}
+      <RoostDecisionHistory decisions={decisions} />
 
       {/* --- Agent memories --- */}
       {recentMemories.length > 0 ? (

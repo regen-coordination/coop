@@ -1,0 +1,101 @@
+{
+  "feature": "session-key-phase-2",
+  "title": "Session Key Phase 2 — Scope Expansion & Lifecycle",
+  "stage": "active",
+  "lanes": {
+    "contracts": {
+      "owner": "codex",
+      "status": "todo",
+      "depends_on": [],
+      "branch": "codex/contracts/session-key-phase-2",
+      "ready_when_dependencies_met": true,
+      "owned_paths": [
+        "packages/shared/src/modules/session",
+        "packages/shared/src/modules/onchain",
+        "packages/shared/src/modules/policy",
+        "packages/shared/src/contracts/schema-session.ts"
+      ],
+      "done_when": [
+        "green-goods-submit-work-approval",
+        "green-goods-create-assessment",
+        "green-goods-sync-gap-admins",
+        "checkSoftExpiry(",
+        "SessionCapabilityErrorCode"
+      ]
+    },
+    "state": {
+      "owner": "codex",
+      "status": "todo",
+      "depends_on": ["contracts"],
+      "branch": "codex/state/session-key-phase-2",
+      "ready_when_dependencies_met": true,
+      "owned_paths": [
+        "packages/extension/src/background/handlers/session.ts",
+        "packages/extension/src/background/handlers/executors",
+        "packages/extension/src/skills/green-goods-yield-janitor"
+      ],
+      "done_when": [
+        "handleAutoRotateOnThreshold(",
+        "green-goods-yield.ts",
+        "green-goods-yield-janitor/skill.json"
+      ]
+    },
+    "ui": {
+      "owner": "claude",
+      "status": "blocked",
+      "depends_on": ["contracts"],
+      "branch": "claude/ui/session-key-phase-2",
+      "ready_when_dependencies_met": true,
+      "note": "Phase 5: GG cockpit visibility — runs in GG repo"
+    },
+    "qa_pass_1": {
+      "owner": "codex",
+      "status": "blocked",
+      "depends_on": ["contracts", "state"],
+      "branch": "handoff/qa-codex/session-key-phase-2",
+      "branch_trigger": "handoff/qa-codex/session-key-phase-2",
+      "ready_when_dependencies_met": true
+    },
+    "qa_pass_2": {
+      "owner": "claude",
+      "status": "blocked",
+      "depends_on": ["qa_pass_1"],
+      "branch": "handoff/qa-claude/session-key-phase-2",
+      "branch_trigger": "handoff/qa-claude/session-key-phase-2",
+      "ready_when_dependencies_met": true
+    }
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "choice": "Separate feature pack from agent-autonomy-onchain",
+      "rationale": "Session expansion crosses repos and has own acceptance criteria"
+    },
+    {
+      "id": "D2",
+      "choice": "Five phases: expand → lifecycle → Hats → yield → cockpit",
+      "rationale": "Each independently shippable; later depends on earlier"
+    },
+    {
+      "id": "D3",
+      "choice": "Member-account actions stay out of session scope",
+      "rationale": "Member actions need per-user Kernel signatures, not coop-level delegation"
+    },
+    {
+      "id": "D5",
+      "choice": "Auto-rotation at 80% of maxUses, not after exhaustion",
+      "rationale": "Graceful migration avoids failed executions at usage limit"
+    },
+    {
+      "id": "D6",
+      "choice": "TDD red-green-refactor per phase",
+      "rationale": "Existing test factories are extensible; failing tests first"
+    },
+    {
+      "id": "D8",
+      "choice": "Backwards compatibility required for all schema changes",
+      "rationale": "Existing capabilities must keep working with sensible defaults"
+    }
+  ],
+  "updated_at": "2026-04-06"
+}

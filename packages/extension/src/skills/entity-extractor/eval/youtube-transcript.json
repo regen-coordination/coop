@@ -1,0 +1,13 @@
+{
+  "id": "entity-extractor-youtube-transcript",
+  "description": "Extract entities from a YouTube transcript about knowledge graphs",
+  "input": {
+    "observationContext": "Welcome to the talk on knowledge graphs. Today we explore how agents use structured memory. The POLE model categorizes entities into Person Organization Location and Event. Temporal edges track when facts are valid. This enables reasoning over time."
+  },
+  "assertions": [
+    { "type": "array-min-length", "path": "entities", "value": 1 },
+    { "type": "field-present", "path": "entities[0].type" },
+    { "type": "field-present", "path": "entities[0].name" }
+  ],
+  "threshold": 0.6
+}

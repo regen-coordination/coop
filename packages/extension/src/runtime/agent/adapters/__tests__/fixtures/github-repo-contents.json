@@ -1,0 +1,16 @@
+{
+  "name": "claude-code",
+  "full_name": "anthropics/claude-code",
+  "description": "CLI for Claude",
+  "default_branch": "main",
+  "stargazers_count": 12500,
+  "language": "TypeScript",
+  "topics": ["ai", "cli", "claude"],
+  "readme_content": "# Claude Code\n\nClaude Code is a CLI tool for working with Claude.\n\n## Features\n- Interactive coding sessions\n- File editing\n- Code review\n\n## Installation\n```bash\nnpm install -g @anthropic-ai/claude-code\n```",
+  "tree": [
+    { "path": "src/index.ts", "type": "blob" },
+    { "path": "src/tools/", "type": "tree" },
+    { "path": "README.md", "type": "blob" },
+    { "path": "package.json", "type": "blob" }
+  ]
+}

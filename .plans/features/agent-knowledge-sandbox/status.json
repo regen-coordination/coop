@@ -2,21 +2,27 @@
   "$schema": "status-schema",
   "feature": "agent-knowledge-sandbox",
   "title": "Agent Knowledge Sandbox: Curated Sources + Graph Memory",
-  "stage": "active",
+  "stage": "polish-complete",
   "lanes": {
     "ui": {
       "owner": "claude",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["state"],
       "branch": "claude/ui/agent-knowledge-sandbox",
       "ready_when_dependencies_met": true
     },
     "state": {
       "owner": "codex",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "branch": "codex/state/agent-knowledge-sandbox",
       "ready_when_dependencies_met": true
+    },
+    "polish": {
+      "owner": "claude",
+      "status": "done",
+      "depends_on": ["ui", "state"],
+      "branch": "feature/agent-knowledge-sandbox"
     },
     "api": {
       "owner": "codex",
@@ -56,5 +62,5 @@
     "7-phase dependency-ordered build with gates",
     "Entity extraction as new skill using existing cascade"
   ],
-  "updated_at": "2026-04-05"
+  "updated_at": "2026-04-06"
 }

@@ -54,6 +54,8 @@ export type SkillExecutionContext = {
   relatedArtifacts: CoopSharedState['artifacts'];
   relatedRoutings: TabRouting[];
   memories: AgentMemory[];
+  /** Graph-based context from knowledge sandbox retrieval (if available) */
+  graphContext?: string;
 };
 
 export const db = createCoopDb('coop-extension');

@@ -11,11 +11,7 @@ import type {
   ReviewDraft,
   TabRouting,
 } from '@coop/shared';
-import {
-  sanitizeTextForInference,
-  sanitizeValueForInference,
-  truncateWords,
-} from '@coop/shared';
+import { sanitizeTextForInference, sanitizeValueForInference, truncateWords } from '@coop/shared';
 import type { RegisteredSkill } from './registry';
 import { compact } from './runner-state';
 
@@ -33,6 +29,7 @@ export async function buildSkillPrompt(input: {
   relatedArtifacts: CoopSharedState['artifacts'];
   relatedRoutings: TabRouting[];
   memories: AgentMemory[];
+  graphContext?: string;
 }) {
   const sanitize = (value?: string, maxWords = 80) =>
     typeof value === 'string' && value.trim().length > 0
@@ -178,9 +175,14 @@ export async function buildSkillPrompt(input: {
           .join('\n')}`
       : '';
 
+  const knowledgeGraphContext = input.graphContext
+    ? `Knowledge graph context:\n${input.graphContext}`
+    : '';
+
   const prompt = [
     coopContext,
     ...(memoryContext ? [memoryContext] : []),
+    ...(knowledgeGraphContext ? [knowledgeGraphContext] : []),
     extractContext,
     sourceContext,
     candidateContext,
@@ -192,7 +194,13 @@ export async function buildSkillPrompt(input: {
   return {
     system,
     prompt,
-    heuristicContext: [extractContext, sourceContext, candidateContext, scoreContext]
+    heuristicContext: [
+      extractContext,
+      sourceContext,
+      candidateContext,
+      scoreContext,
+      knowledgeGraphContext,
+    ]
       .filter(Boolean)
       .join('\n'),
   };

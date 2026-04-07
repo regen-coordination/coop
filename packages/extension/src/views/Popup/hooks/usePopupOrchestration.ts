@@ -1,10 +1,11 @@
 import {
   type InviteType,
+  type KnowledgeSource,
   type ReviewDraft,
   type UiPreferences,
   defaultSoundPreferences,
 } from '@coop/shared';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type PopupSidepanelState,
   type SidepanelIntent,
@@ -207,6 +208,32 @@ export function usePopupOrchestration(): PopupOrchestrationState {
   const [noteDraftText, setNoteDraftText] = useState('');
   const [subscreenReturnTab, setSubscreenReturnTab] = useState<PopupFooterTab>('home');
   const defaultWorkspaceCoopId = dashboard?.activeCoopId ?? coops[0]?.profile.id;
+
+  // --- Source health counts for home status ---
+  const [sourceHealth, setSourceHealth] = useState({ active: 0, stale: 0, total: 0 });
+  const fetchSourceHealth = useCallback(async () => {
+    const coopId = dashboard?.activeCoopId ?? coops[0]?.profile.id;
+    if (!coopId) return;
+    const result = await sendRuntimeMessage<KnowledgeSource[]>({
+      type: 'list-knowledge-sources',
+      payload: { coopId },
+    });
+    if (result.ok && result.data) {
+      const now = Date.now();
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      const sources = result.data;
+      const active = sources.filter((s) => s.active).length;
+      const stale = sources.filter(
+        (s) =>
+          s.active && s.lastFetchedAt && now - new Date(s.lastFetchedAt).getTime() > SEVEN_DAYS,
+      ).length;
+      setSourceHealth({ active, stale, total: sources.length });
+    }
+  }, [dashboard?.activeCoopId, coops]);
+
+  useEffect(() => {
+    if (hasCoops) void fetchSourceHealth();
+  }, [hasCoops, fetchSourceHealth]);
 
   // Sync draft text with persisted note when it first hydrates from storage
   const homeNoteHydrated = useRef(false);
@@ -775,6 +802,26 @@ export function usePopupOrchestration(): PopupOrchestrationState {
           intent: { tab: 'chickens', segment: 'summary', coopId: workspaceTargetCoopId },
         }),
     },
+    {
+      id: 'sources',
+      label: 'Sources',
+      value:
+        sourceHealth.total === 0
+          ? 'none'
+          : sourceHealth.stale > 0
+            ? `${sourceHealth.active} · ${sourceHealth.stale} stale`
+            : `${sourceHealth.active} active`,
+      tone: sourceHealth.stale > 0 ? 'warning' : sourceHealth.total > 0 ? 'ok' : undefined,
+      detail:
+        sourceHealth.total === 0
+          ? 'No knowledge sources configured'
+          : `${sourceHealth.total} sources · ${sourceHealth.active} active · ${sourceHealth.stale} stale`,
+      onClick: () =>
+        void openWorkspace({
+          targetCoopId: workspaceTargetCoopId,
+          intent: { tab: 'nest', coopId: workspaceTargetCoopId },
+        }),
+    },
   ];
 
   const mainScreens = ['home', 'drafts', 'feed'];
@@ -872,4 +919,3 @@ export function usePopupOrchestration(): PopupOrchestrationState {
     showToast: setMessage,
   };
 }
-

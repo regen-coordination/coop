@@ -1,0 +1,32 @@
+{
+  "data": {
+    "children": [
+      {
+        "data": {
+          "id": "post1",
+          "title": "EIP-4337 Account Abstraction Update",
+          "selftext": "The latest changes to the account abstraction proposal include new bundler specs.",
+          "author": "eth_dev",
+          "score": 342,
+          "num_comments": 47,
+          "created_utc": 1743523200,
+          "permalink": "/r/ethereum/comments/post1/eip4337_update/",
+          "url": "https://reddit.com/r/ethereum/comments/post1/eip4337_update/"
+        }
+      },
+      {
+        "data": {
+          "id": "post2",
+          "title": "Safe Smart Account v1.5 Released",
+          "selftext": "Safe has released version 1.5 of their smart account contracts with new module support.",
+          "author": "safe_team",
+          "score": 218,
+          "num_comments": 23,
+          "created_utc": 1743436800,
+          "permalink": "/r/ethereum/comments/post2/safe_v15/",
+          "url": "https://reddit.com/r/ethereum/comments/post2/safe_v15/"
+        }
+      }
+    ]
+  }
+}

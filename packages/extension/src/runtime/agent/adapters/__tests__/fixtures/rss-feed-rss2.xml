@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Tech News Feed</title>
+    <link>https://technews.example.com</link>
+    <description>Latest technology news</description>
+    <item>
+      <title>WebAssembly Gets New Features</title>
+      <link>https://technews.example.com/wasm-features</link>
+      <guid>https://technews.example.com/wasm-features</guid>
+      <pubDate>Tue, 01 Apr 2026 14:00:00 GMT</pubDate>
+      <description>WebAssembly continues to evolve with new proposals.</description>
+    </item>
+    <item>
+      <title>Browser Extensions in 2026</title>
+      <link>https://technews.example.com/extensions-2026</link>
+      <guid>https://technews.example.com/extensions-2026</guid>
+      <pubDate>Mon, 31 Mar 2026 09:00:00 GMT</pubDate>
+      <description>The state of browser extensions in the modern web.</description>
+    </item>
+  </channel>
+</rss>

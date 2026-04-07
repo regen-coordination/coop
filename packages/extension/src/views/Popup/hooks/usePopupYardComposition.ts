@@ -2,12 +2,7 @@ import type { Artifact, ReviewDraft } from '@coop/shared';
 import { useMemo, useState } from 'react';
 import type { YardItem } from '../PopupHomeScreen';
 import type { PopupSubheaderTag } from '../PopupSubheader';
-import {
-  buildFilterTags,
-  matchesCoopFilter,
-  toDraftItems,
-  toFeedItems,
-} from '../helpers';
+import { buildFilterTags, matchesCoopFilter, toDraftItems, toFeedItems } from '../helpers';
 import type { PopupDraftListItem, PopupFeedArtifactItem } from '../popup-types';
 
 export interface PopupYardCompositionDeps {
@@ -37,10 +32,7 @@ export function usePopupYardComposition(deps: PopupYardCompositionDeps) {
   const [feedFilterId, setFeedFilterId] = useState('all');
 
   const resolvedCoopOptions = useMemo(
-    () =>
-      coopOptions.length > 0
-        ? coopOptions
-        : (snapshot?.coopOptions ?? []),
+    () => (coopOptions.length > 0 ? coopOptions : (snapshot?.coopOptions ?? [])),
     [coopOptions, snapshot?.coopOptions],
   );
 

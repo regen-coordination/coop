@@ -2089,3 +2089,137 @@ button.sidepanel-header__brand {
   font-size: 0.82rem;
   opacity: 0.7;
 }
+
+/* Knowledge Sandbox — Source & Topic Components */
+.source-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8125rem;
+}
+.source-icon--youtube {
+  color: #ff0000;
+}
+.source-icon--github {
+  color: var(--text-primary);
+}
+.source-icon--rss {
+  color: #f26522;
+}
+.source-icon--reddit {
+  color: #ff4500;
+}
+.source-icon--npm {
+  color: #cb3837;
+}
+.source-icon--wikipedia {
+  color: #636466;
+}
+
+.topic-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.topic-bar__label {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+.topic-bar__track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+.topic-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--coop-green);
+  transition: width 0.3s ease;
+}
+.topic-bar__meta {
+  flex: 0 0 auto;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.draft-card__provenance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.draft-card__source-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.draft-card__track-record {
+  font-size: 0.6875rem;
+  padding: 2px 0;
+}
+.draft-card__track-record--positive {
+  color: var(--coop-green);
+}
+.draft-card__track-record--negative {
+  color: var(--text-muted);
+}
+
+.source-card {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+.source-card__health {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.source-card__health--fresh {
+  background: var(--coop-green);
+}
+.source-card__health--stale {
+  background: var(--coop-yellow, #f0ad4e);
+}
+.source-card__health--error {
+  background: var(--coop-red, #d9534f);
+}
+
+.confidence-tooltip__breakdown {
+  display: block;
+  position: absolute;
+  z-index: 10;
+  padding: 4px 8px;
+  font-size: 0.6875rem;
+  white-space: nowrap;
+  background: var(--bg-primary, #333);
+  color: var(--text-on-dark, #fff);
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.source-health-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  width: 100%;
+  text-align: left;
+}
+.source-health-indicator:hover {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}

@@ -1,10 +1,13 @@
 import type { ActionBundle, CoopSharedState } from '@coop/shared';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { sendRuntimeMessage } from '../../../runtime/messages';
 import type {
   AgentDashboardResponse,
   RuntimeSummary,
   SidepanelIntentSegment,
 } from '../../../runtime/messages';
+import type { KnowledgeTopic } from './RoostKnowledgeSection';
+import type { DecisionEntry } from './RoostDecisionHistory';
 import { PopupSubheader, type PopupSubheaderTag } from '../../Popup/PopupSubheader';
 import { SidepanelSubheader } from '../SidepanelSubheader';
 import { AgentSection } from './RoostAgentSection';
@@ -133,8 +136,34 @@ export function RoostTab({
   }, [agentDashboard]);
 
   // ---------------------------------------------------------------------------
-  // Badge counts
+  // Knowledge stats (fetched on agent sub-tab mount)
   // ---------------------------------------------------------------------------
+
+  const [knowledgeTopics, setKnowledgeTopics] = useState<KnowledgeTopic[]>([]);
+  const [knowledgeStats, setKnowledgeStats] = useState({
+    entities: 0,
+    relationships: 0,
+    sources: 0,
+  });
+  const [decisions, setDecisions] = useState<DecisionEntry[]>([]);
+
+  const fetchKnowledgeStats = useCallback(async () => {
+    if (!activeCoop) return;
+    const result = await sendRuntimeMessage<{
+      topics: KnowledgeTopic[];
+      stats: { entities: number; relationships: number; sources: number };
+      decisions: DecisionEntry[];
+    }>({ type: 'get-knowledge-stats', payload: { coopId: activeCoop.profile.id } });
+    if (result.ok && result.data) {
+      setKnowledgeTopics(result.data.topics);
+      setKnowledgeStats(result.data.stats);
+      setDecisions(result.data.decisions);
+    }
+  }, [activeCoop?.profile.id]);
+
+  useEffect(() => {
+    if (roostSubTab === 'agent') void fetchKnowledgeStats();
+  }, [roostSubTab, fetchKnowledgeStats]);
 
   const focusBadge = (summary?.pendingDrafts ?? 0) + (summary?.staleObservationCount ?? 0);
   const agentBadge = pendingPlans.length;
@@ -244,6 +273,9 @@ export function RoostTab({
           recentObservations={recentObservations}
           recentMemories={recentMemories}
           agentRunning={agentRunning}
+          knowledgeTopics={knowledgeTopics}
+          knowledgeStats={knowledgeStats}
+          decisions={decisions}
           onRunAgentCycle={onRunAgentCycle}
           onApproveAgentPlan={onApproveAgentPlan}
           onRejectAgentPlan={onRejectAgentPlan}

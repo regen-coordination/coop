@@ -43,6 +43,10 @@ import {
   tabRouterOutputSchema,
   themeClustererOutputSchema,
 } from '../../contracts/schema';
+import {
+  entityExtractionOutputSchema,
+  knowledgeLintOutputSchema,
+} from '../../contracts/schema-knowledge';
 import { createId, hashJson, nowIso, slugify, truncateWords } from '../../utils';
 
 export const skillOutputSchemas: Record<
@@ -65,6 +69,8 @@ export const skillOutputSchemas: Record<
   'green-goods-gap-admin-sync-output': greenGoodsGapAdminSyncOutputSchema,
   'erc8004-registration-output': erc8004RegistrationOutputSchema,
   'erc8004-feedback-output': erc8004FeedbackOutputSchema,
+  'entity-extraction-output': entityExtractionOutputSchema,
+  'knowledge-lint-output': knowledgeLintOutputSchema,
 };
 
 export function buildAgentObservationFingerprint(input: {

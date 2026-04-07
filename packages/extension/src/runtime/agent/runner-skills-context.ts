@@ -7,6 +7,7 @@ import type {
   TabRouterOutput,
   TabRouting,
 } from '@coop/shared';
+import { assembleGraphContext, hybridSearch } from '@coop/shared';
 import {
   createAgentObservation,
   findAgentObservationByFingerprint,
@@ -25,10 +26,7 @@ import {
   shapeReviewDraft,
 } from '@coop/shared';
 import { AGENT_HIGH_CONFIDENCE_THRESHOLD } from './config';
-import {
-  resolveObservationExtractIds,
-  resolveObservationRoutingIds,
-} from './runner-observations';
+import { resolveObservationExtractIds, resolveObservationRoutingIds } from './runner-observations';
 import {
   type SkillExecutionContext,
   compact,
@@ -300,6 +298,22 @@ export async function buildSkillContext(
       : Promise.resolve([]),
   ]);
 
+  // Graph-based context retrieval (knowledge sandbox)
+  let graphContext: string | undefined;
+  try {
+    const { getGraphStore } = await import('./graph-store-singleton');
+    const graphStore = getGraphStore();
+    if (graphStore.entities.size > 0) {
+      const queryText = `${observation.title} ${observation.summary}`;
+      const results = hybridSearch(graphStore, queryText, { maxResults: 5 });
+      if (results.length > 0) {
+        graphContext = assembleGraphContext(results, 2000);
+      }
+    }
+  } catch {
+    // Graph store not available — continue without graph context
+  }
+
   return {
     observation,
     coop,
@@ -320,5 +334,6 @@ export async function buildSkillContext(
           )
         : relatedRoutings,
     memories,
+    graphContext,
   };
 }

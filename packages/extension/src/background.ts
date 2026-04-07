@@ -182,6 +182,14 @@ import {
 } from './background/handlers/session';
 
 import { handleAgentHeartbeat } from './background/handlers/heartbeat';
+import {
+  handleAddKnowledgeSource,
+  handleGetKnowledgeStats,
+  handleListKnowledgeSources,
+  handleRemoveKnowledgeSource,
+  handleToggleKnowledgeSource,
+} from './background/handlers/knowledge-source';
+import { handleRefreshKnowledgeSource } from './background/handlers/knowledge-source-fetch';
 
 // ---- Receiver Sync Config ----
 
@@ -268,6 +276,7 @@ export function startBackground() {
     await syncCaptureAlarm(await getLocalSetting(stateKeys.captureMode, 'manual'));
     await chrome.alarms.create(alarmNames.archiveStatusPoll, { periodInMinutes: 360 });
     await chrome.alarms.create(alarmNames.agentHeartbeat, { periodInMinutes: 5 });
+    await chrome.alarms.create(alarmNames.knowledgeLint, { periodInMinutes: 10080 });
     await ensureReceiverSyncOffscreenDocument();
     await syncAgentObservations();
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
@@ -284,6 +293,7 @@ export function startBackground() {
     await syncCaptureAlarm(await getLocalSetting(stateKeys.captureMode, 'manual'));
     await chrome.alarms.create(alarmNames.archiveStatusPoll, { periodInMinutes: 360 });
     await chrome.alarms.create(alarmNames.agentHeartbeat, { periodInMinutes: 5 });
+    await chrome.alarms.create(alarmNames.knowledgeLint, { periodInMinutes: 10080 });
     await ensureReceiverSyncOffscreenDocument();
     await syncAgentObservations();
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
@@ -799,6 +809,25 @@ export function startBackground() {
           } satisfies RuntimeActionResponse);
           return;
         }
+        // ---- Knowledge Sources ----
+        case 'add-knowledge-source':
+          sendResponse(await handleAddKnowledgeSource(message));
+          return;
+        case 'remove-knowledge-source':
+          sendResponse(await handleRemoveKnowledgeSource(message));
+          return;
+        case 'toggle-knowledge-source':
+          sendResponse(await handleToggleKnowledgeSource(message));
+          return;
+        case 'list-knowledge-sources':
+          sendResponse(await handleListKnowledgeSources(message));
+          return;
+        case 'refresh-knowledge-source':
+          sendResponse(await handleRefreshKnowledgeSource(message));
+          return;
+        case 'get-knowledge-stats':
+          sendResponse(await handleGetKnowledgeStats(message));
+          return;
         default: {
           const _exhaustive: never = message;
           sendResponse({

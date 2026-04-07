@@ -162,6 +162,31 @@ export async function publishDraftWithContext(input: {
       confidence: 1,
       sourceObservationId: validation.draft.provenance.observationId,
     }).catch(() => {});
+
+    // Knowledge sandbox compound loop: strengthen edges + create insight on approval
+    try {
+      const { getGraphStore } = await import('../../runtime/agent/graph-store-singleton');
+      const { strengthenSourceEdges, createValidatedInsight } = await import('@coop/shared');
+      const graphStore = getGraphStore();
+      const agentProvenance = validation.draft.provenance as {
+        type: 'agent';
+        observationId: string;
+      };
+      const lastTrace = graphStore.traces
+        .filter((t) => t.observationId === agentProvenance.observationId)
+        .at(-1);
+      if (lastTrace) {
+        strengthenSourceEdges(graphStore, lastTrace.traceId, 'approved');
+        createValidatedInsight(graphStore, {
+          draftSummary: validation.draft.title,
+          sourceEntityIds: lastTrace.contextEntityIds,
+          traceId: lastTrace.traceId,
+        });
+        lastTrace.outcome = 'approved';
+      }
+    } catch {
+      // Knowledge sandbox not available — skip compound loop
+    }
   }
 
   return {

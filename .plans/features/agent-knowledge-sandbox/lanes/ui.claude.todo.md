@@ -3,7 +3,7 @@ feature: agent-knowledge-sandbox
 title: Agent knowledge sandbox UI lane
 lane: ui
 agent: claude
-status: ready
+status: done
 source_branch: feature/agent-knowledge-sandbox
 work_branch: claude/ui/agent-knowledge-sandbox
 depends_on:

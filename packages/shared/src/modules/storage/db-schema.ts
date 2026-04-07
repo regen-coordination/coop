@@ -6,12 +6,16 @@ import type {
   AgentMemory,
   AgentObservation,
   AgentPlan,
+  AutoresearchConfig,
   CoopBlobRecord,
   CoopKnowledgeSkillOverride,
   EncryptedLocalPayload,
   EncryptedSessionMaterial,
+  ExperimentRecord,
   ExecutionPermit,
+  GraphSnapshot,
   KnowledgeSkill,
+  KnowledgeSource,
   LocalMemberSignerBinding,
   LocalPasskeyIdentity,
   PermitLogEntry,
@@ -22,6 +26,7 @@ import type {
   ReviewDraft,
   SessionCapability,
   SessionCapabilityLogEntry,
+  SkillVariant,
   SkillRun,
   StealthKeyPairRecord,
   TabCandidate,
@@ -108,6 +113,11 @@ export class CoopDexie extends Dexie {
   encryptedLocalPayloads!: EntityTable<EncryptedLocalPayload, 'id'>;
   coopBlobs!: EntityTable<CoopBlobRecord, 'blobId'>;
   syncOutbox!: EntityTable<SyncOutboxEntry, 'id'>;
+  knowledgeSources!: EntityTable<KnowledgeSource, 'id'>;
+  graphSnapshots!: EntityTable<GraphSnapshot, 'id'>;
+  skillVariants!: EntityTable<SkillVariant, 'id'>;
+  experimentRecords!: EntityTable<ExperimentRecord, 'id'>;
+  autoresearchConfigs!: EntityTable<AutoresearchConfig, 'skillId'>;
 
   constructor(name = 'coop-v1') {
     super(name);
@@ -493,6 +503,17 @@ export class CoopDexie extends Dexie {
     });
     this.version(18).stores({
       tabCandidates: 'id, canonicalUrl, canonicalUrlHash, domain, captureRunId, capturedAt',
+    });
+    this.version(19).stores({
+      knowledgeSources: 'id, coopId, type, active, [coopId+identifier]',
+    });
+    this.version(20).stores({
+      graphSnapshots: 'id, coopId, updatedAt',
+    });
+    this.version(21).stores({
+      skillVariants: 'id, skillId, [skillId+isActive], promptHash',
+      experimentRecords: 'id, [skillId+createdAt], outcome',
+      autoresearchConfigs: '&skillId',
     });
   }
 }

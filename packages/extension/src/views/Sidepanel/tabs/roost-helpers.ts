@@ -50,7 +50,7 @@ export const GARDEN_STAGE_COPY: Record<
   'no-greengoods': {
     title: 'Garden',
     description:
-      "This coop doesn\u2019t have Green Goods set up yet. The coop creator can enable Green Goods when editing coop settings in the Nest tab.",
+      'This coop doesn\u2019t have Green Goods set up yet. The coop creator can enable Green Goods when editing coop settings in the Nest tab.',
   },
   disabled: {
     title: 'Garden',
@@ -72,7 +72,7 @@ export const GARDEN_STAGE_COPY: Record<
   'needs-account': {
     title: 'Garden is Live',
     description:
-      "Your coop\u2019s garden is linked. Provision your member account to start submitting impact work.",
+      'Your coop\u2019s garden is linked. Provision your member account to start submitting impact work.',
   },
   'pending-sync': {
     title: 'Almost There',

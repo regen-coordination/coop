@@ -294,3 +294,49 @@ export function runSkillEvalCase(testCase: SkillEvalCase): SkillEvalResult {
 export function runAllSkillEvals() {
   return loadSkillEvalCases().map((testCase) => runSkillEvalCase(testCase));
 }
+
+export type EvalSuiteResult = {
+  skillId: string;
+  compositeScore: number;
+  fixtureResults: SkillEvalResult[];
+  avgSchema: number;
+  avgStructural: number;
+  avgSemantic: number;
+};
+
+/**
+ * Run all eval fixtures for a skill against a given output and return
+ * a composite score with per-dimension breakdowns.
+ *
+ * If `fixtures` is omitted, loads all registered fixtures for the skill.
+ * The composite score uses spec weights: 0.2 schema + 0.3 structural + 0.5 semantic.
+ */
+export function runEvalSuite(
+  skillId: string,
+  output: unknown,
+  fixtures?: SkillEvalCase[],
+): EvalSuiteResult {
+  const cases = fixtures ?? loadSkillEvalCases().filter((c) => c.skillId === skillId);
+  if (cases.length === 0) {
+    return {
+      skillId,
+      compositeScore: 0,
+      fixtureResults: [],
+      avgSchema: 0,
+      avgStructural: 0,
+      avgSemantic: 0,
+    };
+  }
+
+  const fixtureResults = cases.map((fixture) => runSkillEvalCase({ ...fixture, skillId, output }));
+
+  const avg = (values: number[]) =>
+    values.length === 0 ? 0 : values.reduce((s, v) => s + v, 0) / values.length;
+
+  const avgSchema = avg(fixtureResults.map((r) => r.qualityBreakdown.schemaCompliance));
+  const avgStructural = avg(fixtureResults.map((r) => r.qualityBreakdown.structuralScore));
+  const avgSemantic = avg(fixtureResults.map((r) => r.qualityBreakdown.semanticScore));
+  const compositeScore = 0.2 * avgSchema + 0.3 * avgStructural + 0.5 * avgSemantic;
+
+  return { skillId, compositeScore, fixtureResults, avgSchema, avgStructural, avgSemantic };
+}

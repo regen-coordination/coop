@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Blog</title>
+  <link href="https://blog.example.com/feed.xml" rel="self"/>
+  <updated>2026-04-01T12:00:00Z</updated>
+  <entry>
+    <title>Understanding Knowledge Graphs</title>
+    <id>https://blog.example.com/knowledge-graphs</id>
+    <link href="https://blog.example.com/knowledge-graphs"/>
+    <published>2026-04-01T10:00:00Z</published>
+    <summary>An introduction to knowledge graphs for AI agents.</summary>
+    <content type="html">&lt;p&gt;Knowledge graphs store entities and relationships...&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>Temporal Edges in Graph Databases</title>
+    <id>https://blog.example.com/temporal-edges</id>
+    <link href="https://blog.example.com/temporal-edges"/>
+    <published>2026-03-28T08:00:00Z</published>
+    <summary>How temporal validity windows work in modern graph databases.</summary>
+    <content type="html">&lt;p&gt;Temporal edges track when facts are valid...&lt;/p&gt;</content>
+  </entry>
+</feed>

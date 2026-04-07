@@ -1,0 +1,89 @@
+{
+  "description": "20 queries with expected top-3 entity results for hybrid retrieval benchmark",
+  "queries": [
+    {
+      "query": "Ethereum founder",
+      "expected": ["vitalik", "ethereum", "eth-foundation"],
+      "type": "exact"
+    },
+    {
+      "query": "blockchain platform",
+      "expected": ["ethereum", "arbitrum", "safe"],
+      "type": "semantic"
+    },
+    {
+      "query": "layer 2 scaling",
+      "expected": ["arbitrum", "offchain-labs", "ethereum"],
+      "type": "semantic"
+    },
+    {
+      "query": "smart contract wallet",
+      "expected": ["safe", "erc4337", "ethereum"],
+      "type": "semantic"
+    },
+    {
+      "query": "Vitalik Buterin",
+      "expected": ["vitalik", "ethereum", "eth-foundation"],
+      "type": "exact"
+    },
+    {
+      "query": "account abstraction",
+      "expected": ["erc4337", "safe", "ethereum"],
+      "type": "semantic"
+    },
+    { "query": "Solidity programming", "expected": ["solidity", "ethereum"], "type": "exact" },
+    {
+      "query": "developer conference",
+      "expected": ["devcon", "ethereum", "zug"],
+      "type": "semantic"
+    },
+    {
+      "query": "Switzerland crypto",
+      "expected": ["zug", "eth-foundation", "devcon"],
+      "type": "semantic"
+    },
+    { "query": "Safe wallet", "expected": ["safe", "erc4337", "ethereum"], "type": "exact" },
+    {
+      "query": "Arbitrum network",
+      "expected": ["arbitrum", "offchain-labs", "ethereum"],
+      "type": "exact"
+    },
+    { "query": "ERC-4337 standard", "expected": ["erc4337", "safe", "ethereum"], "type": "exact" },
+    {
+      "query": "Offchain Labs team",
+      "expected": ["offchain-labs", "arbitrum", "zug"],
+      "type": "exact"
+    },
+    {
+      "query": "Ethereum Foundation",
+      "expected": ["eth-foundation", "ethereum", "vitalik"],
+      "type": "exact"
+    },
+    { "query": "Devcon event", "expected": ["devcon", "zug", "ethereum"], "type": "exact" },
+    {
+      "query": "who created Arbitrum",
+      "expected": ["offchain-labs", "arbitrum"],
+      "type": "semantic"
+    },
+    {
+      "query": "multisig security",
+      "expected": ["safe", "ethereum", "erc4337"],
+      "type": "semantic"
+    },
+    {
+      "query": "Zug location",
+      "expected": ["zug", "eth-foundation", "offchain-labs"],
+      "type": "exact"
+    },
+    {
+      "query": "rollup technology",
+      "expected": ["arbitrum", "offchain-labs", "ethereum"],
+      "type": "semantic"
+    },
+    {
+      "query": "programming language for Ethereum",
+      "expected": ["solidity", "ethereum"],
+      "type": "semantic"
+    }
+  ]
+}

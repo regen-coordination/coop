@@ -339,9 +339,7 @@ describe('updateCoopMeetingSettings', () => {
     expect(updated.rituals[0]?.weeklyReviewCadence).toBe('Biweekly check-in');
     expect(updated.rituals[0]?.namedMoments).toEqual(['Sprint review', 'Retrospective']);
     expect(updated.rituals[0]?.facilitatorExpectation).toBe('Rotate every cycle.');
-    expect(updated.rituals[0]?.defaultCapturePosture).toBe(
-      'Passive capture with weekly triage.',
-    );
+    expect(updated.rituals[0]?.defaultCapturePosture).toBe('Passive capture with weekly triage.');
   });
 
   it('trims and filters blank named moments', () => {

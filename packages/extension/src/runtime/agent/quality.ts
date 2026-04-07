@@ -2,6 +2,7 @@ import type {
   AgentProvider,
   CapitalFormationBriefOutput,
   EcosystemEntityExtractorOutput,
+  EntityExtractionOutput,
   GrantFitScorerOutput,
   MemoryInsightOutput,
   OpportunityExtractorOutput,
@@ -46,6 +47,8 @@ export function computeOutputConfidence(
       return scoreEcosystemEntityExtractor(output as EcosystemEntityExtractorOutput);
     case 'memory-insight-output':
       return scoreMemoryInsight(output as MemoryInsightOutput);
+    case 'entity-extraction-output':
+      return scoreEntityExtraction(output as EntityExtractionOutput);
     default:
       return 0.6;
   }
@@ -77,6 +80,10 @@ function computeHeuristicBaseConfidence(schemaRef: SkillOutputSchemaRef, output:
       return scoreMemoryInsight(output as MemoryInsightOutput);
     case 'publish-readiness-check-output':
       return scorePublishReadinessCheck(output as PublishReadinessCheckOutput);
+    case 'entity-extraction-output': {
+      const typed = output as EntityExtractionOutput;
+      return typed.entities?.length > 0 ? 0.25 : 0.2;
+    }
     default:
       return 0.35;
   }
@@ -220,4 +227,25 @@ function scorePublishReadinessCheck(output: PublishReadinessCheckOutput): number
   }
 
   return clamp(score, 0.3, 0.92);
+}
+
+function scoreEntityExtraction(output: EntityExtractionOutput): number {
+  if (!output.entities?.length) return 0.2;
+
+  let score = 0.4;
+
+  // Entity count bonus (capped at 0.25)
+  const entityCount = Math.min(output.entities.length, 10);
+  score += entityCount * 0.025;
+
+  // Relationship count bonus (capped at 0.15)
+  const relCount = Math.min(output.relationships?.length ?? 0, 10);
+  score += relCount * 0.015;
+
+  // Type diversity bonus (non-'object' types: +0.1)
+  const uniqueTypes = new Set(output.entities.map((e) => e.type));
+  const nonObjectTypes = [...uniqueTypes].filter((t) => t !== 'object').length;
+  if (nonObjectTypes > 0) score += 0.1;
+
+  return clamp(score, 0.2, 0.95);
 }

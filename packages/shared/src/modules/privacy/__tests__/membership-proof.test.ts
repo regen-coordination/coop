@@ -71,34 +71,19 @@ describe('membership-proof', () => {
     });
 
     it('uses the group depth for merkleTreeDepth', async () => {
-      const proof = await generateMembershipProof(
-        mockIdentity,
-        mockGroup,
-        'msg',
-        'scope',
-      );
+      const proof = await generateMembershipProof(mockIdentity, mockGroup, 'msg', 'scope');
       expect(proof.merkleTreeDepth).toBe(16);
     });
 
     it('uses the group root for merkleTreeRoot', async () => {
-      const proof = await generateMembershipProof(
-        mockIdentity,
-        mockGroup,
-        'msg',
-        'scope',
-      );
+      const proof = await generateMembershipProof(mockIdentity, mockGroup, 'msg', 'scope');
       expect(proof.merkleTreeRoot).toBe('999');
     });
   });
 
   describe('verifyMembershipProof', () => {
     it('returns true for a valid mock proof', async () => {
-      const proof = await generateMembershipProof(
-        mockIdentity,
-        mockGroup,
-        'msg',
-        'scope',
-      );
+      const proof = await generateMembershipProof(mockIdentity, mockGroup, 'msg', 'scope');
       const isValid = await verifyMembershipProof(proof);
       expect(isValid).toBe(true);
     });
@@ -164,18 +149,8 @@ describe('membership-proof', () => {
     });
 
     it('same inputs produce the same proof fields', async () => {
-      const proof1 = await generateMembershipProof(
-        mockIdentity,
-        mockGroup,
-        'msg',
-        'scope',
-      );
-      const proof2 = await generateMembershipProof(
-        mockIdentity,
-        mockGroup,
-        'msg',
-        'scope',
-      );
+      const proof1 = await generateMembershipProof(mockIdentity, mockGroup, 'msg', 'scope');
+      const proof2 = await generateMembershipProof(mockIdentity, mockGroup, 'msg', 'scope');
       expect(proof1.message).toBe(proof2.message);
       expect(proof1.nullifier).toBe(proof2.nullifier);
       expect(proof1.scope).toBe(proof2.scope);
